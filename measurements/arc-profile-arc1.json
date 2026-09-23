@@ -1,0 +1,294 @@
+{
+  "tasks": 400,
+  "refinement_ran": 400,
+  "no_executable": 137,
+  "exact_found_no_executable": 0,
+  "exact_found_with_executable": 76,
+  "won_by_repair": 0,
+  "won_by_repair_correct": 0,
+  "redundant_repairs": 74,
+  "evaluated": 105284,
+  "kept": 13793,
+  "wasted": 26353,
+  "duplicates": 65021,
+  "backtracks": 370,
+  "representation_switches": 967,
+  "made_exact": 80,
+  "seeds_by_family": {
+    "typed": 3064,
+    "geometry": 1556,
+    "tiling": 953,
+    "sequence": 1804,
+    "objects": 2193,
+    "select": 2561,
+    "colormap": 1131,
+    "partition": 433,
+    "symmetry": 280
+  },
+  "diagnoses": {
+    "topology_changed": 4271,
+    "object_moved": 5708,
+    "object_reoriented": 983,
+    "wrong_change": 4735,
+    "wrong_dims": 21147,
+    "no_output": 1531,
+    "excessive_change": 3029,
+    "unhandled_object_class": 14952,
+    "missed_change": 24446,
+    "missing_objects": 912,
+    "palette_mismatch": 3595,
+    "object_recolored": 3322,
+    "color_substitution": 838,
+    "count_mismatch": 1083,
+    "none": 144,
+    "wrong_orientation": 456,
+    "consistent_translation": 70,
+    "local_cells": 24,
+    "excess_change_class": 51,
+    "extra_objects": 12
+  },
+  "mutations": {
+    "append:local": {
+      "tried": 33524,
+      "kept": 2382,
+      "improved": 472,
+      "exact": 9
+    },
+    "closer": {
+      "tried": 3361,
+      "kept": 368,
+      "improved": 181,
+      "exact": 30
+    },
+    "param:C": {
+      "tried": 3849,
+      "kept": 141,
+      "improved": 81,
+      "exact": 0
+    },
+    "append:crop": {
+      "tried": 7327,
+      "kept": 605,
+      "improved": 129,
+      "exact": 2
+    },
+    "append:dihedral": {
+      "tried": 6494,
+      "kept": 598,
+      "improved": 37,
+      "exact": 6
+    },
+    "delete": {
+      "tried": 1221,
+      "kept": 29,
+      "improved": 13,
+      "exact": 3
+    },
+    "opsub": {
+      "tried": 14569,
+      "kept": 685,
+      "improved": 143,
+      "exact": 12
+    },
+    "prepend": {
+      "tried": 3840,
+      "kept": 193,
+      "improved": 25,
+      "exact": 0
+    },
+    "mask": {
+      "tried": 1328,
+      "kept": 250,
+      "improved": 180,
+      "exact": 5
+    },
+    "restrict": {
+      "tried": 2515,
+      "kept": 205,
+      "improved": 112,
+      "exact": 3
+    },
+    "filter": {
+      "tried": 987,
+      "kept": 198,
+      "improved": 132,
+      "exact": 4
+    },
+    "param:D": {
+      "tried": 850,
+      "kept": 58,
+      "improved": 26,
+      "exact": 4
+    },
+    "param:K": {
+      "tried": 726,
+      "kept": 13,
+      "improved": 6,
+      "exact": 0
+    },
+    "param:S": {
+      "tried": 1324,
+      "kept": 26,
+      "improved": 17,
+      "exact": 0
+    },
+    "append:generic": {
+      "tried": 210,
+      "kept": 3,
+      "improved": 1,
+      "exact": 0
+    },
+    "param:A": {
+      "tried": 262,
+      "kept": 0,
+      "improved": 0,
+      "exact": 1
+    },
+    "append:objpaint": {
+      "tried": 3131,
+      "kept": 126,
+      "improved": 62,
+      "exact": 0
+    },
+    "append:offset": {
+      "tried": 573,
+      "kept": 165,
+      "improved": 76,
+      "exact": 0
+    },
+    "append:objmove": {
+      "tried": 2775,
+      "kept": 173,
+      "improved": 90,
+      "exact": 0
+    },
+    "invert": {
+      "tried": 135,
+      "kept": 4,
+      "improved": 2,
+      "exact": 0
+    },
+    "param:O": {
+      "tried": 685,
+      "kept": 58,
+      "improved": 30,
+      "exact": 0
+    },
+    "reorder": {
+      "tried": 76,
+      "kept": 4,
+      "improved": 3,
+      "exact": 0
+    },
+    "param:I": {
+      "tried": 65,
+      "kept": 0,
+      "improved": 0,
+      "exact": 0
+    },
+    "param:Y": {
+      "tried": 405,
+      "kept": 6,
+      "improved": 0,
+      "exact": 0
+    },
+    "role": {
+      "tried": 7,
+      "kept": 0,
+      "improved": 0,
+      "exact": 0
+    },
+    "append:extend": {
+      "tried": 923,
+      "kept": 136,
+      "improved": 50,
+      "exact": 0
+    },
+    "append:scale": {
+      "tried": 1,
+      "kept": 0,
+      "improved": 0,
+      "exact": 1
+    },
+    "forall": {
+      "tried": 106,
+      "kept": 8,
+      "improved": 2,
+      "exact": 0
+    },
+    "select": {
+      "tried": 40,
+      "kept": 14,
+      "improved": 0,
+      "exact": 0
+    }
+  },
+  "counterfactual_ran": 90,
+  "counterfactual_penalised": 52,
+  "plan_actions": {
+    "REFINE_BEST": 6674,
+    "CHANGE_REPRESENTATION": 756,
+    "REFINE_DIVERSE": 74,
+    "BACKTRACK": 370,
+    "SIMPLIFY_PROGRAM": 204,
+    "ABSTRACT_RESIDUAL": 172
+  },
+  "mean_repair_depth": 1.1375,
+  "refinement_ms": {
+    "p50": 39,
+    "p90": 245,
+    "max": 530
+  },
+  "refinement_steps": {
+    "p50": 12,
+    "p90": 40,
+    "max": 114
+  },
+  "runtime": {
+    "mean_after": 2.486317499999998,
+    "mean_baseline": 2.4140299999999972,
+    "p90_after": 3.001,
+    "p90_baseline": 3.001
+  },
+  "tasks_improved": [
+    "arc1_3bd67248",
+    "arc1_99fa7670",
+    "arc1_a65b410d",
+    "arc1_ef135b50"
+  ],
+  "tasks_regressed": [
+    "arc1_2bee17df",
+    "arc1_4347f46a"
+  ],
+  "mutation_ranking": [
+    "closer tried=3361 improved=181 exact=30",
+    "opsub tried=14569 improved=143 exact=12",
+    "append:local tried=33524 improved=472 exact=9",
+    "append:dihedral tried=6494 improved=37 exact=6",
+    "mask tried=1328 improved=180 exact=5",
+    "filter tried=987 improved=132 exact=4",
+    "param:D tried=850 improved=26 exact=4",
+    "restrict tried=2515 improved=112 exact=3",
+    "delete tried=1221 improved=13 exact=3",
+    "append:crop tried=7327 improved=129 exact=2",
+    "param:A tried=262 improved=0 exact=1",
+    "append:scale tried=1 improved=0 exact=1",
+    "append:objmove tried=2775 improved=90 exact=0",
+    "param:C tried=3849 improved=81 exact=0",
+    "append:offset tried=573 improved=76 exact=0",
+    "append:objpaint tried=3131 improved=62 exact=0",
+    "append:extend tried=923 improved=50 exact=0",
+    "param:O tried=685 improved=30 exact=0",
+    "prepend tried=3840 improved=25 exact=0",
+    "param:S tried=1324 improved=17 exact=0",
+    "param:K tried=726 improved=6 exact=0",
+    "reorder tried=76 improved=3 exact=0",
+    "invert tried=135 improved=2 exact=0",
+    "forall tried=106 improved=2 exact=0",
+    "append:generic tried=210 improved=1 exact=0",
+    "param:I tried=65 improved=0 exact=0",
+    "param:Y tried=405 improved=0 exact=0",
+    "role tried=7 improved=0 exact=0",
+    "select tried=40 improved=0 exact=0"
+  ]
+}
