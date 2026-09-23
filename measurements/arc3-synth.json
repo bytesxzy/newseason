@@ -1,0 +1,105 @@
+{
+  "note": "synthetic environments; not an ARC-AGI-3 score",
+  "with_transfer": {
+    "games": 30,
+    "levels": 90,
+    "complete": 73,
+    "over": 11,
+    "timeout": 6,
+    "steps": 1697,
+    "semantics": 81.75,
+    "firstLevelSteps": 615,
+    "laterLevelSteps": 1082,
+    "firstLevelN": 30,
+    "laterLevelN": 60,
+    "repairs": 45,
+    "contradictions": 0,
+    "bySuite": {
+      "basic": {
+        "levels": 15,
+        "complete": 15,
+        "over": 0
+      },
+      "hazard": {
+        "levels": 15,
+        "complete": 10,
+        "over": 5
+      },
+      "keydoor": {
+        "levels": 15,
+        "complete": 12,
+        "over": 0
+      },
+      "button": {
+        "levels": 15,
+        "complete": 13,
+        "over": 0
+      },
+      "teleport": {
+        "levels": 15,
+        "complete": 15,
+        "over": 0
+      },
+      "hazard+keydoor": {
+        "levels": 15,
+        "complete": 8,
+        "over": 6
+      }
+    },
+    "complete_rate": 0.8111111111111111,
+    "semantics_rate": 0.9083333333333333,
+    "mean_steps_first_level": 20.5,
+    "mean_steps_later_levels": 18.033333333333335
+  },
+  "without_transfer": {
+    "games": 30,
+    "levels": 90,
+    "complete": 58,
+    "over": 25,
+    "timeout": 7,
+    "steps": 2037,
+    "semantics": 81.25,
+    "firstLevelSteps": 615,
+    "laterLevelSteps": 1422,
+    "firstLevelN": 30,
+    "laterLevelN": 60,
+    "repairs": 84,
+    "contradictions": 0,
+    "bySuite": {
+      "basic": {
+        "levels": 15,
+        "complete": 15,
+        "over": 0
+      },
+      "hazard": {
+        "levels": 15,
+        "complete": 3,
+        "over": 12
+      },
+      "keydoor": {
+        "levels": 15,
+        "complete": 11,
+        "over": 0
+      },
+      "button": {
+        "levels": 15,
+        "complete": 14,
+        "over": 0
+      },
+      "teleport": {
+        "levels": 15,
+        "complete": 13,
+        "over": 0
+      },
+      "hazard+keydoor": {
+        "levels": 15,
+        "complete": 2,
+        "over": 13
+      }
+    },
+    "complete_rate": 0.6444444444444445,
+    "semantics_rate": 0.9027777777777778,
+    "mean_steps_first_level": 20.5,
+    "mean_steps_later_levels": 23.7
+  }
+}

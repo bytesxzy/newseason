@@ -61,5 +61,11 @@
   "52-scene.js",
   "53-bidirectional.js",
   "54-reductions.js",
+  "../../c4-reason-kernel.js",
+  "55-residual.js",
+  "56-repair.js",
+  "57-refinement.js",
+  "57a-repair-policy.js",
+  "58-counterfactual.js",
   "90-engine.js"
 ]

@@ -29,7 +29,8 @@ if (!isMainThread) {
   const without=arg('without','').split(',').filter(Boolean);
   if (!(budget>0 && Number.isInteger(jobs) && jobs>=1 && jobs<=4)) throw Error('Use positive budget and 1..4 workers');
   fs.mkdirSync(out,{recursive:true});
-  const packed=require(path.join(root,'c4-arc-tasks.js')).filter(t=>t[0].startsWith('arc1_')).slice(start,end);
+  const prefix=arg('prefix','arc1_');
+  const packed=require(path.join(root,'c4-arc-tasks.js')).filter(t=>t[0].startsWith(prefix)).slice(start,end);
   const ids=arg('ids','').split(',').filter(Boolean);
   const grid=s=>s.split('|').map(r=>[...r].map(Number));
   const pairs=s=>s.split(';').filter(Boolean).map(p=>{const [x,y]=p.split('>'); return {input:grid(x), output:y?grid(y):undefined};});

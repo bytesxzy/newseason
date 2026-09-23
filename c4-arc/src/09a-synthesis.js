@@ -274,6 +274,16 @@ var SYN = null;
         }
       }
     }
+    /* Hand the closest non-exact search states to the refinement stage
+       instead of discarding them (57-refinement.js). States are already
+       computed; this costs one distance per beam node. */
+    if (ctx._nearSink && typeof REFINEMENT !== "undefined" && REFINEMENT) {
+      var near = every.filter(function (n) { return n.depth > 0 && !trainEq(n.state); });
+      near.forEach(function (n) { if (n._d === undefined) n._d = distance(n.state, target); });
+      near.sort(function (a, b) { return (a._d - b._d) || (a.bits - b.bits); });
+      for (var ni2 = 0; ni2 < near.length && ni2 < 12; ni2++)
+        REFINEMENT.noteTyped(ctx, near[ni2].struct, near[ni2].theta, near[ni2]._d);
+    }
     var out = Array.from(found.values()).sort(function (x, y) {
       return (x[0] - y[0]) || (PROG.render(x[1]) < PROG.render(y[1]) ? -1 : 1);
     }).slice(0, cap);

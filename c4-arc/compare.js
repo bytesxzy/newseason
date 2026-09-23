@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const [base,newer,output]=process.argv.slice(2);
 if(!base||!newer)throw Error('Usage: node c4-arc/compare.js BASE_RESULTS NEW_RESULTS [OUTPUT]');
-const read=dir=>new Map(fs.readdirSync(dir).filter(n=>/^arc1_[a-f0-9]+\.json$/.test(n)).map(n=>{const r=JSON.parse(fs.readFileSync(path.join(dir,n)));return [r.task_id,r];}));
+const read=dir=>new Map(fs.readdirSync(dir).filter(n=>/^arc[12]_[a-f0-9]+\.json$/.test(n)).map(n=>{const r=JSON.parse(fs.readFileSync(path.join(dir,n)));return [r.task_id,r];}));
 const a=read(base),b=read(newer),added=[],lost=[],noncomparable=[],families={},failureCounts={};
 let baseline=0,updated=0,top2=0,oracle=0,oldTop2=0,oldOracle=0;
 for(const [id,y] of b){const x=a.get(id);if(!x){noncomparable.push(id);continue;}

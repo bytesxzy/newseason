@@ -17,7 +17,10 @@ var PROG = null;
 
 (function () {
   var T_GRID = "G", T_COLOR = "C", T_INT = "I", T_DIR = "D", T_SEL = "S",
-      T_SEG = "K", T_AXIS = "A", T_CMAP = "M", T_KEY = "Y";
+      T_SEG = "K", T_AXIS = "A", T_CMAP = "M", T_KEY = "Y",
+      /* signed offsets and semantic colour roles: used only by the auxiliary
+         repair alphabet (56-repair.js), never by the bottom-up synthesis */
+      T_OFS = "O", T_ROLE = "R";
   var VAR = ["in"];
 
   function hole(kind) { return ["?", kind]; }
@@ -25,9 +28,13 @@ var PROG = null;
 
   var OPS = {}, OP_BITS = null;
 
-  function register(name, fn, kinds, weight) {
+  /* ``aux`` operators form a second alphabet reached through a one-bit
+     escape. They are excluded from the Kraft total, so adding repair-only
+     operators leaves every existing program's code length -- and therefore
+     every existing ranking -- exactly as it was. */
+  function register(name, fn, kinds, weight, aux) {
     OPS[name] = { name: name, fn: fn, kinds: kinds || [T_GRID],
-                  weight: weight === undefined ? 1.0 : weight };
+                  weight: weight === undefined ? 1.0 : weight, aux: !!aux };
     OP_BITS = null;
     return OPS[name];
   }
@@ -36,10 +43,15 @@ var PROG = null;
     if (OP_BITS === null) {
       OP_BITS = {};
       var total = 0, k;
-      for (k in OPS) if (OPS.hasOwnProperty(k)) total += OPS[k].weight;
+      var auxTotal = 0;
+      for (k in OPS) if (OPS.hasOwnProperty(k)) {
+        if (OPS[k].aux) auxTotal += OPS[k].weight; else total += OPS[k].weight;
+      }
       if (!total) total = 1.0;
+      if (!auxTotal) auxTotal = 1.0;
       for (k in OPS) if (OPS.hasOwnProperty(k))
-        OP_BITS[k] = -Math.log(Math.max(OPS[k].weight, 1e-9) / total) / Math.LN2;
+        OP_BITS[k] = OPS[k].aux ? 1.0 - Math.log(Math.max(OPS[k].weight, 1e-9) / auxTotal) / Math.LN2
+                                : -Math.log(Math.max(OPS[k].weight, 1e-9) / total) / Math.LN2;
       OP_BITS["in"] = -Math.log(1.0 / (total + 1.0)) / Math.LN2;
     }
     return OP_BITS.hasOwnProperty(name) ? OP_BITS[name] : 12.0;
@@ -401,11 +413,13 @@ var PROG = null;
   DOMAIN_BITS[T_SEL] = Math.log(10) / Math.LN2;
   DOMAIN_BITS[T_SEG] = Math.log(5) / Math.LN2;
   DOMAIN_BITS[T_KEY] = Math.log(10) / Math.LN2;
+  DOMAIN_BITS[T_OFS] = Math.log(6) / Math.LN2;
+  DOMAIN_BITS[T_ROLE] = 2.0;
 
   function thetaBits(node, theta) {
     var kinds = holesOf(node), total = 0.0, i;
     for (i = 0; i < kinds.length && i < theta.length; i++) {
-      if (kinds[i] === T_CMAP) {
+      if (kinds[i] === T_CMAP || kinds[i] === "T") {
         var n = theta[i] ? Object.keys(theta[i]).length : 1;
         total += 2.0 + n * (Math.log(10) / Math.LN2 + 3.0);
       } else total += DOMAIN_BITS.hasOwnProperty(kinds[i]) ? DOMAIN_BITS[kinds[i]] : 4.0;
@@ -446,6 +460,13 @@ var PROG = null;
     if (kind === T_SEL) return SELECTORS[((v % 10) + 10) % 10];
     if (kind === T_SEG) return SEGMODES[((v % 5) + 5) % 5];
     if (kind === T_KEY) return KEYS[((v % 10) + 10) % 10];
+    if (kind === T_OFS) return (v > 0 ? "+" : "") + v;
+    if (kind === T_ROLE) return ["bg", "major", "second", "minor"][((v % 4) + 4) % 4];
+    if (kind === "Q" && v && typeof v === "object") return v.f + (v.inv ? "!=" : "=") + v.v;
+    if (kind === "T" && v && typeof v === "object")
+      return "{" + Object.keys(v).sort(function (a, b) { return a - b; })
+        .filter(function (k) { return (k >> 4) !== v[k]; })
+        .map(function (k) { return (k >> 4) + "/" + (k & 15) + ">" + v[k]; }).join(",") + "}";
     return "" + v;
   }
 
@@ -493,6 +514,8 @@ var PROG = null;
     d[T_SEL] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     d[T_SEG] = [0, 1, 2, 3, 4];
     d[T_KEY] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    d[T_OFS] = [-3, -2, -1, 1, 2, 3];
+    d[T_ROLE] = [0, 1, 2, 3];
     return d;
   }
 
@@ -589,14 +612,14 @@ var PROG = null;
 
   PROG = {
     T_GRID: T_GRID, T_COLOR: T_COLOR, T_INT: T_INT, T_DIR: T_DIR, T_SEL: T_SEL,
-    T_SEG: T_SEG, T_AXIS: T_AXIS, T_CMAP: T_CMAP, T_KEY: T_KEY,
+    T_SEG: T_SEG, T_AXIS: T_AXIS, T_CMAP: T_CMAP, T_KEY: T_KEY, T_OFS: T_OFS, T_ROLE: T_ROLE,
     VAR: VAR, hole: hole, isHole: isHole, isVar: isVar, OPS: OPS,
     register: register, opBits: opBits, structOf: structOf, holesOf: holesOf,
     structBits: structBits, thetaBits: thetaBits, render: render, Prog: Prog,
     makeEnv: makeEnv, domains: domains, product: product, refit: refit,
     fitTable: fitTable, cmapSlot: cmapSlot, evalNode: evalNode, iterOf: iterOf,
     SELECTORS: SELECTORS, SEGMODES: SEGMODES, KEYS: KEYS, objsOf: objsOf,
-    feature: feature
+    feature: feature, pick: pick, cellsOf: cellsOf, DOMAIN_BITS: DOMAIN_BITS
   };
 })();
 

@@ -84,7 +84,13 @@ function _candidates(mod, ctx, stats, validationDeadline) {
       for (t = 0; t < ctx.train.length; t++) {
         if (expired()) { stats.status = "timed_out"; fits = false; break; }
         p = _prediction(hyp, ctx.train[t][0]);
-        if (p === null || !G.gEq(p, ctx.train[t][1])) { fits = false; break; }
+        if (p === null || !G.gEq(p, ctx.train[t][1])) {
+          fits = false;
+          /* a failure is evidence too: keep a bounded record of the closest
+             ones for the refinement stage (57-refinement.js) */
+          if (ctx._nearSink) REFINEMENT.noteNear(ctx, mod, hyp, t, p);
+          break;
+        }
       }
       if (fits) { stats.fitted++; out.push([hyp, cost]); }
     }
@@ -423,6 +429,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   var phase1 = [], phase2 = [];
   for (i = 0; i < mods.length; i++) ((mods[i].PHASE === 2) ? phase2 : phase1).push(mods[i]);
   var reservoir = new _MinHeap(_itemCmp), order = 0;
+  ctx._nearSink = REFINEMENT.newSink();
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
     order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);
@@ -442,6 +449,15 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       order = _harvest(all[i], ctx, moduleEnd, bias, reservoir, order, res);
     }
   }
+
+  /* Residual-driven refinement of the near-misses generation produced. Only
+     exact, executable repaired programs enter the reservoir. */
+  try {
+    order = REFINEMENT.stage(ctx, res, reservoir, order, bias, generationEnd, deadline, timeBudget * 1000);
+  } catch (exc) {
+    res.diagnostics.refinement_error = String(exc && exc.message ? exc.message : exc).slice(0, 160);
+  }
+  ctx._nearSink = null;
 
   var fitted = [];
   for (i = 0; i < reservoir.a.length; i++) {
@@ -465,6 +481,17 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   var kept2 = [];
   for (i = 0; i < fitted.length; i++) if (sigsByIdx.has(fitted[i][1])) kept2.push(fitted[i]);
   fitted = kept2;
+  /* A repaired program that predicts exactly what an existing exact
+     explanation predicts is that explanation reached by a longer path: it is
+     not independent evidence and must not add a vote. Only repairs that
+     contribute a NEW prediction stay. */
+  var directSigs = new Set(), kept3 = [];
+  for (i = 0; i < fitted.length; i++)
+    if (fitted[i][3] !== REFINEMENT.MODULE) directSigs.add(_sigKey(sigsByIdx.get(fitted[i][1])));
+  for (i = 0; i < fitted.length; i++)
+    if (fitted[i][3] !== REFINEMENT.MODULE || !directSigs.has(_sigKey(sigsByIdx.get(fitted[i][1])))) kept3.push(fitted[i]);
+  if (res.diagnostics.refinement) res.diagnostics.refinement.redundant = fitted.length - kept3.length;
+  fitted = kept3;
 
   if (loo && ctx.train.length >= 3) {
     var groups = new Map(), selected = new Set(), rec, key, fullKey, modIdx = new Map(), nextModId = 0;
@@ -474,6 +501,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     }
     for (i = 0; i < fitted.length; i++) {
       rec = fitted[i];
+      if (rec[3].NO_LOO) continue;
       var sk = _sigKey(sigsByIdx.get(rec[1]));
       key = rec[2].solver + "" + rec[2].name + "" + sk;
       fullKey = modId(rec[3]) + "" + key;
@@ -506,6 +534,10 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       rec[0] += adjustments.has(key) ? adjustments.get(key) : 0.0;
     }
   }
+  /* Counterfactual discrimination between exact explanations that disagree
+     about the test input (58-counterfactual.js): fragility, not labels. */
+  try { CFACT.adjust(ctx, fitted, sigsByIdx, res, deadline, timeBudget * 1000); }
+  catch (exc) { res.diagnostics.counterfactual_error = String(exc && exc.message ? exc.message : exc).slice(0, 160); }
   fitted.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
   res.hyps = [];
   for (i = 0; i < Math.min(8, fitted.length); i++)

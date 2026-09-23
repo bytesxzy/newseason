@@ -20,6 +20,7 @@
   "use strict";
 
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
+      PRB = root.C4LMProblem, KER = root.C4ReasonKernel,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
       CD = root.C4LMCode, MEM = root.C4LMMemory;
 
@@ -1322,10 +1323,69 @@
 
   /* ========================================================== reasoning */
 
+  /* Confidence for an operator-library result, from an independent
+     re-derivation of its own trace (c4-lm-problem.js) through the kernel's
+     calibration -- not a constant. A disagreement lowers it below the
+     hallucination brake, which then softens the answer. */
+  function calibrateReason(r, frame) {
+    if (!PRB || !KER || off("calibration")) return null;
+    var derivations = 1, disagree = 0, pass = 0, total = 0;
+    if (r.expression !== undefined && r.value !== undefined) {
+      var vv = PRB.verifyValue(r.expression, r.value);
+      if (vv) { total++; if (vv.agree) { pass++; derivations++; } else disagree++; }
+    }
+    if (r.steps && r.steps.length) {
+      var st = PRB.verifySteps(r.steps);
+      total += st.checked; pass += st.passed;
+      if (st.failed.length) disagree++;
+    }
+    if (r.nodes && r.nodes.length && r.nodes[0].op === "extrapolate" && r.nodes[0].args) {
+      PRB.extrapolate(r.nodes[0].args).forEach(function (alt) {
+        if (Math.abs(alt.value - r.value) < 1e-9) derivations++; else disagree++;
+      });
+    }
+    /* a deduction by a sound rule (closure, ordering) is one derivation that
+       passed its own consistency check */
+    if (!total && r.route === "reason" && r.ok !== false) { pass = 1; total = 1; }
+    /* verifying the arithmetic says nothing about whether the arithmetic
+       was the question: algebra in the text that the reading ignored is a
+       contradiction of the interpretation, not of the calculation */
+    var misread = r.route === "compute" && PRB.hasAlgebra(frame.rawText || frame.body || "") ? 1 : 0;
+    return KER.calibrate({ derivations: misread ? 1 : derivations, disagreements: disagree, verifierPass: misread ? 0 : pass,
+                           verifierTotal: misread ? 0 : total, contradictions: (disagree ? 1 : 0) + misread });
+  }
+
+  /* Problems the operator library does not cover but that can be DERIVED:
+     equations, systems, calculus, combinatorics, number theory, probability,
+     shortest paths, multiple choice -- solved by independent derivations
+     that must survive falsification (c4-lm-problem.js). */
+  function answerProblem(frame) {
+    if (!PRB || off("problem")) return null;
+    var p = null;
+    try { p = PRB.answer(frame.rawText || frame.body || ""); } catch (e) { p = null; }
+    if (!p || p.kind === "arithmetic") return null;
+    return { text: RZ.polish(p.text), route: "reason", confidence: p.confidence, sources: [], defects: [],
+             derivations: p.derivations.length, verification: { agreeing: p.agreeing, eliminated: p.eliminated,
+             diagnoses: p.diagnoses, calibration: p.calibration } };
+  }
+
   function answerReason(frame, decision) {
     if (off("reasoning") || !RS) return null;
+    /* Interpretation check. When the text parses as a structured problem
+       (an equation, a system, calculus, combinatorics ...), reading it as
+       bare arithmetic over its digits is a MISINTERPRETATION -- "solve
+       x^2 - 5x + 6 = 0" is not "2 - 5". The structured reading wins. */
+    var structured = answerProblem(frame);
+    if (structured) { structured.interpretation = "structured"; return structured; }
     var r = RS.solve(frame);
     if (!r) return null;
+    var cal = calibrateReason(r, frame);
+    var out = answerReasonText(frame, r);
+    if (out && cal) { out.confidence = cal.confidence; out.calibration = cal; }
+    return out;
+  }
+
+  function answerReasonText(frame, r) {
     if (r.route === "compute") {
       var lead = "";
       if (r.kind === "arithmetic" && r.expression) lead = r.expression + " = ";
