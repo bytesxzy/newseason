@@ -1,0 +1,862 @@
+{
+  "root": "/tmp/claude-0/-home-user-newseason/ebe35f05-5e24-5bb3-8df2-dce5448bb9e2/scratchpad/prephase",
+  "total": 91,
+  "pass": 43,
+  "accuracy_pct": 47.3,
+  "by_category": {
+    "idiom": {
+      "total": 20,
+      "pass": 9
+    },
+    "metaphor": {
+      "total": 10,
+      "pass": 2
+    },
+    "fragment": {
+      "total": 12,
+      "pass": 7
+    },
+    "prose-math": {
+      "total": 12,
+      "pass": 0
+    },
+    "desc-math": {
+      "total": 14,
+      "pass": 5
+    },
+    "normal": {
+      "total": 15,
+      "pass": 14
+    },
+    "abstain": {
+      "total": 8,
+      "pass": 6
+    }
+  },
+  "latency": {
+    "p50": 27,
+    "p90": 48,
+    "max": 72
+  },
+  "rows": [
+    {
+      "cat": "idiom",
+      "q": "Give me the scoop on photosynthesis",
+      "pass": true,
+      "text": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in su",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 72
+    },
+    {
+      "cat": "idiom",
+      "q": "What's the lowdown on volcanoes?",
+      "pass": false,
+      "text": "I don't have anything reliable on What's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "idiom",
+      "q": "In a nutshell, what does a CPU do?",
+      "pass": true,
+      "text": "The CPU, central processing unit, executes the instructions that make up a program. It is used for running instructions.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 23
+    },
+    {
+      "cat": "idiom",
+      "q": "Talk me through how the heart pumps blood",
+      "pass": false,
+      "text": "The heart is a muscular organ that pumps blood through the circulatory system. It is in the chest, slightly left of centre.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 30
+    },
+    {
+      "cat": "idiom",
+      "q": "What's the gist of the theory of evolution?",
+      "pass": true,
+      "text": "Evolution is the change in heritable traits of populations over generations, driven largely by natural selection. It results from variation, inheritance and differential survival.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 26
+    },
+    {
+      "cat": "idiom",
+      "q": "Who's the brains behind Microsoft?",
+      "pass": false,
+      "text": "I don't have anything reliable on Who's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 47
+    },
+    {
+      "cat": "idiom",
+      "q": "Who's the genius behind the telephone?",
+      "pass": false,
+      "text": "I don't have anything reliable on Who's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "idiom",
+      "q": "Who put pen to paper for Romeo and Juliet?",
+      "pass": true,
+      "text": "Romeo and Juliet is Shakespeare's tragedy of two young lovers from feuding families. It dates to around 1595.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 34
+    },
+    {
+      "cat": "idiom",
+      "q": "Who gave us the theory of gravity?",
+      "pass": false,
+      "text": "Relativity is Einstein's account of space, time and gravity: special relativity for constant motion, general relativity for gravity as curved spacetime. It was created by Albert Einstein.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 27
+    },
+    {
+      "cat": "idiom",
+      "q": "Who brought the light bulb to life?",
+      "pass": false,
+      "text": "Life means the condition that distinguishes living organisms from matter.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 39
+    },
+    {
+      "cat": "idiom",
+      "q": "Where does France keep its government?",
+      "pass": false,
+      "text": "France lies in Western Europe.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 24
+    },
+    {
+      "cat": "idiom",
+      "q": "How cold does water have to get to freeze?",
+      "pass": false,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 31
+    },
+    {
+      "cat": "idiom",
+      "q": "What's the chemical shorthand for silver?",
+      "pass": true,
+      "text": "Silver is a chemical element with the symbol Ag and atomic number 47. Its symbol comes from the Latin argentum.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 33
+    },
+    {
+      "cat": "idiom",
+      "q": "Spell out what an atom is",
+      "pass": true,
+      "text": "An atom is the smallest unit of an element, a nucleus of protons and neutrons surrounded by electrons. It is made up of protons, neutrons and electrons.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 19
+    },
+    {
+      "cat": "idiom",
+      "q": "Run me through what DNS does",
+      "pass": true,
+      "text": "DNS, the Domain Name System, translates human-readable domain names into IP addresses. It is used for resolving names to addresses.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 32
+    },
+    {
+      "cat": "idiom",
+      "q": "Fill me in on the French Revolution",
+      "pass": false,
+      "text": "Got it. What would you like me to work out?",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 20
+    },
+    {
+      "cat": "idiom",
+      "q": "What's the deal with inflation?",
+      "pass": true,
+      "text": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It is caused by demand, costs or money supply outpacing real output.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 25
+    },
+    {
+      "cat": "idiom",
+      "q": "Who kicked off the Protestant Reformation?",
+      "pass": false,
+      "text": "I don't have anything reliable on Protestant Reformation. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 44
+    },
+    {
+      "cat": "idiom",
+      "q": "Who came up with the periodic table?",
+      "pass": false,
+      "text": "Table has more than one sense: a set of facts arranged in rows and columns; a piece of furniture with a flat top.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 34
+    },
+    {
+      "cat": "idiom",
+      "q": "How tall is the Eiffel Tower, roughly?",
+      "pass": true,
+      "text": "Eiffel Tower stands 330 metres (1,083 feet) including antennas tall. It was created by Gustave Eiffel.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 12
+    },
+    {
+      "cat": "metaphor",
+      "q": "What's the mother tongue of Argentina?",
+      "pass": false,
+      "text": "Argentina is a country in South America.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 35
+    },
+    {
+      "cat": "metaphor",
+      "q": "Which tongue is spoken in Portugal?",
+      "pass": false,
+      "text": "Portugal is a country in Southern Europe.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 24
+    },
+    {
+      "cat": "metaphor",
+      "q": "What is the seat of government of Germany?",
+      "pass": false,
+      "text": "Germany is a country in Central Europe.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 21
+    },
+    {
+      "cat": "metaphor",
+      "q": "Who is the architect of the theory of relativity?",
+      "pass": true,
+      "text": "Relativity is Einstein's account of space, time and gravity: special relativity for constant motion, general relativity for gravity as curved spacetime. It was created by Albert Einstein.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 29
+    },
+    {
+      "cat": "metaphor",
+      "q": "Who was the mastermind behind the Sistine Chapel ceiling?",
+      "pass": false,
+      "text": "I don't have anything reliable on Sistine Chapel. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 65
+    },
+    {
+      "cat": "metaphor",
+      "q": "Which pen wrote Oliver Twist?",
+      "pass": false,
+      "text": "I don't have anything reliable on Oliver Twist. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 43
+    },
+    {
+      "cat": "metaphor",
+      "q": "What is the cradle of the Renaissance?",
+      "pass": false,
+      "text": "The Renaissance was the European revival of art, learning and science from roughly the 14th to 17th centuries. It dates to roughly the 14th to 17th centuries.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 23
+    },
+    {
+      "cat": "metaphor",
+      "q": "What's under the hood of a CPU?",
+      "pass": true,
+      "text": "The CPU, central processing unit, executes the instructions that make up a program. It is used for running instructions.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 25
+    },
+    {
+      "cat": "metaphor",
+      "q": "Who is the father of the theory of evolution?",
+      "pass": false,
+      "text": "Evolution is the change in heritable traits of populations over generations, driven largely by natural selection. It results from variation, inheritance and differential survival.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 24
+    },
+    {
+      "cat": "metaphor",
+      "q": "What's the birthplace of the Olympic Games?",
+      "pass": false,
+      "text": "Games means an activity played for enjoyment or competition.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 38
+    },
+    {
+      "cat": "fragment",
+      "q": "capital Canada",
+      "pass": true,
+      "text": "Canada has Ottawa as its capital. It is in North America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 6
+    },
+    {
+      "cat": "fragment",
+      "q": "boiling point water",
+      "pass": false,
+      "text": "Got it. What would you like me to work out?",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 29
+    },
+    {
+      "cat": "fragment",
+      "q": "author 1984",
+      "pass": true,
+      "text": "George Orwell wrote 1984. It dates to 1949.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 6
+    },
+    {
+      "cat": "fragment",
+      "q": "Newton laws",
+      "pass": true,
+      "text": "Isaac Newton was a mathematician and physicist who formulated the laws of motion and universal gravitation.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 19
+    },
+    {
+      "cat": "fragment",
+      "q": "speed of sound",
+      "pass": false,
+      "text": "Sound means vibrations travelling through air that can be heard.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 17
+    },
+    {
+      "cat": "fragment",
+      "q": "chemical symbol sodium",
+      "pass": true,
+      "text": "Sodium has the chemical symbol Na.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 7
+    },
+    {
+      "cat": "fragment",
+      "q": "Jupiter moons",
+      "pass": false,
+      "text": "A jupiter moons would be a natural satellite of the earth relating to Jupiter. Tell me the context and I can be more exact.",
+      "route": "compose",
+      "conf": 0.47000000000000003,
+      "ms": 21
+    },
+    {
+      "cat": "fragment",
+      "q": "currency Japan",
+      "pass": true,
+      "text": "Japan's currency is the yen. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 6
+    },
+    {
+      "cat": "fragment",
+      "q": "inventor telephone",
+      "pass": false,
+      "text": "I don't have anything reliable on inventor telephone. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 34
+    },
+    {
+      "cat": "fragment",
+      "q": "largest planet",
+      "pass": true,
+      "text": "Jupiter is the largest planet, at 139,820 km in diameter.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 15
+    },
+    {
+      "cat": "fragment",
+      "q": "Shakespeare famous for",
+      "pass": true,
+      "text": "William Shakespeare was a playwright and poet widely regarded as the greatest writer in the English language.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 17
+    },
+    {
+      "cat": "fragment",
+      "q": "tallest mountain",
+      "pass": false,
+      "text": "Mountain means a large natural elevation of the earth's surface.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 16
+    },
+    {
+      "cat": "prose-math",
+      "q": "Three times a number minus 4 is 20. What is the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on Three. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 46
+    },
+    {
+      "cat": "prose-math",
+      "q": "A number increased by 15 equals 42. Find it.",
+      "pass": false,
+      "text": "Got it. What would you like me to work out?",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 31
+    },
+    {
+      "cat": "prose-math",
+      "q": "The difference between a number and 9 is 14. What is the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 36
+    },
+    {
+      "cat": "prose-math",
+      "q": "Seven more than twice a number is 31. What is the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on Seven. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "prose-math",
+      "q": "If you divide a number by 3 and add 5 you get 12. What's the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on What's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 59
+    },
+    {
+      "cat": "prose-math",
+      "q": "A third of a number is 11. What is the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 27
+    },
+    {
+      "cat": "prose-math",
+      "q": "I double a number and add 9 to get 25. What was the number?",
+      "pass": false,
+      "text": "I'll keep in mind that you double a number. I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work fro",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 32
+    },
+    {
+      "cat": "prose-math",
+      "q": "Four times a number equals the number plus 18. Find the number.",
+      "pass": false,
+      "text": "+ 18 equals 18.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 41
+    },
+    {
+      "cat": "prose-math",
+      "q": "The sum of two numbers is 30 and their difference is 6. What are the numbers?",
+      "pass": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 49
+    },
+    {
+      "cat": "prose-math",
+      "q": "A number squared is 81. What is the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 25
+    },
+    {
+      "cat": "prose-math",
+      "q": "Subtract 6 from a number and the result is 19. What is the number?",
+      "pass": false,
+      "text": "I don't have anything reliable on Subtract. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 45
+    },
+    {
+      "cat": "prose-math",
+      "q": "When 8 is added to five times a number, the result is 48. Find the number.",
+      "pass": false,
+      "text": "+ 5 equals 5.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 42
+    },
+    {
+      "cat": "desc-math",
+      "q": "What's the chance of rolling a 6 on a die?",
+      "pass": false,
+      "text": "I don't have anything reliable on What's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 44
+    },
+    {
+      "cat": "desc-math",
+      "q": "Flip three coins. What is the probability all are heads?",
+      "pass": false,
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 49
+    },
+    {
+      "cat": "desc-math",
+      "q": "What is the greatest common divisor of 36 and 60?",
+      "pass": true,
+      "text": "12. Checked by 2 independent methods (Euclid's algorithm, common prime factors); verified by divides both, cofactors coprime.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 34
+    },
+    {
+      "cat": "desc-math",
+      "q": "What is the least common multiple of 6 and 8?",
+      "pass": true,
+      "text": "24. Checked by 2 independent methods (ab / gcd(a,b), max prime powers); verified by multiple of both, gcd * lcm = ab.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 13
+    },
+    {
+      "cat": "desc-math",
+      "q": "How many ways can 4 people stand in a line?",
+      "pass": false,
+      "text": "Line means a long narrow mark, or a connected series.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 36
+    },
+    {
+      "cat": "desc-math",
+      "q": "How many games are played if 6 teams each play every other team once?",
+      "pass": false,
+      "text": "I don't have anything reliable on games played teams. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 42
+    },
+    {
+      "cat": "desc-math",
+      "q": "What is two thirds of 90?",
+      "pass": false,
+      "text": "I don't have anything reliable on two thirds of 90. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 26
+    },
+    {
+      "cat": "desc-math",
+      "q": "What is the cube of 5?",
+      "pass": false,
+      "text": "I don't have anything reliable on cube of 5. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 11
+    },
+    {
+      "cat": "desc-math",
+      "q": "What is 3 to the power of 5?",
+      "pass": true,
+      "text": "3 ^ 5 works out to 243.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 12
+    },
+    {
+      "cat": "desc-math",
+      "q": "What's the remainder when 50 is divided by 6?",
+      "pass": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 25
+    },
+    {
+      "cat": "desc-math",
+      "q": "How many minutes are in three hours?",
+      "pass": false,
+      "text": "Hours means a period of sixty minutes.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 28
+    },
+    {
+      "cat": "desc-math",
+      "q": "A shirt costs 60 dollars and is 20 percent off. What is the sale price?",
+      "pass": true,
+      "text": "After the discount it comes to $48.",
+      "route": "compute",
+      "conf": 0.75,
+      "ms": 45
+    },
+    {
+      "cat": "desc-math",
+      "q": "What is the sum of the numbers from 1 to 100?",
+      "pass": false,
+      "text": "I don't have anything reliable on sum numbers 100. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 26
+    },
+    {
+      "cat": "desc-math",
+      "q": "Is 97 a prime number?",
+      "pass": true,
+      "text": "yes. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor.",
+      "route": "reason",
+      "conf": 0.973,
+      "ms": 11
+    },
+    {
+      "cat": "normal",
+      "q": "What is the capital of Italy?",
+      "pass": true,
+      "text": "Italy's capital is Rome. It is in Southern Europe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 5
+    },
+    {
+      "cat": "normal",
+      "q": "Who wrote Romeo and Juliet?",
+      "pass": true,
+      "text": "William Shakespeare wrote Romeo and Juliet. It dates to around 1595.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 8
+    },
+    {
+      "cat": "normal",
+      "q": "How many legs does a spider have?",
+      "pass": true,
+      "text": "The spider has eight legs.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 22
+    },
+    {
+      "cat": "normal",
+      "q": "What is photosynthesis?",
+      "pass": true,
+      "text": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in su",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "normal",
+      "q": "Why is the sky blue?",
+      "pass": true,
+      "text": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — roughly as one over wavelength to the fourth power. Blue light is therefore scattered across the whole sky ",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 18
+    },
+    {
+      "cat": "normal",
+      "q": "What language is spoken in Brazil?",
+      "pass": true,
+      "text": "The language of Brazil is Portuguese. It is in South America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 5
+    },
+    {
+      "cat": "normal",
+      "q": "Who painted the Mona Lisa?",
+      "pass": true,
+      "text": "Mona Lisa is the work of Leonardo da Vinci. It was created by Leonardo da Vinci.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 5
+    },
+    {
+      "cat": "normal",
+      "q": "What is the chemical symbol for iron?",
+      "pass": true,
+      "text": "The chemical symbol for iron is Fe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 7
+    },
+    {
+      "cat": "normal",
+      "q": "What is the boiling point of water?",
+      "pass": true,
+      "text": "Water boils at 100 °C at sea-level pressure.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 9
+    },
+    {
+      "cat": "normal",
+      "q": "Who developed the theory of relativity?",
+      "pass": true,
+      "text": "relativity was created by Albert Einstein. It dates to 1905 and 1915.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 23
+    },
+    {
+      "cat": "normal",
+      "q": "What does a GPU do?",
+      "pass": true,
+      "text": "A GPU, graphics processing unit, runs thousands of simple operations in parallel, which suits graphics and matrix maths. It is used for parallel arithmetic for graphics and machine learning.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 5
+    },
+    {
+      "cat": "normal",
+      "q": "What is the difference between a virus and bacteria?",
+      "pass": true,
+      "text": "Virus and bacteria differ in one respect. Virus is A virus is a tiny infectious agent that can only replicate inside the living cells of a host, while bacteria is single-celled microorganisms without a nucleus; some caus",
+      "route": "comparison",
+      "conf": 0.7,
+      "ms": 25
+    },
+    {
+      "cat": "normal",
+      "q": "When did World War II end?",
+      "pass": true,
+      "text": "World War II was the global conflict fought from 1939 to 1945 between the Allied and Axis powers. It dates to 1939 to 1945, ending on 2 September 1945.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "normal",
+      "q": "What is the largest ocean on Earth?",
+      "pass": false,
+      "text": "On Earth, an ocean is one of Earth's five great bodies of salt water.",
+      "route": "compose",
+      "conf": 0.7,
+      "ms": 32
+    },
+    {
+      "cat": "normal",
+      "q": "What currency does Japan use?",
+      "pass": true,
+      "text": "Japan's currency is the yen.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 8
+    },
+    {
+      "cat": "abstain",
+      "q": "Who is the drummer of the band Glass Otters?",
+      "pass": true,
+      "text": "I don't have anything reliable on Glass Otters. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 53
+    },
+    {
+      "cat": "abstain",
+      "q": "What's the capital of the planet Zorbon?",
+      "pass": true,
+      "text": "I don't have anything reliable on planet Zorbon. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 59
+    },
+    {
+      "cat": "abstain",
+      "q": "What's the tongue of Narnia?",
+      "pass": true,
+      "text": "I don't have anything reliable on What's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 40
+    },
+    {
+      "cat": "abstain",
+      "q": "Who's the pen behind the novel The Quiet Lantern of Vess?",
+      "pass": true,
+      "text": "I don't have anything reliable on Who's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 66
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the population of Glimmerfield township?",
+      "pass": true,
+      "text": "I don't have anything reliable on Glimmerfield township. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 38
+    },
+    {
+      "cat": "abstain",
+      "q": "Break down the Hollis-Varga theorem for me",
+      "pass": false,
+      "text": "Understood — say more and I'll dig in.",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 20
+    },
+    {
+      "cat": "abstain",
+      "q": "Who founded the company Brindlewick Labs?",
+      "pass": true,
+      "text": "I don't have anything reliable on company Brindlewick Labs. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 55
+    },
+    {
+      "cat": "abstain",
+      "q": "freezing point of zorbanium",
+      "pass": false,
+      "text": "Freezing point of water is Water freezes at 0 °C.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 35
+    }
+  ]
+}

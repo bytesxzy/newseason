@@ -152,9 +152,16 @@
     return terminate(deduplicate(trimDangling(out)));
   }
 
+  /* A value that is itself a participial predicate ("described by Charles
+     Darwin", "proposed by ...") already states how the subject relates to
+     it; wrapping it in another verb garbles the sentence. */
+  var PARTICIPLE_BY = /^(?:[a-z]+(?:ed|en)|built|made|written|drawn|sung|done|shown|known|found)\s+by\b/i;
   function realizeRelation(plan) {
     var subj = plan.subject, rel = plan.relationLabel || plan.relation, val = cleanClause(plan.value || "");
     if (!val) return "";
+    if (PARTICIPLE_BY.test(val) && /^(?:creator|author|artist|founder|inventor|designer)$/.test(plan.relation || "")) {
+      return capitalize(subj) + " " + (isPlural(subj) ? "were" : "was") + " " + val + ".";
+    }
     var TEMPLATES = {
       capital: function () { return "The capital of " + subj + " is " + val + "."; },
       currency: function () { return "The currency of " + subj + " is " + val + "."; },
@@ -561,6 +568,7 @@
     if (plan.kind === "relation") {
       var s = String(plan.subject || ""), v = cleanClause(plan.value || "");
       if (!s || !v || /[.!?]\s+\w/.test(v) || v.split(" ").length > 25) return out;
+      if (PARTICIPLE_BY.test(v)) return out;
       (RELATION_ALTS[plan.relation] || []).forEach(function (fn) {
         var r = fn(capitalize(s), v, capitalize(v), capitalize(possessiveOf(s)), s);
         if (r && r.text) out.push({ body: terminate(deduplicate(trimDangling(r.text))), valueFirst: !!r.valueFirst });

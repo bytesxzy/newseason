@@ -570,6 +570,13 @@
     if (!raw || raw.length > 500 || /```|=>|\bfunction\b|\bdef\s|[{}]/.test(raw)) return null;
     var rec = this.recall(raw);
     if (rec) { this.record(raw, rec); return { handled: true, text: rec, residual: "", act: "recall" }; }
+    /* A word problem speaks in the first person ("I double a number and add
+       9 to get 25") without saying anything about the speaker: a message the
+       problem reader parses as a problem is not a memory command. */
+    var PRB = root.C4LMProblem;
+    if (PRB && PRB.parse && /\d/.test(raw)) {
+      try { var asProblem = PRB.parse(raw); if (asProblem && asProblem.kind !== "arithmetic") return null; } catch (e) {}
+    }
     var cl = clauses(raw), ops = [];
     for (var i = 0; i < cl.length; i++) {
       var c = cl[i];

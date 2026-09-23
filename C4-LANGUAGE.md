@@ -146,3 +146,46 @@ HLE; see `tools/reason-synth.js`, `measurements/reason-*.json`):
 The in-distribution number mostly measures coverage of the implemented
 families; the held-out number is the honest generalisation figure.
 
+
+## Phrasing and deliberation (c4-lm.js, c4-lm-problem.js)
+
+The router picks one reading of the words, and idioms, metaphors, keyword
+fragments and prose word problems are where one reading fails. Two general
+mechanisms handle them.
+
+**Quantitative English.** `c4-lm-problem.js` reads arithmetic stated in
+English compositionally rather than by grabbing digits:
+- operand order ("5 less than x");
+- prefix, postfix and imperative operator chains;
+- passive voice;
+- "to get N" as equality;
+- two-unknown systems;
+- number words, fractions and collectives;
+- descriptive definitions of gcd, lcm, pairwise counts, remainders and range
+  sums.
+
+The structured reading beats a bare-digit reading. English arithmetic
+("three quarters of 200") is accepted only after the operator library has
+declined.
+
+**Deliberation.** In `c4-lm.js`, `deliberate()` runs from `finish()`, only
+for a weak first answer. It generates readings from the knowledge base
+(entities spotted in the words), the lexicon (relations reached through
+another sense of a word, chosen by gloss overlap; phrases a gloss
+paraphrases), the question's answer type, the entity's own facts, and, for
+numeric fragments, a search over the missing connective.
+
+Each reading is answered by the ordinary resolvers and scored on
+resolver success, coverage of the question, answer-type fit and reading
+cost. A replacement needs a 0.75 margin. Honesty rules withdraw an answer
+about a known thing when the question's subject is unknown, and replace
+small talk to a request about an unknown thing with "I don't have that".
+
+The result records `deliberation` (trigger, readings tried with scores,
+choice) and `interpretation`. It can be ablated with the `deliberation`,
+`prose` and `fragment` switches.
+
+Measure it:
+
+    npm run lm:phrasing   # mechanism regression checks (20)
+    npm run lm:heldout    # v1 (seen during development) and v2 (frozen before first run)

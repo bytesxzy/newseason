@@ -273,6 +273,133 @@ allocate slices from the timeout statistics now recorded in every result.
 The repair machinery works on synthetic near-misses (87% recovery); on real
 ARC it is starved of good seeds.
 
+## 13. Follow-up: phrasing, metaphors, word problems, ordinary questions
+
+Section 7 ended on three open problems: prose word problems ("2 times a
+number plus 11 is 15", "a pair of dice", "largest integer dividing both"),
+other subsystems answering those off-topic with high confidence, and
+brittleness to idiomatic and metaphorical phrasing. This follow-up
+addresses all three with general mechanisms. No question string, idiom ->
+answer table or per-entity rule was added anywhere.
+
+**What was added (all edits in place, no file rewritten):**
+
+- `c4-lm-problem.js`: a compositional grammar of quantitative English.
+  - Operand order flips ("5 less than 3x", "4 subtracted from x").
+  - Prefix operators ("the sum of A and B").
+  - Postfix chains ("doubled and then increased by 7").
+  - Imperative chains on a running value ("triple a number and subtract 4",
+    "add 13 to it").
+  - Passive voice ("when 8 is added to five times a number, the result is 48").
+  - Purpose infinitives as equality ("... add 9 to get 25").
+  - Two-unknown systems ("sum ... is 30 and their difference is 6").
+  - Number words, fractions ("three quarters of") and collectives
+    ("a pair of", "a dozen").
+  - Descriptive readings: gcd/lcm by description, pairwise counting (choose 2),
+    remainders, range sums, single-die and multi-die probability.
+- `c4-lm-reason.js`:
+  - Typo-tolerant term unification in syllogisms (edit distance with
+    distinct-term constraints).
+  - The typographic percent rule: "15% 240" is a percentage, "15 % 240" is modulo.
+- `c4-lm-core.js`:
+  - Contractions of function words ("what's", "who's") are function words,
+    no longer proper-noun "entities". This was the cause of answers like
+    "I don't have anything reliable on What's".
+  - Polite wrappers are stripped to a fixpoint ("hey, could you tell me ...").
+  - "That's cool" is an acknowledgement.
+- `c4-lm-memory.js`: a message the problem reader parses as a problem is not
+  a statement about the speaker ("I double a number ..." was being stored as
+  a personal fact).
+- `c4-lm-realize.js`: a participial relation value ("described by Charles
+  Darwin") is used as the predicate instead of being wrapped in another verb.
+- `c4-lm-lexicon.js`: about 95 ordinary dictionary entries, including
+  figurative senses (tongue = a language; pen = a writer; seat = where a
+  government sits; hood = inner workings). Existing entries are never
+  altered. These are word senses, not answers; the metaphor results below
+  depend on them.
+- `c4-lm.js`, **deliberation**. When the first answer is weak (no answer, a
+  compositional guess, small talk to a request, a word definition for a
+  who/where/when question, less than two thirds of the question accounted
+  for, the wrong answer type, or a stated number left unused), alternative
+  readings are generated:
+  - entities the knowledge base can spot in the words;
+  - relations named directly, or through another sense of a word, chosen
+    by gloss overlap with the rest of the sentence (the Lesk criterion);
+  - words whose dictionary gloss the sentence paraphrases ("turn to ice"
+    is the gloss of "freeze"), with the entities' types as context;
+  - person relations for "who" questions;
+  - the entity's own stored facts, ranked by coverage;
+  - content retrieval;
+  - for numeric fragments, a search over the missing connective, keeping
+    only readings whose worked steps use every stated number.
+
+  Every candidate is answered by the ordinary resolvers and scored on one
+  scale: did a resolver answer, how much of the question the answer
+  accounts for, answer-type fit, and reading cost. The first answer is
+  replaced only by a margin of 0.75.
+
+  There are two honesty rules:
+  - An answer about a known thing to a question whose subject is a name
+    nothing knows is withdrawn ("freezing point of zorbanium" used to
+    return water's freezing point).
+  - A request about an unknown named thing gets "I don't have that"
+    instead of small talk.
+
+  Cost limits: at most 10 readings, a 300 ms budget, and nothing runs for
+  verified compute/reason answers, fresh-information questions or
+  dictated formats (lists, one word, N sentences).
+
+**Held-out measurement.** `tools/lm-heldout.js` (v1, 80 questions) was
+looked at during development, so its numbers are **not** held out.
+`tools/lm-heldout2.js` (v2, 91 questions) was written and committed before
+its first run (commit 122ce63). The first-run numbers are the honest ones:
+
+| v2 first run (unseen) | original zip | before this follow-up | after |
+|---|---|---|---|
+| total | 40/91 (44.0%) | 43/91 (47.3%) | **66/91 (72.5%)** |
+| idiom (20) | 9 | 9 | 11 |
+| metaphor (10) | 2 | 2 | 5 |
+| fragment (12) | 7 | 7 | 8 |
+| prose-math (12) | 0 | 0 | 9 |
+| desc-math (14) | 2 | 5 | 13 |
+| normal (15) | 14 | 14 | 14 |
+| abstain on invented names (8) | 6 | 6 | 6 |
+
+No case went from pass to fail. After fixing general mechanisms that the
+v2 failures exposed, v2 scores 74/91 (abstain 8/8, prose-math 12/12,
+desc-math 14/14). That figure is **no longer held out**. v1 went from 41/80
+(original) to 79/80 (contaminated).
+
+Other suites:
+
+| suite | before | after |
+|---|---|---|
+| LM eval | 184/184, 0 hallucinations | 184/184, 0 hallucinations, 0 defects |
+| robustness | 47/47 | 47/47 |
+| paraphrase | 659/687 | 673/687 (fragments 90 -> 102, typos 114 -> 116) |
+| phrasing regression (new, `tools/lm-phrasing-test.js`) | — | 20/20 |
+
+**Speed traded for reasoning:**
+- LM eval latency went from p50 16 / p90 37 / p95 46 / mean 19 ms to
+  p50 17 / p90 48 / p95 58 / mean 22 ms.
+- On the harder v2 phrasings it went from p50 27 / p90 48 ms to
+  p50 36 / p90 96 ms (max 137 ms).
+- Only weak first answers pay for deliberation.
+
+**What still fails on v2, honestly:**
+- Most remaining misses are facts the local knowledge base does not hold:
+  periodic table, light bulb, telephone, Reformation, Sistine Chapel,
+  Oliver Twist, Olympics, volcanoes, speed of sound, French Revolution,
+  ocean sizes, and mountains as a type. These now get an honest "I don't
+  have anything reliable on X" instead of an off-topic answer.
+- "Who gave us the theory of gravity?" answers Einstein/relativity; the
+  gravity entry has no Newton link.
+- "Talk me through how the heart pumps blood" answers correctly, but the
+  frozen check wants "muscle" and the answer says "muscular". It is kept as
+  a failure because the set is frozen.
+- A metaphor whose figurative sense is not in the lexicon is not read
+  figuratively.
+
 ## Reproduce
 
     npm test

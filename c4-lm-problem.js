@@ -734,10 +734,10 @@
      (equations, expressions, evaluation points, integers). Any phrasing that
      states the same intent and the same objects reads the same. */
   var INTENTS = [
-    ["derivative", /\b(?:derivative|differentiate|d\/d[a-z]|slope of the tangent|rate of change)\b|\b[a-z]'\s*\(/i],
+    ["derivative", /\b(?:derivative|differentiate|d\/d[a-z]|slope|gradient|rate of change)\b|\b[a-z]'\s*\(/i],
     ["integral", /\b(?:integral|integrate|area under)\b|\u222b/i],
     ["choose", /\b(?:choose|combinations?|committees?|subsets?|select(?:ed|ing)?|pick(?:ed|ing)?)\b|\bC\(\s*\d/],
-    ["permute", /\b(?:permutations?|arrange(?:ments?)?|orderings?|ordered)\b|\bP\(\s*\d/],
+    ["permute", /\b(?:permutations?|arrange(?:d|ments?)?|orderings?|ordered|(?:different\s+|possible\s+)?orders\b|line[ds]?\s+up|lined\s+up|in\s+a\s+(?:row|line|queue)|queue[ds]?\s+up|seat(?:ed|ing)?\s+in\s+a\s+row)\b|\bP\(\s*\d/i],
     ["gcd", /\b(?:gcd|greatest common (?:divisor|factor)|highest common factor|hcf)\b/i],
     ["lcm", /\b(?:lcm|least common multiple|lowest common multiple)\b/i],
     ["modpow", /\b(?:mod|modulo|remainder)\b/i],
@@ -748,7 +748,7 @@
     ["solve", /\b(?:solve|roots?|solutions?|zeros?|satisf(?:y|ies)|what is [a-z]\b|find [a-z]\b|value of [a-z]\b|for which [a-z]\b)/i]
   ];
   var NUMWORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-                  eleven: 11, twelve: 12, once: 1, twice: 2, thrice: 3 };
+                  eleven: 11, twelve: 12, once: 1, twice: 2, thrice: 3, pair: 2, couple: 2, dozen: 12 };
   function normMath(t) {
     return " " + t.replace(/\b(?:is equal to|equals|is equal)\b/gi, " = ")
       .replace(/\b(?:is|equals?|be|becomes?)\s+zero\b/gi, " = 0").replace(/([\dA-Za-z)])\s+zero\b/g, "$1 = 0")
@@ -800,8 +800,47 @@
     return m ? F(m[1]) : null;
   }
 
+  /* Readings defined by what a question DESCRIBES rather than by a keyword:
+     the greatest number dividing both a and b is their gcd, the least number
+     both divide is their lcm; every member of a group interacting once with
+     every other is the number of unordered pairs; the remainder of a
+     division; the sum of a run of consecutive integers. */
+  function describe(t) {
+    var P, m, low = wordsToNumbers(t.toLowerCase());
+    var ints = (low.match(/-?\d+/g) || []).map(Number);
+    var maxWord = /\b(?:largest|greatest|biggest|highest|maximum)\b/.test(low), minWord = /\b(?:smallest|least|lowest|minimum|first)\b/.test(low);
+    if (ints.length === 2 && (maxWord || minWord)) {
+      var divides = /\bthat\s+(?:evenly\s+|exactly\s+)?divides?\b|\bdividing\b|\bdivisor\b|\bfactor\b|\bgoes\s+(?:evenly\s+)?into\s+(?:both|each)/.test(low);
+      var multiple = /\bdivisible\s+by\b|\bmultiple\s+of\b|\b\d+\s+and\s+\d+\s+(?:both\s+|each\s+)?(?:divide|go)\b|\bboth\s+\d+\s+and\s+\d+\s+(?:divide|go)\b/.test(low);
+      if (maxWord && divides && !multiple) { P = newProblem("number_theory", "gcd", t); P.a = BigInt(ints[0]); P.b = BigInt(ints[1]); P.unknowns = ["gcd"]; P.reading = "the greatest common divisor of " + ints[0] + " and " + ints[1]; return P; }
+      if (minWord && multiple) { P = newProblem("number_theory", "lcm", t); P.a = BigInt(ints[0]); P.b = BigInt(ints[1]); P.unknowns = ["lcm"]; P.reading = "the least common multiple of " + ints[0] + " and " + ints[1]; return P; }
+    }
+    /* each member interacting once with every other member: unordered pairs */
+    if (ints.length === 1 && /\b(?:each|every)\b/.test(low) &&
+        (/\b(?:with|against|to)\s+(?:every(?:one|body)?(?:\s+(?:else|other))?|each\s+other|all\s+(?:the\s+)?others?)\b/.test(low) ||
+         /\bevery\s+other\s+\w+/.test(low) || /\beach\s+other\b/.test(low))) {
+      P = newProblem("combinatorics", "choose", t); P.n = BigInt(ints[0]); P.k = 2n; P.unknowns = ["pairs"];
+      P.reading = "one interaction per unordered pair of " + ints[0]; return P;
+    }
+    if ((m = low.match(/\bremainder\s+(?:when|of|after)\s+(-?\d+)\s+(?:is\s+)?divided\s+by\s+(\d+)/)) ||
+        (m = low.match(/\b(-?\d+)\s+(?:mod|modulo)\s+(\d+)\b(?!\s*\^)/))) {
+      if (+m[2] === 0) return null;
+      P = newProblem("number_theory", "mod", t); P.a = BigInt(m[1]); P.m = BigInt(m[2]); P.unknowns = ["remainder"]; return P;
+    }
+    if ((m = low.match(/\b(?:sum|add(?:\s+up)?|total)\b[^\d]{0,40}?(?:numbers|integers|whole numbers|natural numbers)?\s*from\s+(-?\d+)\s+(?:to|through|up to)\s+(-?\d+)/))) {
+      var a0 = BigInt(m[1]), b0 = BigInt(m[2]);
+      if (b0 < a0 || b0 - a0 > 10000000n) return null;
+      P = newProblem("algebra", "rangesum", t); P.lo = a0; P.hi = b0; P.unknowns = ["sum"]; return P;
+    }
+    return null;
+  }
+
   function compose(t) {
     var intent = null, i;
+    /* "a pair of dice", "a couple of coins": collective nouns are counts */
+    t = t.replace(/\ba\s+(pair|couple|dozen)\s+of\b/gi, function (_, w) { return String(COLLECTIVE[w.toLowerCase()]); });
+    var described = describe(t);
+    if (described) return described;
     for (i = 0; i < INTENTS.length; i++) if (INTENTS[i][1].test(t)) { intent = INTENTS[i][0]; break; }
     var spans = mathSpans(t), ints = intsOf(t), P;
     var eqs = spans.filter(function (s) { return s.eq; }), exprs = spans.filter(function (s) { return !s.eq; });
@@ -843,6 +882,13 @@
     var nums = ints.map(function (x) { return x.v; }).filter(function (v) { return v !== undefined; });
     if (intent === "choose" || intent === "permute") {
       var digits = ints.filter(function (x) { return /\d/.test(x.w); }).map(function (x) { return x.v; });
+      if (intent === "permute" && digits.length === 1 && digits[0] <= 200) {
+        /* arranging all n items: n! */
+        P = newProblem("combinatorics", "permute", t);
+        P.n = BigInt(digits[0]); P.k = BigInt(digits[0]); P.unknowns = ["arrangements"];
+        P.reading = "orderings of all " + digits[0];
+        return P;
+      }
       if (digits.length < 2) return null;
       var n = Math.max(digits[0], digits[1]), k = Math.min(digits[0], digits[1]);
       P = newProblem("combinatorics", intent, t);
@@ -857,7 +903,12 @@
       return P;
     }
     if (intent === "dice") {
-      var nd = near(t, ints, "dice|die"), tm = t.match(/\b(?:sum|total)\b[^\d]{0,24}(\d+)/i) || t.match(/(\d+)[^\d]{0,12}\b(?:sum|total)\b/i);
+      var nd = near(t, ints, "dice|die"),
+          tm = t.match(/\b(?:sum|total|add(?:s|ing)?\s+(?:up\s+)?to|come\s+to|comes\s+to)\b[^\d]{0,24}(\d+)/i) || t.match(/(\d+)[^\d]{0,12}\b(?:sum|total)\b/i) ||
+               /* "rolling a 6": the face shown, which for several dice is their total */
+               t.match(/\b(?:roll(?:s|ed|ing)?|throw(?:s|n|ing)?|get(?:s|ting)?|land(?:s|ing)?\s+on|show(?:s|ing)?)\s+(?:a|an)?\s*(\d+)\b(?!\s*(?:dice|die)\b)/i);
+      /* "a die", "one die", "a single die" is one die */
+      if (nd === null && /\b(?:a|one|the|single|a\s+single|1)\s+(?:fair\s+|six-sided\s+|standard\s+)?die\b/i.test(t)) nd = 1;
       if (!nd || !tm) return null;
       P = newProblem("probability", "dice", t);
       P.n = nd; P.faces = 6; P.target = parseInt(tm[1], 10);
@@ -866,13 +917,280 @@
     }
     if (intent === "coins") {
       var kk = near(t, ints, "heads|tails"), nn = near(t, ints, "times|flips|tosses|coins|coin flips|coin tosses");
+      /* quantifiers: "both land heads", "all heads", "no heads" */
+      if (kk === null && nn !== null) {
+        if (/\b(?:both|all|every(?:\s+one)?|each)\b[^.?]{0,30}\b(?:heads|tails)\b/i.test(t)) kk = nn;
+        else if (/\b(?:no|none|zero)\b[^.?]{0,30}\b(?:heads|tails)\b/i.test(t)) kk = 0;
+      }
       if (kk === null || nn === null || kk > nn) return null;
       P = newProblem("probability", "coins", t);
       P.k = kk; P.n = nn; P.p = "0.5";
+      P.cmp = /\bat\s+least\b|\bor\s+more\b/i.test(t) ? "ge" : /\bat\s+most\b|\bor\s+(?:fewer|less)\b/i.test(t) ? "le" : "eq";
       P.assumptions.push("the coin is fair and flips are independent"); P.unknowns = ["probability"];
       return P;
     }
     return null;
+  }
+
+  /* ------------------------------------------- quantitative English -> algebra
+     English states arithmetic with its own grammar: operand order flips in
+     "five less than x" and "4 subtracted from x", "the sum of A and B" is a
+     prefix operator, "doubled and then increased by 7" is a postfix chain,
+     "triple a number and subtract 4" is a sequence of imperatives acting on
+     a running value, and "is / gives / you get" is equality. These rules are
+     that grammar -- compositional and recursive, so they read sentences
+     nobody listed -- not a table of sentences. The unknown is whatever the
+     text refers to as "a number", "the number", "it", ... */
+  var SMALL = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
+  var TENS = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+  var DENOM = { half: 2, halves: 2, third: 3, thirds: 3, quarter: 4, quarters: 4, fourth: 4, fourths: 4, fifth: 5, fifths: 5,
+    sixth: 6, sixths: 6, seventh: 7, sevenths: 7, eighth: 8, eighths: 8, ninth: 9, ninths: 9, tenth: 10, tenths: 10 };
+  /* collective quantity nouns: "a pair of dice" is two dice */
+  var COLLECTIVE = { pair: 2, couple: 2, dozen: 12, score: 20, trio: 3, triple: 3, quartet: 4 };
+
+  function wordsToNumbers(t) {
+    t = " " + t + " ";
+    t = t.replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[\s-]+(one|two|three|four|five|six|seven|eight|nine)\b/g,
+      function (_, a, b) { return String(TENS[a] + SMALL[b]); });
+    t = t.replace(/\b(a|one|two|three|four|five|six|seven|eight|nine|ten)\s+(hundred|thousand)\b/g,
+      function (_, a, b) { return String((a === "a" ? 1 : SMALL[a]) * (b === "hundred" ? 100 : 1000)); });
+    /* fractions before plain numbers: "three quarters of", "a third of", "half of" */
+    t = t.replace(/\b(a|an|one|two|three|four|five|six|seven|eight|nine)\s+(halves|half|thirds?|quarters?|fourths?|fifths?|sixths?|sevenths?|eighths?|ninths?|tenths?)\b/g,
+      function (_, a, b) { return " " + (a === "a" || a === "an" ? 1 : SMALL[a]) + "/" + DENOM[b] + " "; });
+    t = t.replace(/\bhalf\b/g, " 1/2 ");
+    t = t.replace(/\ba\s+(pair|couple|dozen|score|trio|quartet)\s+of\b/g, function (_, w) { return " " + COLLECTIVE[w] + " "; });
+    t = t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)\b/g,
+      function (w) { return String(SMALL[w]); });
+    t = t.replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g, function (w) { return String(TENS[w]); });
+    t = t.replace(/\btwice\b/g, " twice ").replace(/\bthrice\b/g, " triple ");
+    return t.replace(/\s+/g, " ").trim();
+  }
+
+  var UNKNOWN = /^(?:(?:a|the|some|this|that|my|an|one|a certain|an unknown|the unknown|the same|what|which)\s+)?(?:number|integer|value|quantity|unknown)$|^(?:it|itself|x|n)$/;
+  var NUM_ATOM = /^-?\d+(?:\.\d+)?(?:\/\d+)?$/;
+
+  function wrap(e) { return /^[\w.]+$/.test(e) ? e : "(" + e + ")"; }
+  /* split ``p`` at the first top-level occurrence of ``re`` (words only;
+     the grammar has no brackets), returning [left, right] or null */
+  function splitFirst(p, re) {
+    var m = re.exec(p);
+    if (!m || m.index === 0) return null;
+    var l = p.slice(0, m.index).trim(), r = p.slice(m.index + m[0].length).trim();
+    return l && r ? [l, r, m] : null;
+  }
+  function splitLast(p, re) {
+    var g = new RegExp(re.source, "g"), m, last = null;
+    while ((m = g.exec(p))) { if (m.index > 0) last = { index: m.index, len: m[0].length, m: m }; if (!m[0].length) g.lastIndex++; }
+    if (!last) return null;
+    var l = p.slice(0, last.index).trim(), r = p.slice(last.index + last.len).trim();
+    return l && r ? [l, r, last.m] : null;
+  }
+
+  var POSTFIX = /\b(doubled|tripled|quadrupled|halved|squared|cubed|(?:increased|decreased|reduced|multiplied|divided|raised|lowered)\s+by\s+.+|raised\s+to\s+.+)$/;
+  function applyPostfix(e, verb) {
+    var m;
+    if (verb === "doubled") return "2*" + wrap(e);
+    if (verb === "tripled") return "3*" + wrap(e);
+    if (verb === "quadrupled") return "4*" + wrap(e);
+    if (verb === "halved") return wrap(e) + "/2";
+    if (verb === "squared") return wrap(e) + "^2";
+    if (verb === "cubed") return wrap(e) + "^3";
+    if ((m = verb.match(/^(increased|decreased|reduced|lowered|multiplied|divided|raised)\s+by\s+(.+)$/))) {
+      var b = phraseExpr(m[2]);
+      if (b === null) return null;
+      var op = { increased: "+", decreased: "-", reduced: "-", lowered: "-", multiplied: "*", divided: "/", raised: "+" }[m[1]];
+      return wrap(e) + op + wrap(b);
+    }
+    if ((m = verb.match(/^raised\s+to\s+(?:the\s+)?(?:power\s+of\s+)?(.+)$/))) {
+      var k = phraseExpr(m[1].replace(/(\d+)(?:st|nd|rd|th)(?:\s+power)?/, "$1"));
+      return k === null ? null : wrap(e) + "^" + wrap(k);
+    }
+    return null;
+  }
+
+  /* An English noun phrase of arithmetic -> expression string, or null. */
+  function phraseExpr(p) {
+    p = String(p).trim().replace(/^(?:the|a|an)\s+(?=(?:sum|product|difference|quotient|square|cube|result|total)\b)/, "")
+                        .replace(/[,.;:!?]+$/, "").trim();
+    if (!p) return null;
+    if (NUM_ATOM.test(p)) return p;
+    if (UNKNOWN.test(p)) return "x";
+    var s, e;
+    /* "A less than B" = B - A; "A more than B" = B + A (lowest precedence) */
+    if ((s = splitFirst(p, /\s+(?:less|fewer)\s+than\s+/))) { var a1 = phraseExpr(s[0]), b1 = phraseExpr(s[1]); return a1 !== null && b1 !== null ? wrap(b1) + "-" + wrap(a1) : null; }
+    if ((s = splitFirst(p, /\s+(?:more|greater|larger|bigger)\s+than\s+/))) { var a2 = phraseExpr(s[0]), b2 = phraseExpr(s[1]); return a2 !== null && b2 !== null ? wrap(b2) + "+" + wrap(a2) : null; }
+    if ((s = splitFirst(p, /\s+subtracted\s+from\s+/))) { var a3 = phraseExpr(s[0]), b3 = phraseExpr(s[1]); return a3 !== null && b3 !== null ? wrap(b3) + "-" + wrap(a3) : null; }
+    if ((s = splitFirst(p, /\s+added\s+to\s+/))) { var a4 = phraseExpr(s[0]), b4 = phraseExpr(s[1]); return a4 !== null && b4 !== null ? wrap(b4) + "+" + wrap(a4) : null; }
+    /* sequential postfix chain: "a number doubled and then increased by 7" */
+    if ((s = splitLast(p, /\s*,?\s+and\s+(?:then\s+)?(?=(?:doubled|tripled|halved|squared|cubed|increased|decreased|reduced|lowered|multiplied|divided|raised)\b)/))) {
+      var left = phraseExpr(s[0]);
+      return left === null ? null : applyPostfix(left, s[1]);
+    }
+    /* prefix operators */
+    var m;
+    if ((m = p.match(/^sum\s+of\s+(.+?)\s+and\s+(.+)$/))) { var x1 = phraseExpr(m[1]), y1 = phraseExpr(m[2]); return x1 !== null && y1 !== null ? wrap(x1) + "+" + wrap(y1) : null; }
+    if ((m = p.match(/^product\s+of\s+(.+?)\s+and\s+(.+)$/))) { var x2 = phraseExpr(m[1]), y2 = phraseExpr(m[2]); return x2 !== null && y2 !== null ? wrap(x2) + "*" + wrap(y2) : null; }
+    if ((m = p.match(/^difference\s+(?:between|of)\s+(.+?)\s+and\s+(.+)$/))) { var x3 = phraseExpr(m[1]), y3 = phraseExpr(m[2]); return x3 !== null && y3 !== null ? wrap(x3) + "-" + wrap(y3) : null; }
+    if ((m = p.match(/^quotient\s+of\s+(.+?)\s+and\s+(.+)$/))) { var x4 = phraseExpr(m[1]), y4 = phraseExpr(m[2]); return x4 !== null && y4 !== null ? wrap(x4) + "/" + wrap(y4) : null; }
+    /* infix, left-associative: split at the LAST additive, then multiplicative operator */
+    if ((s = splitLast(p, /\s+(plus|minus|and)\s+(?!then\b)/))) {
+      if (s[2][1] !== "and" || /^\d/.test(s[1])) {
+        var l5 = phraseExpr(s[0]), r5 = phraseExpr(s[1]);
+        if (l5 !== null && r5 !== null) return wrap(l5) + (s[2][1] === "minus" ? "-" : "+") + wrap(r5);
+      }
+    }
+    if ((s = splitLast(p, /\s+(times|multiplied\s+by|divided\s+by|over)\s+/))) {
+      var l6 = phraseExpr(s[0]), r6 = phraseExpr(s[1]);
+      if (l6 !== null && r6 !== null) return wrap(l6) + (/times|multiplied/.test(s[2][1]) ? "*" : "/") + wrap(r6);
+    }
+    if ((s = splitFirst(p, /\s+(?:to\s+the\s+power\s+of|raised\s+to(?:\s+the\s+power\s+of)?)\s+/))) {
+      var l7 = phraseExpr(s[0]), r7 = phraseExpr(s[1].replace(/(\d+)(?:st|nd|rd|th)(?:\s+power)?$/, "$1"));
+      if (l7 !== null && r7 !== null) return wrap(l7) + "^" + wrap(r7);
+    }
+    if ((m = p.match(/^(.+?)\s+to\s+the\s+(\d+)(?:st|nd|rd|th)(?:\s+power)?$/))) { var b8 = phraseExpr(m[1]); return b8 !== null ? wrap(b8) + "^" + m[2] : null; }
+    if ((m = p.match(/^(?:twice|double)\s+(.+)$/))) { e = phraseExpr(m[1]); return e !== null ? "2*" + wrap(e) : null; }
+    if ((m = p.match(/^(?:triple|treble)\s+(.+)$/))) { e = phraseExpr(m[1]); return e !== null ? "3*" + wrap(e) : null; }
+    if ((m = p.match(/^square\s+root\s+of\s+(.+)$/))) { e = phraseExpr(m[1]); return e !== null ? "sqrt" + "(" + e + ")" : null; }
+    if ((m = p.match(/^(?:square|second\s+power)\s+of\s+(.+)$/))) { e = phraseExpr(m[1]); return e !== null ? wrap(e) + "^2" : null; }
+    if ((m = p.match(/^(?:cube|third\s+power)\s+of\s+(.+)$/))) { e = phraseExpr(m[1]); return e !== null ? wrap(e) + "^3" : null; }
+    if ((m = p.match(/^(-?\d+(?:\.\d+)?)\s*(?:%|percent|per\s+cent)\s+of\s+(.+)$/))) { e = phraseExpr(m[2]); return e !== null ? m[1] + "/100*" + wrap(e) : null; }
+    if ((m = p.match(/^(\d+\/\d+)\s+of\s+(.+)$/))) { e = phraseExpr(m[2]); return e !== null ? m[1] + "*" + wrap(e) : null; }
+    /* postfix on an atom or phrase: "a number squared", "the number halved" */
+    if ((m = p.match(POSTFIX)) && m.index > 0) {
+      var base = phraseExpr(p.slice(0, m.index));
+      return base === null ? null : applyPostfix(base, m[1]);
+    }
+    return null;
+  }
+
+  /* Imperative chains acting on a running value:
+     "(I) triple a number and subtract 4", "add 13 to it",
+     "multiply 12 by itself", "divide it by 3 and then square it". */
+  var IMP = /^(?:double|triple|quadruple|halve|square|cube|add|subtract|take\s+away|multiply|divide|times|take|start\s+with|pick|choose|think\s+of)\b/;
+  function imperativeExpr(clause) {
+    var c = clause.replace(/^(?:if|when|suppose|then)\s+/, "").replace(/^(?:i|you|we|they|someone|one)\s+(?:first\s+)?/, "")
+                  .replace(/\s*,?\s*and\s*$/, "").trim();
+    if (!IMP.test(c)) return null;
+    var parts = c.split(/\s*,?\s+(?:and\s+)?then\s+|\s*,\s*(?:and\s+)?|\s+and\s+(?=(?:double|triple|quadruple|halve|square|cube|add|subtract|take\s+away|multiply|divide)\b)/);
+    var run = null, i, m;
+    for (i = 0; i < parts.length; i++) {
+      var s = parts[i].trim().replace(/^(?:i|you|we)\s+/, "");
+      if (!s) continue;
+      /* "it" is the running value once there is one; before that it refers
+         back to the unknown the text introduced ("a number ... add 13 to it") */
+      var target = function (x) {
+        if (!x || /^(?:it|the result|that|this)$/.test(x)) return run !== null ? run : (x ? "x" : null);
+        return phraseExpr(x);
+      };
+      if ((m = s.match(/^(?:take|start\s+with|pick|choose|think\s+of)\s+(.+)$/)) && !/^away\b/.test(m[1])) {
+        /* "take a number": the running value starts as that quantity */
+        run = phraseExpr(m[1]);
+        if (run === null) return null;
+        continue;
+      }
+      if ((m = s.match(/^(double|triple|quadruple|halve|square|cube)\s*(.*)$/))) {
+        var v = target(m[2]);
+        if (v === null) return null;
+        run = { double: "2*" + wrap(v), triple: "3*" + wrap(v), quadruple: "4*" + wrap(v), halve: wrap(v) + "/2",
+                square: wrap(v) + "^2", cube: wrap(v) + "^3" }[m[1]];
+      } else if ((m = s.match(/^add\s+(.+?)(?:\s+to\s+(.+))?$/))) {
+        var a = phraseExpr(m[1]), to = m[2] ? target(m[2]) : run;
+        if (a === null || to === null) return null;
+        run = wrap(to) + "+" + wrap(a);
+      } else if ((m = s.match(/^(?:subtract|take\s+away)\s+(.+?)(?:\s+from\s+(.+))?$/))) {
+        var sb = phraseExpr(m[1]), from = m[2] ? target(m[2]) : run;
+        if (sb === null || from === null) return null;
+        run = wrap(from) + "-" + wrap(sb);
+      } else if ((m = s.match(/^(multiply|divide|times)\s+(.+?)\s+by\s+(.+)$/)) || (m = s.match(/^(multiply|divide)\s+by\s+(.+)()$/))) {
+        var lhs = m[3] === "" ? run : target(m[2]), byStr = m[3] === "" ? m[2] : m[3];
+        var by = /^itself$/.test(byStr) ? lhs : phraseExpr(byStr);
+        if (lhs === null || by === null) return null;
+        run = wrap(lhs) + (m[1] === "divide" ? "/" : "*") + wrap(by);
+      } else return null;
+      if (run === null) return null;
+    }
+    return run;
+  }
+
+  var EQUALS = /\s+(?:is\s+equal\s+to|equals?|is|are|gives?|yields?|results\s+in|makes|comes\s+to|becomes|leaves|(?:you|i|we|they)(?:'ll)?\s+(?:get|have|end\s+up\s+with|obtain|are\s+left\s+with)|(?:in\s+order\s+)?to\s+(?:get|make|obtain|reach|end\s+up\s+with))\s+/;
+
+  function sideExpr(p) {
+    p = p.trim().replace(/,$/, "");
+    return imperativeExpr(p) || phraseExpr(p.replace(/^(?:if|when)\s+/, ""));
+  }
+
+  /* Read a (possibly multi-sentence) prose problem. Returns
+     { kind: "equation", eq } | { kind: "system", eqs } | { kind: "arithmetic", expr } | null */
+  /* Passive voice states the same operations: "a number is multiplied by 5
+     and then 2 is subtracted" is "a number multiplied by 5, decreased by 2";
+     "the result is R" equates R with everything computed before it. */
+  function activeVoice(t) {
+    /* the target runs to the clause boundary: "8 is added to five times a
+       number, the result is 48" adds 8 to the whole product */
+    var TARGET = "((?:[^,;.]*?\\s)?(?:(?:a|the|some|this|that|a certain)\\s+(?:number|integer|value)|it))";
+    return t
+      .replace(new RegExp("\\b(-?\\d+(?:\\.\\d+)?(?:\\/\\d+)?)\\s+is\\s+added\\s+to\\s+" + TARGET + "\\b", "g"), "$1 more than $2")
+      .replace(new RegExp("\\b(-?\\d+(?:\\.\\d+)?(?:\\/\\d+)?)\\s+is\\s+(?:subtracted|taken\\s+away)\\s+from\\s+" + TARGET + "\\b", "g"), "$1 less than $2")
+      .replace(/\b(is|are|gets|get)\s+(multiplied|divided|increased|decreased|reduced|raised|lowered)\s+by\b/g, "$2 by")
+      .replace(/\b(is|are|gets|get)\s+(doubled|tripled|quadrupled|halved|squared|cubed)\b/g, "$2")
+      .replace(/\b(?:and\s+)?(?:then\s+)?(-?\d+(?:\.\d+)?(?:\/\d+)?)\s+is\s+(?:subtracted|taken\s+away)(?:\s+from\s+(?:it|that|the\s+result))?/g, " and then decreased by $1")
+      .replace(/\b(?:and\s+)?(?:then\s+)?(-?\d+(?:\.\d+)?(?:\/\d+)?)\s+is\s+added(?:\s+to\s+(?:it|that|the\s+result))?/g, " and then increased by $1")
+      .replace(/\s*,?\s*(?:and\s+)?the\s+(?:result|answer|outcome|total)\s+(?=is\b|equals?\b|will\s+be\b)/g, " ")
+      .replace(/\bwill\s+be\b/g, "is")
+      .replace(/\s+/g, " ").trim();
+  }
+
+  function prose(text) {
+    var t = activeVoice(wordsToNumbers(String(text).toLowerCase().replace(/[’']/g, "'").replace(/\bi'm\b/g, "i am")));
+    /* two unknowns stated as a pair of relations */
+    if (/\btwo\s+(?:numbers|integers|values)\b|\b2\s+(?:numbers|integers|values)\b/.test(t)) {
+      var eqs = [], m;
+      var OFTHEM = "(?:\\s+of\\s+(?:the\\s+)?(?:two\\s+|2\\s+)?(?:numbers|integers|values|them)|\\s+between\\s+them)?";
+      if ((m = t.match(new RegExp("\\b(?:add\\s+up\\s+to|sum\\s+to|sum" + OFTHEM + "\\s+is|have\\s+a\\s+sum\\s+of|total)\\s+(-?\\d+(?:\\.\\d+)?)")))) eqs.push("x+y=" + m[1]);
+      if ((m = t.match(new RegExp("\\b(?:differ\\s+by|difference" + OFTHEM + "\\s+is|have\\s+a\\s+difference\\s+of)\\s+(-?\\d+(?:\\.\\d+)?)")))) eqs.push("x-y=" + m[1]);
+      if ((m = t.match(/\bone\s+is\s+(\d+(?:\.\d+)?)\s+times\s+the\s+other\b/))) eqs.push("x=" + m[1] + "*y");
+      if ((m = t.match(/\bone\s+is\s+(\d+(?:\.\d+)?)\s+more\s+than\s+the\s+other\b/))) eqs.push("x-y=" + m[1]);
+      if (eqs.length === 2) return { kind: "system", eqs: eqs, reading: eqs.join(", ") };
+    }
+    var sentences = t.split(/(?<=[.!?;])\s+/).map(function (s) { return s.replace(/[.!?;]+$/, "").trim(); }).filter(Boolean);
+    /* "... . The result is 26." -- a sentence that only states the value
+       completes the computation described in the sentence before it */
+    for (var k = 1; k < sentences.length; k++) {
+      if (/^(?:is|equals?)\s+-?\d/.test(sentences[k])) { sentences[k - 1] = sentences[k - 1] + " " + sentences[k]; sentences.splice(k, 1); k--; }
+    }
+    var hasUnknown = /\b(?:a|the|some|this|that|a certain|an unknown|what|which)\s+(?:number|integer|value)\b|\bit\b/.test(t);
+    for (var i = 0; i < sentences.length; i++) {
+      var sent = sentences[i];
+      /* the question sentence ("what is the number?") states nothing */
+      if (/^(?:what|find|which|determine|solve|give)\b/.test(sent) && !/\d/.test(sent.replace(/^what\s+number/, ""))) continue;
+      var clause = sent.replace(/^(?:i am thinking of a number|think of a number)\s*,?\s*/, "");
+      /* "if P, (then) Q" -> P = Q's number;  "X is N" */
+      var parts = null, mm;
+      if ((mm = clause.match(/^(?:if|when)\s+(.+?)\s*,?\s*(?:then\s+)?(?:you|i|we|they)(?:'ll)?\s+(?:get|have|end\s+up\s+with|obtain|are\s+left\s+with)\s+(.+)$/))) parts = [mm[1], mm[2]];
+      else {
+        var sp = splitLast(clause, EQUALS);
+        if (sp) parts = [sp[0], sp[1]];
+      }
+      if (!parts) continue;
+      var L = sideExpr(parts[0].replace(/^what\s+number\b/, "a number")), R = sideExpr(parts[1]);
+      if (L === null || R === null) continue;
+      if (/x/.test(L + R) && hasUnknown) return { kind: "equation", eq: L + "=" + R, reading: L + " = " + R };
+    }
+    return null;
+  }
+
+  /* The same grammar for a quantity with no unknown: "the square of 17",
+     "three quarters of 200", "multiply 12 by itself". */
+  function proseArithmetic(text) {
+    var t = wordsToNumbers(String(text).toLowerCase().replace(/[’']/g, "'"))
+      .replace(/[?.!]+$/, "")
+      .replace(/^(?:please\s+)?(?:what(?:'s| is| are)|what do you get (?:when|if) you|what would you get (?:when|if) you|how much is|calculate|compute|evaluate|work out|find)\s+/, "")
+      .trim();
+    if (!t || /\b(?:number|integer|value)\b/.test(t)) return null;
+    var e = imperativeExpr(t) || phraseExpr(t);
+    if (e === null || !/[-+*\/^]|sqrt/.test(e) || /x/.test(e)) return null;
+    return { kind: "arithmetic", expr: e };
   }
 
   /* Does the text carry algebra (a variable bound to a coefficient or an
@@ -895,8 +1213,32 @@
     var C2 = null;
     try { C2 = compose(stem); } catch (e) { C2 = null; }
     if (C2) { C2.options = mc.options; C2.composed = true; return C2; }
+    /* prose: the sentence states the equation in words */
+    var pz = null;
+    try { pz = prose(stem); } catch (e) { pz = null; }
+    if (pz) {
+      var kindP = pz.kind === "system" ? "system" : "equation";
+      var P3 = PARSERS.filter(function (q) { return q.kind === kindP; })[0].fn("solve " + (pz.kind === "system" ? pz.eqs.join(", ") : pz.eq));
+      if (P3) {
+        P3.reading = pz.reading; P3.options = mc.options;
+        P3.assumptions.push("the sentence reads as " + pz.reading);
+        return P3;
+      }
+    }
+    var pa = null;
+    try { pa = proseArithmetic(stem); } catch (e) { pa = null; }
+    if (pa) {
+      var ea = parseExpr(pa.expr);
+      if (ea && !Object.keys(varsOf(ea)).length) {
+        var P4 = newProblem("arithmetic", "arithmetic", stem);
+        P4.expr = ea; P4.fromProse = true; P4.reading = pa.expr; P4.unknowns = ["value"]; P4.options = mc.options;
+        return P4;
+      }
+    }
     return null;
   }
+
+  function cmpOk(P, j) { return P.cmp === "ge" ? j >= P.k : P.cmp === "le" ? j <= P.k : j === P.k; }
 
   /* ======================================================== derivations */
 
@@ -965,10 +1307,24 @@
     ],
     gcd: [
       function (P) { var v = gcdEuclid(P.a, P.b); return ans(v, v.toString(), "Euclid's algorithm", { key: v.toString() }); },
+      function (P) {
+        /* the definition, searched: the largest d dividing both */
+        var hi = P.a < P.b ? P.a : P.b;
+        if (hi > 2000000n || hi <= 0n) return null;
+        for (var d = hi; d >= 1n; d--) if (P.a % d === 0n && P.b % d === 0n) return ans(d, d.toString(), "exhaustive search of common divisors", { key: d.toString() });
+        return null;
+      },
       function (P) { var v = gcdFactor(P.a, P.b); return ans(v, v.toString(), "common prime factors", { key: v.toString() }); }
     ],
     lcm: [
       function (P) { var v = P.a * P.b / gcdEuclid(P.a, P.b); return ans(v, v.toString(), "ab / gcd(a,b)", { key: v.toString() }); },
+      function (P) {
+        /* the definition, searched: the smallest positive multiple of both */
+        var big = P.a > P.b ? P.a : P.b;
+        if (P.a <= 0n || P.b <= 0n || P.a * P.b > 5000000n) return null;
+        for (var m = big; m <= P.a * P.b; m += big) if (m % P.a === 0n && m % P.b === 0n) return ans(m, m.toString(), "search of common multiples", { key: m.toString() });
+        return null;
+      },
       function (P) {
         var fa = factorize(P.a), fb = factorize(P.b), cnt = {};
         fa.forEach(function (p) { cnt[p] = Math.max(cnt[p] || 0, fa.filter(function (q) { return q === p; }).length); });
@@ -993,8 +1349,34 @@
       function (P) { var v = diceConvolve(P.n, P.faces, P.target); return ans(v, fracText(v), "convolution of distributions", { key: v.toString() }); }
     ],
     coins: [
-      function (P) { var v = binomProb(P.n, P.k, P.p); return ans(v, fracText(v), "binomial formula", { key: v.toString() }); },
-      function (P) { var v = binomEnumerate(P.n, P.k, P.p); return v && ans(v, fracText(v), "enumerate sequences", { key: v.toString() }); }
+      function (P) {
+        var v = ZERO, j;
+        for (j = 0; j <= P.n; j++) if (cmpOk(P, j)) v = v.add(binomProb(P.n, j, P.p));
+        return ans(v, fracText(v), "binomial formula", { key: v.toString() });
+      },
+      function (P) {
+        if (P.n > 20) return null;
+        var pp = F(P.p), q = ONE.sub(pp), v = ZERO;
+        for (var m = 0; m < (1 << P.n); m++) {
+          var c = 0, x = m; while (x) { c += x & 1; x >>= 1; }
+          if (cmpOk(P, c)) v = v.add(pp.pow(c).mul(q.pow(P.n - c)));
+        }
+        return ans(v, fracText(v), "enumerate sequences", { key: v.toString() });
+      }
+    ],
+    mod: [
+      function (P) { var r = ((P.a % P.m) + P.m) % P.m; return ans(r, r.toString(), "division algorithm", { key: r.toString() }); },
+      function (P) {
+        var a = P.a, m = P.m, steps = 0n;
+        if ((a < 0n ? -a : a) / m > 5000000n) return null;
+        while (a >= m) { a -= m; steps++; }
+        while (a < 0n) { a += m; steps++; }
+        return ans(a, a.toString(), "repeated subtraction", { key: a.toString() });
+      }
+    ],
+    rangesum: [
+      function (P) { var v = (P.lo + P.hi) * (P.hi - P.lo + 1n) / 2n; return ans(v, v.toString(), "Gauss pairing formula", { key: v.toString() }); },
+      function (P) { if (P.hi - P.lo > 2000000n) return null; var v = 0n; for (var i = P.lo; i <= P.hi; i++) v += i; return ans(v, v.toString(), "direct summation", { key: v.toString() }); }
     ],
     series: [
       function (P) {
@@ -1117,6 +1499,10 @@
       var small = { n: 3n, which: P.which }, m = METHODS.series;
       return m[0](small).key === m[1](small).key;
     }], ["parity/magnitude", function (P, a) { return a.value >= P.n; }]],
+    mod: [["range 0 <= r < m", function (P, a) { return a.value >= 0n && a.value < P.m; }],
+          ["a - r is a multiple of m", function (P, a) { return (P.a - a.value) % P.m === 0n; }]],
+    rangesum: [["mean times count", function (P, a) { return a.value * 2n === (P.lo + P.hi) * (P.hi - P.lo + 1n); }],
+               ["bounds", function (P, a) { var n = P.hi - P.lo + 1n; return a.value >= P.lo * n && a.value <= P.hi * n; }]],
     path: [["triangle inequality on direct edges", function (P, a) {
       if (a.value === null) return null;
       var direct = P.edges.filter(function (e) { return (e[0] === P.src && e[1] === P.dst) || (e[1] === P.src && e[0] === P.dst); });
@@ -1331,6 +1717,11 @@
     var r = solveProblem(P);
     if (!r) return null;
     var lead = r.choice && r.choice.answer ? "(" + r.choice.answer + ") " : "";
+    /* a question asked in words about "the number" is answered in words */
+    if (P.reading && P.kind === "equation" && Array.isArray(r.value) && r.value.length) {
+      r.answer = "The number is " + r.value.map(function (v) { return v instanceof Frac ? v.toString() : fmt(v); }).join(" or ");
+    }
+    if (P.reading && P.kind === "arithmetic") r.answer = r.answer + " (" + P.reading.replace(/\*/g, " × ") + ")";
     var how = r.agreeing.length > 1 ? " Checked by " + r.agreeing.length + " independent methods (" + r.agreeing.join(", ") + ")" : " Derived by " + r.agreeing[0];
     var checks = [];
     r.derivations.forEach(function (d) { d.checks.forEach(function (c) { if (c.pass && checks.indexOf(c.name) < 0) checks.push(c.name); }); });
@@ -1404,7 +1795,9 @@
     numDeriv: numDeriv, simpson: simpson, dijkstra: dijkstra, bellmanFord: bellmanFord, csp: csp,
     parse: parse, parseOptions: parseOptions, solveProblem: solveProblem, answer: answer,
     checkDerivation: checkDerivation, analyze: analyze, verifyValue: verifyValue,
-    verifySteps: verifySteps, extrapolate: extrapolate, compose: compose, hasAlgebra: hasAlgebra, mathSpans: mathSpans, visualGraph: visualGraph, visualQuery: visualQuery,
+    verifySteps: verifySteps, extrapolate: extrapolate, compose: compose, hasAlgebra: hasAlgebra, mathSpans: mathSpans,
+    prose: prose, proseArithmetic: proseArithmetic, phraseExpr: phraseExpr, imperativeExpr: imperativeExpr,
+    wordsToNumbers: wordsToNumbers, visualGraph: visualGraph, visualQuery: visualQuery,
     METHODS: METHODS, VERIFIERS: VERIFIERS
   };
   root.C4LMProblem = PR;

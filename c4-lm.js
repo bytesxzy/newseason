@@ -1359,11 +1359,14 @@
      equations, systems, calculus, combinatorics, number theory, probability,
      shortest paths, multiple choice -- solved by independent derivations
      that must survive falsification (c4-lm-problem.js). */
-  function answerProblem(frame) {
+  function answerProblem(frame, allowProseArithmetic) {
     if (!PRB || off("problem")) return null;
     var p = null;
     try { p = PRB.answer(frame.rawText || frame.body || ""); } catch (e) { p = null; }
-    if (!p || p.kind === "arithmetic") return null;
+    /* Arithmetic over the digits is the operator library's job; arithmetic
+       READ from English ("three quarters of 200", "multiply 12 by itself")
+       is accepted only once the operator library has declined. */
+    if (!p || (p.kind === "arithmetic" && !(allowProseArithmetic && p.problem && p.problem.fromProse))) return null;
     return { text: RZ.polish(p.text), route: "reason", confidence: p.confidence, sources: [], defects: [],
              derivations: p.derivations.length, verification: { agreeing: p.agreeing, eliminated: p.eliminated,
              diagnoses: p.diagnoses, calibration: p.calibration } };
@@ -1378,6 +1381,30 @@
     var structured = answerProblem(frame);
     if (structured) { structured.interpretation = "structured"; return structured; }
     var r = RS.solve(frame);
+    /* Arithmetic read compositionally from the English comes before the
+       numeral re-read below: "three quarters of 200" re-read as "3/4 of 200"
+       would hand the operator library a fragment ("3/4") of the question. */
+    if (!r && !off("prose")) {
+      var proseArith = answerProblem(frame, true);
+      if (proseArith) { proseArith.interpretation = "prose-arithmetic"; return proseArith; }
+    }
+    /* Second reading: numbers written as words ("two hours", "a dozen")
+       re-read as numerals, so the operator library sees the quantities the
+       sentence states. Only a changed text is re-parsed. */
+    if (!r && PRB && PRB.wordsToNumbers && !off("prose")) {
+      var rawT = frame.rawText || frame.body || "", alt = PRB.wordsToNumbers(rawT);
+      if (alt !== rawT) {
+        var altFrame = C.parse(alt, discourse.snapshot());
+        if (altFrame && !altFrame.empty) {
+          r = RS.solve(altFrame);
+          /* a bare evaluation that leaves a stated number unused read a
+             fragment of the sentence, not the sentence */
+          var stated = alt.match(/\d+(?:\.\d+)?/g) || [];
+          if (r && r.kind === "arithmetic" && stated.some(function (n) { return String(r.expression || "").indexOf(n) < 0; })) r = null;
+          if (r) frame = altFrame;
+        }
+      }
+    }
     if (!r) return null;
     var cal = calibrateReason(r, frame);
     var out = answerReasonText(frame, r);
@@ -1528,6 +1555,565 @@
       text: "I'm not sure what to look into there. Give me a topic, a question, or a calculation and I'll take it from the top.",
       route: "insufficient", confidence: 0.2, insufficient: true, sources: []
     };
+  }
+
+  /* ======================================================== deliberation */
+
+  /* System 2 for questions the first pass answered weakly. The router picks
+     ONE reading of the words, and that is where an idiom ("the pen behind
+     Hamlet"), a metaphor ("the tongue of Brazil"), a keyword fragment or an
+     answer of the wrong type goes wrong. Deliberation generates other
+     readings from general knowledge -- entities the knowledge base can spot
+     in the words, relations named directly or through another dictionary
+     sense of a word (chosen by gloss overlap with the rest of the sentence),
+     words a dictionary gloss paraphrases -- answers each one through the
+     ordinary resolvers, and scores every candidate on one scale: did a
+     resolver actually answer, how much of the question does the answer
+     account for, is it the type of thing asked for, and how far is the
+     reading from the words as written. The first answer is replaced only by
+     a clear margin, and the reading used is recorded on the result. Nothing
+     here names a question, an idiom or an entity. */
+
+  /* English closed-class words (prepositions, particles, speaker pronouns):
+     grammar, not content, so they never count for or against coverage. */
+  var CLOSED_CLASS = /^(?:about|above|across|after|against|along|among|around|at|before|behind|below|beneath|beside|between|beyond|by|down|during|except|for|from|in|inside|into|near|of|off|on|onto|out|outside|over|past|since|through|throughout|to|toward|towards|under|underneath|until|up|upon|with|within|without|away|back|me|us|you|your|my|our|we|they|them|just|really|exactly|actually|need|needs|get|gets|got)$/;
+  /* A word whose sense is "information about something" (a summary, the
+     facts, an account) frames a request for the thing; it is not content. */
+  var ABOUT_GLOSS = /\b(?:information|facts?|summary|account|news|overview|main point|general meaning)\b/;
+  var DELIB_MARGIN = 0.75, DELIB_BUDGET_MS = 300, DELIB_MAX_READINGS = 10;
+
+  function lexSenses(w) {
+    var LX = root.C4LMLexicon, h = LX && LX.lookup(w);
+    return h ? h.senses : [];
+  }
+  function aboutWord(t) {
+    return lexSenses(t).some(function (s) {
+      return (s.cls === "COMMUNICATION" || s.cls === "ABSTRACT") && ABOUT_GLOSS.test(s.gloss);
+    });
+  }
+  /* Light (support) verbs carry tense and aspect, not content: "keep its
+     government", "put pen to paper", "gave us the theory". */
+  var LIGHT_VERB = /^(?:keep|keeps|kept|keeping|have|has|had|having|make|makes|made|making|take|takes|took|taken|taking|give|gives|gave|given|giving|put|puts|putting|go|goes|went|gone|going|come|comes|came|coming|bring|brings|brought|let|lets)$/;
+  function grammarToken(t) { return !t || t.length <= 2 || !!C.STOP[t] || CLOSED_CLASS.test(t); }
+  function neutralToken(t) { return grammarToken(t) || LIGHT_VERB.test(t); }
+  /* The head region of a gloss: up to the first relative clause or
+     purpose phrase, where the defining nouns sit. */
+  function glossHead(gloss) {
+    var out = [], ws = C.words(gloss);
+    for (var i = 0; i < ws.length && i < 12; i++) {
+      if (/^(?:who|whom|which|that|where|when|whose|used|because|by|as)$/.test(ws[i]) && out.length) break;
+      if (!C.STOP[ws[i]]) out.push(ws[i]);
+    }
+    return out;
+  }
+  function stemIn(hay, t) {
+    if (!t) return false;
+    if (hay.indexOf(t) >= 0) return true;
+    var st = C.stem(t);
+    if (st.length >= 3 && hay.indexOf(st) >= 0) return true;
+    return t.length >= 6 && hay.indexOf(t.slice(0, 5)) >= 0;
+  }
+  function relationEntry(id) {
+    for (var i = 0; i < C.relations.length; i++) if (C.relations[i].id === id) return C.relations[i];
+    return null;
+  }
+
+  /* A speaker-directed imperative ("break down X for me", "walk me through
+     X") is a request: its verb and particles are the act of asking. */
+  function speakerRequest(frame) {
+    var t = frame.tokens;
+    if (!t.length || /^(?:what|which|who|whom|whose|when|where|why|how|is|are|was|were|do|does|did|can|could|would|should|will)$/.test(t[0])) return false;
+    return /\b(?:me|us)\b/.test(frame.lower);
+  }
+  /* In a speaker-directed request the leading verb is the act of asking
+     ("break down X for me", "walk me through X"); only that verb and its
+     particle are set aside, never the words that say what is asked. */
+  function requestVerbs(frame) {
+    if (!speakerRequest(frame)) return [];
+    var t = frame.tokens, out = [t[0]];
+    if (t[1] && CLOSED_CLASS.test(t[1])) out.push(t[1]);
+    return out;
+  }
+  function isRequest(frame) {
+    return frame.speechAct === "question" || frame.speechAct === "command" || frame.hasQuestionMark ||
+           speakerRequest(frame) || (frame.speechAct === "statement" && frame.contentTokens.length <= 5);
+  }
+
+  /* Entities the knowledge base holds, spotted anywhere in the words:
+     longest spans first, never starting or ending on a function word. */
+  function spotEntities(frame) {
+    if (!KB || off("kb")) return [];
+    var surf = String(frame.semanticText || frame.body || "").match(/[A-Za-z0-9][A-Za-z0-9'’.+#-]*[A-Za-z0-9+#]|[A-Za-z0-9]/g) || [];
+    var toks = surf.map(function (w) { return w.replace(/['’]s$/i, ""); });
+    var used = [], out = [];
+    for (var pass = 0; pass < 2 && !(pass && out.length); pass++)
+    for (var n = Math.min(5, toks.length); n >= 1; n--) {
+      for (var i = 0; i + n <= toks.length; i++) {
+        var span = toks.slice(i, i + n), lo = span.map(function (s) { return s.toLowerCase(); });
+        if (used.slice(i, i + n).some(Boolean)) continue;
+        if (neutralToken(lo[0]) || neutralToken(lo[n - 1]) || /^(?:what|which|who|how|why|when|where)$/.test(lo[0])) continue;
+        var phrase = span.join(" ");
+        var hit = KB.resolve(phrase, { strict: true }).filter(genuineMatch)[0];
+        /* a plural names the kind ("volcanoes" is about the volcano) -- a
+           second pass, so a plural never splits a phrase that names a thing */
+        if (pass && (!hit || hit.score < 0.85) && /s$/i.test(phrase)) {
+          var one = span.slice(0, -1).concat([singularize(span[n - 1].toLowerCase()).replace(/oe$/, "o")]).join(" ");
+          hit = KB.resolve(one, { strict: true }).filter(genuineMatch)[0] || KB.resolve(one.replace(/e$/, ""), { strict: true }).filter(genuineMatch)[0];
+        }
+        if (!hit || hit.score < 0.85) continue;
+        out.push({ phrase: displayName(hit.entity), entity: hit.entity, start: i, len: n,
+                   tokens: lo.map(function (x) { return C.flatten(x); }) });
+        for (var k = i; k < i + n; k++) used[k] = true;
+      }
+    }
+    out.sort(function (a, b) { return b.len - a.len || a.start - b.start; });
+    return out;
+  }
+
+  /* Relations the question names: a relation noun or verb as written, or a
+     relation noun in the head of one of a word's dictionary senses. A
+     sense is preferred when its gloss shares words with the rest of the
+     sentence (gloss overlap -- the Lesk criterion); the words it shares are
+     accounted for by that reading. */
+  function relationCues(frame, entTok) {
+    var cues = [], ctx = frame.contentTokens;
+    function push(c) {
+      for (var i = 0; i < cues.length; i++) {
+        if (cues[i].rel === c.rel && cues[i].from === c.from) { if (c.cost < cues[i].cost) cues[i] = c; return; }
+      }
+      cues.push(c);
+    }
+    ctx.forEach(function (t) {
+      if (entTok[t] || grammarToken(t)) return;
+      var direct = C.relationForHead(t);
+      if (direct && relationEntry(direct) && relationEntry(direct).heads.length) push({ rel: direct, head: t, from: t, cost: 0, accounts: [t] });
+      var verb = C.relationForVerb(t);
+      if (verb && !direct) push({ rel: verb, head: (relationEntry(verb) || { heads: [t] }).heads[0] || t, from: t, cost: 0.05, accounts: [t] });
+      lexSenses(t).forEach(function (s, si) {
+        var head = glossHead(s.gloss), gl = C.flatten(s.gloss);
+        var shared = ctx.filter(function (o) { return o !== t && !neutralToken(o) && !entTok[o] && stemIn(gl, o); });
+        head.forEach(function (g) {
+          if (g === t) return;
+          var r = s.pos === "v" ? C.relationForVerb(g) : C.relationForHead(g);
+          if (!r || !relationEntry(r) || !relationEntry(r).heads.length) return;
+          var h = s.pos === "v" ? relationEntry(r).heads[0] : g;
+          push({ rel: r, head: h, from: t, cost: Math.max(0.05, (si ? 0.35 : 0.2) - 0.25 * shared.length),
+                 accounts: [t].concat(shared), sense: s.gloss, figurative: si > 0 });
+        });
+      });
+    });
+    cues.sort(function (a, b) { return a.cost - b.cost; });
+    return cues;
+  }
+
+  /* Words a dictionary gloss paraphrases: "turn to ice" is what the gloss
+     of "freeze" says. Each such word stands in for the tokens it covers. */
+  function glossParaphrases(frame, entTok, ents) {
+    var LX = root.C4LMLexicon, out = [];
+    if (!LX || !LX.raw) return out;
+    var ctx = frame.contentTokens.filter(function (t) { return !entTok[t] && !neutralToken(t); });
+    /* what the named things ARE is context too: "where does France keep its
+       government" is about a country's government */
+    var typed = ctx.slice();
+    (ents || []).forEach(function (e) { C.words(e.entity.type || "").forEach(function (w) { if (typed.indexOf(w) < 0) typed.push(w); }); });
+    if (!ctx.length || typed.length < 2) return out;
+    Object.keys(LX.raw).forEach(function (w) {
+      if (ctx.indexOf(w) >= 0) return;
+      (LX.raw[w] || []).forEach(function (s) {
+        var head = C.words(s.gloss).map(function (g) { return g.replace(/'s$/, ""); })
+          .filter(function (g) { return !C.STOP[g] && g.length > 2; }).slice(0, 8);
+        if (head.length < 2) return;
+        var match = function (t) { return head.some(function (g) { return g === t || C.stem(g) === C.stem(t); }); };
+        var hit = typed.filter(match), own = ctx.filter(match);
+        if (own.length && hit.length >= 2 && hit.length * 2 >= Math.min(head.length, 4)) out.push({ word: w, accounts: own });
+      });
+    });
+    return out.slice(0, 6);
+  }
+
+  /* The type of thing the question asks for. "which/what N" asks for an
+     instance of N; "how ADJ" for a quantity (a temperature when the
+     adjective's gloss is about temperature); who/where/when as usual. */
+  function expectedType(frame, cues) {
+    var l = frame.lower, m;
+    var rel = frame.relation && relationEntry(frame.relation);
+    if (rel && /^(?:person|place|time|quantity)$/.test(rel.answerType)) return { kind: rel.answerType };
+    /* a polar question wants a position taken, yes or no */
+    if (frame.queryForm === "yesno" || /^(?:is|are|was|were|do|does|did|can|could|has|have|will|should)\s+(?:the\s+|a\s+|an\s+)?[a-z]/.test(C.flatten(frame.semanticText || frame.body)))
+      return { kind: "polar" };
+    if (/\bwho(?:'s|m|se)?\b/.test(l)) return { kind: "person" };
+    if (/^where\b|\bwhere (?:is|are|was|were|does|do|did)\b/.test(l)) return { kind: "place" };
+    if (/^when\b|\bwhat (?:year|date|century|decade)\b/.test(l)) return { kind: "time" };
+    if ((m = l.match(/\bhow ([a-z]+)\b/)) && !/^(?:do|does|did|can|could|is|are|was|were|come|would|should|will|to|about|so)$/.test(m[1])) {
+      var hot = m[1] === "temperature" || lexSenses(m[1]).some(function (s) { return /temperature/.test(s.gloss); });
+      return { kind: hot ? "temperature" : "quantity", word: m[1] };
+    }
+    if ((m = l.match(/\b(?:what|which)\s+([a-z]+)\b/)) && !C.STOP[m[1]] && !/^(?:is|are|was|were|do|does|did|makes|causes)$/.test(m[1])) {
+      if (m[1] === "temperature" || lexSenses(m[1]).some(function (s) { return /temperature/.test(s.gloss); })) return { kind: "temperature", word: m[1] };
+      var rels = (cues || []).filter(function (c) { return c.from === m[1]; }).map(function (c) { return c.rel; });
+      if (rels.length) return { kind: "relation", word: m[1], rels: rels };
+    }
+    return { kind: "" };
+  }
+  function typeFit(type, result, frame) {
+    var text = String(result.text || "");
+    switch (type.kind) {
+      case "person": {
+        var names = text.match(/\b[A-Z][a-z'-]+(?:\s+(?:van|von|de|da|di|del|der|la|le|bin|al)?\s*[A-Z][a-z'-]+)+/g) || [];
+        return names.some(function (n) { return C.flatten(frame.body).indexOf(C.flatten(n)) < 0; }) ? 1 : -1;
+      }
+      case "place":
+        return (result.relation === "capital" || result.relation === "location" ||
+                (text.match(/\b[A-Z][a-z]+/g) || []).slice(1).some(function (n) { return frame.body.indexOf(n) < 0; })) ? 1 : -1;
+      case "time": return /\b(?:1\d{3}|20\d{2})\b|\bcentury\b|\b\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|November|December)\b/.test(text) ? 1 : -1;
+      case "temperature": return /°|\bdegrees?\b|\bkelvin\b/i.test(text) ? 1 : -1;
+      case "quantity": return /\d/.test(text) ? 1 : -1;
+      case "relation": return type.rels.indexOf(result.relation) >= 0 ? 1 : -1;
+      case "polar": return /\b(?:yes|no|not|never|isn't|aren't|wasn't|doesn't|don't|didn't|cannot|can't)\b/i.test(text) ? 1 : -1;
+    }
+    return 0;
+  }
+
+  /* How much of the question an answer accounts for: each content token is
+     found in the answer (by stem), or consumed by the reading (a sense
+     substitution whose relation the answer delivered, a paraphrase the
+     answer uses), or it names the answer type and the type fits. A noun
+     glued to an entity ("computer science" when only "computer" is known)
+     counts double: answering the shorter name answers a different
+     question. */
+  function coverage(frame, result, reading, type, fit, ents) {
+    var hay = C.flatten(String(result.text || "") + " " + (result.entity || ""))
+      .replace(/°\s*f\b/g, " fahrenheit ").replace(/°\s*c\b/g, " celsius ");
+    var entTok = Object.create(null);
+    ents.forEach(function (e, ei) { e.tokens.forEach(function (t) { entTok[t] = ei + 1; }); });
+    /* a compositional reading restates the question's words by construction,
+       so finding them in it is only half the evidence */
+    var echo = (result.composed || result.route === "compose") ? 0.5 : 1;
+    var total = 0, got = 0, toks = frame.contentTokens, all = frame.tokens;
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      if (neutralToken(t) || aboutWord(t) || (!entTok[t] && requestVerbs(frame).indexOf(t) >= 0)) continue;
+      var w = 1, at = all.indexOf(t);
+      var sn = lexSenses(t), nounish = entTok[t] || (sn.length && sn.every(function (s) { return s.pos === "n"; }));
+      var glued = function (o) { return o && entTok[o] && entTok[o] !== entTok[t]; };
+      if (nounish && at >= 0 && (glued(all[at - 1]) || glued(all[at + 1]))) w = 2;
+      total += w;
+      if (stemIn(hay, t)) { got += w * echo; continue; }
+      if (result.accounted && result.accounted.indexOf(t) >= 0) { got += w; continue; }
+      if (reading && reading.accounts && reading.accounts.indexOf(t) >= 0 &&
+          (!reading.rel || result.relation === reading.rel || reading.paraphrase)) { got += w; continue; }
+      if (type.word === t && fit > 0) { got += w; continue; }
+    }
+    return total ? got / total : 1;
+  }
+
+  function routeScore(result) {
+    if (!result || !result.text) return -Infinity;
+    if (result.insufficient || result.route === "insufficient" || result.route === "none") return -2;
+    if (result.conversational || result.route === "conversation") return -1.5;
+    /* a compositional reading is a guess when the composer itself could not
+       fit a sense to the phrase (its own confidence says so) */
+    if (result.composed || result.route === "compose") return (result.confidence || 0) >= 0.6 ? 0.5 : -1.5;
+    if (result.clarification) return -0.5;
+    if (result.defined || result.route === "lexicon") return 0;
+    return 1;
+  }
+  function scoreCandidate(frame, result, reading, type, ents) {
+    var fit = typeFit(type, result, frame);
+    var cov = coverage(frame, result, reading, type, fit, ents);
+    var s = routeScore(result) + 3 * cov + 0.8 * fit + 0.3 * (result.confidence || 0) - (reading ? reading.cost : 0);
+    return { score: s, coverage: cov, fit: fit };
+  }
+
+  /* Choose from an entity's own facts the sentence that answers the most of
+     the question -- its definition, its stored statements, its relations. */
+  function answerByFacts(frame, entity, paraphrases, type, entTok) {
+    var facts = [];
+    if (entity.defn) facts.push(entity.defn);
+    Object.keys(entity.extra || {}).forEach(function (k) {
+      var v = entity.extra[k];
+      if (typeof v === "string" && v.length > 12 && /[.!?]$/.test(v.trim()) && /\s/.test(v)) facts.push(v);
+    });
+    factPool(entity, "").forEach(function (s) { facts.push(s); });
+    /* relations the fact pool does not verbalise are stated plainly */
+    Object.keys(entity.rel || {}).forEach(function (k) {
+      var v = entity.rel[k];
+      if (typeof v !== "string" || !v || k === "type") return;
+      if (k === "count" && /\s/.test(v)) facts.push(displayName(entity) + " has " + v + ".");
+      else if (!/^(?:capital|currency|language|population|continent|location|country|birth|death|creator|author|artist|purpose|part|height|length|symbol|capitalOf)$/.test(k))
+        facts.push("The " + (RELATION_LABEL[k] || k) + " of " + displayName(entity) + " is " + v + ".");
+    });
+    var ask = frame.contentTokens.filter(function (t) { return !entTok[t] && !neutralToken(t) && !aboutWord(t); });
+    if (!ask.length) return null;
+    var best = null;
+    facts.forEach(function (f) {
+      var hay = C.flatten(f), got = 0, via = [];
+      ask.forEach(function (t) {
+        if (stemIn(hay, t)) { got++; return; }
+        if (paraphrases.some(function (p) { return p.accounts.indexOf(t) >= 0 && stemIn(hay, p.word); })) { got++; via.push(t); }
+      });
+      var fit = typeFit(type, { text: f }, frame);
+      var s = got + 0.8 * Math.max(0, fit);
+      if (got && (!best || s > best.s)) best = { s: s, text: f, via: via };
+    });
+    if (!best) return null;
+    /* the fact pool speaks of "it"; a standalone answer names its subject */
+    var name = displayName(entity);
+    best.text = best.text.replace(/^Its\s/, name + "'s ").replace(/^It\s/, name + " ");
+    return { text: RZ.polish(RZ.terminate(best.text)), route: "knowledge", entity: entity.name, confidence: 0.75,
+             sources: ["local knowledge base"], defects: [], factSelected: true, accounted: best.via };
+  }
+
+  /* A question that names a unit the answer does not use gets the answer's
+     quantity converted into it, by the same converter arithmetic uses. */
+  var SCALE = { c: "celsius", celsius: "celsius", centigrade: "celsius", f: "fahrenheit", fahrenheit: "fahrenheit" };
+  function conformUnits(frame, result) {
+    if (!RS || !result || !result.text || off("units")) return result;
+    var asked = (frame.lower.match(/\b(fahrenheit|celsius|centigrade)\b/) || [])[1];
+    if (!asked) return result;
+    var want = SCALE[asked], text = String(result.text);
+    var q = text.match(/(-?\d+(?:\.\d+)?)\s*(?:°\s*|degrees?\s+)(c|f|celsius|fahrenheit)\b/i);
+    if (!q || SCALE[q[2].toLowerCase()] === want) return result;
+    if (new RegExp("°\\s*" + want.charAt(0) + "\\b|\\b" + want + "\\b", "i").test(text)) return result;
+    var conv = RS.solve(C.parse("convert " + q[1] + " degrees " + SCALE[q[2].toLowerCase()] + " to " + want, {}));
+    if (!conv || conv.value === undefined) return result;
+    result.text = RZ.terminate(text.replace(/[.!?]\s*$/, "")) + " That is " + RS.fmtNumber(conv.value) + " °" + want.charAt(0).toUpperCase() + ".";
+    result.unitConformed = want;
+    return result;
+  }
+
+  /* The longest run of content words: what a question is about once its
+     interrogative, light verb and particles are set aside. */
+  function nounPhrase(frame) {
+    var best = [], run = [];
+    frame.tokens.concat([""]).forEach(function (t) {
+      if (t && !neutralToken(t) && !/^(?:who|what|which|where|when|why|how)(?:'s)?$/.test(t)) run.push(t);
+      else { if (run.length > best.length) best = run; run = []; }
+    });
+    return best.join(" ");
+  }
+  /* A word no local source knows -- not in the lexicon, the vocabulary or
+     the knowledge base. */
+  function unknownWord(t) {
+    if (neutralToken(t) || /\d/.test(t)) return false;
+    if (lexSenses(t).length || (C.knownWord && C.knownWord(t))) return false;
+    return !(KB && KB.resolve(t, { strict: true }).length);
+  }
+  /* The answer is about a known thing while the question's subject is a
+     name nothing here knows: "freezing point of zorbanium" answered with
+     the freezing point of water is a confident answer to a different
+     question, and it is withdrawn. */
+  function offTopic(frame, result) {
+    if (!result || !result.entity || result.multiHop || !frame.subject) return false;
+    var subj = C.words(frame.subject).filter(function (t) { return !neutralToken(t); });
+    if (!subj.some(unknownWord)) return false;
+    var name = C.flatten(result.entity);
+    return !subj.some(function (t) { return stemIn(name, t); });
+  }
+
+  /* A keyword fragment with numbers leaves out the words that say what to
+     do with them ("two power ten", "20 degrees Celsius Fahrenheit"). The
+     missing connective is searched for: a reading inserts one connective
+     between two words and/or a leading request, the exact solver tries it,
+     and only a reading whose worked steps use every stated number is kept. */
+  var FRAG_LEAD = ["", "convert ", "what is ", "how ", "how many "];
+  var FRAG_JOIN = ["to", "of", "in", "to the power of"];
+  function completeFragment(frame, t0) {
+    if (!RS || !PRB || !PRB.wordsToNumbers || off("fragment")) return null;
+    var text = PRB.wordsToNumbers(String(frame.semanticText || frame.body || "")).replace(/[?.!]+$/, "").trim();
+    var toks = text.split(/\s+/), nums = text.match(/\d+(?:\.\d+)?/g) || [];
+    if (!nums.length || toks.length > 7 || /^(?:what|which|who|how|why|when|where|is|are|do|does|can)\b/i.test(text)) return null;
+    for (var li = 0; li < FRAG_LEAD.length; li++) {
+      var tries = [FRAG_LEAD[li] + text];
+      for (var g = 1; g < toks.length; g++) {
+        FRAG_JOIN.forEach(function (j) {
+          /* the connective goes between two words, or stands in for the one
+             word that only gestured at it ("2 power 10") */
+          tries.push(FRAG_LEAD[li] + toks.slice(0, g).join(" ") + " " + j + " " + toks.slice(g).join(" "));
+          if (g < toks.length - 1) tries.push(FRAG_LEAD[li] + toks.slice(0, g).join(" ") + " " + j + " " + toks.slice(g + 1).join(" "));
+        });
+      }
+      for (var k = 0; k < tries.length; k++) {
+        if (now() - t0 > DELIB_BUDGET_MS) return null;
+        var f2 = C.parse(tries[k], discourse.snapshot()), r = null, out = null, worked = "";
+        try { r = f2 && !f2.empty ? RS.solve(f2) : null; } catch (e) { r = null; }
+        if (r && r.value !== undefined && r.ok !== false) {
+          worked = (r.steps || []).concat([r.expression || ""]).join(" ");
+          out = answerReasonText(f2, r);
+        } else {
+          /* the English arithmetic reader is the second solver */
+          var p = null;
+          try { p = PRB.answer(tries[k]); } catch (e) { p = null; }
+          if (!p || p.kind !== "arithmetic" || !p.problem || !p.problem.fromProse) continue;
+          worked = String(p.problem.expr || "");
+          out = { text: RZ.polish(p.text), route: "reason", confidence: p.confidence, sources: [], defects: [] };
+        }
+        worked = " " + worked.replace(/[^\d.]+/g, " ") + " ";
+        if (!out || !nums.every(function (n) { return worked.indexOf(" " + n + " ") >= 0; })) continue;
+        out.accounted = frame.contentTokens.slice();
+        out.reading = tries[k];
+        return { cand: out, why: "fragment read as “" + tries[k] + "”" };
+      }
+    }
+    return null;
+  }
+
+  function weakness(frame, result, decision) {
+    if (!result || result.memoryTurn || result.code) return "";
+    if (result.route === "code" || result.route === "compute" || result.route === "reason" || result.route === "memory") return "";
+    if (decision && decision.features && decision.features.social) return "";
+    if (frame.metaSelf || !isRequest(frame)) return "";
+    /* a question about the present has no better local reading: an honest
+       "could not reach a live source" must not be traded for a definition */
+    if (frame.requiresFreshInformation || result.caveat) return "";
+    /* an answer whose form the user dictated (a list, one word, N sentences)
+       does not restate the question by design; coverage cannot judge it */
+    if (frame.requiresList || frame.onlyValue || frame.requestedLength ||
+        (frame.requestedFormat && frame.requestedFormat !== "prose")) return "";
+    if (routeScore(result) <= -1.5) return result.route === "compose" ? "compositional guess" : "no answer";
+    return "check";
+  }
+
+  function deliberate(frame, decision, result) {
+    if (off("deliberation") || !C || !KB) return result;
+    var why = weakness(frame, result, decision);
+    if (!why) return result;
+    var t0 = now();
+    if (offTopic(frame, result)) {
+      var honest = fallback(frame, null);
+      honest.deliberation = { trigger: "off-topic", withdrawn: result.entity };
+      return honest;
+    }
+    conformUnits(frame, result);
+    var ents = spotEntities(frame), entTok = Object.create(null);
+    ents.forEach(function (e) { e.tokens.forEach(function (t) { entTok[t] = 1; }); });
+    /* A request to explain a named thing that nothing here knows is not
+       small talk: say so, rather than "say more". */
+    function keep(record) {
+      var names = frame.entities.some(function (e) { return C.flatten(e) !== frame.tokens[0]; }) ||
+                  frame.contentTokens.some(unknownWord);
+      /* a word's dictionary sense given for a "who"/"where"/"when" question,
+         or small talk given for a request naming a thing, answers a question
+         nobody asked: say what is missing instead */
+      var wrongKind = (result.route === "lexicon" || result.defined || result.route === "compose" || result.composed) &&
+                      base && base.fit < 0 && /^(?:person|place|time)$/.test(type.kind);
+      /* a keyword fragment ("melting point of blorvium") is a question even
+         without a question mark; one that speaks of the speaker is not */
+      var impersonal = !frame.tokens.some(function (t) { return /^(?:i|i'm|i've|i'd|me|my|mine|we|us|our|you|your|yours)$/.test(t); });
+      var fragmentAsk = frame.speechAct === "statement" && impersonal && (frame.relation || ents.length) &&
+                        frame.contentTokens.some(unknownWord);
+      if ((result.route === "conversation" && ((speakerRequest(frame) && names) || fragmentAsk)) || wrongKind) {
+        /* name the part nothing here knows: the parsed subject if it holds
+           the unknown word, else the phrase that does */
+        var unknownSubject = frame.subject && C.words(frame.subject).some(unknownWord) ? frame.subject : "";
+        var none = fallback(Object.assign({}, frame, { subject: unknownSubject || nounPhrase(frame) || frame.subject }), null);
+        none.deliberation = record || { trigger: why };
+        none.deliberation.withdrawn = result.route;
+        return none;
+      }
+      if (record) result.deliberation = record;
+      return result;
+    }
+    /* reading a phrase word by word when it names something the knowledge
+       base holds is the weaker reading, whatever the composer's confidence */
+    if (why === "check" && (result.composed || result.route === "compose") && ents.length) why = "composed over a named thing";
+    var cues = relationCues(frame, entTok), type = { kind: "" }, base = null;
+    type = expectedType(frame, cues);
+    base = scoreCandidate(frame, result, null, type, ents);
+    /* A solid first answer that accounts for the question and fits its type
+       is left alone: deliberation is paid for only when it can matter. */
+    var stated = String(frame.semanticText || frame.body || "").match(/\d+(?:\.\d+)?/g) || [];
+    var usesNumbers = stated.every(function (n) { return String(result.text || "").indexOf(n) >= 0; });
+    if (why === "check" && base.coverage >= 0.66 && base.fit >= 0 && usesNumbers) return result;
+    if (routeScore(result) <= 0 && (frame.queryForm === "statement" || frame.queryForm === "compute")) {
+      var frag = completeFragment(frame, t0);
+      if (frag) {
+        var fsc = scoreCandidate(frame, frag.cand, { cost: 0.3, accounts: [] }, type, ents);
+        if (fsc.score >= base.score + DELIB_MARGIN) {
+          frag.cand.interpretation = frag.why;
+          frag.cand.deliberation = { trigger: why, chosen: frag.why, base: Math.round(base.score * 100) / 100,
+                                     score: Math.round(fsc.score * 100) / 100 };
+          state.profile.push({ label: "deliberate", ms: now() - t0 });
+          return frag.cand;
+        }
+      }
+    }
+    if (!ents.length && !cues.length) return keep(null);
+
+    var paraphrases = glossParaphrases(frame, entTok, ents);
+    /* a paraphrased word that is itself a relation noun is a relation cue:
+       "keep its government" paraphrases "capital" */
+    paraphrases.forEach(function (p) {
+      var r = C.relationForHead(p.word);
+      if (r && relationEntry(r) && relationEntry(r).heads.length && !cues.some(function (c) { return c.rel === r; })) {
+        cues.push({ rel: r, head: p.word, from: p.accounts[0], cost: 0.3, accounts: p.accounts });
+      }
+    });
+    /* "who ..." about a work or an invention asks for its maker: every
+       relation whose answer is a person is a reading */
+    if (type.kind === "person") {
+      C.relations.forEach(function (r) {
+        if (r.answerType === "person" && r.heads.length && !cues.some(function (c) { return c.rel === r.id; })) {
+          cues.push({ rel: r.id, head: r.heads[0], from: "", cost: 0.35, accounts: [] });
+        }
+      });
+    }
+    var readings = [];
+    var explainy = frame.requiresExplanation || /^(?:why|how)$/.test(frame.queryForm);
+    ents.slice(0, 2).forEach(function (e, ei) {
+      cues.slice(0, 6).forEach(function (c) {
+        var who = (relationEntry(c.rel) || {}).answerType === "person" || type.kind === "person";
+        readings.push({ text: (who ? "Who is the " : "What is the ") + c.head + " of " + e.phrase + "?",
+                        cost: c.cost + 0.1 + ei * 0.1, rel: c.rel, accounts: c.accounts,
+                        why: "“" + c.from + "” read as " + c.head + (c.sense ? " (" + c.sense + ")" : "") });
+      });
+      readings.push({ facts: e.entity, cost: 0.15 + ei * 0.1, accounts: [], paraphrase: true,
+                      why: "facts of " + e.phrase });
+      readings.push({ text: (explainy ? "Explain " : "What is ") + e.phrase + "?", cost: 0.3 + ei * 0.1, accounts: [],
+                      why: "about " + e.phrase });
+    });
+    /* The sentence as written with one figurative word in its other sense. */
+    cues.filter(function (c) { return c.figurative; }).slice(0, 2).forEach(function (c) {
+      var re = new RegExp("\\b" + c.from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+      var sub = String(frame.rawText || frame.body).replace(re, c.head);
+      if (sub !== frame.rawText) readings.push({ text: sub, cost: c.cost, rel: c.rel, accounts: c.accounts,
+                                                 why: "“" + c.from + "” read as " + c.head });
+    });
+    /* The first frame through the resolvers the router did not pick. */
+    readings.push({ resolver: "content", cost: 0.2, accounts: [], why: "content retrieval" });
+
+    var best = null, considered = 0, tried = [];
+    for (var i = 0; i < readings.length && considered < DELIB_MAX_READINGS; i++) {
+      if (now() - t0 > DELIB_BUDGET_MS) break;
+      var rd = readings[i], cand = null;
+      try {
+        if (rd.facts) cand = answerByFacts(frame, rd.facts, paraphrases, type, entTok);
+        else if (rd.resolver === "content") cand = answerKBByContent(frame, decision);
+        else {
+          var f2 = C.parse(rd.text, discourse.snapshot());
+          if (f2 && !f2.empty) cand = localResolvers(f2, decide(f2, discourse));
+        }
+      } catch (e) { cand = null; }
+      considered++;
+      if (!cand || !cand.text || cand.clarification) continue;
+      conformUnits(frame, cand);
+      var sc = scoreCandidate(frame, cand, rd, type, ents);
+      tried.push({ reading: rd.why, route: cand.route, score: Math.round(sc.score * 100) / 100,
+                   coverage: Math.round(sc.coverage * 100) / 100, fit: sc.fit });
+      if (!best || sc.score > best.sc.score) best = { cand: cand, sc: sc, reading: rd };
+    }
+    state.profile.push({ label: "deliberate", ms: now() - t0 });
+    var record = { trigger: why, considered: considered, base: Math.round(base.score * 100) / 100,
+                   type: type.kind, readings: tried };
+    if (best && best.sc.score >= base.score + DELIB_MARGIN && routeScore(best.cand) > 0 && best.sc.coverage >= 0.5) {
+      var out = best.cand;
+      out.confidence = Math.min(out.confidence || 0.7, 0.8);
+      out.interpretation = best.reading.why;
+      record.chosen = best.reading.why; record.score = Math.round(best.sc.score * 100) / 100;
+      out.deliberation = record;
+      return out;
+    }
+    return keep(record);
   }
 
   /* ============================================================ driver */
@@ -1780,6 +2366,9 @@
      low-confidence answer is softened rather than asserted. */
   function finish(frame, result, t0, decision) {
     result = result || { text: "", route: "none", confidence: 0 };
+    /* A weak first answer gets a second, deliberate reading before it is
+       committed; the time it takes is part of the reported latency. */
+    if (decision) result = deliberate(frame, decision, result) || result;
     result.latency_ms = Math.round((now() - t0) * 100) / 100;
     result.frame = {
       subject: frame.subject, relation: frame.relation, form: frame.queryForm,

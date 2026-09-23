@@ -56,7 +56,10 @@
      expression is tokenised and reduced, so nothing in a user message can
      execute. */
   function evaluateExpression(src) {
-    var text = arithmeticize(src);
+    /* "15% 240": a percent sign attached to its number and followed by
+       another number is a percentage of it; modulo is written "15 % 240",
+       "15%240" or "15 mod 240" */
+    var text = arithmeticize(src).replace(/(\d)%\s+(?=\d)/g, "$1/100*");
     var m = text.match(/(?:sqrt\s*)?[-+]?(?:\d+\.?\d*|\.\d+)(?:\s*(?:[-+*\/^%]|sqrt)\s*(?:sqrt\s*)?[-+]?(?:\d+\.?\d*|\.\d+|\())*/);
     /* Extract the longest arithmetic-looking span, brackets included. */
     var span = "", best = "";
@@ -357,15 +360,16 @@
       var NO_RE = new RegExp("\\bno\\s+" + NP + "\\s+(?:are|is|were|was)\\s+(?:a\\s+|an\\s+)?" + NP, "i");
       var SOME_RE = new RegExp("\\bsome\\s+" + NP + "\\s+(?:are|is|were|was)\\s+(?:a\\s+|an\\s+)?" + NP, "i");
       if ((m = c.match(ALL_RE))) {
-        claims.push(node("CLAIM", { q: "all", a: norm(m[1]), b: norm(m[2]) }));
+        claims.push(node("CLAIM", { q: "all", a: norm(m[1]), b: norm(m[2]), ra: raw(m[1]), rb: raw(m[2]) }));
       } else if ((m = c.match(NO_RE))) {
-        claims.push(node("CLAIM", { q: "no", a: norm(m[1]), b: norm(m[2]) }));
+        claims.push(node("CLAIM", { q: "no", a: norm(m[1]), b: norm(m[2]), ra: raw(m[1]), rb: raw(m[2]) }));
       } else if ((m = c.match(SOME_RE))) {
-        claims.push(node("CLAIM", { q: "some", a: norm(m[1]), b: norm(m[2]) }));
+        claims.push(node("CLAIM", { q: "some", a: norm(m[1]), b: norm(m[2]), ra: raw(m[1]), rb: raw(m[2]) }));
       }
     }
     return claims;
   }
+  function raw(s) { return String(s).toLowerCase().replace(/[^a-z0-9 -]/g, "").trim(); }
   function norm(s) {
     s = String(s).toLowerCase().replace(/[^a-z0-9 -]/g, "").trim();
     return C ? C.stem(s.split(" ").map(function (w) { return C.stem(w); }).join(" ")) : s;
@@ -385,6 +389,75 @@
     return out;
   }
 
+  /* Edit distance with an early exit above ``cap``. */
+  function editDistance(a, b, cap) {
+    if (Math.abs(a.length - b.length) > cap) return cap + 1;
+    /* optimal string alignment: insert, delete, substitute, and swap of two
+       adjacent letters each cost one edit */
+    var d = [], i, j;
+    for (i = 0; i <= a.length; i++) { d.push([i]); for (j = 1; j <= b.length; j++) d[i].push(i ? 0 : j); }
+    for (i = 1; i <= a.length; i++) {
+      for (j = 1; j <= b.length; j++) {
+        var v = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, d[i - 2][j - 2] + 1);
+        d[i][j] = v;
+      }
+    }
+    return d[a.length][b.length];
+  }
+  /* A syllogism about invented words is carried entirely by the identity of
+     its terms, so a typo in one occurrence ("Razizes" for "Razzies") breaks
+     the chain. Terms are unified when they are within a small edit distance
+     of exactly one other term: the premises are about a handful of
+     categories, and two near-identical spellings of one of them are not two
+     categories. Ambiguous matches are left alone. */
+  function unifyTerms(claims, extra, extraRaw) {
+    var terms = [], i, j, surface = {};
+    function addT(t, r) { if (!t) return; if (terms.indexOf(t) < 0) terms.push(t); (surface[t] = surface[t] || []).push(r || t); }
+    claims.forEach(function (c) { addT(c.a, c.ra); addT(c.b, c.rb); });
+    (extra || []).forEach(function (t, k) { addT(t, extraRaw ? extraRaw[k] : t); });
+    /* distance is measured on the written forms: a stemmer can pull two
+       spellings of one word further apart than the typo did */
+    function dist(a, b, cap) {
+      var best = editDistance(a, b, cap);
+      (surface[a] || []).forEach(function (x) { (surface[b] || []).forEach(function (y) {
+        best = Math.min(best, editDistance(x, y, cap)); }); });
+      return best;
+    }
+    /* two terms of one premise, or the two terms of the question, are
+       distinct categories by construction: "all Razzies are Lazzies" is not
+       a typo however close the spellings are */
+    var distinct = {};
+    function sep(a, b) { distinct[a + "|" + b] = distinct[b + "|" + a] = 1; }
+    claims.forEach(function (c) { sep(c.a, c.b); });
+    if (extra && extra.length === 2) sep(extra[0], extra[1]);
+    var parent = {};
+    function find(x) { while (parent[x] && parent[x] !== x) x = parent[x]; return x; }
+    for (i = 0; i < terms.length; i++) {
+      var t = terms[i];
+      if (t.length < 5) continue;
+      var best = null, bestD = Infinity, tie = false;
+      for (j = 0; j < terms.length; j++) {
+        var o = terms[j];
+        if (i === j || o.length < 5 || distinct[t + "|" + o]) continue;
+        var cap = Math.max(1, Math.floor(Math.min(t.length, o.length) / 4));
+        var dd = dist(t, o, cap);
+        if (dd > cap) continue;
+        if (dd < bestD) { best = o; bestD = dd; tie = false; } else if (dd === bestD) tie = true;
+      }
+      if (!best || tie) continue;
+      /* canonical spelling: deterministic (lexicographically smaller) */
+      var ra = find(t), rb = find(best);
+      if (ra === rb) continue;
+      if (distinct[ra + "|" + rb]) continue;
+      if (ra < rb) parent[rb] = ra; else parent[ra] = rb;
+    }
+    var map = {};
+    terms.forEach(function (t2) { var r = find(t2); if (r !== t2) map[t2] = r; });
+    claims.forEach(function (c) { if (map[c.a]) c.a = map[c.a]; if (map[c.b]) c.b = map[c.b]; });
+    return map;
+  }
+
   function solveCategorical(frame) {
     var text = String(frame.semanticText || frame.body || "");
     var claims = parseCategorical(text);
@@ -401,6 +474,9 @@
     if (!m) return null;
     var qSome = /\b(?:are|is|can|could|do|does)\s+some\b/i.test(qClause);
     var A = norm(m[1]), B = norm(m[2]);
+    var unified = unifyTerms(claims, [A, B], [raw(m[1]), raw(m[2])]);
+    if (unified[A]) A = unified[A];
+    if (unified[B]) B = unified[B];
 
     var closure = subsetClosure(claims, A);
     if (closure[B]) {
@@ -765,7 +841,7 @@
       var known = (ent.type + " " + (ent.rel && ent.rel.type ? ent.rel.type : "") + " " + ent.defn).toLowerCase();
       var isIt = known.indexOf(claimed) >= 0;
       return { ok: true, kind: "verify", verdict: isIt ? "yes" : "no",
-        text: (isIt ? "Yes. " : "No. ") + ent.name + " is " + firstClause(ent.defn) + ".",
+        text: (isIt ? "Yes. " : "No. ") + ent.name.charAt(0).toUpperCase() + ent.name.slice(1) + " is " + firstClause(ent.defn) + ".",
         nodes: [node("CLAIM", { a: ent.name, b: claimed, value: isIt })] };
     }
     m = text.match(/^(?:do|does)\s+(.{2,40}?)\s+have\s+(\w+)\s+([\w\s-]{2,25})\s*\??$/i);

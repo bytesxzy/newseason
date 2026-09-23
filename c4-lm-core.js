@@ -39,6 +39,14 @@
   ("what which who whom whose when where why how is are was were do does did can could " +
    "should would will explain define describe compare tell show list give write calculate " +
    "compute convert solve").split(" ").forEach(function (w) { INTENT_WORDS[w] = 1; });
+  /* A contraction of a function or intent word is that word plus a clitic:
+     "what's", "who's", "they're" carry no content and name nothing. Derived
+     from the two tables, so every consumer (content tokens, proper-noun
+     spans, candidate subjects) treats them alike. */
+  ["'s", "'re", "'ve", "'ll", "'d", "'m"].forEach(function (cl) {
+    Object.keys(STOP).forEach(function (w) { if (!STOP[w + cl]) STOP[w + cl] = 1; });
+    Object.keys(INTENT_WORDS).forEach(function (w) { if (!INTENT_WORDS[w + cl]) INTENT_WORDS[w + cl] = 1; });
+  });
 
   /* A token may contain a dot or hyphen internally ("node.js", "c++",
      "state-of-the-art") but may not END on punctuation -- otherwise sentence
@@ -830,7 +838,9 @@
     var leadMarker = "";
     var leadHit = repairedText.match(/^\s*(ok(?:ay)?|so|well|right|alright|anyway|anyways|actually|but|and|hey|hi|hello|yo|um|uh|hmm+|please|pls)\b/i);
     if (leadHit) leadMarker = leadHit[1].toLowerCase();
-    LEAD_STRIP.forEach(function (re) { body = body.replace(re, ""); });
+    /* to a fixpoint: "hey, could you tell me ..." is three wrappers deep */
+    var prevBody;
+    do { prevBody = body; LEAD_STRIP.forEach(function (re) { body = body.replace(re, ""); }); } while (body !== prevBody && body);
     body = body.replace(/^\s*(?:anyway|anyways|actually|never ?mind|forget (?:it|that)|moving on|on another note)\b[\s,.:;-]*/i, "").trim();
     if (!body) body = repairedText;
 
@@ -895,7 +905,10 @@
     var greeting = GREETING.some(function (re) { return re.test(normLower); }) &&
                    (socialOnly || GREETING.some(function (re) { return re.test(bodyLower); }) && content.length <= 2);
     var thanks = THANKS.some(function (re) { return re.test(normLower); }) && tokens.length <= 8 && socialOnly;
-    var ack = ACK.some(function (re) { return re.test(normLower); }) && tokens.length <= 8 && socialOnly;
+    /* "that's cool", "it is nice": a demonstrative copula in front of an
+       acknowledgement is still the acknowledgement */
+    var ackText = normLower.replace(/^(?:that|this|it)(?:'s|\s+is|\s+was)\s+(?:so\s+|really\s+|very\s+|pretty\s+|quite\s+)?/, "");
+    var ack = ACK.some(function (re) { return re.test(normLower) || re.test(ackText); }) && tokens.length <= 8 && socialOnly;
     var metaSelf = META_SELF.some(function (re) { return re.test(normLower); });
 
     var pronouns = tokens.filter(function (t) { return PRONOUNS.indexOf(t) >= 0; });
