@@ -15955,36 +15955,6 @@ function _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, ord
   return order;
 }
 
-/* Revisit starved families. A family whose slice ran out (validation or
-   generation timed out) has not been shown to have nothing to offer -- it
-   was cut off. When the schedule finishes with time left, that time goes
-   back to the starved families first, in their original order, each with an
-   equal share of what remains (MAX_SLICE still caps it). This is a
-   reasoning-level decision about which operation deserves the budget: an
-   interrupted search is unfinished work, a completed one is evidence. */
-function _retryStarved(ctx, res, mods, bias, reservoir, order, generationEnd) {
-  var seen = {}, starved = [], i, byName = {};
-  for (i = 0; i < mods.length; i++) byName[_moduleKey(mods[i])] = mods[i];
-  byName.deepen = _DeepEnumerator;
-  var ms = res.diagnostics.modules;
-  for (i = 0; i < ms.length; i++) {
-    var m = ms[i];
-    if (seen[m.module] || !(m.status === "timed_out" || m.generation_timed_out)) continue;
-    seen[m.module] = 1;
-    if (byName[m.module]) starved.push(byName[m.module]);
-  }
-  var trace = [];
-  res.diagnostics.retry = trace;
-  for (i = 0; i < starved.length; i++) {
-    var now = nowMs(), left = generationEnd - now;
-    if (left < 80) break;
-    var share = left / (starved.length - i), before = reservoir.a.length;
-    order = _harvest(starved[i], ctx, now + share, bias, reservoir, order, res);
-    trace.push({ module: _moduleKey(starved[i]), slice: Math.round(share), fit_gain: reservoir.a.length - before });
-  }
-  return order;
-}
-
 /* Keep all demonstrated shape laws when training does not distinguish them. */
 function _shapeOptions(ctx, tg) {
   var shapes = new Map();
@@ -16108,11 +16078,6 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       }
       order = _harvest(all[i], ctx, moduleEnd, bias, reservoir, order, res);
     }
-  }
-
-  if (nowMs() < generationEnd - 80) {
-    try { order = _retryStarved(ctx, res, mods, bias, reservoir, order, generationEnd); }
-    catch (exc) { res.diagnostics.retry_error = String(exc && exc.message ? exc.message : exc).slice(0, 160); }
   }
 
   /* Residual-driven refinement of the near-misses generation produced. Only
