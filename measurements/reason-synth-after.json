@@ -1,0 +1,151 @@
+{
+  "note": "synthetic verifiable problems; practice for HLE-style reasoning, NOT an HLE score",
+  "root": "/home/user/newseason",
+  "seed": 3,
+  "overall": {
+    "n": 256,
+    "accuracy": 1,
+    "coverage": 1,
+    "brier": 0.0036600507812499915,
+    "ece": 0.02665234374999603,
+    "wrong_confident": 0
+  },
+  "by_family": {
+    "linear": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "quadratic": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "system": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.0007290000000000011,
+      "ece": 0.02699999999999969,
+      "wrong_confident": 0
+    },
+    "deriv": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.0007290000000000011,
+      "ece": 0.02699999999999969,
+      "wrong_confident": 0
+    },
+    "integral": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.05348337500000002,
+      "ece": 0.17974999999999997,
+      "wrong_confident": 0
+    },
+    "choose": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "gcd": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "lcm": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "modpow": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.000532437500000001,
+      "ece": 0.02168749999999975,
+      "wrong_confident": 0
+    },
+    "prime": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.0007290000000000011,
+      "ece": 0.02699999999999969,
+      "wrong_confident": 0
+    },
+    "dice": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "coins": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "series": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "path": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.0007290000000000011,
+      "ece": 0.02699999999999969,
+      "wrong_confident": 0
+    },
+    "mc": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    },
+    "arith": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.0007290000000000011,
+      "ece": 0.02699999999999969,
+      "wrong_confident": 0
+    }
+  },
+  "derivation_check": {
+    "corrupted": 103,
+    "detected": 103,
+    "localized": 103,
+    "correct_chains": 97,
+    "false_alarms": 0
+  },
+  "samples_wrong": []
+}

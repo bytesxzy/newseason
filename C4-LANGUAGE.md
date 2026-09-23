@@ -49,7 +49,9 @@ RAW USER TEXT
 | `c4-lm-evidence.js` | Query decomposition, the source federation and the evidence graph. Sources are selected by domain, started in parallel, and cancelled the moment a quorum of independent evidence is reached. Retrieved text becomes propositions, which are merged and checked for contradiction. |
 | `c4-lm-realize.js` | Answer plans and surface realisation: article selection, subject–verb agreement, connectives, enumeration, length and format constraints, and a well-formedness contract that rejects duplicate copulas, dangling connectives, repeated sentences and pasted snippets. |
 | `c4-lm-code.js` | Code construction from a specification. Semantic operations, language backends, and execution of every emitted JavaScript program against its own example before it is offered. |
-| `c4-lm.js` | The orchestrator: discourse state, the System-1 decision head, adaptive depth, confidence assembly, ablation switches. |
+| `c4-reason-kernel.js` | The shared **residual-driven refinement kernel** (also compiled into the ARC engine): hypotheses with lineage, MDL scoring in bits, the bounded diverse refinement frontier, the meta-controller over reasoning operations, discrimination, `calibrate()` (confidence as accumulated evidence, never a constant), and the proposition graph with KNOWN / DERIVED / ASSUMED / UNKNOWN / CONTRADICTED status. |
+| `c4-lm-problem.js` | **Problem reasoning.** Text becomes an explicit Problem (givens, unknowns, equations, constraints, assumptions, required knowledge, candidate answers) by composing an intent with the mathematical objects present. Each problem is solved by several genuinely different methods (e.g. quadratic formula / rational roots / numeric root search; elimination / Cramer; multiplicative / Pascal), every candidate is attacked by the checks relevant to it (substitution, reverse derivation, numeric calculus, bounds, symmetry), failures are labelled in the kernel's FAILURE vocabulary and eliminated, and confidence comes from `calibrate()`. Also: derivation checking with step localisation and repair, multiple-choice elimination, exact BigInt rationals and polynomials, number theory, probability, graph and CSP tools, knowledge-vs-reasoning analysis, and the visual-fact interface (POINT/LINE/REGION/ARROW/LABEL/RELATION into the same graph). |
+| `c4-lm.js` | The orchestrator: discourse state, the System-1 decision head, adaptive depth, confidence assembly, ablation switches. `answerReason` now (1) prefers a structured reading over a bare-arithmetic one when the text carries algebra (interpretation check), and (2) derives the confidence of operator-library results from an independent re-derivation of their own trace (`calibrateReason`). Ablate with `problem` / `calibration`. |
 
 ## The five distinctions the architecture is built on
 
@@ -112,3 +114,35 @@ source's own tense is kept ("2016 was a leap year"). `C4LM.seed(n)` makes the
 choice reproducible; `C4LM.ablate(["variation"])` turns it off.
 
     npm run lm:memory      # memory + variation dialogues, 3 seeds
+
+## Problem reasoning, falsification and calibration (c4-lm-problem.js)
+
+Verifying a calculation says nothing about whether the calculation was the
+question. Before this layer, "Solve x^2 - 5x + 6 = 0" was answered "2 - 5 =
+-3" at confidence 0.99: the digits were read as arithmetic and the arithmetic
+was right. Two things now stand in the way of that class of error:
+
+1. **Interpretation check.** If the text parses as a structured problem, the
+   structured reading answers. If an arithmetic reading ignored algebra that
+   the text carries (a variable bound to a coefficient, an equation in a
+   variable), that is recorded as a contradiction of the interpretation, and
+   the calibrated confidence falls below the hallucination brake.
+2. **Independent derivations + falsification.** An answer is accepted when
+   methods that share no code agree AND it survives the checks relevant to
+   the problem. A derivation that fails a check is eliminated, not outvoted.
+
+Knowledge and reasoning are separated: `analyze()` reports whether a question
+is derivable from what it states or needs facts it does not state; a missing
+fact is `MISSING_KNOWLEDGE` in the graph, and nothing is derived from it.
+
+Measured on synthetic verifiable problems (answers known by construction; NOT
+HLE; see `tools/reason-synth.js`, `measurements/reason-*.json`):
+
+| set | baseline accuracy | after | baseline confident-wrong | after |
+|---|---|---|---|---|
+| in-distribution phrasings (256) | 10.5% | 100% | 107 | 0 |
+| held-out phrasings, parser frozen (160) | 2.5% | 86.9% | 75 | 1 |
+
+The in-distribution number mostly measures coverage of the implemented
+families; the held-out number is the honest generalisation figure.
+

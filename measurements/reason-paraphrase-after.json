@@ -1,0 +1,79 @@
+{
+  "note": "synthetic verifiable problems; practice for HLE-style reasoning, NOT an HLE score",
+  "root": "/home/user/newseason",
+  "seed": 5,
+  "overall": {
+    "n": 140,
+    "accuracy": 1,
+    "coverage": 1,
+    "brier": 0.00018985714285714266,
+    "ece": 0.012428571428572455,
+    "wrong_confident": 0
+  },
+  "by_family": {
+    "linear~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "quadratic~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "choose~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "gcd~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "dice~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "coins~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "deriv~": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.000729000000000001,
+      "ece": 0.026999999999999913,
+      "wrong_confident": 0
+    }
+  },
+  "derivation_check": {
+    "corrupted": 101,
+    "detected": 101,
+    "localized": 101,
+    "correct_chains": 99,
+    "false_alarms": 0
+  },
+  "samples_wrong": []
+}

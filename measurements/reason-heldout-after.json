@@ -1,0 +1,196 @@
+{
+  "note": "synthetic verifiable problems; practice for HLE-style reasoning, NOT an HLE score",
+  "root": "/home/user/newseason",
+  "seed": 9,
+  "overall": {
+    "n": 160,
+    "accuracy": 0.86875,
+    "coverage": 0.9875,
+    "brier": 0.0920097312499999,
+    "ece": 0.11589375000000128,
+    "wrong_confident": 1
+  },
+  "by_family": {
+    "linear!": {
+      "n": 20,
+      "accuracy": 0.85,
+      "coverage": 0.9,
+      "brier": 0.051421449999999994,
+      "ece": 0.060150000000000044,
+      "wrong_confident": 1
+    },
+    "quadratic!": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "choose!": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "gcd!": {
+      "n": 20,
+      "accuracy": 0.6,
+      "coverage": 1,
+      "brier": 0.28906,
+      "ece": 0.3459999999999999,
+      "wrong_confident": 0
+    },
+    "dice!": {
+      "n": 20,
+      "accuracy": 0.5,
+      "coverage": 1,
+      "brier": 0.36130000000000007,
+      "ece": 0.42999999999999994,
+      "wrong_confident": 0
+    },
+    "coins!": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000022,
+      "ece": 0.01000000000000012,
+      "wrong_confident": 0
+    },
+    "deriv!": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.000729000000000001,
+      "ece": 0.026999999999999913,
+      "wrong_confident": 0
+    },
+    "integral!": {
+      "n": 20,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.03326740000000001,
+      "ece": 0.11429999999999992,
+      "wrong_confident": 0
+    }
+  },
+  "derivation_check": {
+    "corrupted": 106,
+    "detected": 106,
+    "localized": 106,
+    "correct_chains": 94,
+    "false_alarms": 0
+  },
+  "samples_wrong": [
+    {
+      "id": 11,
+      "family": "gcd!",
+      "q": "Largest integer dividing both 39 and 42?",
+      "text": "An integer is a whole number, positive, negative or zero.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 12,
+      "family": "dice!",
+      "q": "Rolling a pair of dice, probability the numbers add to 8?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 28,
+      "family": "dice!",
+      "q": "Rolling a pair of dice, probability the numbers add to 8?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 36,
+      "family": "dice!",
+      "q": "Rolling a pair of dice, probability the numbers add to 12?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 51,
+      "family": "gcd!",
+      "q": "Largest integer dividing both 42 and 63?",
+      "text": "An integer is a whole number, positive, negative or zero.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 60,
+      "family": "dice!",
+      "q": "Rolling a pair of dice, probability the numbers add to 3?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 72,
+      "family": "linear!",
+      "q": "2 times a number plus 6 is 12. What is the number?",
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 76,
+      "family": "dice!",
+      "q": "Rolling a pair of dice, probability the numbers add to 10?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 96,
+      "family": "linear!",
+      "q": "2 times a number plus 11 is 15. What is the number?",
+      "text": "+ 11 works out to 11.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.973
+    },
+    {
+      "id": 107,
+      "family": "gcd!",
+      "q": "Largest integer dividing both 132 and 154?",
+      "text": "An integer is a whole number, positive, negative or zero.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 108,
+      "family": "dice!",
+      "q": "Rolling a pair of dice, probability the numbers add to 11?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 112,
+      "family": "linear!",
+      "q": "4 times a number plus 8 is 20. What is the number?",
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    }
+  ]
+}

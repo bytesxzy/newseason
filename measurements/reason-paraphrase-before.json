@@ -1,0 +1,182 @@
+{
+  "note": "synthetic verifiable problems; practice for HLE-style reasoning, NOT an HLE score",
+  "root": "/tmp/claude-0/-home-user-newseason/ebe35f05-5e24-5bb3-8df2-dce5448bb9e2/scratchpad/z",
+  "seed": 5,
+  "overall": {
+    "n": 140,
+    "accuracy": 0.014285714285714285,
+    "coverage": 0.6642857142857143,
+    "brier": 0.6378607142857136,
+    "ece": 0.6974999999999997,
+    "wrong_confident": 79
+  },
+  "by_family": {
+    "linear~": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801,
+      "ece": 0.9899999999999999,
+      "wrong_confident": 20
+    },
+    "quadratic~": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801,
+      "ece": 0.9899999999999999,
+      "wrong_confident": 20
+    },
+    "choose~": {
+      "n": 20,
+      "accuracy": 0.05,
+      "coverage": 0,
+      "brier": 0.07000000000000003,
+      "ece": 0.15000000000000002,
+      "wrong_confident": 0
+    },
+    "gcd~": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 0,
+      "brier": 0.04000000000000002,
+      "ece": 0.20000000000000004,
+      "wrong_confident": 0
+    },
+    "dice~": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 0.65,
+      "brier": 0.48362499999999997,
+      "ece": 0.6224999999999998,
+      "wrong_confident": 0
+    },
+    "coins~": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801,
+      "ece": 0.9899999999999999,
+      "wrong_confident": 20
+    },
+    "deriv~": {
+      "n": 20,
+      "accuracy": 0.05,
+      "coverage": 1,
+      "brier": 0.9311,
+      "ece": 0.9399999999999998,
+      "wrong_confident": 19
+    }
+  },
+  "derivation_check": "not available in this workspace",
+  "samples_wrong": [
+    {
+      "id": 0,
+      "family": "linear~",
+      "q": "If -6x + 13 equals 67, what is x?",
+      "text": "+ 13 works out to 13.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 1,
+      "family": "quadratic~",
+      "q": "For which x is x^2 + 7x + 12 zero?",
+      "text": "2 + 7 equals 9.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 2,
+      "family": "choose~",
+      "q": "Compute C(15, 2)",
+      "text": "I don't have anything reliable on Compute C(15, 2). I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 3,
+      "family": "gcd~",
+      "q": "Find the highest common factor of 378 and 399",
+      "text": "I don't have anything reliable on find highest common. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 4,
+      "family": "dice~",
+      "q": "If you roll 2 dice, what's the chance the total is 4?",
+      "text": "I don't have anything reliable on roll dice what's. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 5,
+      "family": "coins~",
+      "q": "Probability of exactly 1 heads when flipping a coin 4 times?",
+      "text": "The chance is 0.2 (1/5, or 20%).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 6,
+      "family": "deriv~",
+      "q": "Differentiate -1x^3 - 2x^2 + 7x and evaluate at x = -3",
+      "text": "3 - 2 comes to 1.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 7,
+      "family": "linear~",
+      "q": "What value of x satisfies -2x + 10 = 26?",
+      "text": "+ 10 works out to 10.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 8,
+      "family": "quadratic~",
+      "q": "What are the solutions of x^2 + 15x + 56 = 0?",
+      "text": "2 + 15 works out to 17.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 9,
+      "family": "choose~",
+      "q": "In how many ways can a committee of 1 be picked from 22 people?",
+      "text": "I don't have anything reliable on ways committed picked. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 10,
+      "family": "gcd~",
+      "q": "gcd(24, 36) = ?",
+      "text": "I don't have anything reliable on gcd(24, 36) =. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 11,
+      "family": "dice~",
+      "q": "Two fair dice are thrown. What is the probability that the sum equals 3?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    }
+  ]
+}

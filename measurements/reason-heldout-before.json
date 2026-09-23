@@ -1,0 +1,190 @@
+{
+  "note": "synthetic verifiable problems; practice for HLE-style reasoning, NOT an HLE score",
+  "root": "/tmp/claude-0/-home-user-newseason/ebe35f05-5e24-5bb3-8df2-dce5448bb9e2/scratchpad/z",
+  "seed": 9,
+  "overall": {
+    "n": 160,
+    "accuracy": 0.025,
+    "coverage": 0.7375,
+    "brier": 0.636048749999999,
+    "ece": 0.7107499999999999,
+    "wrong_confident": 75
+  },
+  "by_family": {
+    "linear!": {
+      "n": 20,
+      "accuracy": 0.1,
+      "coverage": 0.9,
+      "brier": 0.78809,
+      "ece": 0.8109999999999999,
+      "wrong_confident": 16
+    },
+    "quadratic!": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801,
+      "ece": 0.9899999999999999,
+      "wrong_confident": 20
+    },
+    "choose!": {
+      "n": 20,
+      "accuracy": 0.05,
+      "coverage": 0.3,
+      "brier": 0.18475000000000003,
+      "ece": 0.28500000000000003,
+      "wrong_confident": 0
+    },
+    "gcd!": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 0.75,
+      "brier": 0.495875,
+      "ece": 0.6524999999999999,
+      "wrong_confident": 0
+    },
+    "dice!": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 0.5,
+      "brier": 0.38125000000000003,
+      "ece": 0.5249999999999999,
+      "wrong_confident": 0
+    },
+    "coins!": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801,
+      "ece": 0.9899999999999999,
+      "wrong_confident": 20
+    },
+    "deriv!": {
+      "n": 20,
+      "accuracy": 0.05,
+      "coverage": 1,
+      "brier": 0.9311,
+      "ece": 0.9399999999999998,
+      "wrong_confident": 19
+    },
+    "integral!": {
+      "n": 20,
+      "accuracy": 0,
+      "coverage": 0.45,
+      "brier": 0.347125,
+      "ece": 0.49249999999999994,
+      "wrong_confident": 0
+    }
+  },
+  "derivation_check": "not available in this workspace",
+  "samples_wrong": [
+    {
+      "id": 0,
+      "family": "linear!",
+      "q": "Given 2x + 5 = 7, x equals what?",
+      "text": "+ 5 = 5.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 1,
+      "family": "quadratic!",
+      "q": "Factor and solve: x^2 + 0x + 0 = 0",
+      "text": "2 + 0 works out to 2.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 2,
+      "family": "choose!",
+      "q": "From 17 students, how many ways to select a team of 4?",
+      "text": "I don't have anything reliable on 17 students ways. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 3,
+      "family": "gcd!",
+      "q": "GCD(78,91)",
+      "text": "Understood — say more and I'll dig in.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.75
+    },
+    {
+      "id": 4,
+      "family": "dice!",
+      "q": "Chance that two dice show a total of 11",
+      "text": "I don't have anything reliable on Chance. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 5,
+      "family": "coins!",
+      "q": "Flip 3 coins. Chance of exactly 0 heads?",
+      "text": "The chance is 1 (3/3, or 100%).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 6,
+      "family": "deriv!",
+      "q": "Find g'(3) for g(x) = 3x^2 - 5x",
+      "text": "2 - 5 equals -3.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 7,
+      "family": "integral!",
+      "q": "Integrate 3x^2 between 0 and 2",
+      "text": "An integral accumulates a quantity over an interval; it is the inverse of differentiation.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 8,
+      "family": "linear!",
+      "q": "Given 5x + 1 = 16, x equals what?",
+      "text": "+ 1 = 1.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 9,
+      "family": "quadratic!",
+      "q": "Zeros of the polynomial x^2 + 1x - 30?",
+      "text": "2 + 1 = 3.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 10,
+      "family": "choose!",
+      "q": "From 13 students, how many ways to select a team of 3?",
+      "text": "I don't have anything reliable on 13 students ways. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 11,
+      "family": "gcd!",
+      "q": "Largest integer dividing both 39 and 42?",
+      "text": "An integer is a whole number, positive, negative or zero.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    }
+  ]
+}

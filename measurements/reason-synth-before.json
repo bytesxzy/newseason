@@ -1,0 +1,254 @@
+{
+  "note": "synthetic verifiable problems; practice for HLE-style reasoning, NOT an HLE score",
+  "root": "/tmp/claude-0/-home-user-newseason/ebe35f05-5e24-5bb3-8df2-dce5448bb9e2/scratchpad/z",
+  "seed": 3,
+  "overall": {
+    "n": 256,
+    "accuracy": 0.10546875,
+    "coverage": 0.62890625,
+    "brier": 0.542031640624999,
+    "ece": 0.5722265624999988,
+    "wrong_confident": 107
+  },
+  "by_family": {
+    "linear": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801000000000001,
+      "ece": 0.9900000000000001,
+      "wrong_confident": 16
+    },
+    "quadratic": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801000000000001,
+      "ece": 0.9900000000000001,
+      "wrong_confident": 16
+    },
+    "system": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801000000000001,
+      "ece": 0.9900000000000001,
+      "wrong_confident": 16
+    },
+    "deriv": {
+      "n": 16,
+      "accuracy": 0.0625,
+      "coverage": 1,
+      "brier": 0.9188500000000001,
+      "ece": 0.9275000000000001,
+      "wrong_confident": 15
+    },
+    "integral": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801000000000001,
+      "ece": 0.9900000000000001,
+      "wrong_confident": 16
+    },
+    "choose": {
+      "n": 16,
+      "accuracy": 0.125,
+      "coverage": 0,
+      "brier": 0.11500000000000003,
+      "ece": 0.07500000000000004,
+      "wrong_confident": 0
+    },
+    "gcd": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 0,
+      "brier": 0.04000000000000002,
+      "ece": 0.20000000000000004,
+      "wrong_confident": 0
+    },
+    "lcm": {
+      "n": 16,
+      "accuracy": 0.3125,
+      "coverage": 0,
+      "brier": 0.22750000000000006,
+      "ece": 0.11249999999999996,
+      "wrong_confident": 0
+    },
+    "modpow": {
+      "n": 16,
+      "accuracy": 0.125,
+      "coverage": 0.8125,
+      "brier": 0.6813312499999999,
+      "ece": 0.716875,
+      "wrong_confident": 11
+    },
+    "prime": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.7225,
+      "ece": 0.8499999999999998,
+      "wrong_confident": 0
+    },
+    "dice": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.7225,
+      "ece": 0.8499999999999998,
+      "wrong_confident": 0
+    },
+    "coins": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 1,
+      "brier": 0.9801000000000001,
+      "ece": 0.9900000000000001,
+      "wrong_confident": 16
+    },
+    "series": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 0.1875,
+      "brier": 0.16796875,
+      "ece": 0.321875,
+      "wrong_confident": 0
+    },
+    "path": {
+      "n": 16,
+      "accuracy": 0,
+      "coverage": 0,
+      "brier": 0.04000000000000002,
+      "ece": 0.20000000000000004,
+      "wrong_confident": 0
+    },
+    "mc": {
+      "n": 16,
+      "accuracy": 0.0625,
+      "coverage": 0.0625,
+      "brier": 0.13625625000000002,
+      "ece": 0.186875,
+      "wrong_confident": 1
+    },
+    "arith": {
+      "n": 16,
+      "accuracy": 1,
+      "coverage": 1,
+      "brier": 0.00010000000000000021,
+      "ece": 0.009999999999999898,
+      "wrong_confident": 0
+    }
+  },
+  "derivation_check": "not available in this workspace",
+  "samples_wrong": [
+    {
+      "id": 0,
+      "family": "linear",
+      "q": "Solve -7x + 8 = 71",
+      "text": "-7 = -7.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 1,
+      "family": "quadratic",
+      "q": "Solve x^2 + 2x + 1 = 0",
+      "text": "2 + 2 = 4.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 2,
+      "family": "system",
+      "q": "Solve -2x - 2y = 2, 4x + 3y = -8",
+      "text": "-2 equals -2.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 3,
+      "family": "deriv",
+      "q": "What is the derivative of 1x^3 + 2x^2 + 4x at x = -3",
+      "text": "3 + 2 works out to 5.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 4,
+      "family": "integral",
+      "q": "Integral of 2x^2 + 4 from 1 to 2",
+      "text": "2 + 4 equals 6.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 5,
+      "family": "choose",
+      "q": "What is 22 choose 6?",
+      "text": "I don't have anything reliable on 22 choose 6. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 6,
+      "family": "gcd",
+      "q": "What is the gcd of 208 and 221?",
+      "text": "I don't have anything reliable on gcd of 208 and 221. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 9,
+      "family": "prime",
+      "q": "Is 1613 prime?",
+      "text": "A prime number is a whole number greater than 1 divisible only by 1 and itself.",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 10,
+      "family": "dice",
+      "q": "What is the probability of rolling a sum of 8 with three dice?",
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.85
+    },
+    {
+      "id": 11,
+      "family": "coins",
+      "q": "What is the probability of getting exactly 0 heads in 2 coin flips?",
+      "text": "The chance is 0 (0/2, or 0%).",
+      "answered": true,
+      "correct": false,
+      "conf": 0.99
+    },
+    {
+      "id": 12,
+      "family": "series",
+      "q": "What is the sum of the first 66 odd numbers?",
+      "text": "I don't have anything reliable on sum first 66. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    },
+    {
+      "id": 13,
+      "family": "path",
+      "q": "Shortest path from A to D with edges A-B 1, B-C 1, C-D 5, B-D 6, A-D 7",
+      "text": "I don't have anything reliable on Shortest. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "answered": false,
+      "correct": false,
+      "conf": 0.2
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
  "summary": {
   "label": "after",
-  "generated": "2026-09-21T21:36:26.377Z",
+  "generated": "2026-09-23T15:02:19.792Z",
   "net": "off",
   "modules": [],
   "disabled": [],
@@ -15,16 +15,16 @@
   "timeouts": 0,
   "web_turns": 0,
   "latency": {
-   "p50": 37,
-   "p90": 123,
-   "p95": 141,
-   "p99": 201,
-   "mean": 53
+   "p50": 14,
+   "p90": 36,
+   "p95": 45,
+   "p99": 59,
+   "mean": 18
   },
   "local_latency": {
    "n": 197,
-   "p50": 37,
-   "p95": 141
+   "p50": 14,
+   "p95": 45
   },
   "web_latency": {
    "n": 0,
@@ -153,7 +153,7 @@
     "pass": 8
    }
   },
-  "wall_ms": 116731
+  "wall_ms": 38627
  },
  "records": [
   {
@@ -174,7 +174,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 306,
+     "latency_ms": 69,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -183,7 +183,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 306
+   "latency_ms": 69
   },
   {
    "id": 2,
@@ -194,7 +194,7 @@
    "turns": [
     {
      "question": "What is a high school?",
-     "output": "A high school is a secondary school, typically for students approximately aged 14 to 18, that comes after primary or middle school and before university. It is used for secondary education leading to a diploma or school-leaving qualification.",
+     "output": "A high school is a secondary school, typically for students roughly aged 14 to 18, that comes after primary or middle school and before university. It is used for secondary education leading to a diploma or school-leaving qualification.",
      "route": "knowledge",
      "subject": "high school",
      "relation": "",
@@ -203,7 +203,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 51,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -212,7 +212,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 51
+   "latency_ms": 16
   },
   {
    "id": 3,
@@ -232,7 +232,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 50,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -241,7 +241,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 50
+   "latency_ms": 9
   },
   {
    "id": 4,
@@ -261,7 +261,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 35,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -270,7 +270,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 35
+   "latency_ms": 13
   },
   {
    "id": 5,
@@ -281,7 +281,7 @@
    "turns": [
     {
      "question": "What is the capital of France?",
-     "output": "France's capital is Paris. It is in Western Europe.",
+     "output": "Paris is the capital of France. France is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -290,7 +290,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 28,
+     "latency_ms": 10,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -299,7 +299,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 28
+   "latency_ms": 10
   },
   {
    "id": 6,
@@ -310,7 +310,7 @@
    "turns": [
     {
      "question": "What is the capital of the United States?",
-     "output": "United States has Washington, D.C. as its capital. It was created by the Founding Fathers.",
+     "output": "Washington, D.C. is the capital of United States. United States was created by the Founding Fathers.",
      "route": "knowledge",
      "subject": "United States",
      "relation": "capital",
@@ -319,7 +319,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 23,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -328,7 +328,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 23
+   "latency_ms": 8
   },
   {
    "id": 7,
@@ -348,7 +348,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 28,
+     "latency_ms": 10,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -357,7 +357,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 28
+   "latency_ms": 10
   },
   {
    "id": 8,
@@ -368,7 +368,7 @@
    "turns": [
     {
      "question": "Who wrote Pride and Prejudice?",
-     "output": "Pride and Prejudice was written by Jane Austen. It dates to 1813.",
+     "output": "Jane Austen wrote Pride and Prejudice. It dates to 1813.",
      "route": "knowledge",
      "subject": "Pride and Prejudice",
      "relation": "author",
@@ -377,7 +377,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 23,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -386,7 +386,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 23
+   "latency_ms": 6
   },
   {
    "id": 9,
@@ -406,7 +406,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 31,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -415,7 +415,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 31
+   "latency_ms": 6
   },
   {
    "id": 10,
@@ -435,7 +435,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 37,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -444,7 +444,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 37
+   "latency_ms": 8
   },
   {
    "id": 11,
@@ -464,7 +464,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 16,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -473,7 +473,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 11
   },
   {
    "id": 12,
@@ -484,7 +484,7 @@
    "turns": [
     {
      "question": "Why is the sky blue?",
-     "output": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — roughly as one over wavelength to the fourth power. Blue light is therefore scattered across the whole sky while red light passes more directly through, so the sky away from the Sun looks blue.",
+     "output": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — approximately as one over wavelength to the fourth power. Blue light is therefore scattered across the whole sky while red light passes more directly through, so the sky away from the Sun looks blue.",
      "route": "knowledge",
      "subject": "blue sky",
      "relation": "why",
@@ -493,7 +493,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 50,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -502,7 +502,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 50
+   "latency_ms": 13
   },
   {
    "id": 13,
@@ -513,7 +513,7 @@
    "turns": [
     {
      "question": "What is the difference between mass and weight?",
-     "output": "Mass and weight differ in 3 main respects. Mass is the amount of matter in an object, while weight is the force gravity exerts on that matter. Mass is kilograms, while weight is newtons. Mass is the same everywhere, while weight changes with the local gravitational field.",
+     "output": "Mass and weight differ in 3 main respects. Mass is the amount of matter in an object, whereas weight is the force gravity exerts on that matter. Mass is kilograms, whereas weight is newtons. Mass is the same everywhere, whereas weight changes with the local gravitational field.",
      "route": "comparison",
      "subject": "mass / weight",
      "relation": "",
@@ -522,7 +522,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 110,
+     "latency_ms": 27,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -531,7 +531,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 110
+   "latency_ms": 27
   },
   {
    "id": 14,
@@ -551,7 +551,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 224,
+     "latency_ms": 59,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -560,7 +560,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 224
+   "latency_ms": 59
   },
   {
    "id": 15,
@@ -571,14 +571,14 @@
    "turns": [
     {
      "question": "What is 17 * 23?",
-     "output": "17 * 23 = 391.",
+     "output": "17 * 23 equals 391.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 36,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -587,7 +587,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 36
+   "latency_ms": 13
   },
   {
    "id": 16,
@@ -598,14 +598,14 @@
    "turns": [
     {
      "question": "What is (144 / 12) + 7?",
-     "output": "(144 / 12) + 7 works out to 19.",
+     "output": "(144 / 12) + 7 = 19.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 24,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -614,7 +614,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 24
+   "latency_ms": 14
   },
   {
    "id": 17,
@@ -625,14 +625,14 @@
    "turns": [
     {
      "question": "What is 2^10?",
-     "output": "2^10 comes to 1024.",
+     "output": "2^10 = 1024.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -641,7 +641,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 5
   },
   {
    "id": 18,
@@ -659,7 +659,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 130,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -668,7 +668,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 130
+   "latency_ms": 35
   },
   {
    "id": 19,
@@ -679,14 +679,14 @@
    "turns": [
     {
      "question": "A car travels 60 miles per hour for 2.5 hours. How far does it travel?",
-     "output": "It travels 150 miles.",
+     "output": "It covers 150 miles.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 179,
+     "latency_ms": 45,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -695,7 +695,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 179
+   "latency_ms": 45
   },
   {
    "id": 20,
@@ -713,7 +713,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 163,
+     "latency_ms": 45,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -722,7 +722,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 163
+   "latency_ms": 45
   },
   {
    "id": 21,
@@ -740,7 +740,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 131,
+     "latency_ms": 36,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -749,7 +749,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 131
+   "latency_ms": 36
   },
   {
    "id": 22,
@@ -767,7 +767,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 54,
+     "latency_ms": 22,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -776,7 +776,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 54
+   "latency_ms": 22
   },
   {
    "id": 23,
@@ -794,7 +794,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 69,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -803,7 +803,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 69
+   "latency_ms": 29
   },
   {
    "id": 24,
@@ -823,7 +823,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 93,
+     "latency_ms": 22,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -832,7 +832,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 93
+   "latency_ms": 22
   },
   {
    "id": 25,
@@ -852,7 +852,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 123,
+     "latency_ms": 36,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -861,7 +861,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 123
+   "latency_ms": 36
   },
   {
    "id": 26,
@@ -881,7 +881,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 123,
+     "latency_ms": 34,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -890,7 +890,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 123
+   "latency_ms": 34
   },
   {
    "id": 27,
@@ -910,7 +910,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 99,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -919,7 +919,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 99
+   "latency_ms": 20
   },
   {
    "id": 28,
@@ -937,7 +937,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 201,
+     "latency_ms": 54,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -946,7 +946,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 201
+   "latency_ms": 54
   },
   {
    "id": 29,
@@ -966,7 +966,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 83,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -975,7 +975,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 83
+   "latency_ms": 16
   },
   {
    "id": 30,
@@ -993,7 +993,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 101,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1002,7 +1002,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 101
+   "latency_ms": 29
   },
   {
    "id": 31,
@@ -1020,7 +1020,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1029,7 +1029,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 32
+   "latency_ms": 7
   },
   {
    "id": 32,
@@ -1049,7 +1049,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 124,
+     "latency_ms": 30,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1058,7 +1058,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 124
+   "latency_ms": 30
   },
   {
    "id": 33,
@@ -1078,7 +1078,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 33,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1087,7 +1087,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 33
+   "latency_ms": 7
   },
   {
    "id": 34,
@@ -1108,7 +1108,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 160,
+     "latency_ms": 33,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1117,7 +1117,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 160
+   "latency_ms": 33
   },
   {
    "id": 35,
@@ -1128,14 +1128,14 @@
    "turns": [
     {
      "question": "What time is it right now?",
-     "output": "It is 09:34 PM on Monday, September 21, 2026, by this device's clock.",
+     "output": "It is 03:01 PM on Wednesday, September 23, 2026, by this device's clock.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 154,
+     "latency_ms": 38,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1144,7 +1144,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 154
+   "latency_ms": 38
   },
   {
    "id": 36,
@@ -1162,7 +1162,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 17,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1171,7 +1171,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 17
+   "latency_ms": 4
   },
   {
    "id": 37,
@@ -1189,7 +1189,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 22,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1198,7 +1198,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 22
+   "latency_ms": 5
   },
   {
    "id": 38,
@@ -1216,7 +1216,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1225,7 +1225,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 5
   },
   {
    "id": 39,
@@ -1245,7 +1245,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1254,7 +1254,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 7
   },
   {
    "id": 40,
@@ -1272,7 +1272,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 84,
+     "latency_ms": 22,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1281,7 +1281,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 84
+   "latency_ms": 22
   },
   {
    "id": 41,
@@ -1301,7 +1301,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 60,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1311,7 +1311,7 @@
     },
     {
      "question": "When was he born?",
-     "output": "Albert Einstein was born on 14 March 1879. It is in born in Ulm, Germany.",
+     "output": "Albert Einstein's date of birth is 14 March 1879. It is in born in Ulm, Germany.",
      "route": "knowledge",
      "subject": "Albert Einstein",
      "relation": "birth",
@@ -1320,7 +1320,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 17,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1339,7 +1339,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 3,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1348,7 +1348,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 90
+   "latency_ms": 14
   },
   {
    "id": 42,
@@ -1368,7 +1368,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 49,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1387,7 +1387,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 2,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1396,7 +1396,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 63
+   "latency_ms": 10
   },
   {
    "id": 43,
@@ -1416,7 +1416,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 18,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1435,7 +1435,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 21,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1444,7 +1444,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 39
+   "latency_ms": 9
   },
   {
    "id": 44,
@@ -1464,7 +1464,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1483,7 +1483,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 21,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1492,7 +1492,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 53
+   "latency_ms": 16
   },
   {
    "id": 45,
@@ -1503,7 +1503,7 @@
    "turns": [
     {
      "question": "capital France",
-     "output": "France has Paris as its capital. It is in Western Europe.",
+     "output": "Paris is the capital of France. France is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -1512,7 +1512,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1521,7 +1521,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 8
   },
   {
    "id": 46,
@@ -1541,7 +1541,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 30,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1550,7 +1550,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 30
+   "latency_ms": 9
   },
   {
    "id": 47,
@@ -1561,7 +1561,7 @@
    "turns": [
     {
      "question": "explain photosynthsis in 1 sentence",
-     "output": "Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen.",
+     "output": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen.",
      "route": "explanation",
      "subject": "photosynthesis",
      "relation": "",
@@ -1570,7 +1570,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 12,
+     "latency_ms": 10,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1579,7 +1579,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 10
   },
   {
    "id": 48,
@@ -1597,7 +1597,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 181,
+     "latency_ms": 74,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1606,7 +1606,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 181
+   "latency_ms": 74
   },
   {
    "id": 49,
@@ -1624,7 +1624,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1633,7 +1633,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 6
   },
   {
    "id": 50,
@@ -1644,7 +1644,7 @@
    "turns": [
     {
      "question": "Explain the difference between correlation and causation using one short example.",
-     "output": "Correlation and causation differ in 3 main respects. Correlation only says two variables move together, while causation says one variable actually produces the change in the other. Correlation can be measured from observational data alone, while causation typically needs an experiment or a causal model. Correlation can be produced by a third variable or by coincidence, while causation is what an intervention would actually change. For example, ice-cream sales and drowning deaths rise together, but neither causes the other — hot weather drives both.",
+     "output": "Correlation and causation differ in 3 main respects. Correlation only says two variables move together, whereas causation says one variable actually produces the change in the other. Correlation can be measured from observational data alone, whereas causation usually needs an experiment or a causal model. Correlation can be produced by a third variable or by coincidence, whereas causation is what an intervention would actually change. For example, ice-cream sales and drowning deaths rise together, but neither causes the other — hot weather drives both.",
      "route": "comparison",
      "subject": "correlation / causation",
      "relation": "",
@@ -1653,7 +1653,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 51,
+     "latency_ms": 23,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1662,7 +1662,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 51
+   "latency_ms": 23
   },
   {
    "id": 51,
@@ -1673,7 +1673,7 @@
    "turns": [
     {
      "question": "Which city is the capital of France?",
-     "output": "The capital of France is Paris. It is in Western Europe.",
+     "output": "France has Paris as its capital. It is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -1682,7 +1682,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1691,7 +1691,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 7
   },
   {
    "id": 52,
@@ -1711,7 +1711,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 34,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1720,7 +1720,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 34
+   "latency_ms": 5
   },
   {
    "id": 53,
@@ -1731,7 +1731,7 @@
    "turns": [
     {
      "question": "Tell me France's capital city",
-     "output": "France's capital is Paris. It is in Western Europe.",
+     "output": "Paris is the capital of France. France is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -1760,7 +1760,7 @@
    "turns": [
     {
      "question": "what is the capital of japan",
-     "output": "Japan's capital is Tokyo. It is in East Asia.",
+     "output": "Japan has Tokyo as its capital. It is in East Asia.",
      "route": "knowledge",
      "subject": "Japan",
      "relation": "capital",
@@ -1769,7 +1769,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 16,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1778,7 +1778,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 5
   },
   {
    "id": 55,
@@ -1789,7 +1789,7 @@
    "turns": [
     {
      "question": "Brazil's capital?",
-     "output": "Brazil has Brasília as its capital. It is in South America.",
+     "output": "Brazil's capital is Brasília. It is in South America.",
      "route": "knowledge",
      "subject": "Brazil",
      "relation": "capital",
@@ -1798,7 +1798,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 12,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1807,7 +1807,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 5
   },
   {
    "id": 56,
@@ -1818,7 +1818,7 @@
    "turns": [
     {
      "question": "capital of australia",
-     "output": "Australia has Canberra as its capital. It is in Oceania.",
+     "output": "Australia's capital is Canberra. It is in Oceania.",
      "route": "knowledge",
      "subject": "Australia",
      "relation": "capital",
@@ -1827,7 +1827,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1836,7 +1836,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 5
   },
   {
    "id": 57,
@@ -1856,7 +1856,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1865,7 +1865,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 9
   },
   {
    "id": 58,
@@ -1885,7 +1885,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 29,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1894,7 +1894,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 29
+   "latency_ms": 6
   },
   {
    "id": 59,
@@ -1914,7 +1914,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1923,7 +1923,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 5
   },
   {
    "id": 60,
@@ -1943,7 +1943,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1952,7 +1952,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 5
   },
   {
    "id": 61,
@@ -1963,38 +1963,9 @@
    "turns": [
     {
      "question": "What is the chemical symbol for iron?",
-     "output": "Iron's chemical symbol is Fe.",
+     "output": "Iron has the chemical symbol Fe.",
      "route": "knowledge",
      "subject": "iron",
-     "relation": "symbol",
-     "web_used": false,
-     "sources": [
-      "local knowledge base"
-     ],
-     "used": [],
-     "latency_ms": 24,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 24
-  },
-  {
-   "id": 62,
-   "cat": "relation",
-   "question": "What's the symbol for sodium?",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "What's the symbol for sodium?",
-     "output": "The chemical symbol for sodium is Na.",
-     "route": "knowledge",
-     "subject": "sodium",
      "relation": "symbol",
      "web_used": false,
      "sources": [
@@ -2011,6 +1982,35 @@
     }
    ],
    "latency_ms": 10
+  },
+  {
+   "id": 62,
+   "cat": "relation",
+   "question": "What's the symbol for sodium?",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "What's the symbol for sodium?",
+     "output": "Sodium has the chemical symbol Na.",
+     "route": "knowledge",
+     "subject": "sodium",
+     "relation": "symbol",
+     "web_used": false,
+     "sources": [
+      "local knowledge base"
+     ],
+     "used": [],
+     "latency_ms": 6,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 6
   },
   {
    "id": 63,
@@ -2030,7 +2030,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 34,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2039,7 +2039,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 34
+   "latency_ms": 13
   },
   {
    "id": 64,
@@ -2059,7 +2059,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 71,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2068,7 +2068,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 71
+   "latency_ms": 21
   },
   {
    "id": 65,
@@ -2088,7 +2088,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 71,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2097,7 +2097,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 71
+   "latency_ms": 21
   },
   {
    "id": 66,
@@ -2115,7 +2115,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 56,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2124,7 +2124,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 56
+   "latency_ms": 14
   },
   {
    "id": 67,
@@ -2142,7 +2142,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 77,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2151,7 +2151,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 77
+   "latency_ms": 29
   },
   {
    "id": 68,
@@ -2162,34 +2162,7 @@
    "turns": [
     {
      "question": "two to the power of ten",
-     "output": "2 ^ 10 works out to 1024.",
-     "route": "compute",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 50,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 50
-  },
-  {
-   "id": 69,
-   "cat": "compute",
-   "question": "What is 15% of 240?",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "What is 15% of 240?",
-     "output": "That is 36.",
+     "output": "2 ^ 10 equals 1024.",
      "route": "compute",
      "subject": "",
      "relation": "",
@@ -2208,6 +2181,33 @@
    "latency_ms": 28
   },
   {
+   "id": 69,
+   "cat": "compute",
+   "question": "What is 15% of 240?",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "What is 15% of 240?",
+     "output": "That's 36.",
+     "route": "compute",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 13,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 13
+  },
+  {
    "id": 70,
    "cat": "compute",
    "question": "A shirt costs 120 dollars with 30% off. What do I pay?",
@@ -2223,7 +2223,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 108,
+     "latency_ms": 46,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2232,7 +2232,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 108
+   "latency_ms": 46
   },
   {
    "id": 71,
@@ -2250,7 +2250,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 115,
+     "latency_ms": 34,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2259,7 +2259,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 115
+   "latency_ms": 34
   },
   {
    "id": 72,
@@ -2277,7 +2277,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 59,
+     "latency_ms": 19,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2286,7 +2286,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 59
+   "latency_ms": 19
   },
   {
    "id": 73,
@@ -2297,14 +2297,14 @@
    "turns": [
     {
      "question": "How many minutes are in 3.5 hours?",
-     "output": "That comes to 210 minutes.",
+     "output": "That's 210 minutes.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 64,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2313,7 +2313,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 64
+   "latency_ms": 21
   },
   {
    "id": 74,
@@ -2324,14 +2324,14 @@
    "turns": [
     {
      "question": "What is the average of 4, 8, 15, 16, 23, 42?",
-     "output": "The average is 18.",
+     "output": "That averages out to 18.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 66,
+     "latency_ms": 23,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2340,7 +2340,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 66
+   "latency_ms": 23
   },
   {
    "id": 75,
@@ -2358,7 +2358,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 93,
+     "latency_ms": 30,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2367,7 +2367,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 93
+   "latency_ms": 30
   },
   {
    "id": 76,
@@ -2385,7 +2385,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 123,
+     "latency_ms": 41,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2394,7 +2394,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 123
+   "latency_ms": 41
   },
   {
    "id": 77,
@@ -2412,7 +2412,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 141,
+     "latency_ms": 43,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2421,7 +2421,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 141
+   "latency_ms": 43
   },
   {
    "id": 78,
@@ -2439,7 +2439,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 135,
+     "latency_ms": 47,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2448,7 +2448,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 135
+   "latency_ms": 47
   },
   {
    "id": 79,
@@ -2466,7 +2466,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 127,
+     "latency_ms": 41,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2475,7 +2475,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 127
+   "latency_ms": 41
   },
   {
    "id": 80,
@@ -2493,7 +2493,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 52,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2502,7 +2502,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 52
+   "latency_ms": 25
   },
   {
    "id": 81,
@@ -2520,7 +2520,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 61,
+     "latency_ms": 24,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2529,7 +2529,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 61
+   "latency_ms": 24
   },
   {
    "id": 82,
@@ -2547,7 +2547,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 81,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2556,7 +2556,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 81
+   "latency_ms": 35
   },
   {
    "id": 83,
@@ -2574,7 +2574,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 143,
+     "latency_ms": 49,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2583,7 +2583,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 143
+   "latency_ms": 49
   },
   {
    "id": 84,
@@ -2601,7 +2601,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 81,
+     "latency_ms": 26,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2610,7 +2610,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 81
+   "latency_ms": 26
   },
   {
    "id": 85,
@@ -2621,14 +2621,14 @@
    "turns": [
     {
      "question": "A bag has 3 red and 7 blue balls. What is the probability of drawing red?",
-     "output": "The probability is 0.3 (3/10, or 30%).",
+     "output": "The chance is 0.3 (3/10, or 30%).",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 142,
+     "latency_ms": 45,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2637,7 +2637,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 142
+   "latency_ms": 45
   },
   {
    "id": 86,
@@ -2657,7 +2657,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 19,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2666,7 +2666,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 19
+   "latency_ms": 9
   },
   {
    "id": 87,
@@ -2686,7 +2686,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 21,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2695,7 +2695,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 21
+   "latency_ms": 11
   },
   {
    "id": 88,
@@ -2715,7 +2715,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 38,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2724,7 +2724,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 38
+   "latency_ms": 21
   },
   {
    "id": 89,
@@ -2735,7 +2735,7 @@
    "turns": [
     {
      "question": "explain what a high school is",
-     "output": "A high school is a secondary school, typically for students roughly aged 14 to 18, that comes after primary or middle school and before university. It exists because secondary education leading to a diploma or school-leaving qualification is worth doing, and high school is how that is done.",
+     "output": "A high school is a secondary school, usually for students roughly aged 14 to 18, that comes after primary or middle school and before university. It exists because secondary education leading to a diploma or school-leaving qualification is worth doing, and high school is how that is done.",
      "route": "explanation",
      "subject": "high school",
      "relation": "",
@@ -2744,7 +2744,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 33,
+     "latency_ms": 23,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2753,7 +2753,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 33
+   "latency_ms": 23
   },
   {
    "id": 90,
@@ -2773,7 +2773,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2782,7 +2782,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 5
   },
   {
    "id": 91,
@@ -2802,7 +2802,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2811,7 +2811,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 5
   },
   {
    "id": 92,
@@ -2831,7 +2831,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2840,7 +2840,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 4
   },
   {
    "id": 93,
@@ -2860,7 +2860,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2869,7 +2869,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 9
   },
   {
    "id": 94,
@@ -2880,7 +2880,7 @@
    "turns": [
     {
      "question": "what is inflation",
-     "output": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It results from demand, costs or money supply outpacing real output.",
+     "output": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It is caused by demand, costs or money supply outpacing real output.",
      "route": "knowledge",
      "subject": "inflation",
      "relation": "",
@@ -2889,7 +2889,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2898,7 +2898,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 5
   },
   {
    "id": 95,
@@ -2909,7 +2909,7 @@
    "turns": [
     {
      "question": "what is a recession",
-     "output": "A recession is a significant, broad decline in economic activity lasting more than a few months, often marked by two consecutive quarters of falling GDP. It is caused by falling demand, tightening credit or an external shock.",
+     "output": "A recession is a significant, broad decline in economic activity lasting more than a few months, often marked by two consecutive quarters of falling GDP. It results from falling demand, tightening credit or an external shock.",
      "route": "knowledge",
      "subject": "recession",
      "relation": "",
@@ -2918,7 +2918,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2927,7 +2927,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 4
+   "latency_ms": 6
   },
   {
    "id": 96,
@@ -2947,7 +2947,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 35,
+     "latency_ms": 17,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2956,7 +2956,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 35
+   "latency_ms": 17
   },
   {
    "id": 97,
@@ -2976,7 +2976,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 126,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2985,7 +2985,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 126
+   "latency_ms": 35
   },
   {
    "id": 98,
@@ -3005,7 +3005,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 91,
+     "latency_ms": 32,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3014,7 +3014,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 91
+   "latency_ms": 32
   },
   {
    "id": 99,
@@ -3034,7 +3034,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 49,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3043,7 +3043,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 49
+   "latency_ms": 20
   },
   {
    "id": 100,
@@ -3063,7 +3063,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 17,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3072,7 +3072,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 32
+   "latency_ms": 17
   },
   {
    "id": 101,
@@ -3083,7 +3083,7 @@
    "turns": [
     {
      "question": "tcp vs udp",
-     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, while UDP makes no ordering guarantee. TCP is larger headers and more round trips, while UDP is minimal header and no setup cost.",
+     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, whereas UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, whereas UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, whereas UDP makes no ordering guarantee. TCP is larger headers and more round trips, whereas UDP is minimal header and no setup cost.",
      "route": "comparison",
      "subject": "TCP / UDP",
      "relation": "",
@@ -3092,7 +3092,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 47,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3101,7 +3101,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 47
+   "latency_ms": 20
   },
   {
    "id": 102,
@@ -3112,7 +3112,7 @@
    "turns": [
     {
      "question": "difference between ram and ssd",
-     "output": "RAM and SSD differ in 4 main respects. RAM loses its contents when power is removed, while SSD keeps data without power. RAM is nanosecond access, directly addressable by the CPU, while SSD is microsecond access over a storage bus. RAM is working memory for running programs, while SSD is persistent storage for files and programs. RAM is smaller and far more expensive per gigabyte, while SSD is much larger and cheaper per gigabyte.",
+     "output": "RAM and SSD differ in 4 main respects. RAM loses its contents when power is removed, whereas SSD keeps data without power. RAM is nanosecond access, directly addressable by the CPU, whereas SSD is microsecond access over a storage bus. RAM is working memory for running programs, whereas SSD is persistent storage for files and programs. RAM is smaller and far more expensive per gigabyte, whereas SSD is much larger and cheaper per gigabyte.",
      "route": "comparison",
      "subject": "RAM / SSD",
      "relation": "",
@@ -3121,7 +3121,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 48,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3130,7 +3130,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 48
+   "latency_ms": 25
   },
   {
    "id": 103,
@@ -3141,7 +3141,7 @@
    "turns": [
     {
      "question": "how do http and https differ",
-     "output": "HTTP and HTTPS differ in 3 main respects. HTTP sends requests and responses in the clear, while HTTPS wraps the same protocol in TLS encryption. HTTP is no server authentication, while HTTPS are the server presents a certificate that the client verifies. HTTP is 80, while HTTPS are 443.",
+     "output": "HTTP and HTTPS differ in 3 main ways. HTTP sends requests and responses in the clear, while HTTPS wraps the same protocol in TLS encryption. HTTP is no server authentication, while HTTPS are the server presents a certificate that the client verifies. HTTP is 80, while HTTPS are 443.",
      "route": "comparison",
      "subject": "HTTP / HTTPS",
      "relation": "",
@@ -3150,7 +3150,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 46,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3159,7 +3159,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 46
+   "latency_ms": 25
   },
   {
    "id": 104,
@@ -3179,7 +3179,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 75,
+     "latency_ms": 30,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3188,7 +3188,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 75
+   "latency_ms": 30
   },
   {
    "id": 105,
@@ -3208,7 +3208,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 24,
+     "latency_ms": 12,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3227,7 +3227,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 3,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3237,7 +3237,7 @@
     },
     {
      "question": "when was she born?",
-     "output": "Marie Curie was born on 7 November 1867.",
+     "output": "Marie Curie's date of birth is 7 November 1867.",
      "route": "knowledge",
      "subject": "Marie Curie",
      "relation": "birth",
@@ -3255,7 +3255,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 38
+   "latency_ms": 18
   },
   {
    "id": 106,
@@ -3275,7 +3275,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3294,7 +3294,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 20,
+     "latency_ms": 3,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3303,7 +3303,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 31
+   "latency_ms": 8
   },
   {
    "id": 107,
@@ -3314,7 +3314,7 @@
    "turns": [
     {
      "question": "Compare TCP and UDP.",
-     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, while UDP makes no ordering guarantee. TCP is larger headers and more round trips, while UDP is minimal header and no setup cost.",
+     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, whereas UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, whereas UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, whereas UDP makes no ordering guarantee. TCP is larger headers and more round trips, whereas UDP is minimal header and no setup cost.",
      "route": "comparison",
      "subject": "TCP / UDP",
      "relation": "",
@@ -3323,7 +3323,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 63,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3342,7 +3342,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 45,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3351,7 +3351,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 108
+   "latency_ms": 43
   },
   {
    "id": 108,
@@ -3362,7 +3362,7 @@
    "turns": [
     {
      "question": "What is the capital of France?",
-     "output": "France has Paris as its capital. It is in Western Europe.",
+     "output": "Paris is the capital of France. France is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -3371,7 +3371,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 12,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3381,7 +3381,7 @@
     },
     {
      "question": "and Germany?",
-     "output": "The capital of Germany is Berlin. It is in Central Europe.",
+     "output": "Germany has Berlin as its capital. It is in Central Europe.",
      "route": "knowledge",
      "subject": "Germany",
      "relation": "capital",
@@ -3390,7 +3390,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 22,
+     "latency_ms": 3,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3399,7 +3399,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 37
+   "latency_ms": 15
   },
   {
    "id": 109,
@@ -3419,7 +3419,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3429,7 +3429,7 @@
     },
     {
      "question": "how tall is it?",
-     "output": "Eiffel Tower stands 330 metres (1,083 feet) including antennas tall. It was created by Gustave Eiffel.",
+     "output": "Eiffel Tower is 330 metres (1,083 feet) including antennas tall. It was created by Gustave Eiffel.",
      "route": "knowledge",
      "subject": "Eiffel Tower",
      "relation": "height",
@@ -3438,7 +3438,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 29,
+     "latency_ms": 3,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3447,7 +3447,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 39
+   "latency_ms": 9
   },
   {
    "id": 110,
@@ -3467,7 +3467,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 17,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3486,7 +3486,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 61,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3496,14 +3496,14 @@
     },
     {
      "question": "Never mind. What is 12 * 12?",
-     "output": "12 * 12 comes to 144.",
+     "output": "12 * 12 works out to 144.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 3,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3512,7 +3512,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 82
+   "latency_ms": 26
   },
   {
    "id": 111,
@@ -3532,7 +3532,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 68,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3541,7 +3541,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 68
+   "latency_ms": 21
   },
   {
    "id": 112,
@@ -3561,7 +3561,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3570,7 +3570,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 5
   },
   {
    "id": 113,
@@ -3590,7 +3590,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3599,7 +3599,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 5
   },
   {
    "id": 114,
@@ -3617,7 +3617,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 18,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3626,7 +3626,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 18
+   "latency_ms": 4
   },
   {
    "id": 115,
@@ -3646,7 +3646,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 108,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3655,7 +3655,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 108
+   "latency_ms": 35
   },
   {
    "id": 116,
@@ -3673,7 +3673,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 102,
+     "latency_ms": 42,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3682,7 +3682,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 102
+   "latency_ms": 42
   },
   {
    "id": 117,
@@ -3700,7 +3700,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 38,
+     "latency_ms": 23,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3709,7 +3709,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 38
+   "latency_ms": 23
   },
   {
    "id": 118,
@@ -3729,7 +3729,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 47,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3738,7 +3738,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 47
+   "latency_ms": 25
   },
   {
    "id": 119,
@@ -3749,7 +3749,7 @@
    "turns": [
     {
      "question": "What is the capital of the country where the Eiffel Tower is?",
-     "output": "The capital of France is Paris.",
+     "output": "France has Paris as its capital.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -3758,7 +3758,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 19,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3767,7 +3767,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 19
+   "latency_ms": 13
   },
   {
    "id": 120,
@@ -3787,7 +3787,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3796,7 +3796,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 7
   },
   {
    "id": 121,
@@ -3807,7 +3807,7 @@
    "turns": [
     {
      "question": "What language is spoken in the country whose capital is Lisbon?",
-     "output": "The language of Portugal is Portuguese.",
+     "output": "Portuguese is spoken in Portugal.",
      "route": "knowledge",
      "subject": "Portugal",
      "relation": "language",
@@ -3816,7 +3816,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 30,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3825,7 +3825,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 30
+   "latency_ms": 7
   },
   {
    "id": 122,
@@ -3843,7 +3843,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3852,7 +3852,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 6
   },
   {
    "id": 123,
@@ -3863,14 +3863,14 @@
    "turns": [
     {
      "question": "thanks, that helps",
-     "output": "Glad it helped.",
+     "output": "Any time.",
      "route": "conversation",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3879,7 +3879,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 32
+   "latency_ms": 15
   },
   {
    "id": 124,
@@ -3890,14 +3890,14 @@
    "turns": [
     {
      "question": "hmm, that's interesting",
-     "output": "Understood.",
+     "output": "Makes sense.",
      "route": "conversation",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 33,
+     "latency_ms": 23,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3906,7 +3906,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 33
+   "latency_ms": 23
   },
   {
    "id": 125,
@@ -3924,7 +3924,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3933,7 +3933,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 7
+   "latency_ms": 11
   },
   {
    "id": 126,
@@ -3944,14 +3944,14 @@
    "turns": [
     {
      "question": "you see the issue, it needs better lookup",
-     "output": "Got it. What would you like me to work out?",
+     "output": "Understood — say more and I'll dig in.",
      "route": "conversation",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 86,
+     "latency_ms": 39,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3960,7 +3960,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 86
+   "latency_ms": 39
   },
   {
    "id": 127,
@@ -3978,7 +3978,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 3,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3987,7 +3987,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 3
+   "latency_ms": 4
   },
   {
    "id": 128,
@@ -4005,7 +4005,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 37,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4014,7 +4014,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 37
+   "latency_ms": 9
   },
   {
    "id": 129,
@@ -4032,7 +4032,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 18,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4041,7 +4041,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 18
+   "latency_ms": 15
   },
   {
    "id": 130,
@@ -4061,7 +4061,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 108,
+     "latency_ms": 57,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4070,7 +4070,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 108
+   "latency_ms": 57
   },
   {
    "id": 131,
@@ -4092,7 +4092,7 @@
      "used": [
       "this site"
      ],
-     "latency_ms": 41,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4101,7 +4101,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 41
+   "latency_ms": 11
   },
   {
    "id": 132,
@@ -4119,7 +4119,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 49,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4128,7 +4128,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 49
+   "latency_ms": 11
   },
   {
    "id": 133,
@@ -4148,7 +4148,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 38,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4157,7 +4157,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 38
+   "latency_ms": 11
   },
   {
    "id": 134,
@@ -4177,7 +4177,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 10,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4186,7 +4186,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 10
   },
   {
    "id": 135,
@@ -4206,7 +4206,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4215,7 +4215,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 7
   },
   {
    "id": 136,
@@ -4226,7 +4226,7 @@
    "turns": [
     {
      "question": "What is an engine?",
-     "output": "An engine is a machine or software component that converts input into useful work — a heat engine turns fuel into motion. It is also a software engine turns data and rules into results. It is used for converting an input into useful work.",
+     "output": "An engine is a machine or software component that converts input into useful work — a heat engine turns fuel into motion, a software engine turns data and rules into results. It is used for converting an input into useful work.",
      "route": "knowledge",
      "subject": "engine",
      "relation": "",
@@ -4235,7 +4235,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4244,7 +4244,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 8
   },
   {
    "id": 137,
@@ -4264,7 +4264,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4273,7 +4273,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 7
   },
   {
    "id": 138,
@@ -4293,7 +4293,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 119,
+     "latency_ms": 31,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4302,7 +4302,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 119
+   "latency_ms": 31
   },
   {
    "id": 139,
@@ -4322,7 +4322,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4331,7 +4331,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 4
   },
   {
    "id": 140,
@@ -4342,7 +4342,7 @@
    "turns": [
     {
      "question": "What is supply and demand?",
-     "output": "Supply and demand is the model in which price moves until the quantity buyers want equals the quantity sellers offer. It consists of a supply curve, a demand curve and an equilibrium price.",
+     "output": "Supply and demand is the model in which price moves until the quantity buyers want equals the quantity sellers offer. It is made up of a supply curve, a demand curve and an equilibrium price.",
      "route": "knowledge",
      "subject": "supply and demand",
      "relation": "",
@@ -4351,7 +4351,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 36,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4360,7 +4360,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 36
+   "latency_ms": 16
   },
   {
    "id": 141,
@@ -4371,7 +4371,7 @@
    "turns": [
     {
      "question": "What is the speed of light?",
-     "output": "The speed of speed of light is 299,792,458 m/s.",
+     "output": "Speed of light travels at 299,792,458 m/s.",
      "route": "knowledge",
      "subject": "speed of light",
      "relation": "speed",
@@ -4380,7 +4380,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4389,7 +4389,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 16
   },
   {
    "id": 142,
@@ -4409,7 +4409,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4418,7 +4418,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 32
+   "latency_ms": 6
   },
   {
    "id": 143,
@@ -4438,7 +4438,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 9,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4447,7 +4447,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 9
+   "latency_ms": 5
   },
   {
    "id": 144,
@@ -4467,7 +4467,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 5,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4476,7 +4476,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 5
   },
   {
    "id": 145,
@@ -4496,7 +4496,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 27,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4505,7 +4505,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 27
+   "latency_ms": 16
   },
   {
    "id": 146,
@@ -4523,7 +4523,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 88,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4532,7 +4532,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 88
+   "latency_ms": 29
   },
   {
    "id": 147,
@@ -4550,7 +4550,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 87,
+     "latency_ms": 46,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4559,7 +4559,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 87
+   "latency_ms": 46
   },
   {
    "id": 148,
@@ -4577,7 +4577,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 23,
+     "latency_ms": 12,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4586,7 +4586,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 23
+   "latency_ms": 12
   },
   {
    "id": 149,
@@ -4597,7 +4597,7 @@
    "turns": [
     {
      "question": "Explain what a REST API is.",
-     "output": "REST is an architectural style for web APIs: resources have URLs, HTTP methods express the operation, and each request carries everything the server needs. It is made up of resources, HTTP verbs, statelessness and representations.",
+     "output": "REST is an architectural style for web APIs: resources have URLs, HTTP methods express the operation, and each request carries everything the server needs. It consists of resources, HTTP verbs, statelessness and representations.",
      "route": "knowledge",
      "subject": "REST",
      "relation": "",
@@ -4606,7 +4606,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 34,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4615,7 +4615,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 34
+   "latency_ms": 14
   },
   {
    "id": 150,
@@ -4633,7 +4633,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 39,
+     "latency_ms": 27,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4642,7 +4642,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 39
+   "latency_ms": 27
   },
   {
    "id": 151,
@@ -4662,7 +4662,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 34,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4671,7 +4671,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 34
+   "latency_ms": 15
   },
   {
    "id": 152,
@@ -4691,7 +4691,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4700,7 +4700,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 14
   },
   {
    "id": 153,
@@ -4720,7 +4720,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 18,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4729,7 +4729,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 18
+   "latency_ms": 7
   },
   {
    "id": 154,
@@ -4749,7 +4749,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4758,7 +4758,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 6
   },
   {
    "id": 155,
@@ -4776,7 +4776,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 56,
+     "latency_ms": 19,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4785,7 +4785,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 56
+   "latency_ms": 19
   },
   {
    "id": 156,
@@ -4805,7 +4805,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 58,
+     "latency_ms": 17,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4814,7 +4814,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 58
+   "latency_ms": 17
   },
   {
    "id": 157,
@@ -4835,7 +4835,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 60,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4844,7 +4844,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 60
+   "latency_ms": 20
   },
   {
    "id": 158,
@@ -4864,7 +4864,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 64,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4873,7 +4873,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 64
+   "latency_ms": 14
   },
   {
    "id": 159,
@@ -4893,7 +4893,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 64,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4902,7 +4902,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 64
+   "latency_ms": 14
   },
   {
    "id": 160,
@@ -4922,7 +4922,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 70,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4931,7 +4931,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 70
+   "latency_ms": 14
   },
   {
    "id": 161,
@@ -4951,7 +4951,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 86,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4960,7 +4960,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 86
+   "latency_ms": 21
   },
   {
    "id": 162,
@@ -4980,7 +4980,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4989,7 +4989,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 13
   },
   {
    "id": 163,
@@ -5009,7 +5009,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5018,7 +5018,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 16
   },
   {
    "id": 164,
@@ -5038,7 +5038,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 46,
+     "latency_ms": 24,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5047,7 +5047,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 46
+   "latency_ms": 24
   },
   {
    "id": 165,
@@ -5067,7 +5067,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 49,
+     "latency_ms": 23,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5076,7 +5076,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 49
+   "latency_ms": 23
   },
   {
    "id": 166,
@@ -5096,7 +5096,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 59,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5105,7 +5105,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 59
+   "latency_ms": 25
   },
   {
    "id": 167,
@@ -5125,7 +5125,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 66,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5134,7 +5134,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 66
+   "latency_ms": 25
   },
   {
    "id": 168,
@@ -5154,7 +5154,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 50,
+     "latency_ms": 33,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5163,7 +5163,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 50
+   "latency_ms": 33
   },
   {
    "id": 169,
@@ -5181,7 +5181,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 54,
+     "latency_ms": 24,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5190,7 +5190,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 54
+   "latency_ms": 24
   },
   {
    "id": 170,
@@ -5208,7 +5208,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 45,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5217,7 +5217,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 45
+   "latency_ms": 35
   },
   {
    "id": 171,
@@ -5235,7 +5235,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 52,
+     "latency_ms": 24,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5244,7 +5244,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 52
+   "latency_ms": 24
   },
   {
    "id": 172,
@@ -5264,7 +5264,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5273,7 +5273,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 15
   },
   {
    "id": 173,
@@ -5291,7 +5291,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 89,
+     "latency_ms": 36,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5300,7 +5300,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 89
+   "latency_ms": 36
   },
   {
    "id": 174,
@@ -5320,7 +5320,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5329,7 +5329,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 13
   },
   {
    "id": 175,
@@ -5349,7 +5349,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 92,
+     "latency_ms": 34,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5358,7 +5358,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 92
+   "latency_ms": 34
   },
   {
    "id": 176,
@@ -5407,7 +5407,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 131,
+     "latency_ms": 30,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5416,7 +5416,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 131
+   "latency_ms": 30
   },
   {
    "id": 178,
@@ -5436,7 +5436,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 82,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5445,7 +5445,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 82
+   "latency_ms": 29
   },
   {
    "id": 179,
@@ -5465,7 +5465,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 72,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5474,7 +5474,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 72
+   "latency_ms": 29
   },
   {
    "id": 180,
@@ -5494,7 +5494,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 57,
+     "latency_ms": 27,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5503,7 +5503,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 57
+   "latency_ms": 27
   },
   {
    "id": 181,
@@ -5523,7 +5523,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 54,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5532,7 +5532,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 54
+   "latency_ms": 20
   },
   {
    "id": 182,
@@ -5553,7 +5553,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 82,
+     "latency_ms": 29,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5562,7 +5562,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 82
+   "latency_ms": 29
   },
   {
    "id": 183,
@@ -5582,7 +5582,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 63,
+     "latency_ms": 24,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5591,7 +5591,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 63
+   "latency_ms": 24
   },
   {
    "id": 184,
@@ -5611,7 +5611,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 78,
+     "latency_ms": 22,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5620,7 +5620,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 78
+   "latency_ms": 22
   }
  ]
 }
