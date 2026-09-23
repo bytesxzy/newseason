@@ -1,12 +1,12 @@
 {
   "root": "/home/user/newseason",
   "total": 91,
-  "pass": 74,
-  "accuracy_pct": 81.3,
+  "pass": 76,
+  "accuracy_pct": 83.5,
   "by_category": {
     "idiom": {
       "total": 20,
-      "pass": 12
+      "pass": 13
     },
     "metaphor": {
       "total": 10,
@@ -26,7 +26,7 @@
     },
     "normal": {
       "total": 15,
-      "pass": 14
+      "pass": 15
     },
     "abstain": {
       "total": 8,
@@ -34,19 +34,19 @@
     }
   },
   "latency": {
-    "p50": 36,
-    "p90": 96,
-    "max": 137
+    "p50": 43,
+    "p90": 91,
+    "max": 152
   },
   "rows": [
     {
       "cat": "idiom",
       "q": "Give me the scoop on photosynthesis",
       "pass": true,
-      "text": "Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in sugars.",
+      "text": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in su",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 78
+      "ms": 81
     },
     {
       "cat": "idiom",
@@ -55,7 +55,7 @@
       "text": "On volcanoes, a lowdown is the relevant facts or information about something. That is the general sense of the word — I don't hold a separate volcanoes meaning for it.",
       "route": "compose",
       "conf": 0.45,
-      "ms": 37
+      "ms": 57
     },
     {
       "cat": "idiom",
@@ -69,20 +69,20 @@
     {
       "cat": "idiom",
       "q": "Talk me through how the heart pumps blood",
-      "pass": false,
-      "text": "The heart is a muscular organ that pumps blood through the circulatory system. It is in the chest, slightly left of centre.",
+      "pass": true,
+      "text": "heart has four chambers.",
       "route": "knowledge",
-      "conf": 0.85,
-      "ms": 59
+      "conf": 0.75,
+      "ms": 71
     },
     {
       "cat": "idiom",
       "q": "What's the gist of the theory of evolution?",
       "pass": true,
-      "text": "Evolution is the change in heritable traits of populations over generations, driven largely by natural selection. It is caused by variation, inheritance and differential survival.",
+      "text": "Evolution is the change in heritable traits of populations over generations, driven largely by natural selection. It results from variation, inheritance and differential survival.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 56
+      "ms": 54
     },
     {
       "cat": "idiom",
@@ -100,16 +100,16 @@
       "text": "I don't have anything reliable on genius behind the telephone. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 35
+      "ms": 60
     },
     {
       "cat": "idiom",
       "q": "Who put pen to paper for Romeo and Juliet?",
       "pass": true,
-      "text": "Romeo and Juliet was written by William Shakespeare. It dates to around 1595.",
+      "text": "William Shakespeare wrote Romeo and Juliet. It dates to around 1595.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 98
+      "ms": 96
     },
     {
       "cat": "idiom",
@@ -118,7 +118,7 @@
       "text": "Relativity is Einstein's account of space, time and gravity: special relativity for constant motion, general relativity for gravity as curved spacetime. It was created by Albert Einstein.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 56
+      "ms": 78
     },
     {
       "cat": "idiom",
@@ -127,7 +127,7 @@
       "text": "I don't have anything reliable on light bulb. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 70
+      "ms": 79
     },
     {
       "cat": "idiom",
@@ -136,7 +136,7 @@
       "text": "France's capital is Paris.",
       "route": "knowledge",
       "conf": 0.75,
-      "ms": 36
+      "ms": 41
     },
     {
       "cat": "idiom",
@@ -145,25 +145,25 @@
       "text": "Water freezes at 0 °C (32 °F).",
       "route": "knowledge",
       "conf": 0.75,
-      "ms": 75
+      "ms": 49
     },
     {
       "cat": "idiom",
       "q": "What's the chemical shorthand for silver?",
       "pass": true,
-      "text": "Silver has the chemical symbol Ag.",
+      "text": "Silver's chemical symbol is Ag.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 54
+      "ms": 61
     },
     {
       "cat": "idiom",
       "q": "Spell out what an atom is",
       "pass": true,
-      "text": "An atom is the smallest unit of an element, a nucleus of protons and neutrons surrounded by electrons. It consists of protons, neutrons and electrons.",
+      "text": "An atom is the smallest unit of an element. It is also a nucleus of protons and neutrons surrounded by electrons. It consists of protons, neutrons and electrons.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 36
+      "ms": 46
     },
     {
       "cat": "idiom",
@@ -172,7 +172,7 @@
       "text": "DNS, the Domain Name System, translates human-readable domain names into IP addresses. It is used for resolving names to addresses.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 19
+      "ms": 18
     },
     {
       "cat": "idiom",
@@ -181,13 +181,13 @@
       "text": "I don't have anything reliable on french revolution. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 20
+      "ms": 43
     },
     {
       "cat": "idiom",
       "q": "What's the deal with inflation?",
       "pass": true,
-      "text": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It is caused by demand, costs or money supply outpacing real output.",
+      "text": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It results from demand, costs or money supply outpacing real output.",
       "route": "knowledge",
       "conf": 0.85,
       "ms": 33
@@ -199,7 +199,7 @@
       "text": "I don't have anything reliable on Protestant Reformation. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 24
+      "ms": 50
     },
     {
       "cat": "idiom",
@@ -208,43 +208,43 @@
       "text": "I don't have anything reliable on periodic table. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 31
+      "ms": 52
     },
     {
       "cat": "idiom",
       "q": "How tall is the Eiffel Tower, roughly?",
       "pass": true,
-      "text": "Eiffel Tower is 330 metres (1,083 feet) including antennas tall. It was created by Gustave Eiffel.",
+      "text": "Eiffel Tower stands 330 metres (1,083 feet) including antennas tall. It was created by Gustave Eiffel.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 9
+      "ms": 15
     },
     {
       "cat": "metaphor",
       "q": "What's the mother tongue of Argentina?",
       "pass": true,
-      "text": "Spanish is spoken in Argentina. Argentina is in South America.",
+      "text": "People in Argentina speak Spanish. It is in South America.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 50
+    },
+    {
+      "cat": "metaphor",
+      "q": "Which tongue is spoken in Portugal?",
+      "pass": true,
+      "text": "People in Portugal speak Portuguese. It is in Southern Europe.",
       "route": "knowledge",
       "conf": 0.8,
       "ms": 45
     },
     {
       "cat": "metaphor",
-      "q": "Which tongue is spoken in Portugal?",
-      "pass": true,
-      "text": "Portuguese is spoken in Portugal. Portugal is in Southern Europe.",
-      "route": "knowledge",
-      "conf": 0.8,
-      "ms": 42
-    },
-    {
-      "cat": "metaphor",
       "q": "What is the seat of government of Germany?",
       "pass": true,
-      "text": "Germany has Berlin as its capital. It is in Central Europe.",
+      "text": "Berlin is the capital of Germany. Germany is in Central Europe.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 55
+      "ms": 47
     },
     {
       "cat": "metaphor",
@@ -253,7 +253,7 @@
       "text": "relativity was created by Albert Einstein. It dates to 1905 and 1915.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 73
+      "ms": 79
     },
     {
       "cat": "metaphor",
@@ -262,7 +262,7 @@
       "text": "I don't have anything reliable on Sistine Chapel. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 103
+      "ms": 112
     },
     {
       "cat": "metaphor",
@@ -271,7 +271,7 @@
       "text": "I don't have anything reliable on Oliver Twist. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 105
+      "ms": 96
     },
     {
       "cat": "metaphor",
@@ -280,7 +280,7 @@
       "text": "The Renaissance was the European revival of art, learning and science from roughly the 14th to 17th centuries. It dates to roughly the 14th to 17th centuries.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 48
+      "ms": 41
     },
     {
       "cat": "metaphor",
@@ -295,10 +295,10 @@
       "cat": "metaphor",
       "q": "Who is the father of the theory of evolution?",
       "pass": true,
-      "text": "Evolution was described by Charles Darwin. It is caused by variation, inheritance and differential survival.",
+      "text": "Evolution was described by Charles Darwin. It results from variation, inheritance and differential survival.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 66
+      "ms": 60
     },
     {
       "cat": "metaphor",
@@ -307,34 +307,34 @@
       "text": "Of the Olympic Games, a birthplace is the place where someone was born or where something began. That is the general sense of the word — I don't hold a separate olympic games meaning for it.",
       "route": "compose",
       "conf": 0.45,
-      "ms": 64
+      "ms": 61
     },
     {
       "cat": "fragment",
       "q": "capital Canada",
       "pass": true,
-      "text": "Canada has Ottawa as its capital. It is in North America.",
+      "text": "Ottawa is the capital of Canada. Canada is in North America.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 6
+      "ms": 9
     },
     {
       "cat": "fragment",
       "q": "boiling point water",
       "pass": true,
-      "text": "Water boils at 100 °C at sea-level pressure.",
+      "text": "Water boils at 100 °C (212 °F) at sea-level pressure.",
       "route": "knowledge",
-      "conf": 0.8,
-      "ms": 34
+      "conf": 0.7,
+      "ms": 31
     },
     {
       "cat": "fragment",
       "q": "author 1984",
       "pass": true,
-      "text": "George Orwell wrote 1984. It dates to 1949.",
+      "text": "1984 was written by George Orwell. It dates to 1949.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 40
+      "ms": 34
     },
     {
       "cat": "fragment",
@@ -343,25 +343,25 @@
       "text": "Isaac Newton was a mathematician and physicist who formulated the laws of motion and universal gravitation.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 20
+      "ms": 21
     },
     {
       "cat": "fragment",
       "q": "speed of sound",
       "pass": false,
-      "text": "Sound means vibrations travelling through air that can be heard.",
-      "route": "lexicon",
-      "conf": 0.75,
-      "ms": 41
+      "text": "I don't have anything reliable on speed. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 36
     },
     {
       "cat": "fragment",
       "q": "chemical symbol sodium",
       "pass": true,
-      "text": "Sodium has the chemical symbol Na.",
+      "text": "The chemical symbol for sodium is Na.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 13
+      "ms": 16
     },
     {
       "cat": "fragment",
@@ -370,7 +370,7 @@
       "text": "A jupiter moons would be a natural satellite of the earth relating to Jupiter. Tell me the context and I can be more exact.",
       "route": "compose",
       "conf": 0.47000000000000003,
-      "ms": 35
+      "ms": 40
     },
     {
       "cat": "fragment",
@@ -379,7 +379,7 @@
       "text": "The currency of Japan is the yen. It is in East Asia.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 7
+      "ms": 12
     },
     {
       "cat": "fragment",
@@ -388,7 +388,7 @@
       "text": "I don't have anything reliable on inventor telephone. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 49
+      "ms": 43
     },
     {
       "cat": "fragment",
@@ -397,7 +397,7 @@
       "text": "Jupiter is the largest planet, at 139,820 km in diameter.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 18
+      "ms": 19
     },
     {
       "cat": "fragment",
@@ -406,7 +406,7 @@
       "text": "William Shakespeare was a playwright and poet widely regarded as the greatest writer in the English language.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 35
+      "ms": 31
     },
     {
       "cat": "fragment",
@@ -415,7 +415,7 @@
       "text": "A tallest mountain would be a large natural elevation of the earth's surface that is of great height.",
       "route": "compose",
       "conf": 0.6400000000000001,
-      "ms": 34
+      "ms": 30
     },
     {
       "cat": "prose-math",
@@ -424,7 +424,7 @@
       "text": "The number is 8. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 104
+      "ms": 101
     },
     {
       "cat": "prose-math",
@@ -433,7 +433,7 @@
       "text": "The number is 27. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 80
+      "ms": 78
     },
     {
       "cat": "prose-math",
@@ -442,7 +442,7 @@
       "text": "The number is 23. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 78
+      "ms": 90
     },
     {
       "cat": "prose-math",
@@ -451,7 +451,7 @@
       "text": "The number is 12. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 137
+      "ms": 95
     },
     {
       "cat": "prose-math",
@@ -460,7 +460,7 @@
       "text": "The number is 21. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 100
+      "ms": 107
     },
     {
       "cat": "prose-math",
@@ -469,7 +469,7 @@
       "text": "The number is 33. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 96
+      "ms": 88
     },
     {
       "cat": "prose-math",
@@ -478,7 +478,7 @@
       "text": "The number is 8. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 100
+      "ms": 80
     },
     {
       "cat": "prose-math",
@@ -487,7 +487,7 @@
       "text": "The number is 6. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 91
+      "ms": 143
     },
     {
       "cat": "prose-math",
@@ -496,7 +496,7 @@
       "text": "x = 18, y = 12. Checked by 2 independent methods (Gaussian elimination, Cramer's rule); verified by substitution. Assuming the sentence reads as x+y=30, x-y=6.",
       "route": "reason",
       "conf": 0.96,
-      "ms": 25
+      "ms": 38
     },
     {
       "cat": "prose-math",
@@ -505,7 +505,7 @@
       "text": "The number is -9 or 9. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence r",
       "route": "reason",
       "conf": 0.99,
-      "ms": 60
+      "ms": 81
     },
     {
       "cat": "prose-math",
@@ -514,7 +514,7 @@
       "text": "The number is 25. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 77
+      "ms": 82
     },
     {
       "cat": "prose-math",
@@ -523,7 +523,7 @@
       "text": "The number is 8. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 101
+      "ms": 107
     },
     {
       "cat": "desc-math",
@@ -532,7 +532,7 @@
       "text": "1/6 (0.166666667). Checked by 2 independent methods (enumerate outcomes, convolution of distributions); verified by probability in [0,1], symmetry about the mean. Assuming the dice are fair and independent.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 25
+      "ms": 24
     },
     {
       "cat": "desc-math",
@@ -541,7 +541,7 @@
       "text": "1/8 (0.125). Checked by 2 independent methods (binomial formula, enumerate sequences); verified by probability in [0,1], distribution sums to 1. Assuming the coin is fair and flips are independent.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 27
+      "ms": 35
     },
     {
       "cat": "desc-math",
@@ -550,7 +550,7 @@
       "text": "12. Checked by 3 independent methods (Euclid's algorithm, exhaustive search of common divisors, common prime factors); verified by divides both, cofactors coprime.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 23
+      "ms": 24
     },
     {
       "cat": "desc-math",
@@ -559,7 +559,7 @@
       "text": "24. Checked by 3 independent methods (ab / gcd(a,b), search of common multiples, max prime powers); verified by multiple of both, gcd * lcm = ab.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 20
+      "ms": 14
     },
     {
       "cat": "desc-math",
@@ -568,7 +568,7 @@
       "text": "24. Checked by 2 independent methods (n!/(n-k)!, falling product); verified by P(n,k) = C(n,k) k.",
       "route": "reason",
       "conf": 0.973,
-      "ms": 25
+      "ms": 30
     },
     {
       "cat": "desc-math",
@@ -577,7 +577,7 @@
       "text": "15. Checked by 3 independent methods (multiplicative formula, Pascal's triangle, factorial definition); verified by symmetry C(n,k)=C(n,n-k), bound C(n,k) <= 2^n.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 29
+      "ms": 45
     },
     {
       "cat": "desc-math",
@@ -586,7 +586,7 @@
       "text": "60 (2/3 × 90). Checked by 2 independent methods (exact rational arithmetic, floating point).",
       "route": "reason",
       "conf": 0.8,
-      "ms": 18
+      "ms": 16
     },
     {
       "cat": "desc-math",
@@ -595,16 +595,16 @@
       "text": "125 (5^3). Checked by 2 independent methods (exact rational arithmetic, floating point).",
       "route": "reason",
       "conf": 0.8,
-      "ms": 12
+      "ms": 11
     },
     {
       "cat": "desc-math",
       "q": "What is 3 to the power of 5?",
       "pass": true,
-      "text": "3 ^ 5 equals 243.",
+      "text": "3 ^ 5 = 243.",
       "route": "compute",
       "conf": 0.973,
-      "ms": 20
+      "ms": 14
     },
     {
       "cat": "desc-math",
@@ -622,16 +622,16 @@
       "text": "That's 180 minutes.",
       "route": "compute",
       "conf": 0.5,
-      "ms": 20
+      "ms": 26
     },
     {
       "cat": "desc-math",
       "q": "A shirt costs 60 dollars and is 20 percent off. What is the sale price?",
       "pass": true,
-      "text": "The new price comes to $48.",
+      "text": "After the discount it comes to $48.",
       "route": "compute",
       "conf": 0.75,
-      "ms": 45
+      "ms": 58
     },
     {
       "cat": "desc-math",
@@ -640,7 +640,7 @@
       "text": "5050. Checked by 2 independent methods (Gauss pairing formula, direct summation); verified by mean times count, bounds.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 16
+      "ms": 20
     },
     {
       "cat": "desc-math",
@@ -649,16 +649,16 @@
       "text": "yes. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor.",
       "route": "reason",
       "conf": 0.973,
-      "ms": 10
+      "ms": 12
     },
     {
       "cat": "normal",
       "q": "What is the capital of Italy?",
       "pass": true,
-      "text": "The capital of Italy is Rome. It is in Southern Europe.",
+      "text": "Italy's capital is Rome. It is in Southern Europe.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 6
+      "ms": 15
     },
     {
       "cat": "normal",
@@ -667,7 +667,7 @@
       "text": "Romeo and Juliet was written by William Shakespeare. It dates to around 1595.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 10
+      "ms": 17
     },
     {
       "cat": "normal",
@@ -676,25 +676,25 @@
       "text": "The spider has eight legs.",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 36
+      "ms": 20
     },
     {
       "cat": "normal",
       "q": "What is photosynthesis?",
       "pass": true,
-      "text": "Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in sugars.",
+      "text": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in su",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 4
+      "ms": 9
     },
     {
       "cat": "normal",
       "q": "Why is the sky blue?",
       "pass": true,
-      "text": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — roughly as one over wavelength to the fourth power. Blue light is therefore scattered across the whole sky ",
+      "text": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — approximately as one over wavelength to the fourth power. Blue light is therefore scattered across the whol",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 16
+      "ms": 17
     },
     {
       "cat": "normal",
@@ -703,16 +703,16 @@
       "text": "People in Brazil speak Portuguese. It is in South America.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 13
+      "ms": 16
     },
     {
       "cat": "normal",
       "q": "Who painted the Mona Lisa?",
       "pass": true,
-      "text": "Leonardo da Vinci created Mona Lisa.",
+      "text": "Mona Lisa was created by Leonardo da Vinci.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 12
+      "ms": 16
     },
     {
       "cat": "normal",
@@ -721,7 +721,7 @@
       "text": "Iron has the chemical symbol Fe.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 14
+      "ms": 20
     },
     {
       "cat": "normal",
@@ -730,16 +730,16 @@
       "text": "Water boils at 100 °C at sea-level pressure.",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 5
+      "ms": 9
     },
     {
       "cat": "normal",
       "q": "Who developed the theory of relativity?",
       "pass": true,
-      "text": "relativity was created by Albert Einstein. It dates to 1905 and 1915.",
+      "text": "Albert Einstein created relativity. Relativity dates to 1905 and 1915.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 50
+      "ms": 47
     },
     {
       "cat": "normal",
@@ -754,10 +754,10 @@
       "cat": "normal",
       "q": "What is the difference between a virus and bacteria?",
       "pass": true,
-      "text": "Virus and bacteria differ in one respect. Virus is A virus is a tiny infectious agent that can only replicate inside the living cells of a host, whereas bacteria is single-celled microorganisms without a nucleus; some ca",
+      "text": "Virus and bacteria differ in one respect. Virus is A virus is a tiny infectious agent that can only replicate inside the living cells of a host, while bacteria is single-celled microorganisms without a nucleus; some caus",
       "route": "comparison",
       "conf": 0.7,
-      "ms": 27
+      "ms": 31
     },
     {
       "cat": "normal",
@@ -766,16 +766,16 @@
       "text": "World War II was the global conflict fought from 1939 to 1945 between the Allied and Axis powers. It dates to 1939 to 1945, ending on 2 September 1945.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 13
+      "ms": 14
     },
     {
       "cat": "normal",
       "q": "What is the largest ocean on Earth?",
-      "pass": false,
-      "text": "On Earth, an ocean is one of Earth's five great bodies of salt water.",
-      "route": "compose",
+      "pass": true,
+      "text": "The Pacific is the largest and deepest of Earth's oceans.",
+      "route": "knowledge",
       "conf": 0.7,
-      "ms": 52
+      "ms": 72
     },
     {
       "cat": "normal",
@@ -784,7 +784,7 @@
       "text": "Japan's currency is the yen.",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 9
+      "ms": 17
     },
     {
       "cat": "abstain",
@@ -793,7 +793,7 @@
       "text": "I don't have anything reliable on Glass Otters. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 48
+      "ms": 84
     },
     {
       "cat": "abstain",
@@ -802,7 +802,7 @@
       "text": "I don't have anything reliable on planet Zorbon. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 57
+      "ms": 69
     },
     {
       "cat": "abstain",
@@ -811,7 +811,7 @@
       "text": "Of Narnia, a tongue is the muscular organ in the mouth used for tasting and speaking. That is the general sense of the word — I don't hold a separate narnia meaning for it.",
       "route": "compose",
       "conf": 0.45,
-      "ms": 51
+      "ms": 72
     },
     {
       "cat": "abstain",
@@ -820,7 +820,7 @@
       "text": "I don't have anything reliable on The Quiet Lantern of Vess. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 116
+      "ms": 152
     },
     {
       "cat": "abstain",
@@ -829,7 +829,7 @@
       "text": "I don't have anything reliable on Glimmerfield township. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 52
+      "ms": 62
     },
     {
       "cat": "abstain",
@@ -838,7 +838,7 @@
       "text": "I don't have anything reliable on hollis-varga theorem. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 31
+      "ms": 62
     },
     {
       "cat": "abstain",
@@ -847,7 +847,7 @@
       "text": "I don't have anything reliable on company Brindlewick Labs. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 86
+      "ms": 91
     },
     {
       "cat": "abstain",
@@ -856,7 +856,7 @@
       "text": "I don't have anything reliable on zorbanium. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
       "route": "insufficient",
       "conf": 0.2,
-      "ms": 26
+      "ms": 28
     }
   ]
 }

@@ -189,3 +189,32 @@ Measure it:
 
     npm run lm:phrasing   # mechanism regression checks (20)
     npm run lm:heldout    # v1 (seen during development) and v2 (frozen before first run)
+
+## Comprehension and conversation awareness
+
+**Comprehension.** `c4-lm-comprehend.js` reads every question before
+anything answers it:
+- a gloss for every word and phrase (the knowledge base for named things,
+  the gloss-overlap-chosen lexicon sense for words, the grammatical role for
+  closed-class words, the quantity for numbers and units);
+- what is asked and what is given;
+- a summary and a research query.
+
+Quantitative questions are derived by dimensional analysis. A question that
+does not fix its answer gets what is missing named, with the rate per unit
+of it. Declared knowledge-base values are used as assumptions and say so.
+The reading is on every result (`result.comprehension`) and available as
+`C4LM.comprehend(text)`.
+
+**Awareness.** The discourse keeps a record of each turn, and the reply
+depends on it:
+- repeated questions are recognised by content and requested form, re-read
+  without context drift, and answered according to what happened last time;
+- reactions ("oh", "hmm") answer the last exchange;
+- the system does not say the same sentence twice.
+
+Ablation switches: `comprehension`, `awareness`.
+
+    npm run lm:comprehend   # 13 checks
+    npm run lm:awareness    # 11 checks
+    npm run lm:heldout3     # quantity / under-determined / knowledge / abstain

@@ -97,6 +97,24 @@
           },
           "engine_sha256": "7e10cdc7c9c0eaf1"
         }
+      ],
+      "equivariant_reframing": [
+        {
+          "run": "reframe-arc1",
+          "n": 400,
+          "top1": 225,
+          "top2": 231,
+          "oracle_retained": 232,
+          "task_seconds": 1171,
+          "failures": {
+            "SOLVED": 225,
+            "RIGHT_OUTPUT_OUTRANKED": 7,
+            "NO_CANDIDATE": 124,
+            "NO_CORRECT_RETAINED_PREDICTION": 44
+          },
+          "engine_sha256": "fa4d1feac8dfead2",
+          "note": "reframing on no-candidate tasks; ARC-1 run overlapped with LM test runs (CPU contention)"
+        }
       ]
     },
     "arc2": {
@@ -194,6 +212,24 @@
             "NO_CORRECT_RETAINED_PREDICTION": 26
           },
           "engine_sha256": "7e10cdc7c9c0eaf1"
+        }
+      ],
+      "equivariant_reframing": [
+        {
+          "run": "reframe-arc2",
+          "n": 150,
+          "top1": 51,
+          "top2": 54,
+          "oracle_retained": 56,
+          "task_seconds": 468,
+          "failures": {
+            "SOLVED": 51,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 64,
+            "NO_CORRECT_RETAINED_PREDICTION": 30
+          },
+          "engine_sha256": "fa4d1feac8dfead2",
+          "note": "reframing on no-candidate tasks; ARC-1 run overlapped with LM test runs (CPU contention)"
         }
       ]
     }

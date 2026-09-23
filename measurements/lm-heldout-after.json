@@ -26,19 +26,19 @@
     }
   },
   "latency": {
-    "p50": 41,
-    "p90": 87,
-    "max": 164
+    "p50": 40,
+    "p90": 90,
+    "max": 114
   },
   "rows": [
     {
       "cat": "idiom",
       "q": "Give me the lowdown on photosynthesis",
       "pass": true,
-      "text": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in su",
+      "text": "Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. It is used for storing light energy as chemical energy in sugars.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 61
+      "ms": 77
     },
     {
       "cat": "idiom",
@@ -47,7 +47,7 @@
       "text": "A black hole is a region of spacetime where gravity is so strong that nothing, not even light, can escape. It results from the gravitational collapse of a massive star.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 39
+      "ms": 31
     },
     {
       "cat": "idiom",
@@ -56,7 +56,7 @@
       "text": "DNA is deoxyribonucleic acid, the double-helix molecule that stores the genetic instructions of living organisms. It is used for storing hereditary information.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 22
+      "ms": 18
     },
     {
       "cat": "idiom",
@@ -65,7 +65,7 @@
       "text": "Vaccine's mechanism is immune memory. It is used for producing immunity without causing the disease.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 51
+      "ms": 42
     },
     {
       "cat": "idiom",
@@ -74,7 +74,7 @@
       "text": "The CPU, central processing unit, executes the instructions that make up a program. It exists because running instructions is worth doing, and CPU is how that is done.",
       "route": "explanation",
       "conf": 0.85,
-      "ms": 78
+      "ms": 67
     },
     {
       "cat": "idiom",
@@ -83,7 +83,7 @@
       "text": "The Cold War was the geopolitical rivalry between the United States and the Soviet Union from 1947 to 1991. It dates to 1947 to 1991.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 46
+      "ms": 49
     },
     {
       "cat": "idiom",
@@ -92,7 +92,7 @@
       "text": "Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library. It was created by Guido van Rossum.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 54
+      "ms": 47
     },
     {
       "cat": "idiom",
@@ -101,25 +101,25 @@
       "text": "The Mona Lisa is Leonardo da Vinci's portrait, painted from about 1503, now in the Louvre. It was created by Leonardo da Vinci.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 27
+      "ms": 24
     },
     {
       "cat": "idiom",
       "q": "Who's the pen behind Hamlet?",
       "pass": true,
-      "text": "Hamlet was written by William Shakespeare. It dates to around 1600.",
+      "text": "William Shakespeare wrote Hamlet. It dates to around 1600.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 80
+      "ms": 61
     },
     {
       "cat": "idiom",
       "q": "Where does Japan keep its seat of government?",
       "pass": true,
-      "text": "The capital of Japan is Tokyo. It is in East Asia.",
+      "text": "Japan's capital is Tokyo. It is in East Asia.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 52
+      "ms": 69
     },
     {
       "cat": "idiom",
@@ -128,7 +128,7 @@
       "text": "A neuron is a nerve cell that transmits electrical and chemical signals. It consists of a cell body, dendrites and an axon.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 52
+      "ms": 53
     },
     {
       "cat": "idiom",
@@ -137,16 +137,16 @@
       "text": "The greenhouse effect is the warming that results when atmospheric gases absorb and re-emit infrared radiation. It is caused by infrared absorption by atmospheric gases.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 41
+      "ms": 44
     },
     {
       "cat": "idiom",
       "q": "What's the big idea behind evolution?",
       "pass": true,
-      "text": "Evolution is the change in heritable traits of populations over generations, driven largely by natural selection. It is caused by variation, inheritance and differential survival.",
+      "text": "Evolution is the change in heritable traits of populations over generations, driven largely by natural selection. It results from variation, inheritance and differential survival.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 57
+      "ms": 60
     },
     {
       "cat": "idiom",
@@ -155,16 +155,16 @@
       "text": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It results from demand, costs or money supply outpacing real output.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 45
+      "ms": 35
     },
     {
       "cat": "idiom",
       "q": "What's the skinny on machine learning?",
       "pass": true,
-      "text": "Machine learning is the branch of computing where systems learn patterns from data instead of following rules written by hand. It is used for making predictions or decisions from data.",
+      "text": "Machine learning is the branch of computing where systems learn patterns from data instead of following rules written by hand.",
       "route": "knowledge",
-      "conf": 0.8,
-      "ms": 46
+      "conf": 0.7,
+      "ms": 52
     },
     {
       "cat": "idiom",
@@ -173,25 +173,25 @@
       "text": "Neil Armstrong was the first person to walk on the Moon, on 20 July 1969 during Apollo 11. It dates to 20 July 1969.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 83
+      "ms": 92
     },
     {
       "cat": "metaphor",
       "q": "What's the tongue of Brazil?",
       "pass": true,
-      "text": "People in Brazil speak Portuguese. It is in South America.",
+      "text": "Portuguese is spoken in Brazil. Brazil is in South America.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 49
+      "ms": 37
     },
     {
       "cat": "metaphor",
       "q": "Which tongue do they speak in Mexico?",
       "pass": true,
-      "text": "The language of Mexico is Spanish. It is in North America.",
+      "text": "People in Mexico speak Spanish. It is in North America.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 47
+      "ms": 66
     },
     {
       "cat": "idiom",
@@ -200,7 +200,7 @@
       "text": "Relativity is Einstein's account of space, time and gravity: special relativity for constant motion, general relativity for gravity as curved spacetime. It was created by Albert Einstein.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 70
+      "ms": 60
     },
     {
       "cat": "idiom",
@@ -209,7 +209,7 @@
       "text": "Tim Berners-Lee was a computer scientist who invented the World Wide Web.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 31
+      "ms": 39
     },
     {
       "cat": "idiom",
@@ -218,7 +218,7 @@
       "text": "Mount Everest stands 8,849 metres (29,032 feet) tall. It is in the Himalayas, on the Nepal–China border.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 11
+      "ms": 20
     },
     {
       "cat": "idiom",
@@ -227,7 +227,7 @@
       "text": "Water boils at 100 °C (212 °F) at sea-level pressure.",
       "route": "knowledge",
       "conf": 0.75,
-      "ms": 59
+      "ms": 75
     },
     {
       "cat": "idiom",
@@ -236,25 +236,25 @@
       "text": "Water freezes at 0 °C (32 °F).",
       "route": "knowledge",
       "conf": 0.75,
-      "ms": 50
+      "ms": 62
     },
     {
       "cat": "idiom",
       "q": "What's the chemical shorthand for gold?",
       "pass": true,
-      "text": "The chemical symbol for gold is Au.",
+      "text": "Gold's chemical symbol is Au.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 42
+      "ms": 52
     },
     {
       "cat": "metaphor",
       "q": "Why is the sky dressed in blue?",
       "pass": true,
-      "text": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — roughly as one over wavelength to the fourth power. Blue light is therefore scattered across the whole sky ",
+      "text": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — approximately as one over wavelength to the fourth power. Blue light is therefore scattered across the whol",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 28
+      "ms": 32
     },
     {
       "cat": "idiom",
@@ -272,16 +272,16 @@
       "text": "Thermal conduction is heat transfer through direct contact, as faster-moving particles pass energy to slower neighbours. Metals conduct heat quickly because their free electrons carry energy through the material, so a me",
       "route": "explanation",
       "conf": 0.7,
-      "ms": 38
+      "ms": 47
     },
     {
       "cat": "idiom",
       "q": "In plain words, how do TCP and UDP differ?",
       "pass": true,
-      "text": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmi",
+      "text": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, whereas UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, whereas UDP does not retra",
       "route": "comparison",
       "conf": 0.9,
-      "ms": 73
+      "ms": 97
     },
     {
       "cat": "idiom",
@@ -290,7 +290,7 @@
       "text": "No. Spider is an eight-legged arachnid, not an insect.",
       "route": "reason",
       "conf": 0.75,
-      "ms": 13
+      "ms": 14
     },
     {
       "cat": "idiom",
@@ -299,7 +299,7 @@
       "text": "Gravity is the attraction between objects with mass; in general relativity it is the curvature of spacetime caused by mass and energy. Every mass curves the spacetime around it, and objects follow the straightest availab",
       "route": "explanation",
       "conf": 0.85,
-      "ms": 87
+      "ms": 56
     },
     {
       "cat": "metaphor",
@@ -308,7 +308,7 @@
       "text": "A GPU, graphics processing unit, runs thousands of simple operations in parallel, which suits graphics and matrix maths. It is used for parallel arithmetic for graphics and machine learning.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 54
+      "ms": 49
     },
     {
       "cat": "idiom",
@@ -317,7 +317,7 @@
       "text": "World War II was the global conflict fought from 1939 to 1945 between the Allied and Axis powers. It dates to 1939 to 1945, ending on 2 September 1945.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 35
+      "ms": 90
     },
     {
       "cat": "idiom",
@@ -326,7 +326,7 @@
       "text": "The Starry Night is Vincent van Gogh's 1889 painting of a swirling night sky. It dates to 1889.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 23
+      "ms": 22
     },
     {
       "cat": "idiom",
@@ -335,16 +335,16 @@
       "text": "Pride and Prejudice is Jane Austen's 1813 novel about Elizabeth Bennet and Mr Darcy. It dates to 1813.",
       "route": "knowledge",
       "conf": 0.65,
-      "ms": 17
+      "ms": 20
     },
     {
       "cat": "metaphor",
       "q": "Where does the Eiffel Tower call home?",
       "pass": true,
-      "text": "Eiffel Tower lies in Paris, France.",
+      "text": "Eiffel Tower is situated in Paris, France.",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 58
+      "ms": 59
     },
     {
       "cat": "idiom",
@@ -353,7 +353,7 @@
       "text": "The Big Bang is the leading model for the origin of the universe: an extremely hot, dense early state that has been expanding for about 13.8 billion years. It dates to about 13.8 billion years ago.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 21
+      "ms": 22
     },
     {
       "cat": "idiom",
@@ -362,7 +362,7 @@
       "text": "The Renaissance was the European revival of art, learning and science from approximately the 14th to 17th centuries. It dates to roughly the 14th to 17th centuries.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 14
+      "ms": 17
     },
     {
       "cat": "idiom",
@@ -371,16 +371,16 @@
       "text": "Nelson Mandela was a revolutionary and statesman who became the first democratically elected President of South Africa.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 35
+      "ms": 40
     },
     {
       "cat": "metaphor",
       "q": "Who is the father of computer science?",
       "pass": false,
-      "text": "I don't have anything reliable on computer science. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
-      "route": "insufficient",
-      "conf": 0.2,
-      "ms": 60
+      "text": "Grace Hopper was a computer scientist and naval officer who pioneered compilers and helped develop COBOL.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 72
     },
     {
       "cat": "idiom",
@@ -389,16 +389,16 @@
       "text": "An enzyme is a protein that speeds up a specific biochemical reaction. It is used for catalysing reactions without being consumed.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 14
+      "ms": 13
     },
     {
       "cat": "fragment",
       "q": "speed light",
       "pass": true,
-      "text": "Speed of light travels at 299,792,458 m/s.",
+      "text": "The speed of speed of light is 299,792,458 m/s.",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 26
+      "ms": 20
     },
     {
       "cat": "fragment",
@@ -407,16 +407,16 @@
       "text": "Albert Einstein was a theoretical physicist best known for the theory of relativity and the mass–energy equivalence E = mc². It is in born in Ulm, Germany.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 39
+      "ms": 30
     },
     {
       "cat": "fragment",
       "q": "capital Kenya",
       "pass": true,
-      "text": "Kenya's capital is Nairobi. It is in East Africa.",
+      "text": "The capital of Kenya is Nairobi. It is in East Africa.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 7
+      "ms": 9
     },
     {
       "cat": "fragment",
@@ -425,7 +425,7 @@
       "text": "Water freezes at 0 °C. That is 32 °F.",
       "route": "knowledge",
       "conf": 0.82,
-      "ms": 51
+      "ms": 66
     },
     {
       "cat": "fragment",
@@ -434,16 +434,16 @@
       "text": "Isaac Newton was a mathematician and physicist who formulated the laws of motion and universal gravitation.",
       "route": "knowledge",
       "conf": 0.85,
-      "ms": 42
+      "ms": 35
     },
     {
       "cat": "fragment",
       "q": "largest ocean",
       "pass": true,
-      "text": "An ocean is one of Earth's five great bodies of salt water. It consists of the Pacific, Atlantic, Indian, Southern and Arctic oceans.",
+      "text": "The Pacific is the largest and deepest of Earth's oceans.",
       "route": "knowledge",
-      "conf": 0.85,
-      "ms": 41
+      "conf": 0.7,
+      "ms": 35
     },
     {
       "cat": "fragment",
@@ -451,26 +451,26 @@
       "pass": true,
       "text": "The language of Austria is German. It is in Central Europe.",
       "route": "knowledge",
-      "conf": 0.9,
-      "ms": 7
+      "conf": 0.8,
+      "ms": 25
     },
     {
       "cat": "fragment",
       "q": "painter Starry Night",
       "pass": true,
-      "text": "The Starry Night was created by Vincent van Gogh. It dates to 1889.",
+      "text": "The Starry Night is the work of Vincent van Gogh. It dates to 1889.",
       "route": "knowledge",
       "conf": 0.8,
-      "ms": 52
+      "ms": 60
     },
     {
       "cat": "fragment",
       "q": "chemical symbol iron",
       "pass": true,
-      "text": "The chemical symbol for iron is Fe.",
+      "text": "Iron's chemical symbol is Fe.",
       "route": "knowledge",
       "conf": 0.9,
-      "ms": 10
+      "ms": 25
     },
     {
       "cat": "fragment",
@@ -479,7 +479,7 @@
       "text": "Mars has two moons.",
       "route": "knowledge",
       "conf": 0.75,
-      "ms": 31
+      "ms": 29
     },
     {
       "cat": "prose-math",
@@ -488,7 +488,7 @@
       "text": "The number is 2. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 97
+      "ms": 100
     },
     {
       "cat": "prose-math",
@@ -497,7 +497,7 @@
       "text": "The number is 6. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 164
+      "ms": 104
     },
     {
       "cat": "prose-math",
@@ -515,7 +515,7 @@
       "text": "The number is 7. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 105
+      "ms": 114
     },
     {
       "cat": "prose-math",
@@ -524,7 +524,7 @@
       "text": "The number is 5. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 116
+      "ms": 98
     },
     {
       "cat": "prose-math",
@@ -533,7 +533,7 @@
       "text": "The number is 18. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 97
+      "ms": 84
     },
     {
       "cat": "prose-math",
@@ -542,7 +542,7 @@
       "text": "The number is 24. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 90
+      "ms": 67
     },
     {
       "cat": "prose-math",
@@ -551,7 +551,7 @@
       "text": "The number is 8. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 124
+      "ms": 113
     },
     {
       "cat": "prose-math",
@@ -560,7 +560,7 @@
       "text": "The number is 27. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads ",
       "route": "reason",
       "conf": 0.99,
-      "ms": 67
+      "ms": 66
     },
     {
       "cat": "prose-math",
@@ -569,7 +569,7 @@
       "text": "The number is 9. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence reads a",
       "route": "reason",
       "conf": 0.99,
-      "ms": 73
+      "ms": 76
     },
     {
       "cat": "desc-math",
@@ -578,7 +578,7 @@
       "text": "5/36 (0.138888889). Checked by 2 independent methods (enumerate outcomes, convolution of distributions); verified by probability in [0,1], symmetry about the mean. Assuming the dice are fair and independent.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 40
+      "ms": 41
     },
     {
       "cat": "desc-math",
@@ -587,7 +587,7 @@
       "text": "1/4 (0.25). Checked by 2 independent methods (binomial formula, enumerate sequences); verified by probability in [0,1], distribution sums to 1. Assuming the coin is fair and flips are independent.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 43
+      "ms": 40
     },
     {
       "cat": "desc-math",
@@ -596,7 +596,7 @@
       "text": "12. Checked by 3 independent methods (Euclid's algorithm, exhaustive search of common divisors, common prime factors); verified by divides both, cofactors coprime.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 27
+      "ms": 30
     },
     {
       "cat": "desc-math",
@@ -605,7 +605,7 @@
       "text": "12. Checked by 3 independent methods (ab / gcd(a,b), search of common multiples, max prime powers); verified by multiple of both, gcd * lcm = ab.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 20
+      "ms": 19
     },
     {
       "cat": "desc-math",
@@ -614,7 +614,7 @@
       "text": "45. Checked by 3 independent methods (multiplicative formula, Pascal's triangle, factorial definition); verified by symmetry C(n,k)=C(n,n-k), bound C(n,k) <= 2^n.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 38
+      "ms": 37
     },
     {
       "cat": "desc-math",
@@ -623,7 +623,7 @@
       "text": "120. Checked by 2 independent methods (n!/(n-k)!, falling product); verified by P(n,k) = C(n,k) k.",
       "route": "reason",
       "conf": 0.973,
-      "ms": 22
+      "ms": 27
     },
     {
       "cat": "desc-math",
@@ -632,7 +632,7 @@
       "text": "56. Checked by 3 independent methods (multiplicative formula, Pascal's triangle, factorial definition); verified by symmetry C(n,k)=C(n,n-k), bound C(n,k) <= 2^n.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 18
+      "ms": 24
     },
     {
       "cat": "desc-math",
@@ -650,7 +650,7 @@
       "text": "150 (3/4 × 200). Checked by 2 independent methods (exact rational arithmetic, floating point).",
       "route": "reason",
       "conf": 0.8,
-      "ms": 21
+      "ms": 16
     },
     {
       "cat": "desc-math",
@@ -659,16 +659,16 @@
       "text": "144 (12 × 12). Checked by 2 independent methods (exact rational arithmetic, floating point).",
       "route": "reason",
       "conf": 0.8,
-      "ms": 22
+      "ms": 23
     },
     {
       "cat": "desc-math",
       "q": "A jacket costs 40 dollars and is 25 percent off. What do I pay?",
       "pass": true,
-      "text": "The new price comes to $30.",
+      "text": "The new price is $30.",
       "route": "compute",
       "conf": 0.75,
-      "ms": 36
+      "ms": 42
     },
     {
       "cat": "desc-math",
@@ -677,7 +677,7 @@
       "text": "256 (2^8). Checked by 2 independent methods (exact rational arithmetic, floating point).",
       "route": "reason",
       "conf": 0.8,
-      "ms": 14
+      "ms": 13
     },
     {
       "cat": "desc-math",
@@ -686,7 +686,7 @@
       "text": "2. Checked by 2 independent methods (division algorithm, repeated subtraction); verified by range 0 <= r < m, a - r is a multiple of m.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 12
+      "ms": 18
     },
     {
       "cat": "desc-math",
@@ -695,16 +695,16 @@
       "text": "no. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor.",
       "route": "reason",
       "conf": 0.973,
-      "ms": 10
+      "ms": 12
     },
     {
       "cat": "desc-math",
       "q": "How many seconds are in two hours?",
       "pass": true,
-      "text": "That's 7200 seconds.",
+      "text": "That comes to 7200 seconds.",
       "route": "compute",
       "conf": 0.5,
-      "ms": 24
+      "ms": 22
     },
     {
       "cat": "desc-math",
@@ -713,7 +713,7 @@
       "text": "12. Checked by 2 independent methods (symbolic (power rule), numeric central difference); verified by numeric differentiation.",
       "route": "reason",
       "conf": 0.973,
-      "ms": 14
+      "ms": 13
     },
     {
       "cat": "desc-math",
@@ -722,7 +722,7 @@
       "text": "The number is -12 or 12. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change. Assuming the sentence",
       "route": "reason",
       "conf": 0.99,
-      "ms": 85
+      "ms": 88
     },
     {
       "cat": "desc-math",
@@ -731,7 +731,7 @@
       "text": "x = 7, y = 3. Checked by 2 independent methods (Gaussian elimination, Cramer's rule); verified by substitution. Assuming the sentence reads as x+y=10, x-y=4.",
       "route": "reason",
       "conf": 0.96,
-      "ms": 28
+      "ms": 33
     },
     {
       "cat": "desc-math",
@@ -740,16 +740,16 @@
       "text": "1275. Checked by 2 independent methods (Gauss pairing formula, direct summation); verified by mean times count, bounds.",
       "route": "reason",
       "conf": 0.99,
-      "ms": 11
+      "ms": 22
     },
     {
       "cat": "desc-math",
       "q": "What's the average of 10, 20 and 60?",
       "pass": true,
-      "text": "The average is 30.",
+      "text": "That averages out to 30.",
       "route": "compute",
       "conf": 0.75,
-      "ms": 11
+      "ms": 12
     }
   ]
 }

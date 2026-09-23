@@ -643,7 +643,9 @@
       var extra = freshExtra(plan.extras, hist, base.text), more = [];
       cands.forEach(function (c) {
         var e = extra ? c + " " + pickOne(EXTRA_LEADS) + " " + extra : c;
-        more.push(e, pickOne(REPEAT_OPENERS) + " " + e, pickOne(REPEAT_OPENERS) + " " + c);
+        /* no canned "As I said:" -- noticing a repeat is the orchestrator's
+           job, from what was actually asked and answered */
+        more.push(e, c);
       });
       cands = more;
     }
@@ -659,7 +661,6 @@
     key = "text:" + String(key || "");
     var hist = historyFor(key);
     var cands = surfaceVariants(t, !opts.lengthLimit);
-    if (hist.length && !opts.lengthLimit) cands = cands.concat(cands.map(function (c) { return pickOne(REPEAT_OPENERS) + " " + c; }));
     var out = selectVariant(t, cands, hist, { lengthLimit: opts.lengthLimit || 0, lengthUnit: opts.lengthUnit || "" });
     commitVariation(key, out);
     return out;

@@ -4923,7 +4923,13 @@ document.addEventListener('keydown', function (event) {
       paintStatus();
       return;
     }
-    if (memo && memo.handled && memo.residual) { memoPrefix = memo.text; text = memo.residual; }
+    /* a residual the user did not type (the last question, re-asked by a
+       format instruction) is the page asking again, not the user repeating */
+    var reAsked = false;
+    if (memo && memo.handled && memo.residual) {
+      memoPrefix = memo.text; text = memo.residual;
+      reAsked = String(original).toLowerCase().indexOf(String(memo.residual).toLowerCase()) < 0;
+    }
 
     /* Dialogue state is resolved BEFORE retrieval, so "when was he born" is
        already an explicit question by the time any source sees it, and an
@@ -5111,7 +5117,7 @@ document.addEventListener('keydown', function (event) {
     function tryLanguage(next) {
       if (typeof C4LM === "undefined" || !C4LM.ready()) return next();
       var promise;
-      try { promise = C4LM.answer(text); } catch (e) { return next(); }
+      try { promise = C4LM.answer(text, reAsked ? { internal: true } : undefined); } catch (e) { return next(); }
       if (!promise || typeof promise.then !== "function") return next();
       promise.then(function (r) {
         /* The language stack has already consulted local knowledge, the site

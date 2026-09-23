@@ -400,6 +400,109 @@ Other suites:
 - A metaphor whose figurative sense is not in the lexicon is not read
   figuratively.
 
+## 14. Follow-up: comprehension, conversation awareness, ARC re-framing
+
+**Comprehension stage** (`c4-lm-comprehend.js`, new). It runs on every
+question of 80 words or fewer:
+1. **Every word and phrase gets a gloss.**
+   - Knowledge-base phrases get the entry's definition.
+   - Content words get the lexicon sense chosen by gloss overlap with the
+     rest of the question.
+   - Closed-class words get their grammatical role; numbers and units get
+     their quantity.
+   - Unknown words are flagged.
+2. **Quantities and rates are read.** This covers "60 miles an hour", "12
+   litres every 3 minutes", "20 pages per minute", and dictionary-defined
+   abbreviations ("mph" is glossed "miles per hour").
+3. **The asked dimension is found.**
+4. **A one-line summary and a research query are built.**
+5. **Quantitative questions are derived by dimensional analysis.** The solver
+   searches exponents over the stated quantities, plus at most one quantity
+   the knowledge base holds for a mentioned thing, which is declared as an
+   assumption. When the question does not fix its answer, it names exactly
+   what is missing, gives the relationship, and states the rate per unit of
+   the missing extent.
+
+The summary query drives research:
+- **Several documents, strictly on topic.** Sentences are ranked by coverage,
+  and agreement across documents counts.
+- **"What/which N" instance research.** The answer is the N that the
+  documents about the rest of the question mention; the connecting sentence
+  is quoted.
+- **The federation.** It gets the summary as an extra query when the network
+  is available.
+
+**Conversation awareness** (`c4-lm.js`):
+- The discourse keeps a record of each turn: normalised words, content stems,
+  the requested form, the subject, the answer, and whether it was a real
+  answer.
+- **Repeats.** A question matching an earlier one (same words, or 80%
+  content-stem overlap with the same requested form) is re-read without
+  dialogue context, so it cannot drift. The reply depends on the last
+  answer:
+  - After a non-answer, the repeat is acknowledged with its count and the
+    limit is stated.
+  - A real answer is given again with the repeat acknowledged.
+  - A changed answer is introduced as a second attempt.
+- **Reactions.** Interjections are a closed class. A content-free message
+  answers the last exchange, never its topic words:
+  - After a non-answer, the reaction is read as noticing that.
+  - Recurring reactions to non-answers on the same subject are named as
+    going in circles.
+  - Consecutive reactions are counted.
+- **No self-repetition.** The system does not repeat its own sentence. The
+  realiser's canned "As I said:" openers were removed.
+- **Parser.** "how do/does X work" is now a mechanism question about X.
+
+**Results:**
+
+| Set | Before | After |
+|---|---|---|
+| Held-out v3 (36; written and committed before this stage, but its baseline failures were seen during development — a development measurement) | 10/36 | 34/36 |
+| — quantity | 2/15 | 15/15 |
+| — under-determined | 0/7 | 7/7 |
+| — invented names (abstain) | 1/4 | 4/4 |
+| — knowledge | 7/10 | 8/10 |
+
+New tests:
+- `tools/lm-comprehend-test.js`: 13/13.
+- `tools/lm-awareness-test.js`: 11/11, replaying the reported transcript.
+
+Unchanged suites:
+
+| Suite | Result |
+|---|---|
+| LM eval | 184/184, 0 hallucinations |
+| Robustness | 48/48 |
+| Memory | 96/96 |
+| Paraphrase | 673 -> 674/687 |
+| v1 | 79/80 |
+| v2 | 76/91 |
+
+LM eval latency: p50 18 ms, p90 54 ms (the previous section's run gave
+p50 17 ms, p90 48 ms).
+
+**ARC equivariant re-framing** (`c4-arc/src/59-equivariant.js`). This only
+runs when no program fits the demonstrations. The task is re-posed in a
+canonical colour frame and in dihedral frames, and solved by the unchanged
+portfolio under full validation. Predictions are mapped back through the
+inverse transform.
+
+| | before (final runs, section 6) | with re-framing |
+|---|---|---|
+| ARC-1 top-1 / top-2 | 225/229, 224/229 | 225/231 |
+| ARC-1 no-candidate | 129, 131 | 124 |
+| ARC-1 task-seconds | 995 | 1171 (+18%) |
+| ARC-2 top-1 / top-2 | 51/54, 51/54 | 51/54 |
+| ARC-2 task-seconds | 372 | 468 (+26%) |
+
+Re-framing was attempted on 135 ARC-1 tasks. It found a consistent program
+in 4 of them, and 1 prediction was correct (3bd67248, in the rot90 frame).
+The gain is small and within run-to-run noise on top-1. This is an honest
+negative result for "breaking the ceiling": most of the portfolio's
+families are already frame-equivariant. The ARC-1 run also overlapped with
+LM test runs (CPU contention under a wall-clock budget).
+
 ## Reproduce
 
     npm test

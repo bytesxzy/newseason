@@ -51,6 +51,11 @@
     this.lastAnswer = "";
     this.turns = 0;
     this.lastCandidates = [];
+    /* What was actually said, turn by turn: the user's words (normalised and
+       as content stems), what was read as their subject, what was answered
+       and whether that answer was a real one. Repetition is judged against
+       this record, not against surface strings. */
+    this.history = [];
   }
   Discourse.prototype.snapshot = function () {
     return {
@@ -2258,6 +2263,141 @@
     return keep(record);
   }
 
+  /* ================================================ conversation awareness */
+
+  function userSignature(frame) {
+    var stems = (frame.contentStems || []).filter(function (s, i, a) { return s && s.length > 1 && !C.STOP[s] && a.indexOf(s) === i; });
+    /* the form asked for is part of the request: "in one sentence" after the
+       same question is a new request, not a repeat */
+    var form = [frame.requestedFormat, frame.requestedLength, frame.requestedUnit, frame.requestedTone, frame.onlyValue ? 1 : 0].join("|");
+    return { norm: C.flatten(frame.rawText || frame.body || ""), stems: stems, form: form };
+  }
+  /* the same request: the same words, or the same content (stems overlap
+     almost entirely -- "how do markov chains work" / "how does a markov
+     chain work") */
+  function sameAsk(a, b) {
+    if (a.norm && a.norm === b.norm) return true;
+    if (a.form !== b.form) return false;
+    if (!a.stems.length || !b.stems.length) return false;
+    var inter = a.stems.filter(function (s) { return b.stems.indexOf(s) >= 0; }).length;
+    var union = a.stems.length + b.stems.length - inter;
+    return inter / union >= 0.8;
+  }
+  function isReaction(frame) {
+    if (frame.speechAct === "acknowledgement") return true;
+    if (frame.hasQuestionMark || /^(?:greeting|thanks|meta|question|command)$/.test(frame.speechAct)) return false;
+    /* no content at all: nothing to be about but the last exchange */
+    return frame.contentTokens.filter(function (t) { return !C.STOP[t] && t.length > 1; }).length === 0 && frame.wordCount > 0;
+  }
+  /* an answer that is not really one: an admission, a guess, low confidence */
+  function weakAnswer(result) {
+    if (!result || !result.text) return true;
+    if (result.insufficient || result.route === "insufficient" || result.route === "none") return true;
+    if ((result.composed || result.route === "compose") && (result.confidence || 0) < 0.6) return true;
+    return (result.confidence || 0) > 0 && result.confidence < 0.45;
+  }
+  function repeatsOf(sig) {
+    return discourse.history.filter(function (h) { return h.kind === "ask" && sameAsk(h.sig, sig); });
+  }
+  function subjectOf(frame) {
+    var comp = frame.comprehension;
+    return frame.subject || (comp && comp.about && comp.about.join(" and ")) || nounPhrase(frame) || frame.topic || "that";
+  }
+  function ordinal(n) { return n === 2 ? "second" : n === 3 ? "third" : n === 4 ? "fourth" : n === 5 ? "fifth" : n + "th"; }
+  function lowerFirst(t) { return /^[A-Z][a-z]/.test(t) && !/^[A-Z][a-z]+\s[A-Z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; }
+
+  function recordTurn(frame, result, info) {
+    if (!info || info.internal) return;
+    discourse.history.push({ kind: info.reaction ? "reaction" : "ask", sig: info.sig, turn: discourse.turns,
+                             words: C.flatten(frame.rawText || ""), subject: info.reaction ? "" : subjectOf(frame),
+                             text: result.text || "", weak: weakAnswer(result), route: result.route });
+    if (discourse.history.length > 40) discourse.history.shift();
+  }
+
+  /* A question asked again means the earlier answer did not land. What to
+     say depends on what that answer was: an admission is not repeated as if
+     new -- the repeat is acknowledged, the limit stated plainly, and what
+     would help is asked for; a real answer that comes out the same is given
+     again with that said, and an invitation to narrow it; an answer that
+     differs this time is introduced as a second attempt. */
+  function awareOfRepeat(frame, result, info) {
+    if (!info || !info.rep || !info.rep.length || result.memoryTurn) return result;
+    var n = info.rep.length + 1, prev = info.rep[info.rep.length - 1];
+    var sim = RZ.variation && RZ.variation.similarity ? RZ.variation.similarity(prev.text, result.text || "") : (prev.text === result.text ? 1 : 0);
+    var subject = subjectOf(frame);
+    var ago = discourse.turns - prev.turn <= 2 ? "just now" : "earlier";
+    if (weakAnswer(result)) {
+      var remote = state.federation && !off("web");
+      return { text: "That's the " + ordinal(n) + " time you've asked, and I still can't give you a real answer: I don't have anything reliable on " +
+                     subject + (remote ? ", and the public sources I can reach didn't turn anything up either." : " in what I hold locally.") +
+                     (n >= 3 ? " Asking again won't change what I know — but if you tell me what you already know about it, or paste a source, I'll reason from that."
+                             : " If you tell me which part you're after, or point me at a source, I'll work from that."),
+               route: "insufficient", insufficient: true, confidence: 0.2, sources: [], repeat: n };
+    }
+    if (prev.weak) {
+      result.text = "Let me take another run at that. " + result.text;
+    } else {
+      /* a real answer, asked for again: say it is the same answer (the
+         realiser has already reworded it and added a detail not given
+         before), and ask what the user is missing */
+      result.text = "You asked this " + ago + (sim >= 0.6 ? " — the answer hasn't changed: " : " — same answer, put another way: ") + result.text +
+                    (n >= 3 ? " You've asked it " + n + " times now, so I may be missing what you mean — which part should I go into?"
+                            : " If that isn't what you were after, tell me which part to go into.");
+    }
+    result.repeat = n;
+    return result;
+  }
+
+  /* A reaction answers the last exchange. After an answer that was not a
+     real one it is read as the user noticing that; several in a row mean
+     the conversation is not giving them what they need, and that is said. */
+  function answerReaction(frame) {
+    var hist = discourse.history, lastAsk = null, inRow = 0, i;
+    for (i = hist.length - 1; i >= 0; i--) { if (hist[i].kind === "reaction") inRow++; else { lastAsk = hist[i]; break; } }
+    var word = C.flatten(frame.rawText || "").trim();
+    if (!lastAsk) return answerConversation(frame, discourse);
+    var same = 0;
+    for (i = hist.length - 1; i >= 0 && hist[i].kind === "reaction"; i--) if (hist[i].words === word) same++;
+    /* how often the user has reacted to a non-answer on this same subject,
+       across the whole conversation, and what was already said back */
+    var misses = 0, said = [];
+    for (i = 0; i < hist.length; i++) {
+      if (hist[i].kind !== "reaction") continue;
+      said.push(hist[i].text);
+      for (var j = i - 1; j >= 0; j--) if (hist[j].kind === "ask") { if (hist[j].weak && hist[j].subject === lastAsk.subject) misses++; break; }
+    }
+    /* several reactions in a row: the count itself is what is noticed, so
+       the reply changes as the run grows */
+    if (inRow >= 3) {
+      return { text: "“" + word + "” again — that's " + (inRow + 1) + " in a row" + (same >= inRow ? "" : " with no question") + ". I'm still here" +
+                     (lastAsk.subject ? "; if " + lastAsk.subject + (/s$/.test(lastAsk.subject) && !/ss$/.test(lastAsk.subject) ? " are" : " is") + " still the thing, tell me what you're after and I'll try from a new angle" : "; ask me anything") + ".",
+               route: "conversation", conversational: true, confidence: 0.7, sources: [] };
+    }
+    if (lastAsk.weak && misses >= 1 && inRow < 2) {
+      var loop = { text: "We're going round in circles on " + (lastAsk.subject || "this") + ": you ask, I say I don't have it, and I don't want to keep repeating that. " +
+                         "Two things would break the loop — tell me what you actually want to know about it (the idea, an example, how it's used), " +
+                         "or paste a sentence or source about it and I'll reason from that. Or ask me about something related I might know.",
+                   route: "conversation", conversational: true, confidence: 0.7, sources: [] };
+      /* never the same sentence twice: if that was already said, say less */
+      if (said.some(function (t) { return t === loop.text; })) {
+        loop.text = "Still no source on " + (lastAsk.subject || "this") + " on my side. Whenever you want, give me something to work from — or change the subject.";
+        if (said.some(function (t) { return t === loop.text; })) loop.text = "I'm here when you've got something new to try.";
+      }
+      return loop;
+    }
+    if (inRow >= 2) {
+      return { text: "You've " + (same >= 2 ? "said “" + word + "”" : "reacted like that") + " a few times now, so I don't think I've given you what you need" +
+                     (lastAsk.subject ? " on " + lastAsk.subject : "") + ". What are you actually trying to find out? Put it in your own words and I'll start from there.",
+               route: "conversation", conversational: true, confidence: 0.7, sources: [] };
+    }
+    if (lastAsk.weak) {
+      return { text: "Fair reaction — that wasn't a real answer. I don't have anything reliable on " + (lastAsk.subject || "that") +
+                     ". If you tell me what you'd like to know about it, or give me a source, I'll work from that.",
+               route: "conversation", conversational: true, confidence: 0.7, sources: [] };
+    }
+    return answerConversation(frame, discourse);
+  }
+
   /* ============================================================ driver */
 
   var discourse = new Discourse();
@@ -2350,7 +2490,14 @@
     if (!M) return answerCore(raw, opts);
     var memo = null;
     try { memo = M.command(raw); } catch (e) { memo = null; }
-    if (memo && memo.handled) return deliverMemo(memo, opts);
+    if (memo && memo.handled) {
+      /* a residual the user did not type (the last question, re-asked by a
+         format instruction) is the system asking itself, not a repeat */
+      if (memo.residual && C.flatten(raw).indexOf(C.flatten(memo.residual)) < 0) {
+        var o2 = {}, k2; for (k2 in (opts || {})) o2[k2] = opts[k2]; o2.internal = true; opts = o2;
+      }
+      return deliverMemo(memo, opts);
+    }
     /* A verb the lexicon does not hold is learned from the dictionaries, then
        the message is read again with its definition. */
     var unknown = [];
@@ -2395,7 +2542,21 @@
       }, t0));
     }
 
-    var ctx = timed("dialogue", function () { return resolveContext(baseFrame, discourse); });
+    /* Conversation awareness. A reaction ("oh", "hmm") answers the last
+       exchange, it is not a new question about its topic. A question asked
+       before is read again on its own words -- a repeat is not a follow-up,
+       so the dialogue context must not drift it -- and what is said depends
+       on what happened the last time it was asked. */
+    var sig = userSignature(baseFrame);
+    state.turnInfo = { sig: sig, rep: [], reaction: false, internal: !!opts.internal };
+    if (!off("awareness") && !opts.internal && isReaction(baseFrame)) {
+      state.turnInfo.reaction = true;
+      return Promise.resolve(finish(baseFrame, answerReaction(baseFrame), t0));
+    }
+    if (!off("awareness") && !opts.internal) state.turnInfo.rep = repeatsOf(sig);
+    var ctx = state.turnInfo.rep.length ?
+      { frame: C.parse(text, null), carried: false } :
+      timed("dialogue", function () { return resolveContext(baseFrame, discourse); });
     var frame = applyDirectives(ctx.frame);
     /* Comprehension: every word and phrase defined, what is asked and given
        summarised; the summary's query drives research (local and remote). */
@@ -2551,6 +2712,10 @@
     if (result.caveat === true) {
       result.text += " I could not reach a live source just now, so that is from local knowledge and may be out of date.";
       result.caveat = "stale";
+    }
+    if (!off("awareness")) {
+      result = awareOfRepeat(frame, result, state.turnInfo);
+      recordTurn(frame, result, state.turnInfo);
     }
     if (state.memory && result.text && !result.conversational) {
       try { result.text = state.memory.conform(result.text, { route: result.route, code: !!result.code }) || result.text; } catch (e) {}

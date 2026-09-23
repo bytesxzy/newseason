@@ -525,7 +525,10 @@
   var GREETING = [/^(?:hi|hey|hello|yo|sup|howdy|heya|hiya)\b/, /^good (?:morning|afternoon|evening)\b/,
     /^how (?:are you|'?s it going|is it going|have you been)\b/, /^what'?s up\b/];
   var THANKS = [/\bthanks?\b/, /\bthank you\b/, /\bcheers\b/, /\bappreciate it\b/, /\bta\b/];
-  var ACK = [/^(?:ok(?:ay)?|k|sure|right|yeah|yep|yup|nope|nah|cool|nice|got it|i see|makes sense|fair enough|interesting|wow|huh|hmm+)\b/];
+  var ACK = [/^(?:ok(?:ay)?|k|sure|right|yeah|yep|yup|nope|nah|cool|nice|got it|i see|makes sense|fair enough|interesting|wow|huh|hmm+)\b/,
+             /* interjections are a closed class: a message made only of them
+                is a reaction, not a question about some earlier topic */
+             /^(?:(?:oh+|ah+|aha|uh+|um+|er+m?|hm+|mm+|huh|wow|whoa|oops|yikes|meh|ooh+|eh|ugh|welp|lol|haha+|ha)[\s!?.,]*)+$/];
   var META_SELF = [/\bwho (?:are|made) you\b/, /\bwhat are you\b/, /\bare you (?:an? )?(?:ai|bot|robot|human|real|conscious)\b/,
     /\bwhat can you do\b/, /\byour name\b/];
 
@@ -639,6 +642,7 @@
     "when (?:is|was|were|did|does|do)", "where (?:is|are|was|were)",
     "how (?:many|much|tall|long|far|fast|big|old|wide|deep)",
     "tell me about", "tell me", "talk about", "explain", "define", "describe",
+    "how (?:do|does|did|can|could|would)",
     "definition of", "meaning of", "info on", "information about", "give me", "about",
     "what does", "what do", "what did",
     "show me", "list", "name", "compare", "summar(?:ise|ize)", "what do you know about",
@@ -691,6 +695,13 @@
     if (m) {
       var rel3 = relationForVerb(m[1]);
       if (rel3) return { subject: cleanEntity(m[2]), relation: rel3, relationPhrase: m[1], shape: "who-verb-subj" };
+    }
+    /* "how do/does X <verb>": a question about X; the verb names the
+       relation, and "work"/"function" ask for the mechanism */
+    m = s.match(/^how\s+(?:do|does|did|can|could|would)\s+(.{2,60}?)\s+([a-z]+)\s*\??$/i);
+    if (m && !/^(?:you|i|we|they|he|she|it|people|one)$/i.test(m[1])) {
+      var relHow = relationForVerb(m[2]) || (/^(?:work|works|function|operate|run|happen)$/i.test(m[2]) ? "mechanism" : "");
+      if (relHow) return { subject: cleanEntity(m[1]), relation: relHow, relationPhrase: m[2], shape: "how-subj-verb" };
     }
     m = s.match(/^when\s+(?:was|were|did)\s+(.{2,70}?)\s+(born|die|died|founded|created|invented|published|released|built)\s*\??$/i);
     if (m) {
