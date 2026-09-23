@@ -906,7 +906,9 @@
     fmtNumber: fmtNumber,
     parseCategorical: parseCategorical,
     solveSequence: solveSequence,
-    solveOrdering: solveOrdering
+    solveOrdering: solveOrdering,
+    unitFamily: unitFamily,
+    unitFactor: unitFactor
   };
   if (typeof module !== "undefined" && module.exports) module.exports = root.C4LMReason;
 })(typeof window !== "undefined" ? window : globalThis);

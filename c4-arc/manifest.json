@@ -67,5 +67,6 @@
   "57-refinement.js",
   "57a-repair-policy.js",
   "58-counterfactual.js",
+  "59-equivariant.js",
   "90-engine.js"
 ]

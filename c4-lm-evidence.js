@@ -48,6 +48,10 @@
           exact title match is hard evidence rather than a fuzzy hit. */
     if (subject) push(subject, "identity", 1.0);
 
+    /* 1b. The comprehension summary's research query: what the question is
+           about and what it asks for, with the grammar removed. */
+    (frame.searchQueries || []).forEach(function (q) { push(q, "summary", 0.97); });
+
     /* 2. The relational query, when a relation was parsed. */
     if (frame.relation && subject) {
       push(subject + " " + frame.relationPhrase, "relation", 0.95);

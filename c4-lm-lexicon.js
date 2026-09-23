@@ -922,6 +922,29 @@
     if (!LEX[w]) add(line);           /* never alter an existing entry */
   });
 
+  /* Unit abbreviations are defined the way a dictionary defines them, as
+     "<unit> per <unit>"; the comprehension stage reads the rate from the
+     gloss. Extra senses are appended only when the word lacks them. */
+  [
+    "mph|n:miles per hour, a unit of speed~MEASURE",
+    "kph|n:kilometres per hour, a unit of speed~MEASURE",
+    "kmh|n:kilometres per hour, a unit of speed~MEASURE",
+    "mpg|n:miles per gallon, a unit of fuel economy~MEASURE",
+    "gasoline|n:a liquid fuel refined from petroleum and burned in car engines~SUBSTANCE",
+    "petrol|n:a liquid fuel refined from petroleum and burned in car engines~SUBSTANCE",
+    "gas|n:gasoline, the liquid fuel burned in car engines~SUBSTANCE",
+    "mileage|n:the distance a vehicle travels on a given amount of fuel~MEASURE",
+    "travel|v:to go from one place to another~ACTION",
+    "drive|v:to operate and steer a vehicle~ACTION|n:a journey in a car~EVENT"
+  ].forEach(function (line) {
+    var w = line.split("|")[0], have = LEX[w] || [];
+    var fresh = line.split("|").slice(1).filter(function (seg) {
+      var g = seg.slice(seg.indexOf(":") + 1).replace(/~.*$/, "").trim();
+      return !have.some(function (s) { return s.gloss === g; });
+    });
+    if (fresh.length) add([w].concat(fresh).join("|"));
+  });
+
   root.C4LMLexicon = API;
   /* Every headword is also a repair target, so an ordinary misspelling has
      something to be repaired TO. Without this the lexicon only told the

@@ -140,7 +140,10 @@
        stated, not embedded: prefixing the entry's name produces "Day of the
        week is There are seven days in a week." */
     var completeSentence = /^[A-Z]/.test(defn.trim()) &&
-      /\b(?:is|are|was|were|has|have|means|refers|exists|comes|makes|produces)\b/.test(defn.slice(0, 90));
+      (/\b(?:is|are|was|were|has|have|means|refers|exists|comes|makes|produces)\b/.test(defn.slice(0, 90)) ||
+       /* a clause opened by a determiner or pronoun has its own subject:
+          "The sky looks blue because ..." */
+       /^(?:The|A|An|This|These|Those|It|They|There)\s+\S+(?:\s+\S+)?\s+[a-z]+s\b/.test(defn.trim()));
     var selfContained = completeSentence || flatDefn.indexOf(flatName) === 0 ||
       new RegExp("^[a-z0-9 ]{0,30}\\b" + flatName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
                  "\\b[a-z0-9 ]{0,20}\\b(?:is|are|was|were|refers|means)\\b").test(flatDefn);

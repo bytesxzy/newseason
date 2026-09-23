@@ -1,0 +1,355 @@
+{
+  "root": "/home/user/newseason",
+  "total": 36,
+  "pass": 10,
+  "accuracy_pct": 27.8,
+  "by_category": {
+    "quantity": {
+      "total": 15,
+      "pass": 2
+    },
+    "underdetermined": {
+      "total": 7,
+      "pass": 0
+    },
+    "knowledge": {
+      "total": 10,
+      "pass": 7
+    },
+    "abstain": {
+      "total": 4,
+      "pass": 1
+    }
+  },
+  "latency": {
+    "p50": 80,
+    "p90": 120,
+    "max": 128
+  },
+  "rows": [
+    {
+      "cat": "quantity",
+      "q": "A train travels at 80 kilometers per hour for 3 hours. How far does it go?",
+      "pass": true,
+      "text": "It travels 240 kilometers.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 118
+    },
+    {
+      "cat": "quantity",
+      "q": "How long does it take to drive 150 miles at 50 miles an hour?",
+      "pass": false,
+      "text": "I don't have anything reliable on long take drive. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 102
+    },
+    {
+      "cat": "quantity",
+      "q": "A cyclist covers 45 kilometers in 3 hours. How fast is she going?",
+      "pass": false,
+      "text": "Going means as a verb, to move from one place to another.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 128
+    },
+    {
+      "cat": "quantity",
+      "q": "A tap fills 12 liters every minute. How much water does it give in 5 minutes?",
+      "pass": false,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It consists of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 79
+    },
+    {
+      "cat": "quantity",
+      "q": "A car gets 30 miles per gallon. How many gallons does it need for 240 miles?",
+      "pass": false,
+      "text": "I don't have anything reliable on How. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 46
+    },
+    {
+      "cat": "quantity",
+      "q": "If apples cost 2 dollars per kilogram, how much do 5 kilograms cost?",
+      "pass": false,
+      "text": "An apple is the edible fruit of the apple tree, Malus domestica.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 99
+    },
+    {
+      "cat": "quantity",
+      "q": "A printer prints 20 pages per minute. How long does it take to print 300 pages?",
+      "pass": false,
+      "text": "Pages has more than one sense: one side of a sheet of paper, or a web document; a single document on the web; one side of a sheet of paper.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 104
+    },
+    {
+      "cat": "quantity",
+      "q": "A runner keeps a pace of 6 miles per hour for 30 minutes. How far does she run?",
+      "pass": true,
+      "text": "It travels 3 miles.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 44
+    },
+    {
+      "cat": "quantity",
+      "q": "Water flows at 4 liters per second. How many liters flow in one hour?",
+      "pass": false,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It consists of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 120
+    },
+    {
+      "cat": "quantity",
+      "q": "A plane flies 900 kilometers in 2 hours. What is its speed?",
+      "pass": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 81
+    },
+    {
+      "cat": "quantity",
+      "q": "A worker earns 15 dollars an hour. How much does she earn in 8 hours?",
+      "pass": false,
+      "text": "Hours means a period of sixty minutes.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 105
+    },
+    {
+      "cat": "quantity",
+      "q": "A pump moves 30 gallons per minute. How long does it take to move 600 gallons?",
+      "pass": false,
+      "text": "I don't have anything reliable on it take to move 600 gallons. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 112
+    },
+    {
+      "cat": "quantity",
+      "q": "A snail moves 2 meters per hour. How long does it take to cross 10 meters?",
+      "pass": false,
+      "text": "I don't have anything reliable on it take to cross 10 meters. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 104
+    },
+    {
+      "cat": "quantity",
+      "q": "How far does light travel in 2 seconds?",
+      "pass": false,
+      "text": "The speed of light in a vacuum is exactly 299,792,458 metres per second, about 300,000 km/s.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 84
+    },
+    {
+      "cat": "quantity",
+      "q": "A heart beats 70 times per minute. How many beats happen in an hour?",
+      "pass": false,
+      "text": "The heart has four chambers.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 127
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A car is traveling 60 miles an hour, how much gas does it use?",
+      "pass": false,
+      "text": "I don't have anything reliable on car traveling 60. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 95
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A truck drives at 50 miles per hour. How far does it go?",
+      "pass": false,
+      "text": "Go means as a verb, to move from one place to another.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 87
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A pump moves 10 liters per minute. How much water does it move?",
+      "pass": false,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 123
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A plane flies 800 kilometers. How long does it take?",
+      "pass": false,
+      "text": "Take means as a verb, to lay hold of, or to carry with one.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 78
+    },
+    {
+      "cat": "underdetermined",
+      "q": "Apples cost 3 dollars per kilogram. How much do the apples cost?",
+      "pass": false,
+      "text": "An apple is the edible fruit of the apple tree, Malus domestica.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 90
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A faucet drips 5 milliliters per minute. How much water is wasted?",
+      "pass": false,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 80
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A bus travels at 40 kilometers per hour. How long does the trip take?",
+      "pass": false,
+      "text": "Take means as a verb, to lay hold of, or to carry with one.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 86
+    },
+    {
+      "cat": "knowledge",
+      "q": "What does a thermometer measure?",
+      "pass": false,
+      "text": "Measure has more than one sense: a way of assessing size, amount or degree; as a verb, to determine the size or amount of; as a verb, to ascertain the size or amount.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 38
+    },
+    {
+      "cat": "knowledge",
+      "q": "Why do we need to sleep?",
+      "pass": false,
+      "text": "I don't have anything reliable on Why do we need to sleep. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 23
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is the boiling point of water in Fahrenheit?",
+      "pass": true,
+      "text": "Water boils at 100 °C at sea-level pressure. That is 212 °F.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 47
+    },
+    {
+      "cat": "knowledge",
+      "q": "How many continents are there?",
+      "pass": true,
+      "text": "There are seven continents. It consists of Africa, Antarctica, Asia, Australia, Europe, North America and South America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 14
+    },
+    {
+      "cat": "knowledge",
+      "q": "What planet is closest to the Sun?",
+      "pass": true,
+      "text": "Mercury is the smallest planet in the Solar System and the closest to the Sun.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 53
+    },
+    {
+      "cat": "knowledge",
+      "q": "What gas do plants absorb from the air?",
+      "pass": false,
+      "text": "The greenhouse effect is the warming that results when atmospheric gases absorb and re-emit infrared radiation.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 31
+    },
+    {
+      "cat": "knowledge",
+      "q": "How many legs does an insect have?",
+      "pass": true,
+      "text": "The insect has six legs.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 31
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is the main language of Japan?",
+      "pass": true,
+      "text": "People in Japan speak Japanese. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 48
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is H2O?",
+      "pass": true,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 5
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is the speed of light?",
+      "pass": true,
+      "text": "Speed of light travels at 299,792,458 m/s.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 5
+    },
+    {
+      "cat": "abstain",
+      "q": "How much fuel does a Glimmerwing 9 use per hour?",
+      "pass": false,
+      "text": "Hour means a period of sixty minutes.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 55
+    },
+    {
+      "cat": "abstain",
+      "q": "How far is Planet Vorn from its star?",
+      "pass": false,
+      "text": "Star means a luminous ball of gas held together by gravity.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 33
+    },
+    {
+      "cat": "abstain",
+      "q": "How much does a quellium bar weigh?",
+      "pass": true,
+      "text": "I don't have anything reliable on quellium bar weigh. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 27
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the top speed of the Trelloway X2 car?",
+      "pass": false,
+      "text": "Car means a road vehicle with an engine and four wheels.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 54
+    }
+  ]
+}

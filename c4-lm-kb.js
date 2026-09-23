@@ -421,6 +421,9 @@
     ["solid state drive", "solid-state drive"]);
   E("hard drive", "hardware", "A hard disk drive stores data magnetically on spinning platters read by a moving head.",
     { type: "non-volatile secondary storage", speed: "millisecond access times" }, ["hdd", "hard disk"]);
+  E("car", "vehicle", "A car is a road vehicle with an engine, usually four wheels, built to carry a few people.",
+    { purpose: "carrying people by road", part: "an engine, wheels, a body and a fuel tank",
+      fuel_economy: "about 25 to 35 miles per gallon for a typical petrol car" }, ["automobile", "motor car"]);
   E("CPU", "hardware", "The CPU, central processing unit, executes the instructions that make up a program.",
     { purpose: "running instructions", part: "control unit, arithmetic logic unit, registers and cache" },
     ["central processing unit", "processor"]);

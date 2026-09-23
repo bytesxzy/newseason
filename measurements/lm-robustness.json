@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-23T20:57:53.719Z",
- "passed": 47,
- "total": 47,
+ "generated": "2026-09-23T21:27:29.020Z",
+ "passed": 48,
+ "total": 48,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -10,6 +10,11 @@
   },
   {
    "name": "syntax: c4-lm-compose.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-comprehend.js",
    "ok": true,
    "detail": ""
   },
@@ -81,7 +86,7 @@
   {
    "name": "knowledge base built",
    "ok": true,
-   "detail": "380"
+   "detail": "381"
   },
   {
    "name": "no artificial delay in page source",
@@ -111,7 +116,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "I don't have anything reliable on x. I c"
+   "detail": "The V2 equation, implemented as written:"
   },
   {
    "name": "edge input: emoji only",
@@ -121,12 +126,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "A version space is the set of all hypoth"
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "edge input: sql-ish input",
@@ -136,7 +141,7 @@
   {
    "name": "edge input: regex metacharacters",
    "ok": true,
-   "detail": "I don't have anything reliable on (a|b)*"
+   "detail": "Paired A/B, 32 fit-split tasks, `--budge"
   },
   {
    "name": "edge input: very long input",
@@ -161,17 +166,17 @@
   {
    "name": "edge input: numbers only",
    "ok": true,
-   "detail": "Photosynthesis is the process by which p"
+   "detail": "Photosynthesis is the process through wh"
   },
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
    "ok": true,
-   "detail": "As I said: France has Paris as / As I said: France's capital is"
+   "detail": "Again: Paris is the capital of / Once more: France's capital is"
   },
   {
    "name": "repeat is not slower",
@@ -186,7 +191,7 @@
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -196,7 +201,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2521 ms"
+   "detail": "2526 ms"
   },
   {
    "name": "garbage source response handled",
@@ -211,12 +216,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hey. Ask me something."
+   "detail": "Hello. What can I look into for you?"
   },
   {
    "name": "dialogue sequence",

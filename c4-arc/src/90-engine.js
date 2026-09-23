@@ -12,7 +12,8 @@ function solveTask(task, opts) {
   var train = [], testInputs = [], i;
   for (i = 0; i < task.train.length; i++) train.push([task.train[i].input, task.train[i].output]);
   for (i = 0; i < task.test.length; i++) testInputs.push(task.test[i].input);
-  return solve(train, testInputs, opts);
+  /* equivariant re-framing only acts when no program fits in the given frame */
+  return REFRAME.solveReframed(solve, train, testInputs, opts);
 }
 
 /* True when every test pair of the task is reproduced within the top ``k``
@@ -39,7 +40,7 @@ var ENGINE = {
   PANELTREE: PANELTREE, GROWTREE: GROWTREE, OBJTREE: OBJTREE,
   DELTA_STENCILS: DELTA_STENCILS,
   REPEAT: REPEAT,
-  RESID: RESID, REPAIR: REPAIR, REFINEMENT: REFINEMENT, CFACT: CFACT,
+  RESID: RESID, REPAIR: REPAIR, REFINEMENT: REFINEMENT, CFACT: CFACT, REFRAME: REFRAME,
   KERNEL: root.C4ReasonKernel,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,

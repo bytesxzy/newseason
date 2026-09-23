@@ -20,7 +20,7 @@
   "use strict";
 
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
-      PRB = root.C4LMProblem, KER = root.C4ReasonKernel,
+      PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
       CD = root.C4LMCode, MEM = root.C4LMMemory;
 
@@ -1395,7 +1395,7 @@
       var rawT = frame.rawText || frame.body || "", alt = PRB.wordsToNumbers(rawT);
       if (alt !== rawT) {
         var altFrame = C.parse(alt, discourse.snapshot());
-        if (altFrame && !altFrame.empty) {
+        if (altFrame && !altFrame.empty && !r) {
           r = RS.solve(altFrame);
           /* a bare evaluation that leaves a stated number unused read a
              fragment of the sentence, not the sentence */
@@ -1405,11 +1405,26 @@
         }
       }
     }
-    if (!r) return null;
+    if (!r) return answerQuantity(frame);
     var cal = calibrateReason(r, frame);
     var out = answerReasonText(frame, r);
     if (out && cal) { out.confidence = cal.confidence; out.calibration = cal; }
     return out;
+  }
+
+  /* Quantitative questions the operator library does not recognise are
+     read by the comprehension stage: every word defined, what is asked and
+     what is given identified, then a derivation by dimensional analysis --
+     or, when the question does not fix its answer, a statement of what is
+     missing with the answer per unit of it. */
+  function answerQuantity(frame) {
+    if (!CMP || off("comprehension")) return null;
+    var q = null;
+    try { q = CMP.solveQuantity(frame.rawText || frame.body || ""); } catch (e) { q = null; }
+    if (!q || !q.text) return null;
+    return { text: q.text, route: "reason", sources: q.assumption ? ["local knowledge base"] : [], defects: [],
+             confidence: q.status === "solved" ? (q.assumption ? 0.78 : 0.9) : 0.7,
+             interpretation: q.summary, quantity: { status: q.status, value: q.value, unit: q.unit, rate: q.rate, missing: q.missing } };
   }
 
   function answerReasonText(frame, r) {
@@ -1752,6 +1767,9 @@
       if (m[1] === "temperature" || lexSenses(m[1]).some(function (s) { return /temperature/.test(s.gloss); })) return { kind: "temperature", word: m[1] };
       var rels = (cues || []).filter(function (c) { return c.from === m[1]; }).map(function (c) { return c.rel; });
       if (rels.length) return { kind: "relation", word: m[1], rels: rels };
+      /* otherwise "which N" asks for something that IS an N */
+      if (lexSenses(m[1]).some(function (s) { return s.pos === "n"; }) && !/^(?:kind|type|sort|way|part|thing|one)$/.test(m[1]))
+        return { kind: "instance", word: m[1] };
     }
     return { kind: "" };
   }
@@ -1767,8 +1785,13 @@
                 (text.match(/\b[A-Z][a-z]+/g) || []).slice(1).some(function (n) { return frame.body.indexOf(n) < 0; })) ? 1 : -1;
       case "time": return /\b(?:1\d{3}|20\d{2})\b|\bcentury\b|\b\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|November|December)\b/.test(text) ? 1 : -1;
       case "temperature": return /°|\bdegrees?\b|\bkelvin\b/i.test(text) ? 1 : -1;
-      case "quantity": return /\d/.test(text) ? 1 : -1;
+      case "quantity": return /\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|hundred|thousand|million|billion)\b/i.test(text) ? 1 : -1;
       case "relation": return type.rels.indexOf(result.relation) >= 0 ? 1 : -1;
+      case "instance": {
+        var own = result.entity && KB ? ((KB.resolve(result.entity, { strict: true })[0] || {}).entity || {}).defn || "" : "";
+        var kindRe = new RegExp("\\b(?:is|are|was|were)\\s+(?:a|an|the)\\s+(?:[a-z-]+\\s+){0,3}" + singularize(type.word) + "(?:s|es)?\\b", "i");
+        return kindRe.test(text + " " + own) ? 1 : -1;
+      }
       case "polar": return /\b(?:yes|no|not|never|isn't|aren't|wasn't|doesn't|don't|didn't|cannot|can't)\b/i.test(text) ? 1 : -1;
     }
     return 0;
@@ -1864,6 +1887,107 @@
              sources: ["local knowledge base"], defects: [], factSelected: true, accounted: best.via };
   }
 
+  /* ------------------------------------------------------ research */
+  function queryFrame(words) {
+    var toks = words.map(function (w) { return C.flatten(w); }).join(" ").split(" ").filter(function (t) { return t && !C.STOP[t]; });
+    return { contentTokens: toks, contentStems: toks.map(C.stem), stems: toks.map(C.stem) };
+  }
+  /* A document's prose: for a knowledge-base entry, its definition and its
+     stored statements -- never the alias list the index also carries. */
+  function docProse(doc) {
+    var e = doc && doc.entity;
+    if (!e) return String(doc && doc.text || "");
+    var parts = [e.defn];
+    Object.keys(e.extra || {}).forEach(function (k) {
+      var v = e.extra[k];
+      if (typeof v === "string" && /\s/.test(v) && /[.!?]$/.test(v.trim())) parts.push(v);
+    });
+    return parts.filter(Boolean).join(" ");
+  }
+  /* real sentences only: capitalised, ending in terminal punctuation (an
+     index document may trail a keyword list, which is not prose) */
+  function sentencesOf(text) {
+    return String(text || "").split(/(?<=[.!?])\s+/).map(function (x) { return x.trim(); })
+      .filter(function (x) { return x.length > 12 && /^[A-Z0-9"“(]/.test(x) && /[.!?]["”)]?$/.test(x); });
+  }
+
+  /* Several documents retrieved by the summary's query, kept only when they
+     are about the question (they mention its subject terms), their sentences
+     ranked by how much of the question they account for; a sentence whose
+     key content is repeated by another on-topic document ranks higher. */
+  function researchSummary(frame, type) {
+    var comp = frame.comprehension;
+    if (!state.index || !comp || !comp.about.length) return null;
+    var about = comp.about.map(function (a) { return C.flatten(a); });
+    var docs = state.index.candidates(queryFrame(comp.query.split(" ")), 12).filter(function (h) {
+      var hay = C.flatten((h.doc.title || "") + " " + (h.doc.text || ""));
+      var hits = about.filter(function (a) { return a.split(" ").every(function (w) { return stemIn(hay, w); }); }).length;
+      return hits >= Math.max(1, Math.ceil(about.length * 0.6));
+    }).slice(0, 6);
+    if (!docs.length) return null;
+    var ask = frame.contentTokens.filter(function (t) { return !neutralToken(t); }), best = null;
+    docs.forEach(function (h) {
+      sentencesOf(docProse(h.doc)).forEach(function (sn) {
+        var hay = C.flatten(sn), cov = ask.filter(function (t) { return stemIn(hay, t); }).length / Math.max(1, ask.length);
+        var fit = typeFit(type, { text: sn }, frame);
+        var agree = docs.filter(function (o) { return o !== h && C.flatten(o.doc.text || "").indexOf(hay.slice(0, 24)) < 0 &&
+          (sn.match(/\b[A-Z][a-z]+|\d[\d,.]*/g) || []).some(function (k) { return (o.doc.text || "").indexOf(k) >= 0; }); }).length;
+        var sc = cov + 0.5 * Math.max(0, fit) + 0.15 * Math.min(agree, 3);
+        if (!best || sc > best.sc) best = { sc: sc, text: sn, doc: h.doc };
+      });
+    });
+    if (!best) return null;
+    /* a sentence lifted out of its document names its subject */
+    var subj = best.doc.entity ? displayName(best.doc.entity) : (best.doc.title || "");
+    if (subj) best.text = best.text.replace(/^Its\s/, subj + "'s ").replace(/^(?:It|This)\s/, subj + " ");
+    return { text: RZ.polish(RZ.terminate(best.text)), route: "knowledge", entity: best.doc.title || "", confidence: 0.7,
+             sources: docs.map(function (h) { return h.doc.title; }).filter(Boolean).slice(0, 4), defects: [], researched: true };
+  }
+
+  /* "What N ...?" / "Which N ...?" asks for an instance of N. Candidates are
+     the entries the knowledge base defines as an N; the one the documents
+     about the rest of the question mention most is the answer. */
+  function researchInstance(frame) {
+    var m = String(frame.lower || "").match(/\b(?:what|which)\s+([a-z]+)\s+(?:is|are|was|were|do|does|did|can|will)\b/);
+    if (!m || !KB || !state.index) return null;
+    var kind = singularize(m[1]);
+    if (C.STOP[kind] || /^(?:time|year|day)$/.test(kind)) return null;
+    var re = new RegExp("\\b(?:is|are|was|were)\\s+(?:a|an|the)\\s+(?:[a-z-]+\\s+){0,2}" + kind + "s?\\b", "i");
+    var cands = KB.entities().filter(function (e) { return re.test(e.defn || "") || C.flatten(e.type || "") === kind; });
+    if (!cands.length || cands.length > 60) return null;
+    var rest = frame.contentTokens.filter(function (t) { return !neutralToken(t) && C.stem(t) !== C.stem(kind) && singularize(t) !== kind; });
+    if (!rest.length) return null;
+    var docs = state.index.candidates(queryFrame(rest), 16);
+    var best = null;
+    cands.forEach(function (e) {
+      var names = [e.name].concat(e.aliases || []).map(function (n) { return C.flatten(n); }).filter(function (n) { return n.length > 2; });
+      var support = 0, where = [], covered = [], quote = null;
+      docs.forEach(function (h) {
+        if (h.doc.entity === e) return;
+        var hay = C.flatten(h.doc.text || "");
+        if (!names.some(function (n) { return hay.indexOf(n) >= 0; })) return;
+        var hit = rest.filter(function (t) { return stemIn(hay, t); }), cov = hit.length / rest.length;
+        if (cov < 0.5) return;
+        support += cov; where.push(h.doc.title);
+        hit.forEach(function (t) { if (covered.indexOf(t) < 0) covered.push(t); });
+        /* the sentence that ties the instance to the question */
+        sentencesOf(docProse(h.doc)).forEach(function (sn) {
+          var f = C.flatten(sn);
+          if (!names.some(function (n) { return f.indexOf(n) >= 0; })) return;
+          var c2 = rest.filter(function (t) { return stemIn(f, t); }).length;
+          if (!quote || c2 > quote.c) quote = { c: c2, text: sn };
+        });
+      });
+      if (support && (!best || support > best.support)) best = { e: e, support: support, where: where, covered: covered, quote: quote };
+    });
+    if (!best) return null;
+    var name = displayName(best.e);
+    return { text: RZ.polish(name.charAt(0).toUpperCase() + name.slice(1) + (best.quote ? " — " + RZ.terminate(best.quote.text) : ".") +
+                   " " + RZ.terminate(best.e.defn)),
+             route: "knowledge", entity: best.e.name, confidence: 0.72, sources: ["local knowledge base"].concat(best.where.slice(0, 3)),
+             defects: [], researched: true, accounted: best.covered };
+  }
+
   /* A question that names a unit the answer does not use gets the answer's
      quantity converted into it, by the same converter arithmetic uses. */
   var SCALE = { c: "celsius", celsius: "celsius", centigrade: "celsius", f: "fahrenheit", fahrenheit: "fahrenheit" };
@@ -1885,12 +2009,17 @@
   /* The longest run of content words: what a question is about once its
      interrogative, light verb and particles are set aside. */
   function nounPhrase(frame) {
-    var best = [], run = [];
+    var runs = [], run = [];
     frame.tokens.concat([""]).forEach(function (t) {
-      if (t && !neutralToken(t) && !/^(?:who|what|which|where|when|why|how)(?:'s)?$/.test(t)) run.push(t);
-      else { if (run.length > best.length) best = run; run = []; }
+      if (t && (!neutralToken(t) || /^\d/.test(t)) && !/^(?:who|what|which|where|when|why|how)(?:'s)?$/.test(t)) run.push(t);
+      else { if (run.length) runs.push(run); run = []; }
     });
-    return best.join(" ");
+    /* the run holding a word nothing knows is what the question is about */
+    runs.sort(function (a, b) { return (b.some(unknownWord) - a.some(unknownWord)) || (b.length - a.length); });
+    var pick = runs[0] || [];
+    /* keep the name, drop a trailing verb ("glimmerwing 9 use") */
+    while (pick.length > 1 && lexSenses(pick[pick.length - 1]).length && lexSenses(pick[pick.length - 1]).every(function (s) { return s.pos === "v"; })) pick = pick.slice(0, -1);
+    return pick.join(" ");
   }
   /* A word no local source knows -- not in the lexicon, the vocabulary or
      the knowledge base. */
@@ -1908,7 +2037,9 @@
     var subj = C.words(frame.subject).filter(function (t) { return !neutralToken(t); });
     if (!subj.some(unknownWord)) return false;
     var name = C.flatten(result.entity);
-    return !subj.some(function (t) { return stemIn(name, t); });
+    /* the words nothing knows are the ones that pick the thing out ("the
+       Trelloway X2 car" is not "car"): the answer must be about them */
+    return !subj.filter(unknownWord).some(function (t) { return stemIn(name, t); });
   }
 
   /* A keyword fragment with numbers leaves out the words that say what to
@@ -1963,6 +2094,8 @@
     if (result.route === "code" || result.route === "compute" || result.route === "reason" || result.route === "memory") return "";
     if (decision && decision.features && decision.features.social) return "";
     if (frame.metaSelf || !isRequest(frame)) return "";
+    /* a long message is not a phrasing puzzle; deliberation is bounded */
+    if (frame.wordCount > 80) return "";
     /* a question about the present has no better local reading: an honest
        "could not reach a live source" must not be traded for a definition */
     if (frame.requiresFreshInformation || result.caveat) return "";
@@ -1996,7 +2129,7 @@
          or small talk given for a request naming a thing, answers a question
          nobody asked: say what is missing instead */
       var wrongKind = (result.route === "lexicon" || result.defined || result.route === "compose" || result.composed) &&
-                      base && base.fit < 0 && /^(?:person|place|time)$/.test(type.kind);
+                      base && base.fit < 0 && /^(?:person|place|time|quantity|temperature)$/.test(type.kind);
       /* a keyword fragment ("melting point of blorvium") is a question even
          without a question mark; one that speaks of the speaker is not */
       var impersonal = !frame.tokens.some(function (t) { return /^(?:i|i'm|i've|i'd|me|my|mine|we|us|our|you|your|yours)$/.test(t); });
@@ -2038,7 +2171,7 @@
         }
       }
     }
-    if (!ents.length && !cues.length) return keep(null);
+    if (!ents.length && !cues.length && !(frame.comprehension && frame.comprehension.about.length)) return keep(null);
 
     var paraphrases = glossParaphrases(frame, entTok, ents);
     /* a paraphrased word that is itself a relation noun is a relation cue:
@@ -2081,6 +2214,13 @@
     });
     /* The first frame through the resolvers the router did not pick. */
     readings.push({ resolver: "content", cost: 0.2, accounts: [], why: "content retrieval" });
+    /* Research by the comprehension summary: several documents, strictly on
+       topic, and -- for "what/which N" -- the instance of N the documents
+       about the rest of the question keep mentioning. */
+    if (frame.comprehension) {
+      readings.push({ research: "instance", cost: 0.2, accounts: [], why: "research: instance named across documents" });
+      readings.push({ research: "summary", cost: 0.25, accounts: [], why: "research by summary" });
+    }
 
     var best = null, considered = 0, tried = [];
     for (var i = 0; i < readings.length && considered < DELIB_MAX_READINGS; i++) {
@@ -2088,6 +2228,8 @@
       var rd = readings[i], cand = null;
       try {
         if (rd.facts) cand = answerByFacts(frame, rd.facts, paraphrases, type, entTok);
+        else if (rd.research === "instance") cand = researchInstance(frame);
+        else if (rd.research === "summary") cand = researchSummary(frame, type);
         else if (rd.resolver === "content") cand = answerKBByContent(frame, decision);
         else {
           var f2 = C.parse(rd.text, discourse.snapshot());
@@ -2255,6 +2397,17 @@
 
     var ctx = timed("dialogue", function () { return resolveContext(baseFrame, discourse); });
     var frame = applyDirectives(ctx.frame);
+    /* Comprehension: every word and phrase defined, what is asked and given
+       summarised; the summary's query drives research (local and remote). */
+    if (CMP && !off("comprehension") && !frame.empty && frame.wordCount <= 80) {
+      timed("comprehend", function () {
+        try {
+          var comp = CMP.read(frame.rawText || frame.body || "");
+          frame.comprehension = comp;
+          if (comp.query && comp.query.split(" ").length >= 2) frame.searchQueries = [comp.query];
+        } catch (e) {}
+      });
+    }
     state.varyKey = varyKeyFor(frame);
     if (RZ.variation) RZ.variation.begin(state.varyKey);
     var decision = timed("route", function () { return decide(frame, discourse); });
@@ -2384,6 +2537,10 @@
         answer: result.confidence || 0
       };
     }
+    if (frame.comprehension) {
+      result.comprehension = { summary: frame.comprehension.summary, query: frame.comprehension.query,
+                               glossary: frame.comprehension.glossary.map(function (g) { return { span: g.span, kind: g.kind, gloss: g.gloss }; }) };
+    }
     result.profile = state.profile.slice();
     /* Hallucination brake: an uncertain answer says so instead of asserting. */
     if (result.confidence && result.confidence < 0.45 && result.text && !result.insufficient &&
@@ -2474,6 +2631,10 @@
       state.index.build();
       return state.index.size();
     },
+    /* The comprehension stage's reading of a text: every word and phrase
+       with its gloss, the quantities, what is asked, the summary and the
+       research query. */
+    comprehend: function (text) { return CMP ? CMP.read(String(text == null ? "" : text)) : null; },
     ablate: function (list) {
       state.ablations = Object.create(null);
       (list || []).forEach(function (k) { state.ablations[k] = 1; });
