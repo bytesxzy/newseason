@@ -1,0 +1,201 @@
+{
+  "note": "3 s per task, 3 workers, corpus c4-arc-tasks.js (400 arc1_ = ARC-AGI-1 public training split, 150 arc2_ from the bundled ARC-AGI-2 set). Development measurements, not held-out evaluation.",
+  "runs": {
+    "arc1": {
+      "baseline": [
+        {
+          "run": "base-arc1",
+          "n": 400,
+          "top1": 223,
+          "top2": 228,
+          "oracle_retained": 228,
+          "task_seconds": 966,
+          "failures": {
+            "SOLVED": 223,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 134,
+            "NO_CORRECT_RETAINED_PREDICTION": 38
+          },
+          "engine_sha256": "6f25b2645ece32bc"
+        },
+        {
+          "run": "base-arc1-b",
+          "n": 400,
+          "top1": 222,
+          "top2": 227,
+          "oracle_retained": 227,
+          "task_seconds": 963,
+          "failures": {
+            "SOLVED": 222,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 132,
+            "NO_CORRECT_RETAINED_PREDICTION": 41
+          },
+          "engine_sha256": "6f25b2645ece32bc"
+        }
+      ],
+      "final": [
+        {
+          "run": "final-arc1-a",
+          "n": 400,
+          "top1": 225,
+          "top2": 229,
+          "oracle_retained": 230,
+          "task_seconds": 995,
+          "failures": {
+            "SOLVED": 225,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 129,
+            "NO_CORRECT_RETAINED_PREDICTION": 41
+          },
+          "engine_sha256": "f1c4140938d47be8"
+        },
+        {
+          "run": "final-arc1-b",
+          "n": 400,
+          "top1": 224,
+          "top2": 229,
+          "oracle_retained": 230,
+          "task_seconds": 995,
+          "failures": {
+            "SOLVED": 224,
+            "RIGHT_OUTPUT_OUTRANKED": 6,
+            "NO_CANDIDATE": 131,
+            "NO_CORRECT_RETAINED_PREDICTION": 39
+          },
+          "engine_sha256": "f1c4140938d47be8"
+        }
+      ],
+      "starved_retry_rejected": [
+        {
+          "run": "f2-arc1-a",
+          "n": 400,
+          "top1": 223,
+          "top2": 230,
+          "oracle_retained": 230,
+          "task_seconds": 1092,
+          "failures": {
+            "SOLVED": 223,
+            "NO_CANDIDATE": 132,
+            "RIGHT_OUTPUT_OUTRANKED": 7,
+            "NO_CORRECT_RETAINED_PREDICTION": 38
+          },
+          "engine_sha256": "7e10cdc7c9c0eaf1"
+        },
+        {
+          "run": "f2-arc1-b",
+          "n": 400,
+          "top1": 222,
+          "top2": 228,
+          "oracle_retained": 228,
+          "task_seconds": 1094,
+          "failures": {
+            "SOLVED": 222,
+            "NO_CANDIDATE": 132,
+            "RIGHT_OUTPUT_OUTRANKED": 6,
+            "NO_CORRECT_RETAINED_PREDICTION": 40
+          },
+          "engine_sha256": "7e10cdc7c9c0eaf1"
+        }
+      ]
+    },
+    "arc2": {
+      "baseline": [
+        {
+          "run": "base-arc2",
+          "n": 150,
+          "top1": 51,
+          "top2": 53,
+          "oracle_retained": 55,
+          "task_seconds": 354,
+          "failures": {
+            "SOLVED": 51,
+            "RIGHT_OUTPUT_OUTRANKED": 4,
+            "NO_CANDIDATE": 68,
+            "NO_CORRECT_RETAINED_PREDICTION": 27
+          },
+          "engine_sha256": "6f25b2645ece32bc"
+        },
+        {
+          "run": "base-arc2-b",
+          "n": 150,
+          "top1": 51,
+          "top2": 53,
+          "oracle_retained": 55,
+          "task_seconds": 355,
+          "failures": {
+            "SOLVED": 51,
+            "RIGHT_OUTPUT_OUTRANKED": 4,
+            "NO_CANDIDATE": 67,
+            "NO_CORRECT_RETAINED_PREDICTION": 28
+          },
+          "engine_sha256": "6f25b2645ece32bc"
+        }
+      ],
+      "final": [
+        {
+          "run": "final-arc2-a",
+          "n": 150,
+          "top1": 51,
+          "top2": 54,
+          "oracle_retained": 56,
+          "task_seconds": 372,
+          "failures": {
+            "SOLVED": 51,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 67,
+            "NO_CORRECT_RETAINED_PREDICTION": 27
+          },
+          "engine_sha256": "f1c4140938d47be8"
+        },
+        {
+          "run": "final-arc2-b",
+          "n": 150,
+          "top1": 51,
+          "top2": 54,
+          "oracle_retained": 56,
+          "task_seconds": 373,
+          "failures": {
+            "SOLVED": 51,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 69,
+            "NO_CORRECT_RETAINED_PREDICTION": 25
+          },
+          "engine_sha256": "f1c4140938d47be8"
+        }
+      ],
+      "starved_retry_rejected": [
+        {
+          "run": "f2-arc2-a",
+          "n": 150,
+          "top1": 50,
+          "top2": 54,
+          "oracle_retained": 56,
+          "task_seconds": 413,
+          "failures": {
+            "SOLVED": 50,
+            "RIGHT_OUTPUT_OUTRANKED": 6,
+            "NO_CANDIDATE": 66,
+            "NO_CORRECT_RETAINED_PREDICTION": 28
+          },
+          "engine_sha256": "7e10cdc7c9c0eaf1"
+        },
+        {
+          "run": "f2-arc2-b",
+          "n": 150,
+          "top1": 51,
+          "top2": 54,
+          "oracle_retained": 56,
+          "task_seconds": 413,
+          "failures": {
+            "SOLVED": 51,
+            "RIGHT_OUTPUT_OUTRANKED": 5,
+            "NO_CANDIDATE": 68,
+            "NO_CORRECT_RETAINED_PREDICTION": 26
+          },
+          "engine_sha256": "7e10cdc7c9c0eaf1"
+        }
+      ]
+    }
+  }
+}
