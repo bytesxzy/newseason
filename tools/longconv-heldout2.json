@@ -1,0 +1,31 @@
+{
+  "note": "Second frozen held-out LONG CONVERSATION set (one session, in order), written AFTER the dialogue layer was built and BEFORE it was scored, with entities and phrasings not used in development. Committed before its only scoring run. Scored by tools/lm-chat-eval.js.",
+  "items": [
+    { "q": "What is a pupil?", "good": ["(student|eye|iris|learner|school)"] },
+    { "q": "I mean the one in the eye", "good": ["(eye|iris|light|opening|aperture)"], "bad": ["\\bschool\\b"] },
+    { "q": "What is 40% of 250?", "good": ["\\b100\\b"] },
+    { "q": "Take away 35", "good": ["\\b65\\b"] },
+    { "q": "Triple that", "good": ["\\b195\\b"] },
+    { "q": "Is it an odd number?", "good": ["\\byes\\b"] },
+    { "q": "What is the capital of Canada?", "good": ["ottawa"] },
+    { "q": "What currency do they use there?", "good": ["dollar"] },
+    { "q": "And Mexico?", "good": ["(peso|mexico city|mexico)"] },
+    { "q": "Which one has more people?", "good": ["mexico"] },
+    { "q": "By how much?", "good": ["(million|times)"] },
+    { "q": "Omar had 45 cards.", "good": ["(45|cards|got it|noted)"] },
+    { "q": "He traded away 9 of them.", "good": ["\\b36\\b"] },
+    { "q": "Then his sister gave him 14.", "good": ["\\b50\\b"] },
+    { "q": "How many cards does Omar have now?", "good": ["\\b50\\b"] },
+    { "q": "Who wrote Pride and Prejudice?", "good": ["austen"] },
+    { "q": "When was she born?", "good": ["1775"] },
+    { "q": "What is a trunk?", "good": ["(tree|elephant|box|car|luggage|chest|stem)"] },
+    { "q": "the elephant one", "good": ["(elephant|nose|proboscis|snout)"] },
+    { "q": "What is 18 divided by 3?", "good": ["\\b6\\b"] },
+    { "q": "Square it", "good": ["\\b36\\b"] },
+    { "q": "Is that less than 40?", "good": ["\\byes\\b"] },
+    { "q": "Which is farther from the Sun, Mars or Venus?", "good": ["mars"] },
+    { "q": "What was the first thing we talked about?", "good": ["pupil"] },
+    { "q": "What was the last number you gave me?", "good": ["\\b36\\b"] },
+    { "q": "Recap our conversation", "good": ["(pupil|canada|mexico|cards|trunk)"], "bad": ["\\bmeans\\b"] }
+  ]
+}
