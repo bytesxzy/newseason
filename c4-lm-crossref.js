@@ -182,6 +182,7 @@
     while (j < toks.length && /^(?:or|and|to)$/.test(toks[j]) && j + 1 < toks.length) j += 2;
     if (j >= toks.length) return false;                        /* "... rock or coral" */
     if (/^(?:of|than|and|or)$/.test(toks[j])) return false;     /* "coral of ..." names a thing */
+    if (STOP.test(toks[j]) && toks[j] !== "in") return false;   /* "coral that has" -- a noun, not a modifier */
     if (i > 0 && /^(?:of|from|with|by|like|into|as)$/.test(toks[i - 1])) return false;
     return true;
   }
@@ -234,14 +235,10 @@
     if (CACHE.values[k]) return CACHE.values[k];
     var set = Object.create(null), cl = closure(w, syn, 3000);
     cl.list.forEach(function (x) { if (x !== syn) x.words.forEach(function (v) { if (!/\s/.test(v)) set[low(v)] = low(x.words[0]); }); });
-    /* the dataset's attribute links: "color" -> colored / colorless, and
-       the adjectives similar to those */
-    cl.list.slice(0, 50).forEach(function (x) {
-      w.follow(x, "=").forEach(function (a) {
-        /* the linked head adjectives themselves (colored, colorless) -- not
-           everything similar to them ("hot", "vivid") */
-        a.words.forEach(function (v) { if (!/\s/.test(v) && !set[low(v)]) set[low(v)] = low(v); });
-      });
+    /* adjectives whose own record links to the class or a kind of it:
+       the values the dataset states ("colorless" = color) */
+    [syn].concat(cl.list.slice(0, 200)).forEach(function (x) {
+      w.attributeValues(x.offset).forEach(function (a) { a.words.forEach(function (v) { if (!/\s/.test(v) && !set[low(v)]) set[low(v)] = low(v); }); });
     });
     return (CACHE.values[k] = set);
   }

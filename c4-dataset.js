@@ -299,6 +299,25 @@
     return this.inverted[file][String(word).toLowerCase()] || [];
   };
 
+  /* adjectives whose own record links (=) to an attribute noun: the values
+     of that attribute as the dataset itself states them ("colorless" =
+     color), built once from the validated adjective file */
+  WordNet.prototype.attributeValues = function (nounOffset) {
+    if (!this.attrIndex) {
+      var idx = Object.create(null), txt = this.text["data.adj"], pos = 0, n = txt.length;
+      while (pos < n) {
+        var nl = txt.indexOf("\n", pos); if (nl < 0) nl = n;
+        if (txt.charCodeAt(pos) !== 32) {
+          var rec = this.synset("a", pos);
+          if (rec) rec.ptrs.forEach(function (p) { if (p.sym === "=" && p.pos === "n") (idx[p.offset] = idx[p.offset] || []).push(rec); });
+        }
+        pos = nl + 1;
+      }
+      this.attrIndex = idx;
+    }
+    return this.attrIndex[nounOffset] || [];
+  };
+
   /* ------------------------------------------------------------ loading */
   var DS = { wordnet: null, caller: null, error: null, loading: null, sha256: sha256, parseRecord: parseRecord, tokens: tokens, ChunkedCaller: ChunkedCaller, WordNet: WordNet };
   DS.available = function () { return !!(DS.wordnet && DS.wordnet.ready); };
