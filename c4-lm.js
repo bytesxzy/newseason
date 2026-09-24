@@ -2810,7 +2810,13 @@
     /* the internal dataset (c4-dataset.txt) is ingested into the knowledge
        base, lexicon and index before the first answer */
     var LDx = root.C4LocalDataset;
-    if (LDx && !LDx.loaded()) return LDx.ready().then(function () { return answer(text, opts); }, function () { return answer(text, opts); });
+    /* a large (sharded) dataset keeps loading in the background: the first
+       question waits for it only a bounded time, later ones not at all */
+    if (LDx && !LDx.loaded() && !state.datasetWaited) {
+      var waitMs = +((root.ROBOTS_CONFIG || {}).localDatasetWaitMs) || 3000;
+      var go = function () { state.datasetWaited = true; return answer(text, opts); };
+      return (LDx.readyWithin ? LDx.readyWithin(waitMs) : LDx.ready()).then(go, go);
+    }
     state.mode = opts && (opts.evaluationMode === "closed" || opts.evaluationMode === "tool") ? opts.evaluationMode : state.defaultMode;
     var M = state.memory, raw = String(text == null ? "" : text);
     /* cross-referencing reads the reference dataset: it is loaded (in
@@ -2906,6 +2912,14 @@
         });
       }
       if (dl) { dl.followup = true; return Promise.resolve(finish(baseFrame, dl, t0)); }
+    }
+    /* a question that names a book held in the internal dataset is answered
+       from that book's own passages, quoted and cited */
+    var LDb = root.C4LocalDataset;
+    if (LDb && LDb.library && !off("library") && !opts.rewritten) {
+      var lb = null;
+      try { lb = timed("library", function () { return LDb.library.answer(state.userText); }); } catch (e) { lb = null; }
+      if (lb) return Promise.resolve(finish(baseFrame, lb, t0));
     }
     if (baseFrame.empty) {
       /* "hi!" parses to no content, but it still calls for a greeting back */
@@ -3072,7 +3086,7 @@
     /* The answer-type gate: an answer about a word the message merely
        contains does not do what the message asked (c4-lm-converse.js). */
     var CVg = root.C4LMConverse;
-    if (CVg && !off("converse") && !result.memoryTurn && !result.followup && state.userText && !CVg.accepts(state.userText, result)) {
+    if (CVg && !off("converse") && !result.memoryTurn && !result.followup && !result.library && state.userText && !CVg.accepts(state.userText, result)) {
       var alt = null;
       try { alt = CVg.respond(state.userText, { turn: discourse.turns, federated: !!state.federation && !off("web"), looked: true }); } catch (e) { alt = null; }
       result = alt || fallback(frame, null);

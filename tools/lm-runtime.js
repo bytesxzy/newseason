@@ -57,6 +57,15 @@ function boot(opts) {
   /* the internal dataset file (or a test's own text in its place) */
   if (typeof opts.localDataset === "string") win.C4LocalDatasetText = opts.localDataset;
   else if (fs.existsSync(path.join(ROOT, "c4-dataset.txt"))) win.C4LocalDatasetText = fs.readFileSync(path.join(ROOT, "c4-dataset.txt"), "utf8");
+  /* the sharded internal dataset (c4-dataset/manifest.json + shards), or a
+     test's own directory: read one shard at a time, on request */
+  var LDDIR = opts.localDatasetDir === false ? null : (opts.localDatasetDir || path.join(ROOT, "c4-dataset"));
+  if (LDDIR && fs.existsSync(path.join(LDDIR, "manifest.json"))) {
+    win.C4LocalDatasetDir = {
+      manifest: function () { return fs.readFileSync(path.join(LDDIR, "manifest.json"), "utf8"); },
+      read: function (name) { var p = path.join(LDDIR, path.basename(name)); return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null; }
+    };
+  }
   var ctx = vm.createContext(win);
 
   function run(code, name) {

@@ -947,30 +947,35 @@
   /* =============================================================== index */
   var C = root.C4LMCore;
   var INDEX = Object.create(null);     /* flat key -> [entity] */
-  var TOKEN_INDEX = Object.create(null);
 
   function key(s) { return C ? C.flatten(s) : String(s).toLowerCase(); }
 
-  /* One vote per entity per token. Aliases would otherwise let a common word
-     vote several times for the same entity and outscore an exact match. */
-  function addToken(t, ent) {
-    var list = TOKEN_INDEX[t] || (TOKEN_INDEX[t] = []);
-    if (list.indexOf(ent) < 0) list.push(ent);
+  /* Lookup structures that keep resolution fast however many entries the
+     internal dataset adds: every registered surface by its words (for the
+     token vote), and the surfaces added after the built-in knowledge by
+     opening letters and by word (for typo tolerance). The built-in surfaces
+     are still compared one by one, exactly as before. */
+  var KEY_ORD = Object.create(null), nKeys = 0;
+  var SURF_TOKENS = Object.create(null);
+  var BUILTIN_KEYS = [], FUZZ_PREFIX = Object.create(null), FUZZ_WORD = Object.create(null);
+  var importing = false;
+  function addKey(k) {
+    KEY_ORD[k] = nKeys++;
+    var ws = k.split(" "), seen = Object.create(null);
+    for (var i = 0; i < ws.length; i++) {
+      if (ws[i].length <= 2) continue;
+      var forms = C ? [ws[i], C.stem(ws[i])] : [ws[i]];
+      for (var f = 0; f < forms.length; f++) if (!seen[forms[f]]) { seen[forms[f]] = 1; (SURF_TOKENS[forms[f]] || (SURF_TOKENS[forms[f]] = [])).push(k); }
+    }
+    if (!importing) { BUILTIN_KEYS.push(k); return; }
+    (FUZZ_PREFIX[k.slice(0, 3)] || (FUZZ_PREFIX[k.slice(0, 3)] = [])).push(k);
+    if (k.indexOf(" ") >= 0) for (var j = 0; j < ws.length; j++) if (ws[j].length >= 3) (FUZZ_WORD[ws[j]] || (FUZZ_WORD[ws[j]] = [])).push(k);
   }
-
   function indexName(name, ent, weight) {
     var k = key(name);
     if (!k) return;
-    (INDEX[k] || (INDEX[k] = [])).push({ ent: ent, weight: weight, surface: name });
-    var ws = k.split(" ");
-    for (var i = 0; i < ws.length; i++) {
-      if (ws[i].length < 2) continue;
-      addToken(ws[i], ent);
-      if (C) {
-        var st = C.stem(ws[i]);
-        if (st !== ws[i]) addToken(st, ent);
-      }
-    }
+    if (!INDEX[k]) { INDEX[k] = []; addKey(k); }
+    INDEX[k].push({ ent: ent, weight: weight, surface: name });
   }
 
   var built = false;
@@ -1056,7 +1061,16 @@
          as likely to be a different word as a misspelling. */
       if (k.length < 7) return out;
       var budget = k.length >= 10 ? 2 : 1;
-      var keys = Object.keys(INDEX), bestD = budget + 1, bestKeys = [];
+      /* built-in surfaces one by one; imported ones through their buckets:
+         a one-word query keeps its opening (as the loop below requires), a
+         longer one shares a whole word or its opening */
+      var keys = BUILTIN_KEYS, bestD = budget + 1, bestKeys = [];
+      if (nKeys > BUILTIN_KEYS.length) {
+        var extra = (FUZZ_PREFIX[k.slice(0, 3)] || []).slice();
+        if (k.indexOf(" ") >= 0) k.split(" ").forEach(function (w) { if (w.length >= 3 && FUZZ_WORD[w]) extra = extra.concat(FUZZ_WORD[w]); });
+        var once = Object.create(null);
+        keys = keys.concat(extra.filter(function (x) { return once[x] ? false : (once[x] = 1); }));
+      }
       var qHasDigit = /\d/.test(k);
       for (var i = 0; i < keys.length; i++) {
         if (Math.abs(keys[i].length - k.length) > budget) continue;
@@ -1084,7 +1098,11 @@
       if (qt.length) {
         var qset = Object.create(null);
         qt.forEach(function (t) { qset[t] = 1; if (C) qset[C.stem(t)] = 1; });
-        var keys2 = Object.keys(INDEX);
+        /* only surfaces sharing a word with the query can be fully present
+           in it; they are visited in registration order, as before */
+        var cand = Object.create(null), keys2 = [];
+        Object.keys(qset).forEach(function (t) { (SURF_TOKENS[t] || []).forEach(function (s0) { if (!cand[s0]) { cand[s0] = 1; keys2.push(s0); } }); });
+        keys2.sort(function (a, b) { return KEY_ORD[a] - KEY_ORD[b]; });
         for (var ki = 0; ki < keys2.length; ki++) {
           var surf = keys2[ki];
           var st = surf.split(" ").filter(function (t) { return t.length > 2; });
@@ -1167,13 +1185,19 @@
      entity is added and indexed like any built-in one; for an entity that
      already exists only what it lacks is filled in -- a built-in value is
      never overwritten, and a disagreement is reported, not applied. */
+  /* one provenance record per source, shared by its entries */
+  var SOURCE_TAGS = Object.create(null);
+  function sourceTag(src) { return SOURCE_TAGS[src] || (SOURCE_TAGS[src] = { source: src }); }
   function addEntity(spec, source) {
     var out = { added: false, merged: [], conflicts: [] };
     if (!spec || !spec.name) return out;
     buildIndex();
-    var hits = resolve(spec.name, { strict: true }).filter(function (h) { return key(h.entity.name) === key(spec.name); });
+    importing = true;
+    /* the same entry: registered under exactly this name (an exact lookup --
+       the fuzzy stages of resolve() could never yield an equal name) */
+    var sk = key(spec.name), hits = (INDEX[sk] || []).filter(function (h) { return h.ent.id === sk; });   /* id is key(name) */
     if (hits.length) {
-      var e = hits[0].entity;
+      var e = hits[0].ent;
       Object.keys(spec.rel || {}).forEach(function (r) {
         if (!e.rel[r]) { e.rel[r] = spec.rel[r]; out.merged.push(r); }
         else if (key(String(e.rel[r])) !== key(String(spec.rel[r]))) out.conflicts.push(r + ": kept \u201c" + e.rel[r] + "\u201d, ignored \u201c" + spec.rel[r] + "\u201d");
@@ -1183,9 +1207,10 @@
       return out;
     }
     var ent = { name: spec.name, type: spec.type || "concept", defn: spec.defn || "", rel: spec.rel || {}, aliases: spec.aliases || [],
-                extra: { source: source || "internal dataset" } };
+                extra: sourceTag(source || "internal dataset") };
     ent.id = key(ent.name);
     ENTITIES.push(ent);
+    if (byIdCache && !byIdCache[ent.id]) byIdCache[ent.id] = ent;
     indexName(ent.name, ent, 1.0);
     ent.aliases.forEach(function (a) { indexName(a, ent, 0.9); });
     if (C && C.learnProper && /^[A-Z]/.test(ent.name)) C.words(ent.name).forEach(C.learnProper);

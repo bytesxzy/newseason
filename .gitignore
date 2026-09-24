@@ -2,3 +2,4 @@ results/
 bench-results/
 data/
 *.zip
+c4-dataset/

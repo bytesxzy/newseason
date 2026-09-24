@@ -24,6 +24,12 @@
 # is missing -- it never overwrites a built-in fact (disagreements are
 # reported). The file is capped at 5 MB / 20,000 records.
 #
+# Larger datasets (up to ~250 MB, books included) go in the sharded
+# directory c4-dataset/ (manifest.json + shard_000.txt ...), built by
+#   python3 tools/c4_dataset_build.py c4-dataset.txt more-records/ --books books/
+# Every shard uses this same format; this file and the shards load together
+# as one dataset. See DATASET-SHARDING.md.
+#
 # Examples of the format (commented out -- this dataset starts empty):
 # entity: Zorbia | type: country | defn: Zorbia is a country used as an example. | capital: Zorb City | currency: the zorb | color: teal
 # word: glimmerous | pos: adj | gloss: shining faintly and unsteadily | class: QUALITY

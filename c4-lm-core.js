@@ -75,8 +75,15 @@
 
   /* ------------------------------------------------------------ text utils */
 
+  /* nothing to normalise: printable ASCII, single spaces, no edge spaces */
+  var PLAIN = /[^\x21-\x7e ]|  |^ | $/;
+  /* String(x) without the global lookup for the common case (hot paths run
+     millions of times when a large dataset is indexed) */
+  function str(x) { return typeof x === "string" ? x : String(x); }
   function normalizeUnicode(s) {
-    return String(s == null ? "" : s)
+    s = s == null ? "" : str(s);
+    if (!PLAIN.test(s)) return s;
+    return s
       .replace(/[‘’‛′]/g, "'")
       .replace(/[“”„″]/g, '"')
       .replace(/[‐-―−]/g, "-")
@@ -126,7 +133,7 @@
      "computed" and "computes" reach the same index bucket; it is not a
      linguistic claim. */
   function stem(w) {
-    w = String(w).toLowerCase();
+    w = str(w).toLowerCase();
     if (w.length <= 3) return w;
     if (/(ss|us|is|as)$/.test(w)) { /* keep */ }
     else if (/ies$/.test(w) && w.length > 4) return w.slice(0, -3) + "y";
@@ -178,7 +185,7 @@
   var VOCAB = Object.create(null);
   var VOCAB_BY_LEN = Object.create(null);
   function learnWord(w) {
-    w = String(w || "").toLowerCase();
+    w = (w ? str(w) : "").toLowerCase();
     if (w.length < 4 || VOCAB[w]) return;
     VOCAB[w] = 1;
     (VOCAB_BY_LEN[w.length] || (VOCAB_BY_LEN[w.length] = [])).push(w);

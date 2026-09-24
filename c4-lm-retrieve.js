@@ -19,10 +19,65 @@
     this.docs = [];
     this.df = Object.create(null);
     this.avgLen = 1;
-    this.postings = Object.create(null);
+    this.postings = Object.create(null);  /* term -> [doc, tf, doc, tf, ...] (packed once long) */
     this.opts = opts || {};
     this.dirty = true;
+    this.built = 0;                       /* documents already indexed */
+    this.totalLen = 0;
   }
+
+  /* Postings: a short list is a plain [doc, tf, ...] array; a long one is
+     packed into typed arrays (doc ids and frequencies, 6 bytes a posting),
+     which is what keeps a corpus of hundreds of thousands of documents in
+     bounded memory. The values are the same either way. */
+  function post(P, t, id, f) {
+    var L = P[t];
+    if (!L) { P[t] = [id, f]; return; }
+    if (L.ids) {
+      if (L.n === L.ids.length) {
+        var ni = new Int32Array(L.n * 2), nf = new Uint16Array(L.n * 2);
+        ni.set(L.ids); nf.set(L.tfs); L.ids = ni; L.tfs = nf;
+      }
+      L.ids[L.n] = id; L.tfs[L.n] = f > 65535 ? 65535 : f; L.n++;
+      return;
+    }
+    L.push(id, f);
+    if (L.length >= 256) {
+      var ids = new Int32Array(256), tfs = new Uint16Array(256);
+      for (var i = 0; i < L.length; i += 2) { ids[i >> 1] = L[i]; tfs[i >> 1] = L[i + 1] > 65535 ? 65535 : L[i + 1]; }
+      P[t] = { ids: ids, tfs: tfs, n: L.length >> 1 };
+    }
+  }
+
+  /* A document's derived forms (flattened title and text, term frequencies)
+     are computed when they are read, not stored for every document: only a
+     shortlist ever reads them, and a large corpus would otherwise hold
+     several copies of its whole text. A document may give its text as a
+     function of its source record (textOf), so the text itself is not
+     copied either. */
+  function termFreq(d) {
+    var tf = Object.create(null), j, tTok = C.indexTokens(d.title).map(C.stem), bTok = C.indexTokens(d.text).map(C.stem);
+    for (j = 0; j < tTok.length; j++) tf[tTok[j]] = (tf[tTok[j]] || 0) + 3;   /* title weight */
+    for (j = 0; j < bTok.length; j++) tf[bTok[j]] = (tf[bTok[j]] || 0) + 1;
+    return { tf: tf, len: tTok.length + bTok.length };
+  }
+  var DocProto = {};
+  Object.defineProperty(DocProto, "text", {
+    get: function () { return this._text !== undefined ? this._text : String(this.ref.textOf(this.ref) || ""); },
+    set: function (v) { this._text = v; }
+  });
+  Object.defineProperty(DocProto, "flatTitle", {
+    get: function () { return this._fT !== undefined ? this._fT : (this._fT = C.flatten(this.title)); },
+    set: function (v) { this._fT = v; }
+  });
+  Object.defineProperty(DocProto, "flatText", {
+    get: function () { return this._fX !== undefined ? this._fX : (this._fX = C.flatten(this.text)); },
+    set: function (v) { this._fX = v; }
+  });
+  Object.defineProperty(DocProto, "tf", {
+    get: function () { return this._tf || (this._tf = termFreq(this).tf); },
+    set: function (v) { this._tf = v; }
+  });
 
   /* A document is {id, title, text, source, scope, url}. Fields are weighted:
      a term in the title says more about what the document is ABOUT than the
@@ -31,49 +86,42 @@
     for (var i = 0; i < docs.length; i++) {
       var d = docs[i];
       if (!d) continue;
-      this.docs.push({
-        id: this.docs.length,
-        title: String(d.title || d.h || ""),
-        text: String(d.text || d.t || ""),
-        source: d.source || d.s || "",
-        scope: d.scope || "",
-        url: d.url || d.s || "",
-        kind: d.kind || "",
-        authority: d.authority == null ? 0.5 : d.authority,
-        ref: d
-      });
+      var doc = Object.create(DocProto);
+      doc.id = this.docs.length;
+      doc.title = String(d.title || d.h || "");
+      if (typeof d.textOf !== "function") doc.text = String(d.text || d.t || "");
+      doc.source = d.source || d.s || "";
+      doc.scope = d.scope || "";
+      doc.url = d.url || d.s || "";
+      doc.kind = d.kind || "";
+      doc.authority = d.authority == null ? 0.5 : d.authority;
+      doc.ref = d;
+      this.docs.push(doc);
     }
     this.dirty = true;
     return this.docs.length;
   };
 
+  /* Incremental: only the documents added since the last build are
+     tokenised; document frequencies and postings grow in place, so the
+     result is the same as indexing everything at once. */
   Index.prototype.build = function () {
     if (!this.dirty) return;
     this.dirty = false;
-    this.df = Object.create(null);
-    this.postings = Object.create(null);
-    var total = 0;
-    for (var i = 0; i < this.docs.length; i++) {
-      var d = this.docs[i];
-      var tTok = C.indexTokens(d.title).map(C.stem);
-      var bTok = C.indexTokens(d.text).map(C.stem);
-      d.titleTokens = tTok;
-      d.bodyTokens = bTok;
-      d.len = tTok.length + bTok.length;
-      d.flatTitle = C.flatten(d.title);
-      d.flatText = C.flatten(d.text);
-      total += d.len;
-      var tf = Object.create(null), j;
-      for (j = 0; j < tTok.length; j++) tf[tTok[j]] = (tf[tTok[j]] || 0) + 3;   /* title weight */
-      for (j = 0; j < bTok.length; j++) tf[bTok[j]] = (tf[bTok[j]] || 0) + 1;
-      d.tf = tf;
-      for (var t in tf) {
+    var learn = [];
+    for (var i = this.built; i < this.docs.length; i++) {
+      var d = this.docs[i], r = termFreq(d);
+      d.len = r.len;
+      this.totalLen += r.len;
+      for (var t in r.tf) {
         this.df[t] = (this.df[t] || 0) + 1;
-        (this.postings[t] || (this.postings[t] = [])).push(i);
+        post(this.postings, t, i, r.tf[t]);
       }
+      if (!d.ref.noVocabulary) learn.push(d.title + " " + d.text);
     }
-    this.avgLen = total / Math.max(1, this.docs.length);
-    if (C) C.learnVocabulary(this.docs.map(function (d) { return d.title + " " + d.text; }));
+    this.built = this.docs.length;
+    this.avgLen = this.totalLen / Math.max(1, this.docs.length);
+    if (C && learn.length) C.learnVocabulary(learn);
   };
 
   /* Stage 1: BM25F over the posting lists only. Documents that share no
@@ -88,14 +136,15 @@
     var scores = Object.create(null);
     for (var i = 0; i < terms.length; i++) {
       var t = terms[i];
-      var post = this.postings[t];
-      if (!post) continue;
+      var L = this.postings[t];
+      if (!L) continue;
       var idf = Math.log(1 + (N - this.df[t] + 0.5) / (this.df[t] + 0.5));
-      for (var j = 0; j < post.length; j++) {
-        var d = this.docs[post[j]];
-        var f = d.tf[t] || 0;
+      var n = L.ids ? L.n : L.length >> 1;
+      for (var j = 0; j < n; j++) {
+        var id = L.ids ? L.ids[j] : L[2 * j], f = (L.ids ? L.tfs[j] : L[2 * j + 1]) || 0;
+        var d = this.docs[id];
         var s = idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * d.len / this.avgLen));
-        scores[post[j]] = (scores[post[j]] || 0) + s;
+        scores[id] = (scores[id] || 0) + s;
       }
     }
     var out = [];

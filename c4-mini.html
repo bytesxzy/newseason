@@ -5038,6 +5038,7 @@ document.addEventListener('keydown', function (event) {
       try {
         if ((typeof C4LMCrossRef !== "undefined" && C4LMCrossRef.wants(text)) ||
             (typeof C4LMDialogue !== "undefined" && typeof C4LM !== "undefined" && C4LM.followsUp && C4LM.followsUp(text)) ||
+            (typeof C4LocalDataset !== "undefined" && C4LocalDataset.library && C4LocalDataset.library.wants(text)) ||
             (typeof C4LMConverse !== "undefined" && C4LMConverse.analyze(text)) ||
             (typeof C4LMEveryday !== "undefined" && C4LMEveryday.solve(text))) return next();
       } catch (e) {}

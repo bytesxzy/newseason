@@ -299,6 +299,10 @@
   function compareFollow(text, log) {
     var l = low(text).replace(/[?.!]+$/, ""), m;
     if (/\bor\b/.test(l) || !/^(?:so\s+|and\s+)?(?:which|who)\s+(?:one\s+|of\s+(?:the\s+two|them|those|these|both)\s+)?(?:is|has|was)\b|^compare\s+(?:them|the two|those|these)\b|^how\s+do\s+(?:they|the two)\s+compare\b/.test(l)) return null;
+    /* "who is X?" is a question about X; a comparison says "of the two",
+       "one", "them", or asks with a comparative */
+    if (!/^(?:so\s+|and\s+)?(?:which|who)\s+(?:one|of\s+(?:the\s+two|them|those|these|both))\b|^compare\b|^how\s+do\b/.test(l) &&
+        !/\b(?:more|less|fewer|[a-z]{3,}er)\s+(?:than|people|populous)?\b|\b(?:bigger|larger|smaller|heavier|lighter|older|younger|faster|slower|taller|shorter|longer|hotter|colder|farther|further|closer|nearer|higher|deeper|wider|greater)\b/.test(l)) return null;
     var two = discussed(log, 2);
     if (two.length < 2) return null;
     var adj = null;
