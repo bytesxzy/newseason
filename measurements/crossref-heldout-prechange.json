@@ -1,0 +1,186 @@
+{
+  "n": 29,
+  "good": 1,
+  "honest": 12,
+  "wrong": 16,
+  "items": [
+    {
+      "q": "Red, Yellow = Ketchup, Mustard",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "The primary colours of light are red, green and blue; in pigment they are traditionally red, yellow and blue. It is made up of red, green and blue for light."
+    },
+    {
+      "q": "Blue, Peach = Water, Sand",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It consists of hydrogen and oxygen."
+    },
+    {
+      "q": "What did I pair with Blue?",
+      "verdict": "wrong",
+      "route": "compose",
+      "answer": "With Blue, a pair is a set of two. That is the general sense of the word — I don't hold a separate blue meaning for it."
+    },
+    {
+      "q": "What did I pair with Yellow?",
+      "verdict": "wrong",
+      "route": "compose",
+      "answer": "With Yellow, a pair is a set of two. That is the general sense of the word — I don't hold a separate yellow meaning for it."
+    },
+    {
+      "q": "Which color went with Sand?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Sand. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Why is Red Ketchup?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I couldn't find a reliable explanation of why Red is Ketchup, and I'd rather not guess at a cause."
+    },
+    {
+      "q": "What color is ketchup?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on What color is ketchup. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What color is grass?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on What color is grass. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What color is milk?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on What color is milk. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What color is a tomato?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on What color is a tomato. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Is ketchup red?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "You asked this earlier — same answer, put another way: I couldn't confirm from my local knowledge or the sources I checked whether ketchup is red, so I won't guess. If that isn't what you were after, tell me which part to go into."
+    },
+    {
+      "q": "Is snow black?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I couldn't confirm from my local knowledge or the sources I checked whether snow is black, so I won't guess."
+    },
+    {
+      "q": "Name something that is yellow.",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on something that is yellow. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Red, Yellow = Ketchup, Mustard. Green = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "You asked this earlier — the answer hasn't changed: The primary colours of light are red, green and blue; in pigment they are traditionally red, yellow and blue. It is made up of red, green and blue for light. If that isn't what you were after, tell me which part to go into."
+    },
+    {
+      "q": "Blue, Peach = Water, Sand. White = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "You asked this earlier — the answer hasn't changed: Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen. If that isn't what you were after, tell me which part to go into."
+    },
+    {
+      "q": "France, Japan = Paris, Tokyo. Italy = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Tokyo is the capital city of Japan."
+    },
+    {
+      "q": "Germany, Spain = Berlin, Madrid. Canada = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Germany is a country in Central Europe. It has a population of about 84 million. Its currency is the euro."
+    },
+    {
+      "q": "Paris, Tokyo = France, Japan. Rome = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Paris is the capital city of France."
+    },
+    {
+      "q": "Oslo, Lima = Norway, Peru. Cairo = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Oslo is the capital city of Norway."
+    },
+    {
+      "q": "Japan, Mexico = yen, peso. India = ?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "India is a country in South Asia. It has a population of about 1.43 billion. Its currency is the rupee."
+    },
+    {
+      "q": "hot is to cold as big is to what?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Big O notation describes how an algorithm's cost grows with input size, ignoring constants."
+    },
+    {
+      "q": "fast : slow :: tall : ?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Tall means of great height."
+    },
+    {
+      "q": "happy : sad :: up : ?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on happy : sad :: up :. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "dog is to puppy as cat is to ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A dog is a domesticated descendant of the wolf, kept as a companion and working animal."
+    },
+    {
+      "q": "finger : hand :: toe : ?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on finger : hand :: toe :. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "wheel : car :: page : ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A car is a road vehicle with an engine, typically four wheels, built to carry a few people. It is used for carrying people by road. It is made up of an engine, wheels, a body and a fuel tank."
+    },
+    {
+      "q": "bird : fly :: fish : ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A bird is a warm-blooded vertebrate with feathers, wings and a beak."
+    },
+    {
+      "q": "What goes with Peach again?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Peach. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "And what was paired with Red?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A bird is a warm-blooded vertebrate with feathers, wings and a beak."
+    }
+  ],
+  "words": 795,
+  "good_rate": 0.034,
+  "wrong_rate": 0.552,
+  "mean_words": 27.4
+}

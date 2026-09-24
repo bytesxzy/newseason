@@ -39,6 +39,21 @@ function boot(opts) {
   opts = opts || {};
   var html = fs.readFileSync(path.join(ROOT, "c4-mini.html"), "utf8");
   var win = makeEnv({ fetch: opts.fetch });
+  /* the reference dataset, read the way a browser reads a mirror: in
+     bounded positioned chunks (c4-dataset.js validates everything) */
+  var DSDIR = path.join(ROOT, "data", "wordnet");
+  if (opts.dataset !== false && fs.existsSync(path.join(DSDIR, "manifest.json"))) {
+    var fds = {};
+    win.C4DatasetLocal = {
+      manifest: JSON.parse(fs.readFileSync(path.join(DSDIR, "manifest.json"), "utf8")),
+      size: function (name) { try { return fs.statSync(path.join(DSDIR, path.basename(name))).size; } catch (e) { return -1; } },
+      read: function (name, pos, len) {
+        var p = path.join(DSDIR, path.basename(name)), fd = fds[p] || (fds[p] = fs.openSync(p, "r")), buf = Buffer.alloc(len);
+        var n = fs.readSync(fd, buf, 0, len, pos);
+        return buf.slice(0, n).toString("latin1");
+      }
+    };
+  }
   var ctx = vm.createContext(win);
 
   function run(code, name) {

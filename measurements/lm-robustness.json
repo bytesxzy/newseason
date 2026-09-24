@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-24T18:08:45.295Z",
- "passed": 52,
- "total": 52,
+ "generated": "2026-09-24T18:56:03.269Z",
+ "passed": 53,
+ "total": 53,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -25,6 +25,11 @@
   },
   {
    "name": "syntax: c4-lm-core.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-crossref.js",
    "ok": true,
    "detail": ""
   },
@@ -151,7 +156,7 @@
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "The capital of France is Paris. It has a"
+   "detail": "Paris is the capital of France. France h"
   },
   {
    "name": "edge input: sql-ish input",
@@ -191,7 +196,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France's capital is Paris. It has a popu"
+   "detail": "France has Paris as its capital. It has "
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -201,17 +206,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "8 -> 9"
+   "detail": "8 -> 7"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 equals 391."
+   "detail": "17 * 23 = 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "Paris is the capital of France. France h"
+   "detail": "France has Paris as its capital. It has "
   },
   {
    "name": "offline: current question degrades honestly",
@@ -221,7 +226,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2532 ms"
+   "detail": "2534 ms"
   },
   {
    "name": "garbage source response handled",
@@ -236,12 +241,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France's capital is Paris. It has a popu"
+   "detail": "The capital of France is Paris. It has a"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hey! How can I help?"
+   "detail": "Hey! Ask me anything — a fact, a calcula"
   },
   {
    "name": "dialogue sequence",

@@ -364,6 +364,9 @@ document.addEventListener('keydown', function (event) {
 <script src="c4-lm-evidence.js"></script>
 <script src="c4-lm-deliberate.js"></script>
 <script src="c4-lm-converse.js"></script>
+<script src="c4-dataset-manifest.js"></script>
+<script src="c4-dataset.js"></script>
+<script src="c4-lm-crossref.js"></script>
 <script src="c4-lm-compose.js"></script>
 <script src="c4-lm-realize.js"></script>
 <script src="c4-lm-code.js"></script>
@@ -5031,7 +5034,8 @@ document.addEventListener('keydown', function (event) {
          language stack: the reference library would only find a document
          that shares a word with it ("lonely" -> "the lone marker"). */
       try {
-        if ((typeof C4LMConverse !== "undefined" && C4LMConverse.analyze(text)) ||
+        if ((typeof C4LMCrossRef !== "undefined" && C4LMCrossRef.wants(text)) ||
+            (typeof C4LMConverse !== "undefined" && C4LMConverse.analyze(text)) ||
             (typeof C4LMEveryday !== "undefined" && C4LMEveryday.solve(text))) return next();
       } catch (e) {}
       var decision;

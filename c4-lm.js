@@ -2693,6 +2693,14 @@
   function answer(text, opts) {
     state.mode = opts && (opts.evaluationMode === "closed" || opts.evaluationMode === "tool") ? opts.evaluationMode : state.defaultMode;
     var M = state.memory, raw = String(text == null ? "" : text);
+    /* cross-referencing reads the reference dataset: it is loaded (in
+       verified chunks) before the message is answered, once per session */
+    var CR = root.C4LMCrossRef;
+    if (CR && !off("crossref") && CR.wants(raw)) {
+      var DSx = root.C4Dataset;
+      if (DSx && !DSx.available() && !DSx.error) return CR.ready().then(function () { return answerCore(raw, opts); }, function () { return answerCore(raw, opts); });
+      return answerCore(raw, opts);
+    }
     if (!M) return answerCore(raw, opts);
     var memo = null;
     try { memo = M.command(raw); } catch (e) { memo = null; }
@@ -2736,6 +2744,15 @@
     state.stats.turns++;
 
     var baseFrame = timed("parse", function () { return C.parse(text, discourse.snapshot()); });
+    /* relations learned from the user's own examples, and the session's
+       memory of what was paired with what */
+    var CRx = root.C4LMCrossRef;
+    if (CRx && !off("crossref")) {
+      state.crossref = state.crossref || CRx.session();
+      var xr = null;
+      try { xr = timed("crossref", function () { return CRx.answer(state.userText, state.crossref); }); } catch (e) { xr = null; }
+      if (xr) return Promise.resolve(finish(baseFrame, xr, t0));
+    }
     if (baseFrame.empty) {
       /* "hi!" parses to no content, but it still calls for a greeting back */
       var said0 = null, CVe = root.C4LMConverse;

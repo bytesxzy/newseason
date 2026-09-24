@@ -1004,7 +1004,7 @@
      an open question or a how-to. */
   function accepts(text, result) {
     var I = analyze(text);
-    if (!I || !result) return true;
+    if (!I || !result || result.route === "crossref") return true;
     /* a generic "found nothing" is replaced by the intent's own honest
        reply when it has one (a how-to, advice, a claim, a comparison) */
     if ((result.route === "insufficient" || result.insufficientEvidence) && /^(?:procedure|advice|claim|compare|decide|magnitude|creative|why|yesno|open|either)$/.test(I.intent)) return false;
