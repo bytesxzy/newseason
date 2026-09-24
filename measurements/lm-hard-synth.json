@@ -1,0 +1,225 @@
+{
+  "note": "generated hard-computation questions, closed mode (no network); answers computed independently by the generator; before = commit 1e303dc (pre-Tier-3 language stack). Not HLE: actual HLE was not run. Seed 5 was used for debugging and is excluded.",
+  "runs": {
+    "seed17": {
+      "before": {
+        "correct": 49,
+        "total": 144,
+        "byFamily": {
+          "determinant": {
+            "n": 12,
+            "correct": 0
+          },
+          "rank": {
+            "n": 12,
+            "correct": 1
+          },
+          "median": {
+            "n": 12,
+            "correct": 0
+          },
+          "mean": {
+            "n": 12,
+            "correct": 12
+          },
+          "variance": {
+            "n": 12,
+            "correct": 0
+          },
+          "bayes": {
+            "n": 12,
+            "correct": 0
+          },
+          "power_sum": {
+            "n": 12,
+            "correct": 0
+          },
+          "quad_min": {
+            "n": 12,
+            "correct": 0
+          },
+          "subset_count": {
+            "n": 12,
+            "correct": 0
+          },
+          "rational": {
+            "n": 12,
+            "correct": 12
+          },
+          "unit_convert": {
+            "n": 12,
+            "correct": 12
+          },
+          "control_arith": {
+            "n": 12,
+            "correct": 12
+          }
+        }
+      },
+      "after": {
+        "correct": 144,
+        "total": 144,
+        "byFamily": {
+          "determinant": {
+            "n": 12,
+            "correct": 12
+          },
+          "rank": {
+            "n": 12,
+            "correct": 12
+          },
+          "median": {
+            "n": 12,
+            "correct": 12
+          },
+          "mean": {
+            "n": 12,
+            "correct": 12
+          },
+          "variance": {
+            "n": 12,
+            "correct": 12
+          },
+          "bayes": {
+            "n": 12,
+            "correct": 12
+          },
+          "power_sum": {
+            "n": 12,
+            "correct": 12
+          },
+          "quad_min": {
+            "n": 12,
+            "correct": 12
+          },
+          "subset_count": {
+            "n": 12,
+            "correct": 12
+          },
+          "rational": {
+            "n": 12,
+            "correct": 12
+          },
+          "unit_convert": {
+            "n": 12,
+            "correct": 12
+          },
+          "control_arith": {
+            "n": 12,
+            "correct": 12
+          }
+        }
+      }
+    },
+    "seed29": {
+      "before": {
+        "correct": 49,
+        "total": 144,
+        "byFamily": {
+          "determinant": {
+            "n": 12,
+            "correct": 0
+          },
+          "rank": {
+            "n": 12,
+            "correct": 0
+          },
+          "median": {
+            "n": 12,
+            "correct": 0
+          },
+          "mean": {
+            "n": 12,
+            "correct": 12
+          },
+          "variance": {
+            "n": 12,
+            "correct": 0
+          },
+          "bayes": {
+            "n": 12,
+            "correct": 0
+          },
+          "power_sum": {
+            "n": 12,
+            "correct": 0
+          },
+          "quad_min": {
+            "n": 12,
+            "correct": 1
+          },
+          "subset_count": {
+            "n": 12,
+            "correct": 0
+          },
+          "rational": {
+            "n": 12,
+            "correct": 12
+          },
+          "unit_convert": {
+            "n": 12,
+            "correct": 12
+          },
+          "control_arith": {
+            "n": 12,
+            "correct": 12
+          }
+        }
+      },
+      "after": {
+        "correct": 144,
+        "total": 144,
+        "byFamily": {
+          "determinant": {
+            "n": 12,
+            "correct": 12
+          },
+          "rank": {
+            "n": 12,
+            "correct": 12
+          },
+          "median": {
+            "n": 12,
+            "correct": 12
+          },
+          "mean": {
+            "n": 12,
+            "correct": 12
+          },
+          "variance": {
+            "n": 12,
+            "correct": 12
+          },
+          "bayes": {
+            "n": 12,
+            "correct": 12
+          },
+          "power_sum": {
+            "n": 12,
+            "correct": 12
+          },
+          "quad_min": {
+            "n": 12,
+            "correct": 12
+          },
+          "subset_count": {
+            "n": 12,
+            "correct": 12
+          },
+          "rational": {
+            "n": 12,
+            "correct": 12
+          },
+          "unit_convert": {
+            "n": 12,
+            "correct": 12
+          },
+          "control_arith": {
+            "n": 12,
+            "correct": 12
+          }
+        }
+      }
+    }
+  }
+}

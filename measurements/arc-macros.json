@@ -11,21 +11,21 @@
   "discovered": 109,
   "candidate_macros": 19,
   "evaluated_candidates": 10,
-  "accepted_macros": 6,
-  "average_compression_gain": 359.78833333333324,
-  "validation_baseline": 16,
+  "accepted_macros": 2,
+  "average_compression_gain": 662.9849999999999,
+  "validation_baseline": 20,
   "heldout_test": {
-    "without": 34,
-    "with": 54,
+    "without": 35,
+    "with": 41,
     "n": 120,
-    "delta": 20,
+    "delta": 6,
     "search_cost_without": 278,
-    "search_cost_with": 1307.3947368421052,
-    "macro_usage": 39,
+    "search_cost_with": 305.27777777777777,
+    "macro_usage": 16,
     "by_depth_without": {
       "3": {
         "n": 53,
-        "generalized": 18
+        "generalized": 19
       },
       "4": {
         "n": 40,
@@ -39,7 +39,7 @@
     "by_depth_with": {
       "3": {
         "n": 53,
-        "generalized": 31
+        "generalized": 21
       },
       "4": {
         "n": 40,
@@ -47,7 +47,7 @@
       },
       "5": {
         "n": 27,
-        "generalized": 10
+        "generalized": 7
       }
     }
   },
@@ -59,8 +59,8 @@
       "support": 37,
       "mdlGain": 666.8,
       "val_generalized": 21,
-      "delta": 5,
-      "cost_cut": -0.087,
+      "delta": 1,
+      "cost_cut": -0.001,
       "macro_uses": 8,
       "accepted": true
     },
@@ -73,9 +73,9 @@
       "support": 40,
       "mdlGain": 659.17,
       "val_generalized": 22,
-      "delta": 6,
-      "cost_cut": -0.04,
-      "macro_uses": 5,
+      "delta": 2,
+      "cost_cut": 0.05,
+      "macro_uses": 2,
       "accepted": true
     },
     {
@@ -84,11 +84,11 @@
       "params": [],
       "support": 28,
       "mdlGain": 462.21,
-      "val_generalized": 22,
-      "delta": 6,
-      "cost_cut": -0.169,
-      "macro_uses": 5,
-      "accepted": true
+      "val_generalized": 19,
+      "delta": -1,
+      "cost_cut": -0.001,
+      "macro_uses": 1,
+      "accepted": false
     },
     {
       "name": "L3",
@@ -96,11 +96,11 @@
       "params": [],
       "support": 9,
       "mdlGain": 136.87,
-      "val_generalized": 20,
-      "delta": 4,
-      "cost_cut": -0.007,
+      "val_generalized": 18,
+      "delta": -2,
+      "cost_cut": -0.001,
       "macro_uses": 0,
-      "accepted": true
+      "accepted": false
     },
     {
       "name": "L4",
@@ -111,11 +111,11 @@
       ],
       "support": 7,
       "mdlGain": 128.79,
-      "val_generalized": 21,
-      "delta": 5,
-      "cost_cut": -0.933,
+      "val_generalized": 19,
+      "delta": -1,
+      "cost_cut": -0.035,
       "macro_uses": 1,
-      "accepted": true
+      "accepted": false
     },
     {
       "name": "L5",
@@ -125,11 +125,11 @@
       ],
       "support": 8,
       "mdlGain": 104.89,
-      "val_generalized": 17,
-      "delta": 1,
-      "cost_cut": -0.027,
-      "macro_uses": 1,
-      "accepted": true
+      "val_generalized": 18,
+      "delta": -2,
+      "cost_cut": -0.004,
+      "macro_uses": 0,
+      "accepted": false
     },
     {
       "name": "L6",
@@ -141,10 +141,10 @@
       "support": 9,
       "mdlGain": 103.92,
       "val_generalized": 19,
-      "delta": 3,
-      "cost_cut": -1.326,
-      "macro_uses": 2,
-      "accepted": true
+      "delta": -1,
+      "cost_cut": -0.035,
+      "macro_uses": 0,
+      "accepted": false
     },
     {
       "name": "L7",
@@ -154,11 +154,11 @@
       ],
       "support": 5,
       "mdlGain": 95.26,
-      "val_generalized": 20,
-      "delta": 4,
-      "cost_cut": -0.355,
-      "macro_uses": 8,
-      "accepted": true
+      "val_generalized": 19,
+      "delta": -1,
+      "cost_cut": -0.014,
+      "macro_uses": 5,
+      "accepted": false
     },
     {
       "name": "L8",
@@ -169,11 +169,11 @@
       ],
       "support": 6,
       "mdlGain": 61.08,
-      "val_generalized": 21,
-      "delta": 5,
-      "cost_cut": -1.926,
-      "macro_uses": 2,
-      "accepted": true
+      "val_generalized": 16,
+      "delta": -4,
+      "cost_cut": -0.035,
+      "macro_uses": 1,
+      "accepted": false
     },
     {
       "name": "L9",
@@ -184,12 +184,12 @@
       ],
       "support": 4,
       "mdlGain": 59.23,
-      "val_generalized": 23,
-      "delta": 7,
-      "cost_cut": -1,
-      "macro_uses": 4,
+      "val_generalized": 22,
+      "delta": 2,
+      "cost_cut": 0.027,
+      "macro_uses": 3,
       "accepted": true
     }
   ],
-  "seconds": 568.289
+  "seconds": 436.942
 }

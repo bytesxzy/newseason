@@ -1,0 +1,98 @@
+{
+  "note": "synthetic environments with harder mechanics; not an ARC-AGI-3 score",
+  "complete_rate": 0.8727272727272727,
+  "over": 13,
+  "timeout": 29,
+  "semantics_rate": 0.9378787878787879,
+  "levels": 330,
+  "bySuite": {
+    "ambiguous": {
+      "levels": 30,
+      "complete_rate": 1,
+      "over": 0,
+      "timeout": 0,
+      "mean_steps": 6.3,
+      "semantics": 0.95
+    },
+    "changing-map": {
+      "levels": 30,
+      "complete_rate": 1,
+      "over": 0,
+      "timeout": 0,
+      "mean_steps": 7.4,
+      "semantics": 0.858
+    },
+    "two-stage": {
+      "levels": 30,
+      "complete_rate": 0.867,
+      "over": 0,
+      "timeout": 4,
+      "mean_steps": 41.7,
+      "semantics": 0.933
+    },
+    "button+teleport": {
+      "levels": 30,
+      "complete_rate": 0.867,
+      "over": 0,
+      "timeout": 4,
+      "mean_steps": 39.7,
+      "semantics": 0.942
+    },
+    "delayed": {
+      "levels": 30,
+      "complete_rate": 0.867,
+      "over": 0,
+      "timeout": 4,
+      "mean_steps": 39.3,
+      "semantics": 0.942
+    },
+    "false-goal": {
+      "levels": 30,
+      "complete_rate": 1,
+      "over": 0,
+      "timeout": 0,
+      "mean_steps": 6.7,
+      "semantics": 0.942
+    },
+    "multi-goal": {
+      "levels": 30,
+      "complete_rate": 1,
+      "over": 0,
+      "timeout": 0,
+      "mean_steps": 35.7,
+      "semantics": 0.992
+    },
+    "irreversible": {
+      "levels": 30,
+      "complete_rate": 0.733,
+      "over": 0,
+      "timeout": 8,
+      "mean_steps": 57.2,
+      "semantics": 0.875
+    },
+    "hidden-state": {
+      "levels": 30,
+      "complete_rate": 0.767,
+      "over": 0,
+      "timeout": 7,
+      "mean_steps": 56.5,
+      "semantics": 1
+    },
+    "resource": {
+      "levels": 30,
+      "complete_rate": 1,
+      "over": 0,
+      "timeout": 0,
+      "mean_steps": 42.3,
+      "semantics": 1
+    },
+    "multi-mechanic": {
+      "levels": 30,
+      "complete_rate": 0.5,
+      "over": 13,
+      "timeout": 2,
+      "mean_steps": 25.9,
+      "semantics": 0.883
+    }
+  }
+}

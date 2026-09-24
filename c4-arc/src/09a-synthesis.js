@@ -290,55 +290,84 @@ var SYN = null;
     if (trainEq(grids)) keep(PROG.VAR, [], grids);
     close(root);
     var frontier = [root], every = [root], paramCache = {}, lvl;
+    function byBias(a, b) {
+      var da = bias[a] || 0, db = bias[b] || 0;
+      return (db - da) || (a < b ? -1 : a > b ? 1 : 0);
+    }
+    /* A state some label in `table` already reaches at no greater depth and
+       no more bits (admit() would reject it), checked without recording. */
+    function dominated(table, key, d, b) {
+      var labels = table.get(key);
+      if (!labels) return false;
+      for (var i = 0; i < labels.length; i++) if (labels[i][0] <= d && labels[i][1] <= b) return true;
+      return false;
+    }
+    /* expand one node by the given operators into `into`; base steps are
+       admitted to the shared table, macro steps to their own */
+    function expand(node, ops, into, lvl, macroPass, table) {
+      for (var oi2 = 0; oi2 < ops.length; oi2++) {
+        if (expired()) break;
+        var op2 = ops[oi2];
+        if (!PROG.OPS[op2]) continue;
+        if (!(op2 in paramCache)) paramCache[op2] = paramGrid(op2, dom, PROG.OPS[op2].macro ? 40 : 64);
+        var combos2 = paramCache[op2];
+        if (!combos2) continue;
+        for (var ci2 = 0; ci2 < combos2.length; ci2++) {
+          sstats.generated++;
+          /* the stored structure is absolute (applied to the original
+             grids); it is the CANONICAL form of op2(parent), so an
+             equivalent program reached another way is never executed
+             twice and every program carries its shortest description */
+          var cc = canonChild(op2, combos2[ci2], node);
+          if (canonSeen.has(cc.key)) { sstats.canonical_duplicates++; continue; }
+          canonSeen.add(cc.key);
+          if (cc.rewritten) sstats.canonicalised++;
+          /* incremental evaluation: op2 applied to the parent's outputs is,
+             by construction, the canonical program's output */
+          var st2 = stepState(op2, combos2[ci2], env, node.state);
+          sstats.evaluated++;
+          if (!st2) continue;
+          var struct2 = cc.struct, theta2 = cc.theta;
+          var bits2 = PROG.structBits(struct2) + PROG.thetaBits(struct2, theta2);
+          var key2 = stateKey(st2);
+          if (macroPass && dominated(seen, key2, lvl, bits2)) { sstats.behavior_duplicates++; continue; }
+          if (!admit(table, key2, lvl, bits2)) { sstats.behavior_duplicates++; continue; }
+          var nn = { struct: struct2, theta: theta2, state: st2,
+                     bits: bits2 - (bias[op2] || 0), depth: lvl, ckey: cc.key, skey: key2, rawBits: bits2 };
+          if (PROG.OPS[op2].macro) sstats.macro_steps++;
+          if (trainEq(st2)) keep(struct2, theta2, st2);
+          into.set(key2, nn);
+          if (macroPass && into.size > width) return;
+        }
+      }
+    }
     for (lvl = 1; lvl <= depth; lvl++) {
-      var nxt = new Map();
+      var nxt = new Map(), nxtM = new Map(), seenM = new Map();
+      var baseOps = (lvl === 1 ? INNER_OPS : CORE_OPS).slice();
+      if (hasBias) baseOps.sort(byBias);
+      /* pass 1: the base operators, exactly as a search without macros */
       for (var ni = 0; ni < frontier.length; ni++) {
         if (expired()) break;
-        var node = frontier[ni];
-        var opsHere = (lvl === 1 ? INNER_OPS : CORE_OPS).slice();
-        /* learned macros are ordinary typed steps here (56b-macros.js) */
-        for (var mi = 0; mi < macros.length; mi++) opsHere.push(macros[mi]);
-        if (hasBias) opsHere.sort(function (a, b) {
-          var da = bias[a] || 0, db = bias[b] || 0;
-          return (db - da) || (a < b ? -1 : a > b ? 1 : 0);
-        });
-        for (var oi2 = 0; oi2 < opsHere.length; oi2++) {
-          if (expired()) break;
-          var op2 = opsHere[oi2];
-          if (!PROG.OPS[op2]) continue;
-          if (!(op2 in paramCache)) paramCache[op2] = paramGrid(op2, dom, PROG.OPS[op2].macro ? 40 : 64);
-          var combos2 = paramCache[op2];
-          if (!combos2) continue;
-          for (var ci2 = 0; ci2 < combos2.length; ci2++) {
-            sstats.generated++;
-            /* the stored structure is absolute (applied to the original
-               grids); it is the CANONICAL form of op2(parent), so an
-               equivalent program reached another way is never executed
-               twice and every program carries its shortest description */
-            var cc = canonChild(op2, combos2[ci2], node);
-            if (canonSeen.has(cc.key)) { sstats.canonical_duplicates++; continue; }
-            canonSeen.add(cc.key);
-            if (cc.rewritten) sstats.canonicalised++;
-            /* incremental evaluation: op2 applied to the parent's outputs is,
-               by construction, the canonical program's output */
-            var st2 = stepState(op2, combos2[ci2], env, node.state);
-            sstats.evaluated++;
-            if (!st2) continue;
-            var struct2 = cc.struct, theta2 = cc.theta;
-            var bits2 = PROG.structBits(struct2) + PROG.thetaBits(struct2, theta2);
-            var key2 = stateKey(st2);
-            if (!admit(seen, key2, lvl, bits2)) { sstats.behavior_duplicates++; continue; }
-            var nn = { struct: struct2, theta: theta2, state: st2,
-                       bits: bits2 - (bias[op2] || 0), depth: lvl, ckey: cc.key };
-            if (PROG.OPS[op2].macro) sstats.macro_steps++;
-            if (trainEq(st2)) keep(struct2, theta2, st2);
-            nxt.set(key2, nn);
-          }
-        }
+        expand(frontier[ni], baseOps, nxt, lvl, false, seen);
         if (nxt.size > width * 4) break;
       }
-      if (!nxt.size) break;
+      /* pass 2: learned macros (56b-macros.js) EXTEND the search on their
+         own capacity and beam slots; they never crowd out, or pre-empt in
+         the shared dedupe table, a base-operator state */
+      if (macros.length) {
+        var mOps = macros.slice();
+        if (hasBias) mOps.sort(byBias);
+        for (var nj = 0; nj < frontier.length && nxtM.size <= width; nj++) {
+          if (expired()) break;
+          expand(frontier[nj], mOps, nxtM, lvl, true, seenM);
+        }
+      }
+      if (!nxt.size && !nxtM.size) break;
       frontier = beam(Array.from(nxt.values()), width, target);
+      if (nxtM.size) {
+        var fm = beam(Array.from(nxtM.values()), Math.max(2, width >> 2), target);
+        fm.forEach(function (n) { if (admit(seen, n.skey, lvl, n.rawBits)) frontier.push(n); });
+      }
       /* the table closers run on the beam only: they are the expensive half of
          the level, and the beam is what survives to be built on anyway */
       for (var ki = 0; ki < frontier.length; ki++) {

@@ -3,103 +3,139 @@
   "with_transfer": {
     "games": 30,
     "levels": 90,
-    "complete": 73,
-    "over": 11,
-    "timeout": 6,
-    "steps": 1697,
-    "semantics": 81.75,
-    "firstLevelSteps": 615,
-    "laterLevelSteps": 1082,
+    "complete": 81,
+    "over": 9,
+    "timeout": 0,
+    "steps": 889,
+    "semantics": 86.25,
+    "firstLevelSteps": 367,
+    "laterLevelSteps": 522,
     "firstLevelN": 30,
     "laterLevelN": 60,
-    "repairs": 45,
+    "repairs": 38,
     "contradictions": 0,
     "bySuite": {
       "basic": {
         "levels": 15,
         "complete": 15,
-        "over": 0
+        "over": 0,
+        "timeout": 0,
+        "steps": 95,
+        "semantics": 14.25
       },
       "hazard": {
         "levels": 15,
         "complete": 10,
-        "over": 5
+        "over": 5,
+        "timeout": 0,
+        "steps": 101,
+        "semantics": 14.25
       },
       "keydoor": {
         "levels": 15,
-        "complete": 12,
-        "over": 0
+        "complete": 15,
+        "over": 0,
+        "timeout": 0,
+        "steps": 160,
+        "semantics": 14.25
       },
       "button": {
         "levels": 15,
-        "complete": 13,
-        "over": 0
+        "complete": 15,
+        "over": 0,
+        "timeout": 0,
+        "steps": 244,
+        "semantics": 15
       },
       "teleport": {
         "levels": 15,
         "complete": 15,
-        "over": 0
+        "over": 0,
+        "timeout": 0,
+        "steps": 113,
+        "semantics": 15
       },
       "hazard+keydoor": {
         "levels": 15,
-        "complete": 8,
-        "over": 6
+        "complete": 11,
+        "over": 4,
+        "timeout": 0,
+        "steps": 176,
+        "semantics": 13.5
       }
     },
-    "complete_rate": 0.8111111111111111,
-    "semantics_rate": 0.9083333333333333,
-    "mean_steps_first_level": 20.5,
-    "mean_steps_later_levels": 18.033333333333335
+    "complete_rate": 0.9,
+    "semantics_rate": 0.9583333333333334,
+    "mean_steps_first_level": 12.233333333333333,
+    "mean_steps_later_levels": 8.7
   },
   "without_transfer": {
     "games": 30,
     "levels": 90,
-    "complete": 58,
-    "over": 25,
-    "timeout": 7,
-    "steps": 2037,
-    "semantics": 81.25,
-    "firstLevelSteps": 615,
-    "laterLevelSteps": 1422,
+    "complete": 69,
+    "over": 19,
+    "timeout": 2,
+    "steps": 1389,
+    "semantics": 82.5,
+    "firstLevelSteps": 367,
+    "laterLevelSteps": 1022,
     "firstLevelN": 30,
     "laterLevelN": 60,
-    "repairs": 84,
+    "repairs": 80,
     "contradictions": 0,
     "bySuite": {
       "basic": {
         "levels": 15,
         "complete": 15,
-        "over": 0
+        "over": 0,
+        "timeout": 0,
+        "steps": 140,
+        "semantics": 14.25
       },
       "hazard": {
         "levels": 15,
-        "complete": 3,
-        "over": 12
+        "complete": 6,
+        "over": 9,
+        "timeout": 0,
+        "steps": 142,
+        "semantics": 14
       },
       "keydoor": {
         "levels": 15,
-        "complete": 11,
-        "over": 0
+        "complete": 14,
+        "over": 0,
+        "timeout": 1,
+        "steps": 347,
+        "semantics": 13.5
       },
       "button": {
         "levels": 15,
-        "complete": 14,
-        "over": 0
+        "complete": 15,
+        "over": 0,
+        "timeout": 0,
+        "steps": 280,
+        "semantics": 14.75
       },
       "teleport": {
         "levels": 15,
-        "complete": 13,
-        "over": 0
+        "complete": 14,
+        "over": 0,
+        "timeout": 1,
+        "steps": 328,
+        "semantics": 13.5
       },
       "hazard+keydoor": {
         "levels": 15,
-        "complete": 2,
-        "over": 13
+        "complete": 5,
+        "over": 10,
+        "timeout": 0,
+        "steps": 152,
+        "semantics": 12.5
       }
     },
-    "complete_rate": 0.6444444444444445,
-    "semantics_rate": 0.9027777777777778,
-    "mean_steps_first_level": 20.5,
-    "mean_steps_later_levels": 23.7
+    "complete_rate": 0.7666666666666667,
+    "semantics_rate": 0.9166666666666666,
+    "mean_steps_first_level": 12.233333333333333,
+    "mean_steps_later_levels": 17.033333333333335
   }
 }
