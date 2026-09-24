@@ -1,0 +1,162 @@
+{
+  "n": 25,
+  "good": 6,
+  "honest": 6,
+  "wrong": 13,
+  "items": [
+    {
+      "q": "Black, White = Coal, Snow",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "What did I pair with Black?",
+      "verdict": "wrong",
+      "route": "compose",
+      "answer": "With Black, a pair is a set of two. That is the general sense of the word — I don't hold a separate black meaning for it."
+    },
+    {
+      "q": "Which color went with Snow?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Snow. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Why is White Snow?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "I couldn't find a reliable explanation of why White is Snow, and I'd rather not guess at a cause."
+    },
+    {
+      "q": "Green, Yellow = Lime, Lemon. Red = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "The primary colours of light are red, green and blue; in pigment they are traditionally red, yellow and blue. It is made up of red, green and blue for light."
+    },
+    {
+      "q": "What color is a lemon?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on What color is a lemon. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What color is blood?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Blood means the red liquid circulating in animals."
+    },
+    {
+      "q": "What color is the sky?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The sky looks blue because air scatters short-wavelength light more strongly than long-wavelength light. It results from Rayleigh scattering of sunlight by air molecules."
+    },
+    {
+      "q": "Is a banana yellow?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I couldn't confirm from my local knowledge or the sources I checked whether a banana is yellow, so I won't guess."
+    },
+    {
+      "q": "Is coal white?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I couldn't confirm from my local knowledge or the sources I checked whether coal is white, so I won't guess."
+    },
+    {
+      "q": "Name something that is red.",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A band of the grid is a thing rules talk about — \"rows that are all one colour become red\" — and no connectivity segmentation can name it."
+    },
+    {
+      "q": "Spain, Kenya = Madrid, Nairobi. Egypt = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Spain is a country in Southern Europe. It has a population of about 48 million. Its currency is the euro."
+    },
+    {
+      "q": "Rome, Oslo = Italy, Norway. Madrid = ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Rome is the capital city of Italy."
+    },
+    {
+      "q": "China, Russia = yuan, ruble. Japan = ?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Japan is a country in East Asia. It has a population of about 124 million. Its currency is the yen."
+    },
+    {
+      "q": "big : small :: heavy : ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Big O notation describes how an algorithm's cost grows with input size, ignoring constants."
+    },
+    {
+      "q": "early : late :: open : ?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Open has more than one sense: as a verb, to move so as to leave a space; as an adjective, allowing access; as an adjective, not closed, or accessible to all."
+    },
+    {
+      "q": "dark : light :: strong : ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "The sky looks blue because air scatters short-wavelength light more strongly than long-wavelength light."
+    },
+    {
+      "q": "horse : foal :: dog : ?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A dog is a domesticated descendant of the wolf, kept as a companion and working animal."
+    },
+    {
+      "q": "hand : finger :: foot : ?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on hand : finger :: foot :. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "tree : forest :: star : ?",
+      "verdict": "wrong",
+      "route": "compose",
+      "answer": "I think a tree forest star would be a luminous ball of gas held together by gravity relating to a forest. Tell me the context and I can be more exact. — though I'd check that one."
+    },
+    {
+      "q": "What do a lemon and a lime have in common?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Common means occurring often, or shared by many."
+    },
+    {
+      "q": "What do a hammer and a saw have in common?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Common means occurring often, or shared by many."
+    },
+    {
+      "q": "What was the first pair?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "\"The cell is on the diagonal through the mark\" is `r - seed_r == c - seed_c`, and no sequence of tests on `seed_dr` and `seed_dc` separately says it — the tree has to name every offset pair one at a time and then fails on the first longer diagonal it has not seen."
+    },
+    {
+      "q": "Actually, Black = Night",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Night means the period of darkness between sunset and sunrise."
+    },
+    {
+      "q": "What did I pair with Black?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "That's the second time you've asked, and I still can't give you a real answer: I don't have anything reliable on pair and Black, and the public sources I can reach didn't turn anything up either. If you tell me which part you're after, or point me at a source, I'll work from that."
+    }
+  ],
+  "words": 595,
+  "good_rate": 0.24,
+  "wrong_rate": 0.52,
+  "mean_words": 23.8
+}

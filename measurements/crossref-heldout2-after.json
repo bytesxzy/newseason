@@ -1,0 +1,162 @@
+{
+  "n": 25,
+  "good": 20,
+  "honest": 0,
+  "wrong": 5,
+  "items": [
+    {
+      "q": "Black, White = Coal, Snow",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Got it: Black → Coal, White → Snow.\nReasoning:\n1. Pattern: the right side is defined as “snowflakes …” the left side (it fits 1 of 2 pairs in my data).\n2. Black → Coal isn't confirmed by my data, so I'm keeping it as your pairing, not as a fact.\n3. Checked White → Snow: snow is “a layer of snowflake"
+    },
+    {
+      "q": "What did I pair with Black?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "You paired Black with Coal. My data doesn't confirm that one, so it's your association rather than a fact."
+    },
+    {
+      "q": "Which color went with Snow?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "You paired Snow with White."
+    },
+    {
+      "q": "Why is White Snow?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "You paired White with Snow because snow is “a layer of snowflakes (white crystals of frozen water) covering the ground”."
+    },
+    {
+      "q": "Green, Yellow = Lime, Lemon. Red = ?",
+      "verdict": "wrong",
+      "route": "crossref",
+      "answer": "Got it: Green → Lime, Yellow → Lemon.\nReasoning:\n1. Pattern: the right side is defined as “strong …” the left side (it fits 1 of 2 pairs in my data).\n2. Green → Lime isn't confirmed by my data, so I'm keeping it as your pairing, not as a fact.\n3. Checked Yellow → Lemon: gamboge is “a strong yellow c"
+    },
+    {
+      "q": "What color is a lemon?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Lemon is yellow: lemon is “yellow oval fruit with juicy acidic flesh”. (You paired it with Yellow earlier — I've kept that as your pairing.)\nReasoning:\n1. “color” is an attribute class in my dataset; its values are the kinds of color below it.\n2. Read lemon's definition for the first word that names"
+    },
+    {
+      "q": "What color is blood?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Blood is green: blood is “the fluid (red in vertebrates) that is pumped through the body by the heart and contains plasma, blood cells, and platelets”, and a plasma is “a green slightly translucent variety of chalcedony used as a gemstone”.\nReasoning:\n1. “color” is an attribute class in my dataset; "
+    },
+    {
+      "q": "What color is the sky?",
+      "verdict": "wrong",
+      "route": "crossref",
+      "answer": "My dataset doesn't state the color of sky."
+    },
+    {
+      "q": "Is a banana yellow?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Yes — banana is described as yellow: banana is “elongated crescent-shaped yellow fruit with soft sweet flesh”."
+    },
+    {
+      "q": "Is coal white?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "No — coal is described as matt: coal is “fossil fuel consisting of carbonized vegetable matter deposited in the Carboniferous period”."
+    },
+    {
+      "q": "Name something that is red.",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Apple — “fruit with red or yellow or green skin and sweet to tart crisp whitish flesh”. Also: spleen, rust."
+    },
+    {
+      "q": "Spain, Kenya = Madrid, Nairobi. Egypt = ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Got it: Spain → Madrid, Kenya → Nairobi.\nReasoning:\n1. Pattern: the right side is the left side's capital (it fits 2 of 2 pairs in my data).\n2. Checked Spain → Madrid: Spain's capital is Madrid.\n3. Checked Kenya → Nairobi: Kenya's capital is Nairobi.\n\nEgypt → Cairo.\nReasoning:\n1. From Spain → Madrid"
+    },
+    {
+      "q": "Rome, Oslo = Italy, Norway. Madrid = ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Got it: Rome → Italy, Oslo → Norway.\nReasoning:\n1. Pattern: the right side is the left side's country (it fits 2 of 2 pairs in my data).\n2. Checked Rome → Italy: Rome's country is Italy.\n3. Checked Oslo → Norway: Oslo's country is Norway.\n\nMadrid → Spain.\nReasoning:\n1. From Rome → Italy, Oslo → Norw"
+    },
+    {
+      "q": "China, Russia = yuan, ruble. Japan = ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Got it: China → Yuan, Russia → Ruble.\nReasoning:\n1. Pattern: the right side is defined as “money …” the left side (it fits 2 of 2 pairs in my data).\n2. Checked China → Yuan: yuan is “the basic unit of money in China”.\n3. Checked Russia → Ruble: ruble is “the basic unit of money in Russia”.\n\nJapan → "
+    },
+    {
+      "q": "big : small :: heavy : ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Heavy → Light.\nReasoning:\n1. From Big → Small: the right side is the opposite of the left side."
+    },
+    {
+      "q": "early : late :: open : ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Open → Shut (or close, closed).\nReasoning:\n1. From Early → Late: the right side is the opposite of the left side."
+    },
+    {
+      "q": "dark : light :: strong : ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Strong → Weak (or mild, powerless).\nReasoning:\n1. From Dark → Light: the right side is the opposite of the left side."
+    },
+    {
+      "q": "horse : foal :: dog : ?",
+      "verdict": "wrong",
+      "route": "crossref",
+      "answer": "Dog → ? (nothing in my data fits that pattern).\nReasoning:\n1. From Horse → Foal: the right side is a member of the left side."
+    },
+    {
+      "q": "hand : finger :: foot : ?",
+      "verdict": "wrong",
+      "route": "crossref",
+      "answer": "Foot → Heelbone (or arcuate artery, digital arteries).\nReasoning:\n1. From Hand → Finger: the right side is a part of the left side."
+    },
+    {
+      "q": "tree : forest :: star : ?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Star → Galaxy.\nReasoning:\n1. From Tree → Forest: the right side is the group the left side belongs to."
+    },
+    {
+      "q": "What do a lemon and a lime have in common?",
+      "verdict": "wrong",
+      "route": "crossref",
+      "answer": "Both are matters: “that which has mass and occupies space”.\nReasoning:\n1. Climbed the kind-of links from lemon and lime until they met.\n2. They meet at matter, 6 steps up."
+    },
+    {
+      "q": "What do a hammer and a saw have in common?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Both are hand tools: “a tool used with workers' hands”.\nReasoning:\n1. Climbed the kind-of links from hammer and saw until they met.\n2. They meet at hand tool, 1 step up."
+    },
+    {
+      "q": "What was the first pair?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "The first pair you gave me was Black → Coal."
+    },
+    {
+      "q": "Actually, Black = Night",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "Got it: Black → Night.\nReasoning:\n1. Updated: Black → Night (was Coal).\n2. Pattern: the right side is defined as “snowflakes …” the left side (it fits 1 of 1 pair in my data).\n3. Black → Night isn't confirmed by my data, so I'm keeping it as your pairing, not as a fact."
+    },
+    {
+      "q": "What did I pair with Black?",
+      "verdict": "good",
+      "route": "crossref",
+      "answer": "You paired Black with Night. My data doesn't confirm that one, so it's your association rather than a fact."
+    }
+  ],
+  "words": 931,
+  "good_rate": 0.8,
+  "wrong_rate": 0.2,
+  "mean_words": 37.2
+}
