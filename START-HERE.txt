@@ -18,7 +18,8 @@ Requirements
        npm test
    Runs: ARC engine, kernel, integration, generalisation, gates, reasoning
    kernel, phrasing, comprehension, awareness, exact tools (206 checks),
-   deliberation (31 checks), ARC-3 world model (15 checks).
+   deliberation (31 checks), everyday conversation (82 checks), ARC-3
+   world model (15 checks).
 
 3. BENCHMARKS (same commands the report used)
    ARC-AGI-1, 400 public training tasks, 3 s per task (about 6 minutes):
@@ -33,6 +34,8 @@ Requirements
        npm run lm:heldout3
        npm run reason:synth
        node tools/lm-hard-synth.js --n 12 --seed 17
+   Everyday conversation (frozen held-out sets v1-v4, asked like a chat):
+       node tools/lm-chat-eval.js --set tools/lm-chat-heldout4.json --show
    Per-stage profile of an ARC run:
        node tools/arc-profile.js results/arc1
 
@@ -41,6 +44,8 @@ Requirements
 
 4. READ
    100X-REASONING-UPGRADE-REPORT.md   what changed and every measurement
+   LM-CHAT-RESULTS.md                 everyday-conversation upgrade: numbers,
+                                      before/after answers, limits
    measurements/                      raw results (before: pre-100x/)
 
 Results (before -> after, same machine, same 3 s budget per task)
@@ -54,6 +59,8 @@ Results (before -> after, same machine, same 3 s budget per task)
       basic 81.1% -> 90.0%    hard mechanics 73.6% -> 87.3%
   Language, generated hard computations, no network:
       34.0% -> 100% (49/144 -> 144/144 on two fresh seeds)
+  Language, everyday questions (156 held-out, each set frozen first):
+      wrong answers 68 -> 12; strict good answers 56 -> 117
 
 Honest labels
   - ARC numbers are on PUBLIC data bundled here (ARC-AGI-1 training split,

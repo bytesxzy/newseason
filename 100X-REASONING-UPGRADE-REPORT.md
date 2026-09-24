@@ -274,6 +274,25 @@ substitution. Closed mode never calls the network and abstains on a
 knowledge gap. Tool mode accepts evidence only from ≥ 2 independent
 origins that support the asked relation; mentions alone are not evidence.
 
+### 5a. Everyday conversation (follow-up work)
+
+Four frozen held-out sets of everyday questions (greetings, feelings, logic,
+word problems, facts, comparisons, advice, creative, open questions). Each was
+written before the fixes it measures and scored once. Full method, a
+side-by-side of answers and the limits are in `LM-CHAT-RESULTS.md`.
+
+| held-out set | pre-change code | after its round |
+|---|---|---|
+| v1 (36) | 16 good, 14 wrong | 31 good, 3 wrong |
+| v2 (40) | 13 good, 22 wrong | 31 good, 5 wrong |
+| v3 (40) | 19 good, 15 wrong | 37 good, 1 wrong |
+| v4 (40, written after round 3) | 14 good, 17 wrong | 30 good, 3 wrong (1 of them a scoring error) |
+
+Across all 156 held-out questions, wrong answers fell from 68 to 12, and
+strict good answers rose from 56 to 117. The 184-case battery stayed at
+184/184 with 0 hallucinations. The paraphrase suite went from 674 to 675/687.
+No external model or API is used.
+
 ## 6. Runtime
 
 * **ARC:** task-seconds fell 7% (ARC-1) and 11% (ARC-2) at the same 3 s
