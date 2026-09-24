@@ -71,6 +71,12 @@ ok(/^1\/2 of the cake/.test(solve("A cake is cut into 12 pieces. Tom eats 2 and 
 ok(/^February/.test(solve("What month comes before March?")), "previous month");
 ok(/^24\b/.test(solve("Tom is 12. His sister is twice his age. How old is his sister?")), "'twice his age' points back to Tom");
 ok(/from tallest to shortest: Jack, Kim, Lee/.test(solve("Jack is taller than Kim. Kim is taller than Lee. Who is the shortest?")), "order stated in words");
+ok(/^7\b/.test(solve("Ann has 3 fewer books than Ben. Ben has 10 books. How many books does Ann have?")), "'N fewer X than Y' is a difference, not a count");
+ok(/^24 eggs/.test(solve("There are 4 boxes. Each box has 6 eggs. How many eggs are there?")), "equal groups multiply");
+ok(/^Yes\b/.test(solve("All birds lay eggs. A robin is a bird. Does a robin lay eggs?")), "a verb phrase is a property of a kind");
+ok(/^No\b/.test(solve("No cats bark. Tom is a cat. Does Tom bark?")), "a verb phrase excluded from a kind");
+ok(/^Yes\b/.test(solve("If the switch is off, the lamp is dark. The switch is off. Is the lamp dark?")), "a negative condition that holds fires its rule");
+ok(/^No\b/.test(solve("If the heater is on, the room is warm. The room is cold. Is the heater on?")), "an opposite state denies the consequent");
 
 /* ------------------------------------------------ dialogue and intents */
 (async function () {
@@ -155,6 +161,15 @@ ok(/from tallest to shortest: Jack, Kim, Lee/.test(solve("Jack is taller than Ki
   ok(/don't know your taste/.test(dinner.text), "a recommendation asks for taste instead of guessing");
   var brk = await ask("Is it bad to skip breakfast?");
   ok(/whether it's bad to skip breakfast/.test(brk.text), "a value judgement about an action is declined honestly");
+
+  var tall = await ask("What's the opposite of tall?");
+  ok(/\bshort\b/.test(tall.text), "tall -> short: a doubled -ll is part of the word");
+  var sunP = await ask("Is the Sun a planet?");
+  ok(/^No — the Sun is a star, not a planet/.test(sunP.text), "'no' from a different category of the knowledge base");
+  var dogM = await ask("Is a dog a mammal?");
+  ok(!/^No\b/.test(dogM.text), "a class the definition does not mention is not a 'no'");
+  var spider = await ask("Does a spider have eight legs?");
+  ok(/eight legs/.test(spider.text) && !/couldn't confirm/.test(spider.text), "an answer that states the claim is accepted");
 
   console.log("lm-chat-test: " + pass + " passed, " + fail + " failed");
   process.exit(fail ? 1 : 0);

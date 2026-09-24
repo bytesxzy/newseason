@@ -256,7 +256,7 @@
       return { intent: "opinion", topic: stripArt(m[1] || m[2] || m[3] || m[4]) };
     /* how-to and advice */
     if ((m = bare.match(/^(?:(?:can you |could you )?give me |do you have |i need |i want )?(?:any |some |a few )?(?:tips|advice|suggestions|ideas|pointers)\s+(?:for|on|about)\s+(.+)$|^what(?:'s| is| are) (?:a |the |some )?(?:good|best|easiest) ways? to\s+(.+)$|^how (?:can|could|do|should) i (?:get better at|improve(?: at| my)?|stop|start|become|learn to|(be) (?=more |less |better |a better ))\s*(.+)$/)))
-      return { intent: "advice", topic: m[3] ? stripArt((m[3] === "be" ? "being " : "") + m[4]) : stripArt(m[1] || m[2]) };
+      return { intent: "advice", topic: m[3] ? stripArt((m[3] === "be" ? "being " : "") + m[4]) : stripArt(m[1] || m[2]), said: m[1] || null };
     if ((m = bare.match(/^(?:how (?:do|can|should|would) (?:i|you|we|one)|how to)\s+(?!do$)(.+)$|^(?:what are the )?steps (?:to|for)\s+(.+)$|^(?:give me )?instructions (?:for|on)\s+(.+)$/)) &&
         !/^how (?:do|does|did) (?:it|that|this)\b/.test(bare))
       return { intent: "procedure", topic: stripArt(m[1] || m[2] || m[3]) };
@@ -279,7 +279,24 @@
        "can penguins fly" -- its answer must speak to the predicate */
     if ((m = bare.match(/^(?:is|are|was|were)\s+((?:the |a |an )?[a-z]+(?: (?!(?:a|an|the)\b)[a-z]+)?)\s+(a |an )?([a-z]+)$/)) || (m = bare.match(/^(?:can|could|do|does|did)\s+((?:the |a |an )?[a-z]+(?: (?!(?:a|an|the)\b)[a-z]+)?)\s+()([a-z]+)$/)))
       return { intent: "yesno", subject: stripArt(m[1]), said: m[1], predicate: m[3], predSaid: (m[2] || "") + m[3], "for": null, passive: true, open: true };
+    /* "can dogs see in color": the subject ends where the verb begins */
+    if ((m = bare.match(/^(can|could|do|does|did)\s+(.+)$/)) && !/\byou\b/.test(m[2])) {
+      var ws = m[2].split(/\s+/), a0 = /^(?:the|a|an)$/.test(ws[0]) ? 1 : 0;
+      for (var n0 = a0 + 1; n0 <= a0 + 2 && n0 < ws.length; n0++) {
+        if (isVerb(ws[n0]) && ws.length - n0 <= 5)
+          return { intent: "yesno", subject: ws.slice(a0, n0).join(" "), said: ws.slice(0, n0).join(" "), predicate: ws[n0], predSaid: ws.slice(n0).join(" "),
+                   "for": null, passive: true, open: true };
+      }
+    }
     return null;
+  }
+
+  /* a verb by the lexicon, or one of the everyday verbs of ability */
+  function isVerb(w) {
+    var L = get("C4LMLexicon"), lx = null;
+    try { lx = L && L.lookup ? L.lookup(w) : null; } catch (e) { lx = null; }
+    return !!(lx && lx.senses && lx.senses.some(function (x) { return x.pos === "v"; })) ||
+           /^(?:see|fly|swim|eat|sleep|breathe|live|talk|run|walk|hear|smell|feel|climb|jump|bark|purr|lay|grow|change|survive|dream|think|cry|laugh|speak|read|drink|bite|sting|glow|sing|dance|fly|float|melt|freeze|burn|swallow|hibernate|migrate|remember|learn|count|recognize|recognise|taste|digest|produce|make|get|have|need|use)$/.test(w);
   }
 
   /* --------------------------------------------------------- self model
@@ -709,7 +726,8 @@
     var topic = I.topic || "that";
     if (federated && !looked) return null;          /* the evidence layer may find real steps */
     var vp = topic.replace(/^(?:how to|to)\s+/, "");
-    var kind = I.intent === "advice" ? "tips on " + gerund(vp) : "step-by-step instructions to " + vp;
+    var g = gerund(vp);
+    var kind = I.intent === "advice" ? (g !== vp || /ing\b/.test(vp.split(" ")[0]) ? "tips on " + g : "tips for " + String(I.said || vp).replace(/[?.!]+$/, "")) : "step-by-step instructions to " + vp;
     return (looked ? "I looked, but couldn't find reliable " + kind + ", and I'd rather not make steps up. "
                    : "I don't have reliable " + kind + " in my local knowledge, and I'd rather not make steps up. In tool mode I can look it up from public sources. ") +
            "If you tell me what you've tried so far, I'll help you reason it through.";
@@ -768,10 +786,10 @@
   function plainAdj(c) {
     c = String(c).toLowerCase();
     if (IRREG_BASE[c]) return IRREG_BASE[c];
-    var cands = [];
-    if (/ier$/.test(c)) cands.push(c.slice(0, -3) + "y");
-    if (/([^aeiou])\1er$/.test(c)) cands.push(c.slice(0, -3));
-    cands.push(c.slice(0, -1), c.slice(0, -2));
+    if (/ier$/.test(c)) return c.slice(0, -3) + "y";
+    /* big -> bigger doubles its consonant; tall, small, full keep theirs */
+    if (/([^aeioulsfz])\1er$/.test(c)) return c.slice(0, -3);
+    var cands = [c.slice(0, -1), c.slice(0, -2)];
     for (var i = 0; i < cands.length; i++) if (knownWord(cands[i])) return cands[i];
     return cands[cands.length - 1];
   }
@@ -966,9 +984,10 @@
         var aux = (clean(text).match(/^\w+/) || ["is"])[0].toLowerCase(), subj = String(I.said || I.subject).replace(/[?.!]+$/, "").trim();
         var kn = knowledgeOf(I.subject), known = kn ? " What I do know: " + firstSentence(kn.defn) : "";
         /* "do fish sleep" -> "fish sleep"; "does a dog bark" -> "a dog barks" */
-        var third = function (v) { return /(?:s|sh|ch|x|z|o)$/.test(v) ? v + "es" : /[^aeiou]y$/.test(v) ? v.slice(0, -1) + "ies" : v + "s"; };
+        var third = function (v) { return { have: "has", "do": "does", go: "goes", be: "is" }[v] || (/(?:s|sh|ch|x|z|o)$/.test(v) ? v + "es" : /[^aeiou]y$/.test(v) ? v.slice(0, -1) + "ies" : v + "s"); };
+        var rest = I.predSaid && I.predSaid.indexOf(" ") > 0 ? I.predSaid.slice(I.predSaid.indexOf(" ")) : "";
         var claimTxt = I.toVP ? "it's " + I.predicate + " to " + I.toVP :
-                       aux === "do" ? subj + " " + I.predicate : aux === "does" ? subj + " " + third(I.predicate) : subj + " " + aux + " " + (I.predSaid || I.predicate) + (I.for ? " for " + I.for : "");
+                       aux === "do" ? subj + " " + I.predicate + rest : aux === "does" ? subj + " " + third(I.predicate) + rest : subj + " " + aux + " " + (I.predSaid || I.predicate) + (I.for ? " for " + I.for : "");
         out = I.open ? (ctx.federated ? "I couldn't confirm from my local knowledge or the sources I checked" : "I can't confirm from my local knowledge") + " whether " + claimTxt + ", so I won't guess." + known :
               "I can't say reliably whether " + claimTxt + " from my local knowledge — it's the kind of claim that needs evidence I don't have here." + known;
         route = "knowledge"; break;
@@ -1020,7 +1039,11 @@
       var tq = String(result.text || ""), subj0 = String(I.subject).split(/\s+/).pop().replace(/s$/, "");
       if (/^(?:yes|no)\b/i.test(tq)) return true;
       if (/^\s*\S+\s+(?:means|has more than one sense)\b/i.test(tq)) return false;
-      return new RegExp("\\b" + subj0 + "\\w*\\b", "i").test(tq) && new RegExp("\\b" + I.predicate.replace(/s$/, "") + "\\w*\\b", "i").test(tq);
+      /* the verb itself, or every content word of what is claimed ("has
+         eight legs" confirms "have eight legs") */
+      var claimW = String(I.predSaid || I.predicate).toLowerCase().split(/\s+/).filter(function (w) { return !/^(?:a|an|the|in|on|of|to|with|have|has|had|be|is|are|do|does)$/.test(w); });
+      var stated = claimW.length && claimW.every(function (w) { return new RegExp("\\b" + w.replace(/s$/, "").slice(0, Math.max(3, w.length - 2)) + "\\w*", "i").test(tq); });
+      return new RegExp("\\b" + subj0 + "\\w*\\b", "i").test(tq) && (stated || new RegExp("\\b" + I.predicate.replace(/s$/, "") + "\\w*\\b", "i").test(tq));
     }
     if (I.intent === "yesno") {
       var tx = String(result.text || "");

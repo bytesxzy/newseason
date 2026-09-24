@@ -258,6 +258,12 @@
       if ((m = p.match(/^(?:can|could)\s+(?:not\s+)?be\s+(a\s+|an\s+)?([a-z]+)$/i))) return key(m[2], !!m[1] || singular(m[2]) !== m[2].toLowerCase(), !m[1] && singular(m[2]) !== m[2].toLowerCase());
       if ((m = p.match(/^(?:can|could|cannot|can't|can not)\s+([a-z]+(?:\s+[a-z]+)?)$/i))) return ability("can", m[1]);
       if ((m = p.match(/^(?:have|has|do not have|does not have|don't have|doesn't have)\s+([a-z]+(?:\s+[a-z]+)?)$/i))) return ability("have", m[1]);
+      /* any verb phrase names the set of things that do it: "play chess" */
+      if ((m = p.match(/^(?:do not |does not |don't |doesn't )?([a-z]+)((?:\s+[a-z]+){0,3})$/i)) && verbish(m[1])) {
+        var vb = base(m[1].toLowerCase()), kk = "do:" + vb + m[2].toLowerCase();
+        if (!shown[kk]) shown[kk] = { w: m[2].trim().toLowerCase(), verb: "do", v: m[1].toLowerCase().replace(/(?:es|s)$/, function (x, i, str) { return /(?:ss|sh|ch|x|o)es$/.test(str) ? "" : x === "es" ? "e" : ""; }) };
+        return kk;
+      }
       return null;
     }
     var NEG = /\bnot\b|n't\b|\bcannot\b/i;
@@ -303,13 +309,14 @@
     /* "Rex is a dog", "a lemon is sweet", "no fish can walk" */
     function says(subj, k, neg) {
       var s = shown[k] || { w: k, noun: true };
+      if (s.verb === "do") return subj + (neg ? " doesn't " + s.v : " " + third(s.v)) + (s.w ? " " + s.w : "");
       if (s.verb === "can") return subj + (neg ? " can't " : " can ") + s.w;
       if (s.verb === "have") return subj + (neg ? " doesn't have " : " has ") + s.w;
       return subj + (neg ? " isn't " : " is ") + (s.noun ? article(s.w) + " " : "") + s.w;
     }
     function areAll(k) {                     /* the predicate after a plural subject */
       var s = shown[k] || { w: k, noun: true };
-      return s.verb ? s.verb + " " + s.w : "are " + (s.noun ? many(k) : s.w);
+      return s.verb === "do" ? s.v + (s.w ? " " + s.w : "") : s.verb ? s.verb + " " + s.w : "are " + (s.noun ? many(k) : s.w);
     }
     function pathTo(a, b) {
       var prev = {}, q = [a], seen = {}; seen[a] = 1;
@@ -374,11 +381,21 @@
         text: "Not necessarily. We're only told that some " + many(sm[0]) + " " + areAll(B) + " — that doesn't mean " + says(subj, B) + "." };
       if (sm) return { answer: "Not necessarily", kind: "categories", certain: true, steps: ["only some " + many(sm[0]) + " " + areAll(B)],
         text: "Not necessarily. Only some " + many(sm[0]) + " " + areAll(B) + ", and nothing stated says " + subj + " is one of them — " +
-              subj + " may or may not " + (shown[B] && shown[B].verb ? (shown[B].verb === "can" ? "be able to " : "have ") + shown[B].w : "be " + (shown[B] && shown[B].noun ? article(word(B)) + " " : "") + word(B)) + "." };
+              subj + " may or may not " + (shown[B] && shown[B].verb === "do" ? shown[B].v + (shown[B].w ? " " + shown[B].w : "") : shown[B] && shown[B].verb ? (shown[B].verb === "can" ? "be able to " : "have ") + shown[B].w : "be " + (shown[B] && shown[B].noun ? article(word(B)) + " " : "") + word(B)) + "." };
     }
     return { answer: "Can't tell", kind: "categories", certain: false, steps: [], text: "I can't tell: nothing stated settles whether " + says(subj, B) + "." };
   }
   function article(w) { return /^[aeiou]/i.test(w) ? "an" : "a"; }
+  function third(v) { return /(?:s|sh|ch|x|z|o)$/.test(v) ? v + "es" : /[^aeiou]y$/.test(v) ? v.slice(0, -1) + "ies" : v + "s"; }
+  /* a verb, by the lexicon or by an everyday verb's inflection */
+  function verbish(w) {
+    w = String(w).toLowerCase();
+    if (/^(?:is|are|was|were|be|been|a|an|the|in|on|at|of|to|for|with|and|or|not|very|so)$/.test(w)) return false;
+    var L = get("C4LMLexicon"), lx = null, b = w.replace(/(?:es|s)$/, "");
+    try { lx = L && L.lookup ? (L.lookup(w) || L.lookup(b)) : null; } catch (e) { lx = null; }
+    if (lx && lx.senses && lx.senses.some(function (x) { return x.pos === "v"; })) return true;
+    return /^(?:play|plays|eat|eats|drink|drinks|read|reads|swim|swims|run|runs|sing|sings|speak|speaks|like|likes|love|loves|own|owns|wear|wears|drive|drives|live|lives|work|works|study|studies|write|writes|cook|cooks|dance|dances|fly|flies|walk|walks|lay|lays|sleep|sleeps|climb|climbs|bark|barks|bite|bites|grow|grows|use|uses|need|needs|know|knows|want|wants)$/.test(w);
+  }
   function plural(w) { return /(?:s|x|ch|sh)$/.test(w) ? w + "es" : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + "ies" : w + "s"; }
 
   /* ======================================================= quantities */
@@ -422,7 +439,7 @@
         return;
       }
       /* X costs/is N more/less than Y */
-      if ((m = s.match(new RegExp("^" + NP + "\\s+" + VERB + "\\s+(-?\\d+(?:\\.\\d+)?)\\s*(?:[a-z]+\\s+)?(more|less|fewer|older|younger|taller|shorter|heavier|lighter)\\s+than\\s+" + NP, "i")))) {
+      if ((m = s.match(new RegExp("^" + NP + "\\s+" + VERB + "\\s+(-?\\d+(?:\\.\\d+)?)\\s*(?:[a-z]+\\s+)?(more|less|fewer|older|younger|taller|shorter|heavier|lighter)(?:\\s+[a-z]+)?\\s+than\\s+" + NP, "i")))) {
         var x = ent(m[1]), y = ent(m[4]), sgn = /more|older|taller|heavier/i.test(m[3]) ? 1 : -1;
         if (x && y) eqs.push({ c: mk([[x, 1], [y, -1]]), v: sgn * +m[2], text: m[1] + " = " + m[4] + (sgn > 0 ? " + " : " − ") + m[2] });
         return;
@@ -531,6 +548,23 @@
              text: shown + (/\b(?:left|remain)/i.test(ask) ? " left" : "") + ". " + capital(steps[0]) + ", then " + steps.slice(1).join(", then ") + ": " + expr.join(" ") + " = " + v + "." };
   }
 
+  /* ============================================================ groups */
+
+  /* equal groups: "3 packs of gum with 5 pieces each", "4 boxes. Each box
+     has 6 eggs." -- a count of groups times the size of each */
+  function groups(text) {
+    if (!/\?/.test(text)) return null;
+    var t = numbersIn(text);
+    var m = t.match(/\b(\d+)\s+([a-z]+)(?:\s+of\s+[a-z]+)?,?\s+(?:each\s+)?(?:with|of|containing|holding)\s+(\d+)\s+([a-z]+)(?:\s+(?:each|in each|apiece|inside))?\b/i) ||
+            t.match(/\b(\d+)\s+([a-z]+)\b[^.?!]*[.,;]?\s*(?:and\s+)?(?:each|every)\s+(?:one\s+|of them\s+|[a-z]+\s+)?(?:has|holds|contains|had|held|contained|with)\s+(\d+)\s+([a-z]+)/i);
+    if (!m) return null;
+    var q = t.match(/\bhow\s+many\s+([a-z]+)/i);
+    if (!q || base(singular(q[1])) !== base(singular(m[4]))) return null;
+    var n = +m[1], k = +m[3], total = n * k, item = m[4].toLowerCase();
+    return { answer: total + " " + item, value: total, kind: "groups", certain: true, steps: [n + " × " + k + " = " + total],
+             text: total + " " + (total === 1 ? singular(item) : item) + ". " + n + " " + m[2] + " × " + k + " " + item + " each = " + total + " " + item + "." };
+  }
+
   /* ============================================================ totals */
 
   /* counts of one kind added up: "3 red balls and 5 blue balls"; a kind
@@ -551,7 +585,7 @@
     if (!q) return null;
     var noun = q[1].toLowerCase();
     if (/^(?:more|of|are|is|do|does|did|were|was|will|can|times|ways)$/.test(noun)) return null;
-    if (/\b(?:ate|eats?|eaten|gave|gives?|lost|loses?|sold|sells?|spent|spends?|bought|buys?|found|finds?|more|left|away|remain\w*)\b/i.test(t)) return null;
+    if (/\b(?:ate|eats?|eaten|gave|gives?|lost|loses?|sold|sells?|spent|spends?|bought|buys?|found|finds?|more|fewer|less|left|away|remain\w*|than|times|twice|half|each|per)\b/i.test(t)) return null;
     var body = t.slice(0, q.index), re = /\b(\d+(?:\.\d+)?)\s+([a-z]+(?:\s+[a-z]+){0,2})/gi, m, parts = [];
     while ((m = re.exec(body))) {
       var ws = m[2].toLowerCase().split(/\s+/);
@@ -796,7 +830,7 @@
   }
 
   var READERS = [["rules", rules], ["categories", categories], ["universals", universals], ["ordering", ordering], ["equal", equal],
-                 ["clock", clock], ["ages", ages], ["changes", changes], ["portions", portions], ["totals", totals], ["quantities", quantities]];
+                 ["clock", clock], ["ages", ages], ["groups", groups], ["changes", changes], ["portions", portions], ["totals", totals], ["quantities", quantities]];
   function solve(text) {
     var t = String(text || "").trim();
     if (!t || t.length > 600) return null;

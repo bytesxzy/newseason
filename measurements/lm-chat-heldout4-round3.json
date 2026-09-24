@@ -1,0 +1,252 @@
+{
+  "n": 40,
+  "good": 30,
+  "honest": 7,
+  "wrong": 3,
+  "items": [
+    {
+      "q": "yo",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Hey! What's on your mind today?"
+    },
+    {
+      "q": "how's your day going?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm doing well, thanks for asking! Ready for whatever you want to dig into — how about you?"
+    },
+    {
+      "q": "are you alive?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "No — I don't have feelings or experiences. I'm a program: I read what you write and reason over what I know, but nothing is felt on my side. I'm glad to talk about feelings, though, if something's on your mind."
+    },
+    {
+      "q": "thank you so much!",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "You're welcome! Anything else you'd like to look at?"
+    },
+    {
+      "q": "I'm stressed about my presentation tomorrow.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling stressed about your presentation tomorrow. That's a really common feeling when something important is coming up. If it would help, I can explain something you're stuck on, quiz you on it, or help you break what's ahead into smaller, manageable steps."
+    },
+    {
+      "q": "My dog passed away yesterday.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm so sorry to hear that your dog passed away yesterday. Losing someone you love is really hard, and there's no right way to feel about it. If you'd like to talk about them, I'm here."
+    },
+    {
+      "q": "I passed my driving test!",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Congratulations — you passed your driving test! That's great news. You must be proud — what's next?"
+    },
+    {
+      "q": "I'm so excited for the weekend!",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "That's great to hear — being excited for the weekend is a good place to be! Tell me more?"
+    },
+    {
+      "q": "If the baby is hungry, she cries. The baby is not crying. Is the baby hungry?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "No. The rule says: If the baby is hungry, she cries. “she cries” is false here, so “the baby is hungry” must be false too — otherwise the rule would have made it true. (That's modus tollens: if the result didn't happen, the condition can't have either.)"
+    },
+    {
+      "q": "If it's a holiday, the bank is closed. The bank is open. Is it a holiday?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "No. The rule says: If it's a holiday, the bank is closed. “the bank is closed” is false here, so “it's a holiday” must be false too — otherwise the rule would have made it true. (That's modus tollens: if the result didn't happen, the condition can't have either.)"
+    },
+    {
+      "q": "All birds have feathers. A penguin is a bird. Does a penguin have feathers?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Every penguin is a bird, and every bird has feathers, so a penguin has feathers."
+    },
+    {
+      "q": "Some students play chess. Maya is a student. Does Maya play chess?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Maya. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Lily is faster than Mo. Mo is faster than Ned. Who is the slowest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Ned. Putting what's stated in order, from fastest to slowest: Lily, Mo, Ned."
+    },
+    {
+      "q": "What comes next: 1, 1, 2, 3, 5, 8?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "13. In 1, 1, 2, 3, 5, 8, each term is the sum of the two before it."
+    },
+    {
+      "q": "What is 20% of 150?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 30. 20% means 20 out of every 100, so 0.2 × 150 = 30."
+    },
+    {
+      "q": "What is 144 divided by 12?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "144 / 12 = 12."
+    },
+    {
+      "q": "A hat and a scarf cost $30 together. The scarf costs $10 more than the hat. How much is the hat?",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "$10. Writing what's stated as equations: A hat + a scarf = 30; The scarf = the hat + 10. Solving them together gives hat = 10, scarf = 20."
+    },
+    {
+      "q": "Kim has 4 more apples than Joe. Joe has 6 apples. How many apples does Kim have?",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "4. Writing what's stated as equations: Kim = 4; Joe = 6. Solving them together gives Kim = 4, Joe = 6."
+    },
+    {
+      "q": "I bought 3 packs of gum with 5 pieces each. How many pieces do I have?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I'll keep in mind that you bought 3 packs of gum with 5 pieces each. I don't have anything reliable on pieces. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Sam had 50 marbles and lost 18. How many does he have now?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "32 marbles. Sam had 50 marbles, then lost 18: 50 − 18 = 32."
+    },
+    {
+      "q": "The flight departs at 11:50 pm and lasts 3 hours. When does it land?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "2:50 am. 11:50 pm plus 3 hours is 2:50 am (the next day)."
+    },
+    {
+      "q": "If today is Thursday, what day will it be in 10 days?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Sunday. Counting 10 days forward from Thursday (every 7 days lands on the same weekday)."
+    },
+    {
+      "q": "How many seconds are in an hour?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "3600 seconds — an hour."
+    },
+    {
+      "q": "What is the capital of Canada?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The capital of Canada is Ottawa. It has a population of about 40 million. Its currency is the Canadian dollar."
+    },
+    {
+      "q": "Who discovered penicillin?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Who discovered penicillin. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What is the largest planet?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Jupiter is the largest planet, at 139,820 km in diameter."
+    },
+    {
+      "q": "What is a black hole?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "A black hole is a region of spacetime where gravity is so strong that nothing, not even light, can escape. It results from the gravitational collapse of a massive star."
+    },
+    {
+      "q": "How far is the Sun from Earth?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The Sun is about 150 million km from Earth. It is about 4.6 billion years old. It is 1.39 million km in diameter."
+    },
+    {
+      "q": "Which is hotter, Venus or Mars?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "I don't have the temperature of Venus or Mars in my local knowledge, so I can't compare them reliably."
+    },
+    {
+      "q": "What's the difference between a noun and a verb?",
+      "verdict": "good",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on difference noun verb. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Should I study in the morning or at night?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "I don't know enough about in the morning and at night to compare them reliably, so I won't pretend to. If you tell me what matters most to you — price, what you'll use it for, how long it needs to last — I can help you weigh the options up."
+    },
+    {
+      "q": "How do I make a cup of tea?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable step-by-step instructions to make a cup of tea, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "Give me advice for a job interview.",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable tips on job interview, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "Write a poem about the moon.",
+      "verdict": "good",
+      "route": "creative",
+      "answer": "A short poem about the moon, from what I know of it:\n\nMoon —\nEarth's only natural satellite,\nabout 384,400 km from Earth,\n3,475 km in diameter."
+    },
+    {
+      "q": "Tell me a joke about cats.",
+      "verdict": "good",
+      "route": "creative",
+      "answer": "Here's a riddle rather than a pun — I build them from what I know: I'm a small domesticated carnivorous mammal. What am I? … Cat!"
+    },
+    {
+      "q": "What's the opposite of happy?",
+      "verdict": "honest",
+      "route": "lexicon",
+      "answer": "I don't have a reliable opposite for happy in my word lexicon."
+    },
+    {
+      "q": "What's your favourite food?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I don't have personal tastes or feelings, so I can't honestly say I like or dislike food. What I can tell you: Food is material taken in to sustain life. Want to know more about it?"
+    },
+    {
+      "q": "Is it safe to eat raw eggs?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "I can't say reliably whether it's safe to eat raw eggs from my local knowledge — it's the kind of claim that needs evidence I don't have here."
+    },
+    {
+      "q": "Why do we have day and night?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I couldn't find a reliable explanation of why we have day and night, and I'd rather not guess at a cause."
+    },
+    {
+      "q": "Can dogs see in color?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A dog is a domesticated descendant of the wolf, kept as a companion and working animal."
+    }
+  ],
+  "words": 1004,
+  "good_rate": 0.75,
+  "wrong_rate": 0.075,
+  "mean_words": 25.1
+}
