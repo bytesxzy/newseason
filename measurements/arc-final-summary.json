@@ -1,0 +1,79 @@
+{
+  "note": "equal budget (3 s/task, 3 workers), no planner; bundled PUBLIC data: 400 ARC-AGI-1 training tasks, 150 public ARC-AGI-2 tasks. Not the official hidden evaluation sets. before = pre-change engine, same machine and command.",
+  "arc1": {
+    "before": {
+      "n": 400,
+      "top1": 231,
+      "top2": 237,
+      "oracle_retained": 238,
+      "task_seconds": 1074,
+      "wall_seconds": 359,
+      "failures": {
+        "SOLVED": 231,
+        "NO_CANDIDATE": 121,
+        "NO_CORRECT_RETAINED_PREDICTION": 41,
+        "RIGHT_OUTPUT_OUTRANKED": 7
+      },
+      "budget": 3,
+      "jobs": 3,
+      "policy_mode": "none",
+      "engine_sha256": "fa4d1feac8dfead29629ea35f523410d524e385168174d7027135b531b1277ac"
+    },
+    "after": {
+      "n": 400,
+      "top1": 231,
+      "top2": 238,
+      "oracle_retained": 238,
+      "task_seconds": 995,
+      "wall_seconds": 333,
+      "failures": {
+        "SOLVED": 231,
+        "NO_CANDIDATE": 121,
+        "NO_CORRECT_RETAINED_PREDICTION": 41,
+        "RIGHT_OUTPUT_OUTRANKED": 7
+      },
+      "budget": 3,
+      "jobs": 3,
+      "policy_mode": "none",
+      "engine_sha256": "8077b0655c33604b5a2ce3faf0f7ca3a7ef31e8ae8e83e8e63f7bd974b14a9ce"
+    }
+  },
+  "arc2": {
+    "before": {
+      "n": 150,
+      "top1": 54,
+      "top2": 57,
+      "oracle_retained": 58,
+      "task_seconds": 441,
+      "wall_seconds": 148,
+      "failures": {
+        "SOLVED": 54,
+        "RIGHT_OUTPUT_OUTRANKED": 4,
+        "NO_CANDIDATE": 61,
+        "NO_CORRECT_RETAINED_PREDICTION": 31
+      },
+      "budget": 3,
+      "jobs": 3,
+      "policy_mode": "none",
+      "engine_sha256": "fa4d1feac8dfead29629ea35f523410d524e385168174d7027135b531b1277ac"
+    },
+    "after": {
+      "n": 150,
+      "top1": 53,
+      "top2": 54,
+      "oracle_retained": 55,
+      "task_seconds": 394,
+      "wall_seconds": 132,
+      "failures": {
+        "SOLVED": 53,
+        "RIGHT_OUTPUT_OUTRANKED": 2,
+        "NO_CANDIDATE": 62,
+        "NO_CORRECT_RETAINED_PREDICTION": 33
+      },
+      "budget": 3,
+      "jobs": 3,
+      "policy_mode": "none",
+      "engine_sha256": "8077b0655c33604b5a2ce3faf0f7ca3a7ef31e8ae8e83e8e63f7bd974b14a9ce"
+    }
+  }
+}

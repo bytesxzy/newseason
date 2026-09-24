@@ -1,0 +1,64 @@
+CELL4 -- START HERE
+===================
+
+Everything is local JavaScript. No install step, no dependencies, no API
+keys, no external AI model anywhere.
+
+Requirements
+  - any modern browser (to open the page)
+  - Node.js 18 or newer (to run tests and benchmarks)
+
+1. OPEN
+   Double-click c4-mini.html (or open it in your browser). The page loads
+   every c4-*.js file next to it: the language stack, the exact tools, the
+   deliberation layer, the reasoning kernel, and the ARC engine.
+
+2. TEST (about 15 seconds)
+   In this folder:
+       npm test
+   Runs: ARC engine, kernel, integration, generalisation, gates, reasoning
+   kernel, phrasing, comprehension, awareness, exact tools (206 checks),
+   deliberation (31 checks), ARC-3 world model (15 checks).
+
+3. BENCHMARKS (same commands the report used)
+   ARC-AGI-1, 400 public training tasks, 3 s per task (about 6 minutes):
+       node c4-arc/bench.js --policy-mode none --budget 3 --jobs 3 --out results/arc1
+   ARC-AGI-2, 150 bundled public tasks (about 2.5 minutes):
+       node c4-arc/bench.js --prefix arc2_ --end 150 --policy-mode none --budget 3 --jobs 3 --out results/arc2
+   ARC-3-style synthetic games (seconds; NOT the ARC-AGI-3 benchmark):
+       npm run arc3:synth
+       npm run arc3:hard
+   Language stack:
+       npm run lm:robust
+       npm run lm:heldout3
+       npm run reason:synth
+       node tools/lm-hard-synth.js --n 12 --seed 17
+   Per-stage profile of an ARC run:
+       node tools/arc-profile.js results/arc1
+
+   --jobs 3 uses 3 CPU cores. With fewer cores use --jobs 1 or 2. The
+   budget is wall-clock, so a busy machine solves slightly fewer tasks.
+
+4. READ
+   100X-REASONING-UPGRADE-REPORT.md   what changed and every measurement
+   measurements/                      raw results (before: pre-100x/)
+
+Results (before -> after, same machine, same 3 s budget per task)
+  ARC-AGI-1, 400 public training tasks:
+      top-1 57.8% -> 57.8%    top-2 59.3% -> 59.5%
+  ARC-AGI-2, 150 public tasks:
+      top-1 36.0% -> 35.3%    top-2 38.0% -> 36.0%
+  Every ARC task now finishes inside its budget. Before, 85 of 400
+  ARC-AGI-1 tasks and 50 of 150 ARC-AGI-2 tasks ran past 3.3 s.
+  ARC-3-style synthetic games (not the ARC-AGI-3 benchmark):
+      basic 81.1% -> 90.0%    hard mechanics 73.6% -> 87.3%
+  Language, generated hard computations, no network:
+      34.0% -> 100% (49/144 -> 144/144 on two fresh seeds)
+
+Honest labels
+  - ARC numbers are on PUBLIC data bundled here (ARC-AGI-1 training split,
+    150 public ARC-AGI-2 tasks), not the official hidden evaluation sets, so
+    they are not leaderboard scores.
+  - ARC-3 numbers come from synthetic games in tools/arc3-synth.js. They are
+    not an ARC-AGI-3 score.
+  - The actual HLE exam was not run.
