@@ -582,7 +582,89 @@
     });
   };
 
+  /* ------------------------------------------- claims for deliberation
+   *
+   * Independence: two sources that copy one origin are one witness.
+   * Wikipedia, Wikidata, Wiktionary and dictionaryapi.dev (built from
+   * Wiktionary) share the Wikimedia origin; registries and market feeds are
+   * their own. A claim's independence is the number of distinct ORIGINS
+   * among the sources that stated it. */
+  var ORIGIN = { "Wikipedia": "wikimedia", "Wikidata": "wikimedia", "Wiktionary": "wikimedia", "dictionaryapi.dev": "wikimedia",
+                 "npm registry": "npm", "PyPI": "pypi", "CoinDesk": "coindesk", "open.er-api.com": "er-api", "Crossref": "crossref" };
+  function originOf(source) { return ORIGIN[source] || String(source || "unknown").toLowerCase(); }
+  function independentOrigins(p) {
+    var o = {};
+    [p.source].concat(p.corroboration || []).forEach(function (s) { o[originOf(s)] = 1; });
+    return Object.keys(o);
+  }
+  /* The predicates that state each asked relation. A proposition SUPPORTS
+     the question when it is about the asked subject AND states the asked
+     relation; one that only names the subject MENTIONS it. */
+  var REL_PREDICATES = { definition: ["definition", "wordSense"], cause: ["cause"], purpose: ["purpose"], version: ["version"],
+                         price: ["price"], rate: ["rate"] };
+  function askedRelation(frame) {
+    if (frame.relation) return frame.relation;
+    if (/\b(?:why|cause|causes|caused)\b/i.test(frame.lower || "")) return "cause";
+    if (/\bversion\b/i.test(frame.lower || "")) return "version";
+    if (/\b(?:used for|purpose)\b/i.test(frame.lower || "")) return "purpose";
+    if (frame.queryForm === "whatis" || /^(?:what|who) (?:is|are|was|were)\b/i.test(frame.lower || "")) return "definition";
+    return null;
+  }
+  function aboutSubject(p, subjectFlat) {
+    if (!subjectFlat) return false;
+    var s = C.flatten(p.subject), t = p.exactTitle ? C.flatten(p.exactTitle) : "";
+    if (s === subjectFlat || t === subjectFlat) return true;
+    var sw = subjectFlat.split(" "), pw = s.split(" ");
+    return sw.length > 0 && sw.every(function (w) { return pw.indexOf(w) >= 0; }) && pw.length - sw.length <= 2;
+  }
+  function supportingClaims(graph, frame) {
+    if (!graph || !graph.props) return [];
+    var subject = C.flatten(frame.subject || frame.topic || (frame.entities || [])[0] || ""), rel = askedRelation(frame);
+    var preds = rel && REL_PREDICATES[rel] ? REL_PREDICATES[rel] : null;
+    var relWords = String(frame.relationPhrase || rel || "").toLowerCase().split(/\s+/).filter(function (w) { return w.length > 3; });
+    var out = graph.props.map(function (p) {
+      var about = aboutSubject(p, subject);
+      var states = preds ? preds.indexOf(p.predicate) >= 0 :
+                   relWords.length > 0 && relWords.every(function (w) { return String(p.text).toLowerCase().indexOf(w) >= 0; });
+      var origins = independentOrigins(p);
+      var slot = graph.bySlot[C.flatten(p.subject) + "|" + C.flatten(p.predicate)] || [];
+      var rivals = slot.filter(function (q) { return q !== p && q.confidence > 0.3 && !sameValue(q.object, p.object); });
+      return { subject: p.subject, relation: p.predicate, object: p.object, text: p.text, source: p.source, sourceKind: p.sourceKind,
+               origins: origins, independent: origins.length, supports: about && states, mention: about && !states,
+               time: p.time || "", confidence: p.confidence, contradicts: rivals.map(function (q) { return q.object; }) };
+    }).filter(function (c) { return c.supports || c.mention; });
+    out.sort(function (a, b) { return (b.supports - a.supports) || (b.independent - a.independent) || (a.contradicts.length - b.contradicts.length) ||
+                                       (b.confidence - a.confidence); });
+    return out;
+  }
+  /* Slots where confident propositions disagree, grouped. */
+  function contradictionGroups(graph) {
+    var out = [];
+    Object.keys(graph.bySlot || {}).forEach(function (slot) {
+      var vals = graph.bySlot[slot].filter(function (p) { return p.confidence > 0.3; });
+      var distinct = [];
+      vals.forEach(function (p) { if (!distinct.some(function (q) { return sameValue(q.object, p.object); })) distinct.push(p); });
+      if (distinct.length > 1) out.push({ slot: slot, values: distinct.map(function (p) { return { object: p.object, source: p.source, origins: independentOrigins(p) }; }) });
+    });
+    return out;
+  }
+  /* A knowledge gap: nothing retrieved supports the asked relation, only
+     mentions exist, or the supporting claims contradict each other with no
+     independent majority. Answering through a gap is how fluent wrong
+     answers happen; the caller should say it does not know. */
+  function knowledgeGap(graph, frame) {
+    var claims = supportingClaims(graph, frame), sup = claims.filter(function (c) { return c.supports; });
+    if (!sup.length) return { gap: true, reason: claims.length ? "only mentions of the subject" : "no evidence about the subject", claims: claims.length };
+    var top = sup[0];
+    if (top.contradicts.length && top.independent < 2) return { gap: true, reason: "contradicting sources without an independent majority", claims: sup.length };
+    if (frame.requiresFreshInformation && !/registry|market/.test(top.sourceKind || "") && !top.time)
+      return { gap: true, reason: "the question needs current information and the support is undated", claims: sup.length };
+    return { gap: false, claims: sup.length, independent: top.independent };
+  }
+
   root.C4LMEvidence = {
+    supportingClaims: supportingClaims, contradictionGroups: contradictionGroups, knowledgeGap: knowledgeGap,
+    independentOrigins: independentOrigins, originOf: originOf, askedRelation: askedRelation,
     decompose: decompose,
     domainFor: domainFor,
     Federation: Federation,

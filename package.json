@@ -6,7 +6,7 @@
   "scripts": {
     "lm:memory": "node tools/lm-memory.js",
     "build": "node c4-arc/build.js",
-    "test": "node c4-arc/test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-arc/generalize-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js",
+    "test": "node c4-arc/test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-arc/generalize-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js && node tools/lm-tools-test.js && node tools/lm-deliberate-test.js && node tools/arc3-world-test.js",
     "bench": "node c4-arc/bench.js",
     "lm:eval": "node tools/lm-eval.js --out measurements/lm-after.json --label after",
     "lm:baseline": "node tools/lm-eval.js --out measurements/lm-baseline.json --label baseline",
@@ -26,7 +26,11 @@
     "reason:synth": "node tools/reason-synth.js --n 256 --seed 3 --out measurements/reason-synth.json",
     "arc:curriculum:legacy": "node tools/arc-curriculum.js --train 1500 --eval 800 --seed 11 --steps 4 --out measurements/arc-curriculum.json",
     "arc:macros": "node tools/arc-macros.js --train 240 --val 80 --test 120 --ms 300 --seed 21 --write --out measurements/arc-macros.json && node c4-arc/build.js",
-    "arc:generalize": "node c4-arc/generalize-test.js"
+    "arc:generalize": "node c4-arc/generalize-test.js",
+    "lm:tools": "node tools/lm-tools-test.js",
+    "lm:deliberate": "node tools/lm-deliberate-test.js",
+    "arc3:hard": "node tools/arc3-synth.js --suite hard --games 10 --out measurements/arc3-hard.json",
+    "arc3:test": "node tools/arc3-world-test.js"
   },
   "engines": {
     "node": ">=18"

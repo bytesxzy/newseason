@@ -120,12 +120,32 @@
     return re.test(doc.title + ". " + doc.text);
   }
 
+  /* The names a document gives its own subject: a parenthetical in the
+     title ("Deoxyribonucleic acid (DNA)") and the lead sentence's "also
+     known as" / "abbreviated" / "(X)" forms. Read from the document, not
+     from a synonym list. */
+  function aliasesOf(doc) {
+    if (doc._aliases) return doc._aliases;
+    var out = [], m, re;
+    var tm = String(doc.title).match(/^(.*?)\s*\(([^)]{1,40})\)\s*$/);
+    if (tm) { out.push(C.flatten(tm[1])); out.push(C.flatten(tm[2])); }
+    var lead = String(doc.text).slice(0, 300).split(/(?<=[.!?])\s/)[0] || "";
+    re = /\b(?:also (?:known|called|referred to) as|abbreviated(?: as)?|or simply|short for)\s+(?:the\s+)?["']?([A-Za-z0-9][\w\- ]{0,40}?)["']?(?=[,.;)]|\s+(?:is|are|was|were)\b)/gi;
+    while ((m = re.exec(lead))) out.push(C.flatten(m[1]));
+    var pm = lead.match(/^(?:the\s+)?([^(]{2,60}?)\s*\(([A-Za-z0-9][^()]{0,30})\)/i);
+    if (pm) { out.push(C.flatten(pm[1])); out.push(C.flatten(pm[2].split(/[;,]/)[0])); }
+    doc._aliases = out.filter(function (a, i) { return a && a.length > 1 && out.indexOf(a) === i; });
+    return doc._aliases;
+  }
+
   function identityTier(frame, doc) {
     var asked = frame.subject ? C.flatten(frame.subject) :
                 (frame.topic ? C.flatten(frame.topic) : C.flatten(frame.contentTokens.join(" ")));
     if (!asked) return TIER.NONE;
     var title = doc.flatTitle;
     if (title === asked) return TIER.TITLE_EQUAL;
+    /* the document's own alias for its subject is the same identity */
+    if (asked.length > 1 && aliasesOf(doc).indexOf(asked) >= 0) return TIER.TITLE_HEAD;
     var at = asked.split(" "), tt = title.split(" ");
     /* Head containment: the asked phrase leads the title in order. A title
        that merely contains the words in some other arrangement ("High School
@@ -196,6 +216,8 @@
     var askedFlat = frame.subject ? C.flatten(frame.subject) : C.flatten(frame.topic || "");
     var askedWords = askedFlat ? askedFlat.split(" ").map(C.stem) : [];
     var relation = frame.relation;
+    var subq = (frame.comparands || []).concat(frame.searchQueries || []).map(function (x) { return C.flatten(x).split(" ").map(C.stem); })
+      .filter(function (w) { return w.length > 1 && w.join(" ") !== askedWords.join(" "); }).slice(0, 4);
     var out = [];
     for (var i = 0; i < shortlist.length; i++) {
       var doc = shortlist[i].doc;
@@ -204,6 +226,11 @@
         orderedPhrase(askedWords, (doc.flatTitle + " " + doc.flatText).split(" ").map(C.stem).join(" ")) : 0;
       var conc = concentration(frame, doc);
       var titleSim = askedFlat ? charTrigramSim(askedFlat, doc.flatTitle) : 0;
+      /* subqueries: the comparands / decomposed research queries, each an
+         ordered phrase the document may state */
+      var sub = 0;
+      for (var q = 0; q < subq.length && !sub; q++)
+        sub = orderedPhrase(subq[q], (doc.flatTitle + " " + doc.flatText).split(" ").map(C.stem).join(" "));
 
       /* Relation compatibility: when the question asks for a relation, a
          document that states that relation outranks one that merely shares
@@ -227,15 +254,23 @@
         0.80 * conc +
         1.20 * titleSim +
         relBonus +
-        0.40 * (doc.authority || 0) -
+        0.40 * (doc.authority || 0) +
+        0.50 * sub -
         headPenalty;
 
       out.push({
         doc: doc, score: score, tier: tier, bm25: shortlist[i].bm25,
-        phrase: phrase, concentration: conc, titleSim: titleSim, relation: relBonus > 0
+        phrase: phrase, concentration: conc, titleSim: titleSim, relation: relBonus > 0, subquery: sub
       });
     }
-    out.sort(function (a, b) { return b.score - a.score; });
+    /* Identity dominance for "what is X": a document whose title IS the
+       asked concept (or its own alias for it) outranks every document that
+       merely overlaps, however many query words the latter repeats. */
+    var identityFirst = opts.definitional || frame.queryForm === "whatis";
+    out.sort(function (a, b) {
+      if (identityFirst) { var ia = a.tier >= TIER.TITLE_HEAD ? 1 : 0, ib = b.tier >= TIER.TITLE_HEAD ? 1 : 0; if (ia !== ib) return ib - ia; }
+      return b.score - a.score;
+    });
 
     /* Identity gate. A definitional question may only be answered by a
        document that reaches the DEFINES tier; overlap alone is refused. This
@@ -252,6 +287,7 @@
     Index: Index,
     TIER: TIER,
     definesConcept: definesConcept,
+    aliasesOf: aliasesOf,
     orderedPhrase: orderedPhrase,
     charTrigramSim: charTrigramSim
   };

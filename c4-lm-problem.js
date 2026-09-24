@@ -1641,12 +1641,86 @@
   /* Is this question something to DERIVE (all needed facts are in the
      question) or something to KNOW (it needs facts that are not)? */
   function analyze(text) {
-    var P = parse(text);
-    if (P) return { kind: "derivable", problem: P.kind, requiredKnowledge: [], knowledgeCompleteness: 1 };
+    var P = parse(text), S = structure(text, P);
+    if (P) return { kind: "derivable", problem: P.kind, requiredKnowledge: [], knowledgeCompleteness: 1,
+                    classes: S.classes, structure: S };
     var t = clean(text), need = [];
     var m = t.match(/^(?:what|who|which|when|where)\s+(?:is|was|are|were|did|does)\s+(?:the\s+)?(.+)$/i);
     if (m) need.push(m[1]);
-    return { kind: need.length ? "knowledge" : "unknown", requiredKnowledge: need, knowledgeCompleteness: 0 };
+    return { kind: need.length ? "knowledge" : "unknown", requiredKnowledge: need, knowledgeCompleteness: 0,
+             classes: S.classes, structure: S };
+  }
+
+  /* ============================================= structured problems
+   *
+   * Every question, parsed or not, as a structure the deliberation layer
+   * (c4-lm-deliberate.js) can reason over:
+   *   domain, kind, givens, unknowns, constraints, claims, equations,
+   *   requiredKnowledge, possibleTools, ambiguities, assumptions, numbers,
+   *   units, classes
+   * classes: reasoning-heavy | knowledge-heavy | mixed | computation-heavy |
+   *   retrieval-required | multimodal | underdetermined | ambiguous
+   * Each class is assigned from general cues (what the text contains), not
+   * from any list of known questions; a question the templates do not cover
+   * still gets a structure instead of being forced into one. */
+  var FRESH = /\b(?:today|now|currently|current|latest|recent|this (?:year|week|month)|as of|price|stock|version|release|weather|news|live)\b/i;
+  var VISUAL = /\b(?:figure|diagram|image|picture|graph shown|chart|shown below|shown above|the plot|in the photo|drawing)\b/i;
+  var KNOWLEDGE = /^(?:who|what|which|when|where)\b|\b(?:capital|author|invented|discovered|founded|born|died|population|located|named after|defined as|meaning of)\b/i;
+  var REASONING = /\b(?:if|then|therefore|implies|must|cannot|all|none|some|every|each|at least|at most|exactly|unless|only if|either|neither|prove|show that|deduce|consistent)\b/i;
+  var COMPUTE = /\d|\b(?:sum|product|how many|how much|calculate|compute|solve|probability|average|total|percent|ratio|rate)\b/i;
+  var UNIT_RE = /\b(\d+(?:\.\d+)?)\s*(km\/h|mph|m\/s|km|kilometers?|miles?|meters?|m|cm|mm|kg|kilograms?|g|grams?|lb|pounds?|hours?|h|minutes?|min|seconds?|s|liters?|L|gallons?|dollars?|\$|%)\b/gi;
+
+  function structure(text, P) {
+    var t = clean(text), low = t.toLowerCase();
+    if (P === undefined) { try { P = parse(text); } catch (e) { P = null; } }
+    var S = {
+      domain: P ? P.domain : "general", kind: P ? P.kind : null, text: t,
+      givens: P ? P.givens.slice() : [], unknowns: P ? P.unknowns.slice() : [],
+      constraints: P ? (P.constraints || []).slice() : [], claims: [], equations: P && P.equations ? P.equations.slice() : [],
+      requiredKnowledge: [], possibleTools: [], ambiguities: [], assumptions: P ? P.assumptions.slice() : [],
+      numbers: (t.match(/-?\d+(?:\.\d+)?(?:\/\d+)?/g) || []).slice(0, 24), units: [], classes: []
+    };
+    var m;
+    UNIT_RE.lastIndex = 0;
+    while ((m = UNIT_RE.exec(t))) S.units.push({ value: m[1], unit: m[2] });
+    /* equations written in the text, parsed or not */
+    t.split(/[,;]|\band\b/).forEach(function (seg) { if (/=/.test(seg) && /[a-z]/i.test(seg)) S.equations.push(seg.trim()); });
+    if (!S.unknowns.length) {
+      var q = t.match(/\b(?:what|find|compute|calculate|determine|how many|how much)\b\s*(?:is|are|was|the)?\s*([^?.,]{2,60})/i);
+      if (q) S.unknowns.push(q[1].trim());
+    }
+    /* sentences stating something are claims to be checked, not assumed */
+    t.split(/(?<=[.!])\s+/).forEach(function (sen) {
+      if (!/\?\s*$/.test(sen) && /\b(?:is|are|was|were|has|have|equals?)\b/i.test(sen) && sen.length > 8) S.claims.push(sen.trim());
+    });
+    if (root.C4LMTools && root.C4LMTools.suggest) { try { S.possibleTools = root.C4LMTools.suggest(P, t); } catch (e) { S.possibleTools = []; } }
+    /* a "what is" question over stated numbers that an exact tool covers is
+       a computation, not a fact to look up */
+    var kn = KNOWLEDGE.test(t) && !P && !(S.possibleTools.length && S.numbers.length >= 2);
+    if (kn) {
+      var need = t.match(/^(?:what|who|which|when|where)\s+(?:is|was|are|were|did|does)\s+(?:the\s+)?(.+)$/i);
+      S.requiredKnowledge.push(need ? need[1] : t);
+    }
+    var comp = !!P || (COMPUTE.test(t) && S.numbers.length >= 2);
+    var reason = REASONING.test(t) && (S.claims.length >= 1 || /\b(?:if|then|therefore|must)\b/i.test(t));
+    if (comp) S.classes.push("computation-heavy");
+    if (reason || (P && ["system", "csp", "path", "mc"].indexOf(P.kind) >= 0)) S.classes.push("reasoning-heavy");
+    if (kn) S.classes.push("knowledge-heavy");
+    if (kn && (comp || reason)) S.classes.push("mixed");
+    if (FRESH.test(t)) S.classes.push("retrieval-required");
+    if (VISUAL.test(t)) S.classes.push("multimodal");
+    /* under-determined: a rate with nothing to apply it to, or an unknown
+       quantity with fewer givens than it needs (read by the comprehension
+       stage when it is loaded) */
+    var CMP = root.C4LMComprehend;
+    if (CMP && CMP.solveQuantity && !P) {
+      try { var sq = CMP.solveQuantity(text); if (sq && sq.status && sq.status !== "solved" && sq.missing) { S.classes.push("underdetermined"); S.ambiguities.push("missing: " + sq.missing); } } catch (e) {}
+    }
+    if (/^(?:it|they|this|that|he|she)\b/i.test(t) && !P) { S.ambiguities.push("pronoun without antecedent"); }
+    if (/\b(\w+)\s+or\s+(\w+)\s*\?\s*$/i.test(text) && !P) S.ambiguities.push("alternative readings");
+    if (S.ambiguities.length && S.classes.indexOf("underdetermined") < 0) S.classes.push("ambiguous");
+    if (!S.classes.length) S.classes.push(kn ? "knowledge-heavy" : "reasoning-heavy");
+    return S;
   }
 
   /* ================================================== answer for the LM */
@@ -1786,7 +1860,7 @@
   }
 
   var PR = {
-    Frac: Frac, Poly: Poly, parseExpr: parseExpr, evalExact: evalExact, evalFloat: evalFloat, toPoly: toPoly,
+    Frac: Frac, Poly: Poly, parseExpr: parseExpr, evalExact: evalExact, evalFloat: evalFloat, toPoly: toPoly, varsOf: varsOf,
     rootsFormula: rootsFormula, rootsRational: rootsRational, rootsNumeric: rootsNumeric,
     gaussSolve: gaussSolve, cramerSolve: cramerSolve, det: det,
     chooseMult: chooseMult, choosePascal: choosePascal, permFormula: permFormula, factorize: factorize,
@@ -1794,7 +1868,7 @@
     diceConvolve: diceConvolve, diceEnumerate: diceEnumerate, binomProb: binomProb,
     numDeriv: numDeriv, simpson: simpson, dijkstra: dijkstra, bellmanFord: bellmanFord, csp: csp,
     parse: parse, parseOptions: parseOptions, solveProblem: solveProblem, answer: answer,
-    checkDerivation: checkDerivation, analyze: analyze, verifyValue: verifyValue,
+    checkDerivation: checkDerivation, analyze: analyze, structure: structure, verifyValue: verifyValue,
     verifySteps: verifySteps, extrapolate: extrapolate, compose: compose, hasAlgebra: hasAlgebra, mathSpans: mathSpans,
     prose: prose, proseArithmetic: proseArithmetic, phraseExpr: phraseExpr, imperativeExpr: imperativeExpr,
     wordsToNumbers: wordsToNumbers, visualGraph: visualGraph, visualQuery: visualQuery,

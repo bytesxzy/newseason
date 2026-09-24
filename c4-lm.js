@@ -32,11 +32,16 @@
     memory: null,
     varyKey: "",
     userText: "",
+    mode: "tool",
+    defaultMode: "tool",
     profile: [],
     stats: { turns: 0, web: 0, cacheHits: 0 }
   };
 
-  function off(name) { return !!state.ablations[name]; }
+  /* Evaluation modes, never mixed in one score: "closed" answers from local
+     knowledge, local exact tools and local reasoning with the network OFF;
+     "tool" (the default) may also consult the keyless evidence federation. */
+  function off(name) { return !!state.ablations[name] || (name === "web" && state.mode === "closed"); }
 
   /* ===================================================== discourse state */
 
@@ -1377,8 +1382,34 @@
              diagnoses: p.diagnoses, calibration: p.calibration } };
   }
 
+  /* Hard reasoning (c4-lm-deliberate.js). When an exact tool can read the
+     question -- a matrix, a list of data, a sum over a range, an
+     optimisation, a conditional probability, a counting condition -- the
+     deliberation controller runs EVERY reader (tools, the problem reasoner,
+     the operator library, dimensional analysis); its critic, verifier and
+     selector keep the answer with independent verified support. It takes
+     over only when a tool reading with an independent verifier wins; a
+     question the other readers answer the same way keeps their answer. */
+  function answerDeliberate(frame) {
+    var DL = root.C4LMDeliberate;
+    if (!DL || off("deliberate-tools")) return null;
+    var text = frame.rawText || frame.body || "";
+    var tools = [];
+    try { tools = DL.applicable(text); } catch (e) { tools = []; }
+    if (!tools.length) return null;
+    var d = null;
+    try { d = DL.solve(text, { mode: state.mode }); } catch (e) { d = null; }
+    if (!d || !d.verified || d.abstained || !d.winner || !d.winner.tool) return null;
+    return { text: RZ.polish ? RZ.polish(d.sentence) : d.sentence, route: "reason", confidence: d.confidence, sources: [], defects: [],
+             interpretation: "exact tool", derivations: d.winner.verified,
+             verification: { deliberation: { ranked: d.ranked, candidates: d.candidates.length, difficulty: d.difficulty.level, mode: d.mode },
+                             calibration: d.calibration } };
+  }
+
   function answerReason(frame, decision) {
     if (off("reasoning") || !RS) return null;
+    var hard = answerDeliberate(frame);
+    if (hard) return hard;
     /* Interpretation check. When the text parses as a structured problem
        (an equation, a system, calculus, combinatorics ...), reading it as
        bare arithmetic over its digits is a MISINTERPRETATION -- "solve
@@ -2486,6 +2517,7 @@
      to forget, how to answer, and questions about the conversation itself.
      Whatever else the message asks is answered as usual, after it. */
   function answer(text, opts) {
+    state.mode = opts && (opts.evaluationMode === "closed" || opts.evaluationMode === "tool") ? opts.evaluationMode : state.defaultMode;
     var M = state.memory, raw = String(text == null ? "" : text);
     if (!M) return answerCore(raw, opts);
     var memo = null;
@@ -2684,6 +2716,7 @@
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;
     result.latency_ms = Math.round((now() - t0) * 100) / 100;
+    result.evaluationMode = state.mode;
     result.frame = {
       subject: frame.subject, relation: frame.relation, form: frame.queryForm,
       fresh: frame.requiresFreshInformation, act: frame.speechAct
@@ -2809,6 +2842,8 @@
       if (RZ && RZ.variation) RZ.variation.enable(!state.ablations.variation);
       return state.ablations;
     },
+    setMode: function (m) { if (m === "closed" || m === "tool") state.defaultMode = state.mode = m; return state.defaultMode; },
+    mode: function () { return state.mode; },
     stats: function () { return state.stats; },
     profile: function () { return state.profile.slice(); },
     ready: function () { return state.ready; },

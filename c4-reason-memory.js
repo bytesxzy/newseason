@@ -35,6 +35,13 @@
  */
 (function (root) {
   "use strict";
+  /* One instance per page/process: the ARC bundle embeds this file and the
+     language stack loads it standalone; whichever loads second reuses the
+     first so ARC and the LM share one C4ReasonMemory (and its state). */
+  if (root.C4ReasonMemory && root.C4ReasonMemory.VERSION === "1.0.0") {
+    if (typeof module !== "undefined" && module.exports && !root.__C4_BUNDLED_KERNEL) module.exports = root.C4ReasonMemory;
+    return;
+  }
 
   function clip(a, n) { return a.length > n ? a.slice(a.length - n) : a; }
   function now() { return Date.now(); }

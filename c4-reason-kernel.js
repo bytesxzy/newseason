@@ -25,6 +25,13 @@
  */
 (function (root) {
   "use strict";
+  /* One instance per page/process: the ARC bundle embeds this file and the
+     language stack loads it standalone; whichever loads second reuses the
+     first so ARC and the LM share one C4ReasonKernel (and its state). */
+  if (root.C4ReasonKernel && root.C4ReasonKernel.VERSION === "2.0.0") {
+    if (typeof module !== "undefined" && module.exports && !root.__C4_BUNDLED_KERNEL) module.exports = root.C4ReasonKernel;
+    return;
+  }
 
   var LN2 = Math.LN2;
   function log2(x) { return Math.log(x) / LN2; }
