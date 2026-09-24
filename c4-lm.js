@@ -2696,7 +2696,7 @@
     /* cross-referencing reads the reference dataset: it is loaded (in
        verified chunks) before the message is answered, once per session */
     var CR = root.C4LMCrossRef;
-    if (CR && !off("crossref") && CR.wants(raw)) {
+    if (CR && !off("crossref") && CR.wants(raw, state.crossref)) {
       var DSx = root.C4Dataset;
       if (DSx && !DSx.available() && !DSx.error) return CR.ready().then(function () { return answerCore(raw, opts); }, function () { return answerCore(raw, opts); });
       return answerCore(raw, opts);
@@ -3059,6 +3059,9 @@
        module does, and sees the answers that did not come from here */
     command: function (t) {
       if (!state.memory || !state.ready) return null;
+      /* a message about the session's pairs belongs to cross-referencing */
+      var CRc = root.C4LMCrossRef;
+      if (CRc && !off("crossref")) { try { if (CRc.wants(String(t == null ? "" : t), state.crossref)) return null; } catch (e) {} }
       try { return state.memory.command(String(t == null ? "" : t)); } catch (e) { return null; }
     },
     observe: function (t, a) { if (state.memory) { try { state.memory.observe(t, a); } catch (e) {} } },

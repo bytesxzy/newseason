@@ -53,8 +53,9 @@
   function goodItems(xs) { return xs.length && xs.every(function (x) { return ITEM.test(x) && x.split(/\s+/).length <= 3 && !/^[a-z]$/i.test(x); }); }
 
   function analyze(text) {
-    var t = clean(text), l = low(t).replace(/[?.!]+$/, "").trim(), m;
+    var t = clean(text), l = low(t).replace(/[?.!]+$/, "").trim(), m, correction = false;
     if (!t) return null;
+    if ((m = t.match(/^(?:actually|no|correction|wait|oops|sorry|i meant)[,:!]?\s+(?:i meant\s+)?(.+=.+)$/i))) { t = m[1]; l = low(t).replace(/[?.!]+$/, "").trim(); correction = true; }
     /* analogies: "A is to B as C is to ?", "A : B :: C : ?" */
     if ((m = l.match(/^(?:if\s+)?(.+?)\s+is\s+to\s+(.+?)\s*,?\s+(?:as|then|what is)\s+(.+?)\s+is\s+to\s*(?:what|\?|_+|blank)?$/)) ||
         (m = l.match(/^(.+?)\s*:\s*(.+?)\s*::\s*(.+?)\s*:\s*(?:\?|what|_+|x)?$/)))
@@ -76,7 +77,7 @@
         return null;
       } else return i === 0 ? single(l) : null;
     }
-    if (stmts.length || query) return { kind: query ? "apply" : "state", stmts: stmts, query: query };
+    if (stmts.length || query) return { kind: query ? "apply" : "state", stmts: stmts, query: query, correction: correction };
     return single(l);
   }
   function followUp(l) {
@@ -95,6 +96,10 @@
     if ((m = l.match(/^(?:and |so )?which (\w+) (?:went|goes|was paired|did i pair|is paired|matched|was matched|did i match) with (.+?)(?: again| earlier)?$/)))
       return goodItems([m[2]]) ? { kind: "recall", item: m[2], want: m[1] } : null;
     if (/^what (?:pairs|mappings|matches) (?:did i give you|have i given you|do you remember|have i made)|^(?:list|show) (?:my|the) (?:pairs|mappings)/.test(l)) return { kind: "list" };
+    if ((m = l.match(/^(?:please )?(?:forget|remove|delete|drop|undo)(?: the)?(?: pair(?:ing)?s?)?(?: for| with| about)? (.+?)(?: pair(?:ing)?)?$/)) && goodItems([m[1]]))
+      return { kind: "forget", item: m[1] };
+    if ((m = l.match(/^what (?:was|is|were) (?:the |my )?(first|second|third|fourth|fifth|last|latest|previous|most recent) (?:pair|pairing|mapping|thing i paired|one)$/)))
+      return { kind: "nth", which: m[1] };
     if ((m = l.match(/^what about (.+?)$/)) && goodItems([m[1]])) return { kind: "apply", stmts: [], query: [m[1]], soft: true };
     /* why a pair holds */
     if ((m = l.match(/^why (?:is|does|did|would|should) (.+?) (?:=\s*|equal |equals |mean |go with |goes with |map to |pair with |match |become )?(.+?)$/)) && goodItems([m[1], m[2]]))
@@ -116,8 +121,11 @@
   function nounSenses(w, term, max) { return w.senses(term, "noun").filter(function (x) { return x.rank < (max || 3); }); }
   function allSenses(w, term, max) { return w.senses(term).filter(function (x) { return x.rank < (max || 3); }); }
   function lemmaOf(w, tok) {
-    var out = [tok];
-    ["noun", "adj", "verb"].forEach(function (f) { w.lemmas(tok, f).forEach(function (x) { if (out.indexOf(x) < 0) out.push(x.replace(/_/g, " ")); }); });
+    var out = [tok], asNoun = !!w.index.noun[tok];
+    ["noun", "adj", "verb"].forEach(function (f) {
+      if (asNoun && f !== "noun") return;
+      w.lemmas(tok, f).forEach(function (x) { if (out.indexOf(x) < 0) out.push(x.replace(/_/g, " ")); });
+    });
     return out;
   }
   /* The first value a definition carries, directly or one definition away:
@@ -143,7 +151,7 @@
         if (STOP.test(toks[j]) || /-/.test(toks[j]) || toks[j].length < 3) continue;
         /* only physical things carry visible properties on to what they
            make up ("tomatoes" -> tomato), not numbers or ideas */
-        var ns = nounSenses(w, toks[j], 2).filter(function (x) { return isPhysical(w, x.syn); });
+        var ns = lesk(w, toks[j], s, 4).filter(function (x) { return isPhysical(w, x.syn); }).slice(0, 1);
         if (!ns.length) continue;
         seen++;
         ns.forEach(function (x) { if (x.syn !== s) scan(x.syn, depth + 1, chain.concat([{ syn: s, token: toks[j] }]), rank); });
@@ -152,6 +160,19 @@
     starts.forEach(function (x) { scan(x.syn, 0, [], x.rank); });
     return best;
   }
+  /* The sense of a word in context (the Lesk method): the one whose
+     definition shares the most content words with the definition it was
+     read in ("plasma" in blood's definition is the fluid of the blood, not
+     the green chalcedony). Sense order breaks ties. */
+  function lesk(w, word, ctxSyn, max) {
+    var ctx = Object.create(null);
+    get("C4Dataset").tokens(ctxSyn.def).concat(ctxSyn.words.map(low)).forEach(function (t) { if (!STOP.test(t) && t.length > 2) ctx[lemmaOfPlain(t)] = 1; });
+    return nounSenses(w, word, max || 4).map(function (x) {
+      var ov = 0;
+      get("C4Dataset").tokens(x.syn.def).forEach(function (t) { if (ctx[lemmaOfPlain(t)] && !STOP.test(t)) ov++; });
+      return { syn: x.syn, rank: x.rank, lemma: x.lemma, score: ov * 2 - x.rank * 0.5 };
+    }).sort(function (a, b) { return b.score - a.score; });
+  }
   /* A value word describes only when it modifies what follows ("white
      nutritious liquid", "red or yellow pulpy fruit"), not when it is itself
      the thing named after a preposition ("grains of rock or coral"). */
@@ -159,8 +180,9 @@
   function describing(toks, i) {
     var j = i + 1;
     while (j < toks.length && /^(?:or|and|to)$/.test(toks[j]) && j + 1 < toks.length) j += 2;
-    if (j >= toks.length) return false;
-    if (PREP.test(toks[j])) return false;
+    if (j >= toks.length) return false;                        /* "... rock or coral" */
+    if (/^(?:of|than|and|or)$/.test(toks[j])) return false;     /* "coral of ..." names a thing */
+    if (i > 0 && /^(?:of|from|with|by|like|into|as)$/.test(toks[i - 1])) return false;
     return true;
   }
   function chainText(ch, subj) {
@@ -216,7 +238,9 @@
        the adjectives similar to those */
     cl.list.slice(0, 50).forEach(function (x) {
       w.follow(x, "=").forEach(function (a) {
-        [a].concat(w.follow(a, "&")).forEach(function (b) { b.words.forEach(function (v) { if (!/\s/.test(v) && !set[low(v)]) set[low(v)] = low(v); }); });
+        /* the linked head adjectives themselves (colored, colorless) -- not
+           everything similar to them ("hot", "vivid") */
+        a.words.forEach(function (v) { if (!/\s/.test(v) && !set[low(v)]) set[low(v)] = low(v); });
       });
     });
     return (CACHE.values[k] = set);
@@ -254,7 +278,7 @@
     return best;
   }
   /* every shared kind, shallowest first (the pairs' evidence picks one) */
-  function commonKinds(w, terms, maxClosure, maxRank) {
+  function commonKinds(w, terms, maxClosure, maxRank, limit) {
     var per = terms.map(function (t) {
       var m = Object.create(null);
       nounSenses(w, t, maxRank || 3).forEach(function (x) {
@@ -267,7 +291,17 @@
     return Object.keys(per[0]).filter(function (o) { return per.every(function (m) { return m[o]; }); })
       .map(function (o) { return { syn: per[0][o].syn, depth: Math.max.apply(null, per.map(function (m) { return m[o].d; })) }; })
       .filter(function (k) { return !maxClosure || closure(w, k.syn, maxClosure).full; })
-      .sort(function (x, y) { return x.depth - y.depth; }).slice(0, 4);
+      .sort(function (x, y) { return x.depth - y.depth; }).slice(0, limit || 4);
+  }
+  /* how far two synsets are from their nearest shared kind (null: none
+     within reach) */
+  function kindDistance(w, a, b) {
+    if (a.offset === b.offset && a.pos === b.pos) return 0;
+    var up = Object.create(null);
+    w.above(a, 12).forEach(function (x) { up[x.syn.offset] = x.depth; });
+    var best = null;
+    w.above(b, 12).forEach(function (x) { if (x.syn.offset in up) { var d = Math.max(x.depth, up[x.syn.offset]); if (best === null || d < best) best = d; } });
+    return best;
   }
   function commonness(w, syn) {
     var lemma = syn.words[0].replace(/ /g, "_").toLowerCase(), e = w.index.noun[lemma];
@@ -328,12 +362,37 @@
                 var nb = w.follow(tg0, "&").concat(w.follow(tg0, "^")).filter(function (y) { return (y.pos + y.offset) in sbSet && sbSet[y.pos + y.offset] === 0; })[0];
                 if (nb) out.push({ family: "pointer", sym: p.sym, cost: 1 + si + x.rank, top: null, why: null });
               }
-              if (k in sbSet) { var tg = w.synset(p.pos, p.offset); out.push({ family: "pointer", sym: p.sym, cost: sbSet[k] + si + x.rank, top: tg && tg.pos === "n" && w.above(tg, 20).length >= 2 ? topKind(w, tg) : null, why: null }); }
+              if (k in sbSet) { var tg = w.synset(p.pos, p.offset); out.push({ family: "pointer", sym: p.sym, cost: sbSet[k] + si + x.rank, top: tg && tg.pos === "n" && w.above(tg, 20).length >= 2 ? topKind(w, tg) : null, exemplar: tg ? { pos: tg.pos, offset: tg.offset } : null, why: null }); }
             });
           });
         });
         return out;
       },
+      apply: function (w, rel, c) {
+        var out = pointerApply(w, rel, c);
+        if (out.length || !/^#[pms]$/.test(rel.sym)) return out;
+        /* no explicit link: a definition names the whole with "of"
+           ("page: one side of one leaf (of a book ...)") -- the first such
+           noun of the same top-level kind as the example's whole */
+        var objectRoot = topSense(w, "physical object");
+        nounSenses(w, c, 2).forEach(function (x) {
+          if (out.length) return;
+          var toks = get("C4Dataset").tokens(x.syn.def), last = null;
+          for (var i = 0; i < toks.length - 1; i++) {
+            if (toks[i] !== "of") continue;
+            var j = /^(?:a|an|the|one)$/.test(toks[i + 1]) ? i + 2 : i + 1, cand = toks[j];
+            if (!cand || STOP.test(cand)) continue;
+            var cs = nounSenses(w, cand, 1)[0];
+            /* a whole is an object (not a process: "organ of photosynthesis");
+               in a chain the outermost one is the whole */
+            if (cs && (!rel.top || topKind(w, cs.syn) === rel.top) && under(w, cs.syn, objectRoot)) last = cs;
+          }
+          if (last) out.push({ answer: last.lemma.replace(/_/g, " "), syn: last.syn, score: 2, why: c + " is " + quote(firstDef(x.syn.def)) + " — its definition names the whole" });
+        });
+        return out;
+      }
+    },
+    _pointerApply: {
       apply: function (w, rel, c) {
         var out = [];
         /* the word's main senses: a rare sense that happens to carry the
@@ -368,7 +427,8 @@
               var at = d.indexOf(" " + n + " ");
               if (at < 0) return;
               var before = d.slice(0, at).trim().split(" ").filter(function (t) { return !STOP.test(t); }).pop();
-              if (before && !/\d/.test(before)) out.push({ family: "template", word: before, reverse: o[2], cost: x.rank, why: head(x.syn) + " is " + quote(firstDef(x.syn.def)) });
+              var adjacent = d.slice(0, at).trim().split(" ").pop() === before;
+              if (before && !/\d/.test(before)) out.push({ family: "template", word: before, reverse: o[2], cost: x.rank + (adjacent ? 0 : 1), why: head(x.syn) + " is " + quote(firstDef(x.syn.def)) });
             });
           });
         });
@@ -407,24 +467,29 @@
   /* attribute family: values on one side, things on the other */
   function attributeClass(w, terms) {
     /* a value may be a word's rarer sense ("peach" the color is its fourth) */
-    var ck = commonKind(w, terms, 3000, 8);
-    if (!ck || ck.syn.offset === (attrRoot(w) || {}).offset || !isUnderAttribute(w, ck.syn)) return null;
-    return ck.syn;
+    /* "black" and "white" also meet at "person": take the first shared kind
+       that the dataset files under attribute */
+    /* one item alone must be a value in its main sense; a rarer sense
+       ("peach" the color) needs another item to corroborate it */
+    var ks = commonKinds(w, terms, 3000, terms.length > 1 ? 8 : 1, 60).filter(function (k) { return k.syn.offset !== (attrRoot(w) || {}).offset && isUnderAttribute(w, k.syn); });
+    return ks.length ? ks[0].syn : null;
   }
   /* the senses of a thing that belong to the kind the pairs share
      ("mustard" the condiment, not the greens) */
   function thingSenses(w, thing, category) {
-    var all = nounSenses(w, thing, 4);
+    var all = nounSenses(w, thing, 6);
     if (!category) return all.slice(0, 3);
     var cl = closure(w, category, 20000), inCat = all.filter(function (x) { return cl.full && cl.set[x.syn.offset]; });
     return inCat.length ? inCat : all.slice(0, 3);
   }
-  function holdsAttr(w, cls, value, thing, category) {
+  function holdsAttr(w, cls, value, thing, category, strict) {
     var vals = Object.create(null), vw = valueWords(w, cls);
     lemmaOf(w, low(value)).forEach(function (v) { if (vw[v]) vals[v] = 1; });
     vals[low(value)] = 1;
     var test = valueTester(w, vals);
-    var r = reach(w, thingSenses(w, thing, category), test, 1);
+    /* confirming one named value may use any main sense ("snow" the layer
+       of white crystals), not only the senses of the pairs' shared kind */
+    var r = reach(w, thingSenses(w, thing, category), test, 1) || (category && !strict ? reach(w, nounSenses(w, thing, 4), test, 1) : null);
     return r;
   }
   /* the first value of an attribute class that a thing is described with */
@@ -492,7 +557,7 @@
       });
     });
     var ranked = Object.keys(cand).map(function (k) { return cand[k]; }).sort(function (x, y) {
-      return y.support - x.support || ({ kb: 0, pointer: 1, template: 2 }[x.rel.family] - { kb: 0, pointer: 1, template: 2 }[y.rel.family]) || x.cost - y.cost;
+      return y.support - x.support || x.cost - y.cost || ({ kb: 0, pointer: 1, template: 2 }[x.rel.family] - { kb: 0, pointer: 1, template: 2 }[y.rel.family]);
     });
     var best = ranked[0] && ranked[0].support >= Math.max(1, Math.ceil(pairs.length / 2)) ? ranked[0] : null;
     /* attribute: left values of one class, right things (or the reverse) */
@@ -501,18 +566,26 @@
       [[0, 1], [1, 0]].some(function (o) {
         var cls = attributeClass(w, pairs.map(function (p) { return p[o[0]]; }));
         if (!cls) return false;
-        var things = pairs.map(function (p) { return p[o[1]]; }), kinds = commonKinds(w, things, 20000, 4), cat = null, checks = null;
+        var things = pairs.map(function (p) { return p[o[1]]; }), kinds = commonKinds(w, things, 20000, 6), cat = null, checks = null;
+        /* the kind is chosen by strict evidence (senses inside the kind);
+           the report may then confirm a pair through any main sense */
         (kinds.length ? kinds : [null]).forEach(function (k) {
-          var ch = pairs.map(function (p) { return holdsAttr(w, cls, p[o[0]], p[o[1]], k ? k.syn : null); });
+          var ch = pairs.map(function (p) { return holdsAttr(w, cls, p[o[0]], p[o[1]], k ? k.syn : null, true); });
           if (!checks || ch.filter(Boolean).length > checks.filter(Boolean).length) { checks = ch; cat = k; }
         });
+        checks = pairs.map(function (p, i) { return checks[i] || holdsAttr(w, cls, p[o[0]], p[o[1]], cat ? cat.syn : null, false); });
         attr = { family: "attribute", cls: cls, valueSide: o[0], category: cat ? cat.syn : null, checks: checks,
                  support: checks.filter(Boolean).length };
         return true;
       });
     }
-    if (attr && (!best || attr.support >= best.support)) return attr;
-    return best ? { family: best.rel.family, rel: best.rel, support: best.support, evidence: best.evidence } : attr;
+    var alts = ranked.filter(function (r) { return best && r.support === best.support; }).map(function (r) { return { family: r.rel.family, rel: r.rel, support: r.support, evidence: r.evidence }; });
+    /* every left item being a value of one attribute class is evidence too */
+    if (attr && (!best || attr.support + 0.5 >= best.support)) { attr.alts = alts; return attr; }
+    if (!best) return attr;
+    var top = alts[0];
+    top.alts = alts.slice(1).concat(attr ? [attr] : []);
+    return top;
   }
   function describeRelation(w, R, pairs) {
     if (!R) return "";
@@ -522,10 +595,13 @@
                                : "each left item is " + art(things) + things + " and each right item its " + head(R.cls);
     }
     if (R.family === "kb") return R.rel.inverse ? "the right side is the thing whose " + R.rel.key + " is the left side" : "the right side is the left side's " + R.rel.key;
-    if (R.family === "pointer") return "the right side is the " + SYM_NAME(R.rel.sym) + " of the left side";
+    if (R.family === "pointer") return { "#p": "the right side is the whole the left side is part of", "#m": "the right side is the group the left side belongs to",
+      "#s": "the right side is what the left side is made into", "%p": "the right side is a part of the left side", "%m": "the right side is a member of the left side",
+      "%s": "the right side is what the left side is made of" }[R.rel.sym] || "the right side is the " + SYM_NAME(R.rel.sym) + " of the left side";
     if (R.family === "template") return R.rel.reverse ? "the left side is defined as “" + R.rel.word + " …” the right side" : "the right side is defined as “" + R.rel.word + " …” the left side";
     return "";
   }
+  function pointerApply(w, rel, c) { return FAMILIES._pointerApply.apply(w, rel, c); }
   function SYM_NAME(s) {
     return { "!": "opposite", "#p": "whole it is part of", "%p": "part", "#m": "group it belongs to", "%m": "member", "#s": "thing it is made into",
              "%s": "substance it is made of", "=": "attribute", "*": "consequence", ">": "cause", "^": "related word", "<": "participle", "@i": "class", "~i": "instance",
@@ -547,8 +623,12 @@
       var d = describedValue(w, R.cls, c, null);
       return d ? [{ answer: d.value, score: 3, why: chainText(d.chain, c) }] : [];
     }
-    var fam = FAMILIES[R.family];
-    return fam.apply(w, R.rel, c).filter(function (x) { return exclude.indexOf(low(x.answer)) < 0; }).sort(function (x, y) { return y.score - x.score; });
+    var fam = FAMILIES[R.family], got = fam.apply(w, R.rel, c).filter(function (x) { return exclude.indexOf(low(x.answer)) < 0; });
+    /* "foot" has many parts; the one of the same kind as the exact sense the
+       example reached (finger, the digit) is the toe */
+    var ex0 = R.rel && R.rel.exemplar ? w.synset(R.rel.exemplar.pos, R.rel.exemplar.offset) : null;
+    if (w && got.length > 1 && ex0) got.forEach(function (x) { if (x.syn) { var d = kindDistance(w, x.syn, ex0); x.score += d === null ? 0 : Math.max(0, 8 - 2 * d); } });
+    return got.sort(function (x, y) { return y.score - x.score; });
   }
 
   /* ------------------------------------------------------------ session */
@@ -565,11 +645,20 @@
     var D = get("C4Dataset");
     return "I can't reach my reference dataset right now" + (D && D.error ? " (" + D.error + ")" : "") + ", so I can only use my knowledge base for this.";
   }
-  function state(w, sess, stmts) {
+  function state(w, sess, stmts, correction) {
     var out = [], notes = [];
     stmts.forEach(function (pairs) {
       sess.sets++;
-      var R = induce(w, pairs);
+      /* a correction belongs to the set it corrects: re-check it against
+         that set's pattern, not a pattern guessed from one pair */
+      var prior = correction ? sess.pairs.filter(function (q) { return !q.inferred && pairs.some(function (p) { return low(q.left) === low(p[0]); }); })[0] : null;
+      var R = prior && prior.relation ? prior.relation : induce(w, pairs);
+      if (prior && R && R.family === "attribute") R = Object.assign({}, R, { checks: pairs.map(function (p) { return holdsAttr(w, R.cls, p[R.valueSide], p[1 - R.valueSide], R.category); }) });
+      if (prior && R && R.family === "attribute") R.support = R.checks.filter(Boolean).length;
+      pairs.forEach(function (p) {
+        var old = sess.pairs.filter(function (q) { return !q.inferred && low(q.left) === low(p[0]); });
+        old.forEach(function (q) { notes.push("Updated: " + cap(p[0]) + " → " + cap(p[1]) + " (was " + q.right + ")."); sess.pairs.splice(sess.pairs.indexOf(q), 1); });
+      });
       pairs.forEach(function (p, i) {
         var confirmed = null;
         if (R && R.family === "attribute") confirmed = R.checks[i];
@@ -635,6 +724,14 @@
     var any = false;
     query.forEach(function (c) {
       var got = w || R.family === "kb" ? applyRelation(w, R, c, ex) : [];
+      /* equally supported readings of the examples: the one that carries
+         over to the new item is the one meant */
+      (R.alts || []).some(function (A) {
+        if (got.length) return true;
+        got = w || A.family === "kb" ? applyRelation(w, A, c, ex) : [];
+        if (got.length) { why[0] = "From " + ex.map(function (p) { return cap(p[0]) + " → " + cap(p[1]); }).join(", ") + ": " + describeRelation(w, A, ex) + "."; }
+        return got.length > 0;
+      });
       if (!got.length) { lines.push(cap(c) + " → ? (nothing in my data fits that pattern)"); return; }
       any = true;
       var alts = got.slice(1, 3).map(function (x) { return x.answer; }).filter(function (x) { return low(x) !== low(got[0].answer); });
@@ -679,7 +776,9 @@
     if (!w.lemmas(I.value, "adj").length || !nounSenses(w, I.subject, 3).length) return null;
     var vs = nounSenses(w, I.value, 3).filter(function (x) { return isUnderAttribute(w, x.syn); });
     for (var i = 0; i < vs.length; i++) {
-      var ups = [vs[i].syn].concat(w.above(vs[i].syn, 4).map(function (a) { return a.syn; }));
+      /* a value competes only with its own family: its parent and
+         grandparent classes (achromatic color, color), not "property" */
+      var ups = [vs[i].syn].concat(w.above(vs[i].syn, 2).map(function (a) { return a.syn; }));
       for (var j = 1; j < ups.length; j++) {
         if (!closure(w, ups[j], 3000).full || ups[j].offset === (attrRoot(w) || {}).offset) break;
         var d = describedValue(w, ups[j], I.subject);
@@ -696,14 +795,20 @@
     return { text: cap(head(list[0].syn)) + " — " + quote(firstDef(list[0].syn.def)) + "." + (list.length > 1 ? " Also: " + list.slice(1).map(function (x) { return head(x.syn); }).join(", ") + "." : ""), kind: "name" };
   }
   function common(w, I) {
-    var ck = commonKind(w, [I.a, I.b], 0);
+    var ck = commonKind(w, [I.a, I.b], 0, 6);
     if (!ck || ck.depth > 6) return null;
     var k = ck.syn;
     return { text: "Both are " + head(k) + (/s$/.test(head(k)) ? "" : "s") + ": " + quote(firstDef(k.def)) + "." + steps(["Climbed the kind-of links from " + I.a + " and " + I.b + " until they met.", "They meet at " + head(k) + ", " + ck.depth + " step" + (ck.depth === 1 ? "" : "s") + " up."]), kind: "common" };
   }
 
   /* ------------------------------------------------------------- answer */
-  function wants(text) { try { return !!analyze(text); } catch (e) { return false; } }
+  function wants(text, sess) {
+    var I = null;
+    try { I = analyze(text); } catch (e) { I = null; }
+    if (!I) return false;
+    if (/^(?:forget|nth)$/.test(I.kind)) return !!(sess && (I.kind === "nth" ? sess.pairs.length : findPair(sess, I.item).length));
+    return true;
+  }
   function ready() { var D = get("C4Dataset"); return D ? D.ready() : Promise.resolve(null); }
   function answer(text, sess) {
     var I = analyze(text);
@@ -717,11 +822,25 @@
     var w = DSW(), r = null;
     if (!w && I.kind !== "recall" && I.kind !== "list" && !(I.kind === "analogy" || I.kind === "apply" || I.kind === "state")) return null;
     switch (I.kind) {
-      case "state": r = state(w, sess, I.stmts); break;
+      case "state": r = state(w, sess, I.stmts, I.correction); break;
       case "apply": r = apply(w, sess, I.stmts, I.query, I.soft); break;
       case "compound": r = state(w, sess, I.stmts); if (I.then) { var r2 = apply(w, sess, [], I.then.query); if (r2) r.text += "\n\n" + r2.text; } break;
       case "analogy": r = apply(w, sess, [I.pairs], I.query, false, true); break;
       case "recall": r = recall(w, sess, I); break;
+      case "forget": {
+        var gone = findPair(sess, I.item);
+        if (!gone.length) return null;
+        gone.forEach(function (h) { sess.pairs.splice(sess.pairs.indexOf(h.p), 1); });
+        r = { text: "Forgotten: " + gone.map(function (h) { return h.p.left + " → " + h.p.right; }).join(", ") + ". " + (sess.pairs.length ? "Still paired: " + sess.pairs.filter(function (p) { return !p.inferred; }).map(function (p) { return p.left + " → " + p.right; }).join(", ") + "." : "No pairs left."), kind: "forget" };
+        break;
+      }
+      case "nth": {
+        var mine = sess.pairs.filter(function (p) { return !p.inferred; });
+        if (!mine.length) return null;
+        var idx = { first: 0, second: 1, third: 2, fourth: 3, fifth: 4 }[I.which], p = idx === undefined ? mine[mine.length - 1] : mine[idx];
+        r = p ? { text: "The " + I.which + " pair you gave me was " + p.left + " → " + p.right + ".", kind: "nth" } : { text: "You've only given me " + mine.length + " pair" + (mine.length === 1 ? "" : "s") + ".", kind: "nth" };
+        break;
+      }
       case "list": r = sess.pairs.length ? { text: "So far: " + sess.pairs.map(function (p) { return p.left + " → " + p.right + (p.inferred ? " (inferred)" : ""); }).join(", ") + ".", kind: "list" } : null; break;
       case "why": r = whyPair(w, sess, I); break;
       case "attr": r = w ? attrQuestion(w, sess, I) : null; break;
@@ -736,7 +855,7 @@
              sources: w ? [w.source + " (validated, " + (D && D.caller ? D.caller.stats.requests + " chunk reads" : "local") + ")"] : ["local knowledge base"] };
   }
 
-  var CR = { analyze: analyze, answer: answer, wants: wants, ready: ready, session: session, induce: induce };
+  var CR = { analyze: analyze, answer: answer, wants: wants, ready: ready, session: session, induce: induce, applyRelation: applyRelation };
   root.C4LMCrossRef = CR;
   if (typeof module !== "undefined" && module.exports) module.exports = CR;
 })(typeof window !== "undefined" ? window : globalThis);

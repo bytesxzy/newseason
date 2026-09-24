@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-24T18:56:03.269Z",
+ "generated": "2026-09-24T19:14:07.399Z",
  "passed": 53,
  "total": 53,
  "results": [
@@ -156,7 +156,7 @@
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "Paris is the capital of France. France h"
+   "detail": "France's capital is Paris. It has a popu"
   },
   {
    "name": "edge input: sql-ish input",
@@ -196,7 +196,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France has Paris as its capital. It has "
+   "detail": "Paris is the capital of France. France h"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -206,7 +206,7 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "8 -> 7"
+   "detail": "8 -> 8"
   },
   {
    "name": "offline: local computation unaffected",
@@ -216,7 +216,7 @@
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France has Paris as its capital. It has "
+   "detail": "Paris is the capital of France. France h"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -226,7 +226,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2534 ms"
+   "detail": "2532 ms"
   },
   {
    "name": "garbage source response handled",
@@ -241,7 +241,7 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "The capital of France is Paris. It has a"
+   "detail": "France's capital is Paris. It has a popu"
   },
   {
    "name": "missing conversation pack tolerated",
