@@ -696,7 +696,7 @@
         var lo = Math.max(a, x - (b - a) / 400), hi = Math.min(b, x + (b - a) / 400), phi = (Math.sqrt(5) - 1) / 2, it;
         for (it = 0; it < 80; it++) { var c1 = hi - phi * (hi - lo), c2 = lo + phi * (hi - lo); if (g(c1) < g(c2)) hi = c2; else lo = c1; }
         var xm = g(lo) < g(x) ? lo : x;
-        if (!best || g(xm) < g(best)) best = xm;
+        if (best === null || g(xm) < g(best)) best = xm;     /* x = 0 is a candidate, not "none" */
       });
       return { value: { x: best, f: f(best) }, text: (inp.goal === "max" ? "maximum" : "minimum") + " " + (Math.round(f(best) * 1e9) / 1e9) + " at x = " + (Math.round(best * 1e9) / 1e9), exact: false, detail: { g: g } };
     },

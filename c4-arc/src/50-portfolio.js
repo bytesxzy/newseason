@@ -194,7 +194,20 @@ function _moduleKey(mod) { return mod.__name__; }
    the schedule is, and taking one anyway is taken from a family that could.
    The remainder is not reserved: the loop recomputes the clock after every
    generator, so it falls through to the rest. */
+/* Anytime checkpoint (set by solve() from opts._anytime, used by the
+   re-framing stage so the whole task stays inside ONE time budget): when
+   the checkpoint passes with no fitted explanation at all, the remaining
+   generation modules are skipped and the solve wraps up early, leaving the
+   rest of the budget for the caller (a solve in another frame). */
+var PENDING_ANYTIME = null, ANY_STATE = null;
+function _anytimeTrip(reservoir) {
+  if (!ANY_STATE) return false;
+  if (!ANY_STATE.tripped && nowMs() >= ANY_STATE.checkAt && reservoir.a.length === 0) ANY_STATE.tripped = nowMs();
+  return !!ANY_STATE.tripped;
+}
+
 function _harvest(mod, ctx, moduleEnd, bias, reservoir, order, res) {
+  if (_anytimeTrip(reservoir)) return order;
   var now = nowMs();
   // Additional compositional search is most useful when ordinary solvers have
   // no executable explanation. Preserve their search/refit budget otherwise.
@@ -495,6 +508,11 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
      evaluate test predictions and to refit rather than silently skip LOO. */
   var reserve = (loo && ctx.train.length >= 3) ? Math.min(3000, timeBudget * 1000 * 0.15) : 0.0;
   var generationEnd = deadline - reserve - Math.min(200, timeBudget * 1000 * 0.03);
+  ANY_STATE = null;
+  if (PENDING_ANYTIME) {
+    ANY_STATE = { checkAt: t0 + timeBudget * 1000 * PENDING_ANYTIME.checkAt, wrapAt: t0 + timeBudget * 1000 * PENDING_ANYTIME.wrapAt, tripped: 0 };
+    PENDING_ANYTIME = null;
+  }
   var phase1 = [], phase2 = [];
   for (i = 0; i < mods.length; i++) ((mods[i].PHASE === 2) ? phase2 : phase1).push(mods[i]);
   var reservoir = new _MinHeap(_itemCmp), order = 0;
@@ -518,6 +536,20 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       order = _harvest(all[i], ctx, moduleEnd, bias, reservoir, order, res);
     }
   }
+
+  /* the anytime checkpoint tripped: the refinement stage gets the time up
+     to the wrap point, the caller the rest */
+  /* generation over with nothing fitted: the repair stage too is bounded by
+     the wrap point, whether the checkpoint tripped or the modules simply
+     finished early */
+  if (ANY_STATE && (ANY_STATE.tripped || reservoir.a.length === 0)) {
+    if (!ANY_STATE.tripped) ANY_STATE.tripped = nowMs();
+    deadline = Math.min(deadline, Math.max(ANY_STATE.wrapAt, nowMs() + 40));
+    generationEnd = Math.min(generationEnd, nowMs());
+    ctx.deadline = deadline;
+    res.diagnostics.anytime = { tripped_ms: Math.round(ANY_STATE.tripped - t0), wrap_ms: Math.round(deadline - t0) };
+  }
+  ANY_STATE = null;
 
   /* Residual-driven refinement of the near-misses generation produced. Only
      exact, executable repaired programs enter the reservoir. */
@@ -706,11 +738,20 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   res.diagnostics.timed_out = res.elapsed > timeBudget;
   var ranNames = new Set(res.diagnostics.modules.map(function (m) { return m.module; }));
   res.diagnostics.unrun_modules = mods.filter(function (m) { return !ranNames.has(_moduleKey(m)); }).length;
+  /* search-quality counters of the typed synthesis (last search run in
+     this context): generated vs canonical / behavioural duplicates,
+     evaluated states, macro steps, levels */
+  if (ctx._synStats) {
+    var ss = {}, sk;
+    for (sk in ctx._synStats) if (ctx._synStats.hasOwnProperty(sk) && typeof ctx._synStats[sk] === "number") ss[sk] = ctx._synStats[sk];
+    res.diagnostics.synthesis = ss;
+  }
   return res;
 }
 
 var solve = hypcacheScoped(function (train, testInputs, opts) {
   opts = opts || {};
+  PENDING_ANYTIME = opts._anytime || null;
   return solveInner(train, testInputs,
                     opts.time_budget === undefined ? 30.0 : opts.time_budget,
                     opts.k === undefined ? 2 : opts.k,

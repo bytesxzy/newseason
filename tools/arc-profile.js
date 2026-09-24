@@ -50,6 +50,69 @@ R.forEach(function (r) {
   });
   (st.plan || []).forEach(function (a) { p.plan_actions[a] = (p.plan_actions[a] || 0) + 1; });
 });
+/* ---------------------------------------------------- search quality
+   (every field optional: older result directories simply lack them) */
+function add(o, k, v) { o[k] = (o[k] || 0) + (v || 0); }
+var sq = { synthesis: {}, candidates: {}, near_miss_by_family: {}, popsearch: { tasks: 0, by_class: {}, exact_depths: {} },
+           tta: { ran: 0, validated: 0, adapted_found: 0, top_residual: {} },
+           representation: { tasks_with_represent_fit: 0, migrations: 0, migration_kept: 0, migration_exact: 0 },
+           repair_by_residual: {}, macros: { tasks_using: 0, steps: 0 }, failures: {}, pass2_promoted: 0,
+           stage_ms: { modules: {}, refinement: 0, popsearch: 0, tta: 0 } };
+R.forEach(function (r) {
+  var d = r.diagnostics || {};
+  add(sq.failures, r.failure_class || "unknown", 1);
+  (d.modules || []).forEach(function (m) {
+    add(sq.stage_ms.modules, m.module, m.elapsed || 0);
+    if (m.module === "represent" && m.fitted) sq.representation.tasks_with_represent_fit++;
+  });
+  Object.keys(d.synthesis || {}).forEach(function (k) { add(sq.synthesis, k, d.synthesis[k]); });
+  (d.predictions || []).forEach(function (pr) { if (pr.pass2_promoted) sq.pass2_promoted++; });
+  var usesMacro = (d.typed_solutions || []).some(function (t) { return /\bm:/.test(t.struct || ""); });
+  if (usesMacro) sq.macros.tasks_using++;
+  sq.macros.steps += (d.synthesis && d.synthesis.macro_steps) || 0;
+  var x = d.refinement;
+  if (!x || !x.ran) return;
+  var c = x.candidates || {};
+  ["offered", "evaluated", "kept", "typed", "clusters", "dup_behavior", "dup_structural", "capped", "evicted", "budget_stopped"].forEach(function (k) { add(sq.candidates, k, c[k]); });
+  Object.keys(c.near_miss_by_family || {}).forEach(function (f) {
+    var s = c.near_miss_by_family[f], t = sq.near_miss_by_family[f] || (sq.near_miss_by_family[f] = { offered: 0, kept: 0, best_sum: 0, n: 0 });
+    t.offered += s.offered || 0; t.kept += s.kept || 0;
+    if (typeof s.best === "number") { t.best_sum += s.best; t.n++; }
+  });
+  var st = x.stats || {};
+  sq.representation.migrations += st.migrations || 0; sq.representation.migration_kept += st.migration_kept || 0;
+  sq.representation.migration_exact += st.migration_exact || 0;
+  sq.stage_ms.refinement += st.ms || 0;
+  /* repair success by the task's dominant residual category */
+  var bd = st.by_diag || {}, top = Object.keys(bd).sort(function (a, b) { return bd[b] - bd[a]; })[0];
+  if (top) { var rr = sq.repair_by_residual[top] || (sq.repair_by_residual[top] = { tasks: 0, made_exact: 0 }); rr.tasks++; if (st.made_exact || (x.popsearch && x.popsearch.exact)) rr.made_exact++; }
+  var ps = x.popsearch;
+  if (ps) {
+    sq.popsearch.tasks++;
+    ["generated", "evaluated", "struct_dup", "behavior_dup", "exact", "niches", "archive"].forEach(function (k) { add(sq.popsearch, k, ps[k]); });
+    sq.stage_ms.popsearch += ps.ms || 0;
+    (ps.exact_depths || []).forEach(function (dd) { add(sq.popsearch.exact_depths, String(dd), 1); });
+    Object.keys(ps.by_class || {}).forEach(function (k) {
+      var s = ps.by_class[k], t = sq.popsearch.by_class[k] || (sq.popsearch.by_class[k] = { tried: 0, kept: 0, improved: 0, exact: 0 });
+      t.tried += s.tried || 0; t.kept += s.kept || 0; t.improved += s.improved || 0; t.exact += s.exact || 0;
+    });
+  }
+  if (x.tta) {
+    sq.tta.ran++; sq.tta.validated += x.tta.validated || 0; sq.tta.adapted_found += x.tta.adapted_found || 0;
+    sq.stage_ms.tta += x.tta.ms || 0;
+    if (x.tta.top_residual) add(sq.tta.top_residual, x.tta.top_residual, 1);
+  }
+});
+Object.keys(sq.near_miss_by_family).forEach(function (f) {
+  var t = sq.near_miss_by_family[f]; t.mean_best_residual = t.n ? Math.round(t.best_sum / t.n * 1000) / 1000 : null; delete t.best_sum; delete t.n;
+});
+if (sq.synthesis.generated) {
+  sq.synthesis.duplicate_ratio = Math.round((sq.synthesis.canonical_duplicates + sq.synthesis.behavior_duplicates) / sq.synthesis.generated * 1000) / 1000;
+  sq.synthesis.unique_states = sq.synthesis.evaluated - (sq.synthesis.behavior_duplicates || 0);
+}
+if (sq.popsearch.generated) sq.popsearch.unique_per_generated = Math.round((sq.popsearch.evaluated - sq.popsearch.behavior_dup) / sq.popsearch.generated * 1000) / 1000;
+p.search_quality = sq;
+
 p.mean_repair_depth = p.made_exact ? p.depth_sum / p.made_exact : null;
 p.refinement_ms = q(p.ms); p.refinement_steps = q(p.steps); delete p.ms; delete p.steps; delete p.depth_sum;
 if (B) {

@@ -105,6 +105,10 @@ names.forEach(function (n) {
   ok(!threw && bad && (bad.ok === false || bad.verified === false || bad.value === null || bad.text === "no solution"), n + " fails cleanly on malformed input");
 });
 
+/* regression: an optimum AT x = 0 is a candidate, not "no candidate yet" */
+var z = TL.run("opt.extremum", { expr: "2x^2 + 8x + 4", a: "0", b: "2", goal: "min" });
+ok(z.ok && Math.abs(z.value.x) < 1e-9 && Math.abs(z.value.f - 4) < 1e-9, "minimum at the endpoint x = 0 (" + z.text + ")");
+
 /* geometry query through the kernel's reasoning graph */
 var gv = TL.run("geom.visual", { facts: [{ type: "point", id: "A" }, { type: "line", id: "l", through: ["A"] }], query: "on:A:l" });
 ok(gv.ok && gv.value === "VERIFIED" || gv.value === "KNOWN" || /VERIF|KNOWN|TRUE/i.test(String(gv.value)), "geom.visual answers a stated incidence (" + gv.value + ")");

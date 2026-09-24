@@ -1,0 +1,195 @@
+{
+  "note": "synthetic curriculum; macros mined from the training split, accepted on a held-out composition validation split, measured on a separate held-out test split. No ARC benchmark data.",
+  "source": "both",
+  "splits": {
+    "train": 240,
+    "val": 80,
+    "test": 120
+  },
+  "ms_per_task": 300,
+  "collected": 349,
+  "discovered": 109,
+  "candidate_macros": 19,
+  "evaluated_candidates": 10,
+  "accepted_macros": 6,
+  "average_compression_gain": 359.78833333333324,
+  "validation_baseline": 16,
+  "heldout_test": {
+    "without": 34,
+    "with": 54,
+    "n": 120,
+    "delta": 20,
+    "search_cost_without": 278,
+    "search_cost_with": 1307.3947368421052,
+    "macro_usage": 39,
+    "by_depth_without": {
+      "3": {
+        "n": 53,
+        "generalized": 18
+      },
+      "4": {
+        "n": 40,
+        "generalized": 10
+      },
+      "5": {
+        "n": 27,
+        "generalized": 6
+      }
+    },
+    "by_depth_with": {
+      "3": {
+        "n": 53,
+        "generalized": 31
+      },
+      "4": {
+        "n": 40,
+        "generalized": 13
+      },
+      "5": {
+        "n": 27,
+        "generalized": 10
+      }
+    }
+  },
+  "candidates": [
+    {
+      "name": "L0",
+      "skeleton": "crop(keep_only($))",
+      "params": [],
+      "support": 37,
+      "mdlGain": 666.8,
+      "val_generalized": 21,
+      "delta": 5,
+      "cost_cut": -0.087,
+      "macro_uses": 8,
+      "accepted": true
+    },
+    {
+      "name": "L1",
+      "skeleton": "outline_c(grav($))",
+      "params": [
+        "C"
+      ],
+      "support": 40,
+      "mdlGain": 659.17,
+      "val_generalized": 22,
+      "delta": 6,
+      "cost_cut": -0.04,
+      "macro_uses": 5,
+      "accepted": true
+    },
+    {
+      "name": "L2",
+      "skeleton": "complete(flip_h($))",
+      "params": [],
+      "support": 28,
+      "mdlGain": 462.21,
+      "val_generalized": 22,
+      "delta": 6,
+      "cost_cut": -0.169,
+      "macro_uses": 5,
+      "accepted": true
+    },
+    {
+      "name": "L3",
+      "skeleton": "connect(move_objs($))",
+      "params": [],
+      "support": 9,
+      "mdlGain": 136.87,
+      "val_generalized": 20,
+      "delta": 4,
+      "cost_cut": -0.007,
+      "macro_uses": 0,
+      "accepted": true
+    },
+    {
+      "name": "L4",
+      "skeleton": "mirror_cat(outline_c(grav($)))",
+      "params": [
+        "A",
+        "C"
+      ],
+      "support": 7,
+      "mdlGain": 128.79,
+      "val_generalized": 21,
+      "delta": 5,
+      "cost_cut": -0.933,
+      "macro_uses": 1,
+      "accepted": true
+    },
+    {
+      "name": "L5",
+      "skeleton": "grav(crop($))",
+      "params": [
+        "D"
+      ],
+      "support": 8,
+      "mdlGain": 104.89,
+      "val_generalized": 17,
+      "delta": 1,
+      "cost_cut": -0.027,
+      "macro_uses": 1,
+      "accepted": true
+    },
+    {
+      "name": "L6",
+      "skeleton": "mirror_cat(outline_c($))",
+      "params": [
+        "A",
+        "C"
+      ],
+      "support": 9,
+      "mdlGain": 103.92,
+      "val_generalized": 19,
+      "delta": 3,
+      "cost_cut": -1.326,
+      "macro_uses": 2,
+      "accepted": true
+    },
+    {
+      "name": "L7",
+      "skeleton": "grav(crop(keep_only($)))",
+      "params": [
+        "D"
+      ],
+      "support": 5,
+      "mdlGain": 95.26,
+      "val_generalized": 20,
+      "delta": 4,
+      "cost_cut": -0.355,
+      "macro_uses": 8,
+      "accepted": true
+    },
+    {
+      "name": "L8",
+      "skeleton": "grav(outline_c($))",
+      "params": [
+        "D",
+        "C"
+      ],
+      "support": 6,
+      "mdlGain": 61.08,
+      "val_generalized": 21,
+      "delta": 5,
+      "cost_cut": -1.926,
+      "macro_uses": 2,
+      "accepted": true
+    },
+    {
+      "name": "L9",
+      "skeleton": "grav(outline_c(grav($)))",
+      "params": [
+        "D",
+        "C"
+      ],
+      "support": 4,
+      "mdlGain": 59.23,
+      "val_generalized": 23,
+      "delta": 7,
+      "cost_cut": -1,
+      "macro_uses": 4,
+      "accepted": true
+    }
+  ],
+  "seconds": 568.289
+}

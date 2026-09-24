@@ -30,7 +30,12 @@
     "lm:tools": "node tools/lm-tools-test.js",
     "lm:deliberate": "node tools/lm-deliberate-test.js",
     "arc3:hard": "node tools/arc3-synth.js --suite hard --games 10 --out measurements/arc3-hard.json",
-    "arc3:test": "node tools/arc3-world-test.js"
+    "arc3:test": "node tools/arc3-world-test.js",
+    "arc:ablate": "node tools/arc-ablate.js --n 100 --rep 40 --ms 500 --seed 31 --out measurements/arc-ablation.json",
+    "arc:clean": "node c4-arc/bench.js --policy-mode clean --budget 3 --jobs 3 --out results/arc1-clean",
+    "arc:nopolicy": "node c4-arc/bench.js --policy-mode none --budget 3 --jobs 3 --out results/arc1-nopolicy",
+    "arc:profile": "node tools/arc-profile.js results/arc1-nopolicy --out measurements/arc-profile.json",
+    "reason:heldout": "node tools/reason-synth.js --heldout --n 160 --seed 9 --out measurements/reason-heldout.json"
   },
   "engines": {
     "node": ">=18"

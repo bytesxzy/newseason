@@ -1,0 +1,424 @@
+{
+  "note": "synthetic curriculum v2; programs, inputs, corruptions (1-5 edits) generated; no ARC benchmark data",
+  "train": {
+    "n": 600,
+    "recovery_rate": 0.79,
+    "general_rate": 0.7466666666666667,
+    "log_entries": 35749,
+    "trajectories": 3758,
+    "extra_trajectories": 2639
+  },
+  "eval": {
+    "legacy_static": {
+      "n": 300,
+      "recovery_rate": 0.34,
+      "general_rate": 0.31333333333333335,
+      "mean_steps": 2.8133333333333335,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 34,
+          "general": 32
+        },
+        "2": {
+          "n": 60,
+          "recovered": 26,
+          "general": 25
+        },
+        "3": {
+          "n": 60,
+          "recovered": 20,
+          "general": 19
+        },
+        "4": {
+          "n": 60,
+          "recovered": 8,
+          "general": 7
+        },
+        "5": {
+          "n": 60,
+          "recovered": 14,
+          "general": 11
+        }
+      }
+    },
+    "legacy_policy": {
+      "n": 300,
+      "recovery_rate": 0.36333333333333334,
+      "general_rate": 0.3433333333333333,
+      "mean_steps": 2.743333333333333,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 36,
+          "general": 35
+        },
+        "2": {
+          "n": 60,
+          "recovered": 25,
+          "general": 24
+        },
+        "3": {
+          "n": 60,
+          "recovered": 20,
+          "general": 19
+        },
+        "4": {
+          "n": 60,
+          "recovered": 10,
+          "general": 9
+        },
+        "5": {
+          "n": 60,
+          "recovered": 18,
+          "general": 16
+        }
+      }
+    },
+    "static": {
+      "n": 300,
+      "recovery_rate": 0.3333333333333333,
+      "general_rate": 0.31,
+      "mean_steps": 2.8333333333333335,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 33,
+          "general": 31
+        },
+        "2": {
+          "n": 60,
+          "recovered": 25,
+          "general": 24
+        },
+        "3": {
+          "n": 60,
+          "recovered": 20,
+          "general": 19
+        },
+        "4": {
+          "n": 60,
+          "recovered": 9,
+          "general": 8
+        },
+        "5": {
+          "n": 60,
+          "recovered": 13,
+          "general": 11
+        }
+      }
+    },
+    "repair_policy": {
+      "n": 300,
+      "recovery_rate": 0.4,
+      "general_rate": 0.37333333333333335,
+      "mean_steps": 2.6866666666666665,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 39,
+          "general": 37
+        },
+        "2": {
+          "n": 60,
+          "recovered": 28,
+          "general": 26
+        },
+        "3": {
+          "n": 60,
+          "recovered": 26,
+          "general": 25
+        },
+        "4": {
+          "n": 60,
+          "recovered": 9,
+          "general": 8
+        },
+        "5": {
+          "n": 60,
+          "recovered": 18,
+          "general": 16
+        }
+      }
+    },
+    "meta_controller": {
+      "n": 300,
+      "recovery_rate": 0.5066666666666667,
+      "general_rate": 0.49,
+      "mean_steps": 2.5866666666666664,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 46,
+          "general": 45
+        },
+        "2": {
+          "n": 60,
+          "recovered": 39,
+          "general": 39
+        },
+        "3": {
+          "n": 60,
+          "recovered": 29,
+          "general": 28
+        },
+        "4": {
+          "n": 60,
+          "recovered": 15,
+          "general": 14
+        },
+        "5": {
+          "n": 60,
+          "recovered": 23,
+          "general": 21
+        }
+      }
+    },
+    "meta_controller_pop": {
+      "n": 300,
+      "recovery_rate": 0.8366666666666667,
+      "general_rate": 0.8,
+      "mean_steps": 2.5866666666666664,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 58,
+          "general": 55
+        },
+        "2": {
+          "n": 60,
+          "recovered": 53,
+          "general": 53
+        },
+        "3": {
+          "n": 60,
+          "recovered": 48,
+          "general": 46
+        },
+        "4": {
+          "n": 60,
+          "recovered": 43,
+          "general": 39
+        },
+        "5": {
+          "n": 60,
+          "recovered": 49,
+          "general": 47
+        }
+      }
+    },
+    "refine_only_time": {
+      "n": 300,
+      "recovery_rate": 0.74,
+      "general_rate": 0.71,
+      "mean_steps": 26.47,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 56,
+          "general": 53
+        },
+        "2": {
+          "n": 60,
+          "recovered": 50,
+          "general": 50
+        },
+        "3": {
+          "n": 60,
+          "recovered": 44,
+          "general": 43
+        },
+        "4": {
+          "n": 60,
+          "recovered": 32,
+          "general": 31
+        },
+        "5": {
+          "n": 60,
+          "recovered": 40,
+          "general": 36
+        }
+      }
+    },
+    "refine_pop_time": {
+      "n": 300,
+      "recovery_rate": 0.8366666666666667,
+      "general_rate": 0.8,
+      "mean_steps": 21.323333333333334,
+      "byEdits": {
+        "1": {
+          "n": 60,
+          "recovered": 58,
+          "general": 55
+        },
+        "2": {
+          "n": 60,
+          "recovered": 54,
+          "general": 54
+        },
+        "3": {
+          "n": 60,
+          "recovered": 50,
+          "general": 48
+        },
+        "4": {
+          "n": 60,
+          "recovered": 42,
+          "general": 40
+        },
+        "5": {
+          "n": 60,
+          "recovered": 47,
+          "general": 43
+        }
+      }
+    }
+  },
+  "meta": {
+    "rank_accuracy_heldout": 0.5932203389830508,
+    "behaviours": {
+      "switch_representation_after_stall": 0.05929999999999999,
+      "expand_after_underfit": 0.010000000000000009,
+      "simplify_after_excess": 0,
+      "discriminate_when_ambiguous": -0.0014999999999999458,
+      "stop_when_verified": 0.09390000000000004
+    },
+    "explain": {
+      "ABSTRACT_RESIDUAL": {
+        "intercept": 0.1991,
+        "n": 929,
+        "favours": [
+          "diag:wrong_orientation 0.4874",
+          "diag:consistent_translation 0.4499",
+          "div:1 0.1688",
+          "diag:no_output 0.1388"
+        ]
+      },
+      "BACKTRACK": {
+        "intercept": 0.0008,
+        "n": 220,
+        "favours": [
+          "last:EXPAND_PROGRAM:0 0.0022",
+          "res:mid 0.0019",
+          "div:wide 0.0015",
+          "depth:0 0.0014"
+        ]
+      },
+      "CHANGE_REPRESENTATION": {
+        "intercept": 0.0892,
+        "n": 633,
+        "favours": [
+          "last:REFINE_DIVERSE:+ 0.0793",
+          "div:some 0.0716",
+          "left:hi 0.0709",
+          "res:high 0.0671"
+        ]
+      },
+      "EXPAND_PROGRAM": {
+        "intercept": 0.0022,
+        "n": 78,
+        "favours": [
+          "last:RESTART_DIVERSE:0 0.003",
+          "dom:arc 0.0024",
+          "exact:0 0.0021",
+          "left:lo 0.0019"
+        ]
+      },
+      "GENERATE_DISCRIMINATOR": {
+        "intercept": 0.9912,
+        "n": 17,
+        "favours": [
+          "dup:mid 0.0054",
+          "exact:few 0.0044",
+          "stall:0 0.0035",
+          "depth:1 0.003"
+        ]
+      },
+      "INVENT_ABSTRACTION": {
+        "intercept": 0,
+        "n": 46,
+        "favours": []
+      },
+      "PROPOSE_REPRESENTATION": {
+        "intercept": 0.0311,
+        "n": 1189,
+        "favours": [
+          "diag:excessive_change 0.1292",
+          "exact:few 0.1074",
+          "diag:color_substitution 0.0785",
+          "diag:object_recolored 0.0518"
+        ]
+      },
+      "REFINE_BEST": {
+        "intercept": 0.1583,
+        "n": 1307,
+        "favours": [
+          "diag:color_substitution 0.1591",
+          "diag:excessive_change 0.1274",
+          "div:1 0.0812",
+          "div:some 0.076"
+        ]
+      },
+      "REFINE_DIVERSE": {
+        "intercept": 0.0305,
+        "n": 1665,
+        "favours": [
+          "diag:excessive_change 0.0741",
+          "diag:color_substitution 0.0601",
+          "stall:0 0.0526",
+          "div:some 0.0432"
+        ]
+      },
+      "RESTART_DIVERSE": {
+        "intercept": 0,
+        "n": 83,
+        "favours": []
+      },
+      "STOP": {
+        "intercept": 0.3964,
+        "n": 169,
+        "favours": [
+          "div:wide 0.1048",
+          "verified:1 0.0939",
+          "diag:wrong_panel_decomposition 0.0769",
+          "last:GENERATE_DISCRIMINATOR:+ 0.072"
+        ]
+      },
+      "VERIFY_DEEPLY": {
+        "intercept": 0.6107,
+        "n": 54,
+        "favours": [
+          "res:tiny 0.0775",
+          "stall:1 0.0637",
+          "exact:few 0.0509",
+          "depth:1 0.0391"
+        ]
+      }
+    },
+    "actions_trained": 12
+  },
+  "popsearch_prior": {
+    "classWeights": {
+      "delete": 1.391,
+      "generalize": 0.249,
+      "compose": 0.605,
+      "specialize": 0.535,
+      "selector": 0.22,
+      "macro_sub": 0.317,
+      "opsub": 0.848,
+      "param": 1.07,
+      "decompose": 1.104,
+      "insert": 0.759,
+      "targeted": 6.125,
+      "macro_expand": 0.058,
+      "role": 0.127,
+      "migrate": 0.916,
+      "frame": 0.927,
+      "subtree_sub": 1.241,
+      "anchor": 0.507
+    }
+  },
+  "policy_rows": 310,
+  "weight_features": 59,
+  "seconds": 98.219
+}

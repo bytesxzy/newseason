@@ -67,27 +67,39 @@ var REFRAME = (function () {
     }) };
   }
 
-  /* opts.reframe: false disables; opts.reframe_budget: seconds for all
-     frames (default half the base budget); opts.reframe_frames: max frames.
-     Triggered when no program fits (as before) and ALSO, with a quarter of
-     the budget, when a frame shows strong evidence (gain > 1) while the raw
-     top prediction violates a demonstrated shape or palette law. */
+  /* ONE time budget for the whole task. Frames with positive evidence
+     (the demonstrations compress better in them) make the base solve
+     anytime: if nothing fits by 2/3 of the budget it wraps up by 5/6 and the
+     frames get the rest. Without frame evidence the base solve keeps the
+     whole budget and frames only use time it left unused.
+     opts.reframe: false disables; opts.reframe_budget: an EXPLICIT extra
+     budget in seconds (the old behaviour: frames after the base budget);
+     opts.reframe_frames: max frames. A frame also runs, time permitting,
+     when a frame shows strong evidence (gain > 1) while the raw top
+     prediction violates a demonstrated shape or palette law. */
   function solveReframed(solveFn, train, testInputs, opts) {
     opts = opts || {};
-    var res = solveFn(train, testInputs, opts);
-    if (opts.reframe === false) return res;
+    if (opts.reframe === false) return solveFn(train, testInputs, opts);
+    var tStart = nowMs();
     var base = opts.time_budget === undefined ? 30.0 : opts.time_budget;
     var maxFrames = opts.reframe_frames === undefined ? 3 : opts.reframe_frames;
     var ev = evidenceFrames(train, testInputs, maxFrames), weak = false;
+    var extra = opts.reframe_budget !== undefined;
+    var positive = !!(ev && ev.frames.length && ev.frames[0].gain > 0);
+    var sub0 = {}, k0;
+    for (k0 in opts) sub0[k0] = opts[k0];
+    if (!extra && positive) sub0._anytime = { checkAt: 2 / 3, wrapAt: 5 / 6 };
+    var res = solveFn(train, testInputs, sub0);
     if (hasCandidate(res)) {
       var viol = res.diagnostics && res.diagnostics.predictions && res.diagnostics.predictions.some(function (p) { return p.top_violations > 0; });
       weak = !!(viol && ev && ev.frames.length && ev.frames[0].gain > 1.0);
       if (!weak) return res;
     }
-    var budget = opts.reframe_budget === undefined ? base * (weak ? 0.25 : 0.5) : opts.reframe_budget;
-    if (!(budget > 0)) return res;
+    var budget = extra ? opts.reframe_budget : base - (nowMs() - tStart) / 1000 - 0.03;
+    if (!(budget > 0.05)) return res;
     var frames = [];
-    if (ev && ev.frames.length) frames = ev.frames;
+    if (positive) frames = ev.frames.filter(function (fr) { return fr.gain > 0; });
+    else if (ev && ev.frames.length) frames = ev.frames;
     else {
       var cf = colourFrame(train, testInputs);
       if (cf) frames.push(cf);
