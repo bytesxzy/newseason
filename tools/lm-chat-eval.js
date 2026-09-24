@@ -18,7 +18,8 @@ var args = process.argv.slice(2);
 function arg(k, d) { var i = args.indexOf("--" + k); return i < 0 ? d : args[i + 1]; }
 var set = JSON.parse(fs.readFileSync(path.resolve(arg("set", path.join(__dirname, "lm-chat-heldout.json"))), "utf8"));
 var out = arg("out", ""), show = args.indexOf("--show") >= 0;
-var HONEST = /\b(?:i don't have|i do not have|i couldn't|i could not|not sure|don't know|do not know|no reliable|can't answer|cannot answer)\b/i;
+/* an honest decline says it does not know or could not find/confirm */
+var HONEST = /\b(?:i don't have|i do not have|i couldn't|i could not|couldn't find|could not find|not sure|don't know|do not know|don't know enough|no reliable|can't answer|cannot answer|can't confirm|cannot confirm|can't say reliably|rather not (?:guess|pretend|make))\b/i;
 
 var win = RT.boot({});
 (async function () {
