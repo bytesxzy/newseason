@@ -34,10 +34,61 @@ function gkey(g) {
   return k;
 }
 
+/* 53-bit structural hash of a grid, two independent 32-bit lanes seeded
+   with the dimensions, cached on the grid like gkey. For search-state
+   deduplication only: a collision (probability ~n^2 / 2^54 for n states) can
+   cost a missed state, never a wrong answer, because every program is still
+   verified against the demonstrations cell by cell. Profiling the typed
+   synthesis put 46% of its time in building gkey strings for states that are
+   only ever compared, never read. */
+function ghashLanes(g) {
+  if (g.__h1 === undefined) {
+    var h = g.length, w = h ? g[0].length : 0, a = 0x811c9dc5 ^ (h * 64 + w), b = Math.imul(0x27d4eb2d, h * 131 + w + 7), r, c, row, v;
+    for (r = 0; r < h; r++) {
+      row = g[r];
+      for (c = 0; c < w; c++) {
+        v = row[c] + 1;
+        a = Math.imul(a ^ v, 16777619);
+        b = Math.imul(b ^ (v * 0x9e3779b1), 0x85ebca6b);
+        b = (b << 13) | (b >>> 19);
+      }
+      a = Math.imul(a ^ 0xff, 16777619);
+    }
+    g.__h1 = a >>> 0; g.__h2 = (b ^ (b >>> 16)) >>> 0;
+  }
+  return g;
+}
+function ghash(g) { ghashLanes(g); return g.__h1 * 2097152 + (g.__h2 & 2097151); }
+/* one number for an ordered list of grids (a search state) */
+function ghashList(list) {
+  var a = 0x9747b28c ^ list.length, b = 0x85ebca6b, i, g;
+  for (i = 0; i < list.length; i++) {
+    g = list[i];
+    if (!g) { a = Math.imul(a ^ 0x7f4a7c15, 0x5bd1e995); continue; }
+    ghashLanes(g);
+    a = Math.imul(a ^ g.__h1, 0x5bd1e995); a ^= a >>> 15;
+    b = Math.imul(b ^ g.__h2, 0xc2b2ae35); b ^= b >>> 13;
+  }
+  return (a >>> 0) * 2097152 + ((b >>> 0) & 2097151);
+}
+
+/* Structural equality. Same answer as comparing gkey strings, without
+   building them: dimensions, then cached keys or hash lanes when both sides
+   already carry them, then the cells themselves with an early exit. */
 function gEq(a, b) {
   if (a === b) return true;
   if (a === null || b === null || a === undefined || b === undefined) return false;
-  return gkey(a) === gkey(b);
+  var h = a.length, r, c, x, y;
+  if (h !== b.length) return false;
+  if (a.__k !== undefined && b.__k !== undefined) return a.__k === b.__k;
+  if (a.__h1 !== undefined && b.__h1 !== undefined && (a.__h1 !== b.__h1 || a.__h2 !== b.__h2)) return false;
+  for (r = 0; r < h; r++) {
+    x = a[r]; y = b[r];
+    if (x === y) continue;
+    if (!x || !y || x.length !== y.length) return false;
+    for (c = 0; c < x.length; c++) if (x[c] !== y[c]) return false;
+  }
+  return true;
 }
 
 /* Colour sets are 10-bit masks: the palette algebra below is set union,
@@ -119,7 +170,20 @@ function rot90(g) {
 }
 function rot180(g) { return flipH(flipV(g)); }
 function rot270(g) { var t = transpose(g); return t.reverse(); }
-function antiTranspose(g) { var t = transpose(flipH(g)); return t.reverse(); }
+/* Reflection in the anti-diagonal: (r, c) -> (W-1-c, H-1-r). The previous
+   body, reverse(transpose(flipH(g))), equals transpose(g) -- a duplicate of
+   another symmetry that left the eighth one unreachable. The canonicaliser's
+   group table (09c-canonical.js) is derived from these primitives, which is
+   how the duplicate was found. */
+function antiTranspose(g) {
+  var h = g.length, w = g[0].length, out = [], i, j, row;
+  for (i = 0; i < w; i++) {
+    row = new Array(h);
+    for (j = 0; j < h; j++) row[j] = g[h - 1 - j][w - 1 - i];
+    out.push(row);
+  }
+  return out;
+}
 
 var DIHEDRAL = [
   ["id", function (g) { return g; }],
@@ -615,6 +679,7 @@ function wrapTranslate(g, dr, dc) {
 
 var G = {
   NCOLORS: NCOLORS, enc: enc, decR: decR, decC: decC, gkey: gkey, gEq: gEq,
+  ghash: ghash, ghashList: ghashList,
   csAdd: csAdd, csHas: csHas, csUnion: csUnion, csDiff: csDiff, csSubset: csSubset,
   csSize: csSize, csList: csList, csFrom: csFrom,
   dims: dims, gh: gh, gw: gw, area: area, valid: valid, isGrid: isGrid, asGrid: asGrid,
@@ -1116,15 +1181,18 @@ var _SEG_CAP = 512;
    recomputing connected components each time dominated the runtime. */
 function segment(grid, mode, bg) {
   if (bg === null || bg === undefined) bg = G.background(grid);
-  var key = G.gkey(grid) + "#" + mode + "#" + bg;
-  var hit = _SEG_CACHE.get(key);
-  if (hit !== undefined) return hit;
+  /* keyed by the grid's numeric hash; a bucket entry is only returned after
+     an exact comparison, so a hash collision can never hand back another
+     grid's objects */
+  var key = G.ghash(grid) + "#" + mode + "#" + bg;
+  var bucket = _SEG_CACHE.get(key), j;
+  if (bucket !== undefined) for (j = 0; j < bucket.length; j++) if (G.gEq(bucket[j][0], grid)) return bucket[j][1];
   var i, res = null;
   for (i = 0; i < SEGMENTATIONS.length; i++)
     if (SEGMENTATIONS[i][0] === mode) { res = SEGMENTATIONS[i][1](grid, bg); break; }
   if (res === null) throw new Error("unknown segmentation " + mode);
-  if (_SEG_CACHE.size > _SEG_CAP) _SEG_CACHE.clear();
-  _SEG_CACHE.set(key, res);
+  if (_SEG_CACHE.size > _SEG_CAP) { _SEG_CACHE.clear(); bucket = undefined; }
+  if (bucket !== undefined) bucket.push([grid, res]); else _SEG_CACHE.set(key, [[grid, res]]);
   return res;
 }
 
@@ -2533,14 +2601,40 @@ Memory.prototype.features = function (sigs, k, exclude) {
   return out;
 };
 
-function Planner(data) {
+/* opts.clean: drop the benchmark-derived memory rows (signature -> family
+   -> TASK ID of a solved development task). The learned general weights are
+   kept. Results of a clean planner and of the legacy planner are different
+   measurements and must be reported separately (c4-arc/bench.js records
+   which one ran). */
+function Planner(data, opts) {
   var d = data || {}, feat;
   this.w = {};
   var src = d.w || {};
   for (feat in src) if (Object.prototype.hasOwnProperty.call(src, feat)) this.w[feat] = src[feat];
-  this.memory = new Memory(d.memory || []);
+  this.clean = !!(opts && opts.clean);
+  this.mode = this.clean ? "clean" : "legacy";
+  this.memory = new Memory(this.clean ? [] : (d.memory || []));
   this.meta = d.meta || {};
   this.trained = Object.keys(this.w).length > 0;
+  this.extra = null;
+}
+
+/* Search-state features beyond the task signature and the run history:
+   what the near-miss sink and the typed search have seen so far. The
+   shipped weights carry none of them (their logit contribution is zero
+   until a planner is trained with them); they are computed live and
+   reported so a planner fitted on synthetic curricula can use them. */
+function _stateFeatures(x) {
+  if (!x) return [];
+  var f = [];
+  f.push("s:near:" + (x.nearCount === 0 ? "0" : x.nearCount < 6 ? "few" : "many"));
+  f.push("s:neardiv:" + (x.nearClusters <= 1 ? "1" : x.nearClusters < 5 ? "some" : "wide"));
+  if (x.dupRatio !== undefined) f.push("s:dup:" + (x.dupRatio > 0.3 ? "hi" : x.dupRatio > 0.1 ? "mid" : "lo"));
+  if (x.repConfidence !== undefined) f.push("s:rep:" + (x.repConfidence > 1 ? "strong" : x.repConfidence > 0.25 ? "some" : "none"));
+  if (x.residualCategory) f.push("s:res:" + x.residualCategory);
+  if (x.semanticClusters !== undefined) f.push("s:sem:" + Math.min(3, x.semanticClusters));
+  if (x.disagreement !== undefined) f.push("s:disagree:" + (x.disagreement > 1 ? "1" : "0"));
+  return f;
 }
 
 Planner.prototype.features = function (sigs, ran, nFit, fracLeft, step, exclude) {
@@ -2548,6 +2642,7 @@ Planner.prototype.features = function (sigs, ran, nFit, fracLeft, step, exclude)
     .concat(_historyFeatures(ran || [], nFit || 0,
                              fracLeft === undefined ? 1.0 : fracLeft, step || 0))
     .concat(this.memory.features(sigs, 12, exclude))
+    .concat(_stateFeatures(this.extra))
     .concat(["bias"]);
 };
 
@@ -2620,7 +2715,7 @@ function explore(dist, epsilon, available) {
 }
 
 var PLANNER = {
-  FAMILIES: FAMILIES, ACTIONS: ACTIONS, Planner: Planner, Memory: Memory,
+  FAMILIES: FAMILIES, ACTIONS: ACTIONS, Planner: Planner, Memory: Memory, stateFeatures: _stateFeatures,
   activate: activatePlanner, active: activePlanner,
   explore: explore, EPSILON: PLANNER_EPSILON
 };
@@ -2694,7 +2789,8 @@ var _HC_CACHEABLE = {};
 
 function hypcacheScoped(fn) {
   return function () {
-    var state = HYPCACHE_ENABLED ? { items: new Map(), hits: 0, misses: 0, stored_hyps: 0 } : null;
+    var state = HYPCACHE_ENABLED ? { items: new Map(), hits: 0, misses: 0, stored_hyps: 0,
+                                     evals: new Map(), eval_hits: 0, eval_misses: 0, eval_cells: 0 } : null;
     var prev = _HC_STATE;
     _HC_STATE = state;
     try {
@@ -2702,7 +2798,8 @@ function hypcacheScoped(fn) {
       if (state && result && result.diagnostics) {
         result.diagnostics.hypothesis_cache = {
           hits: state.hits, misses: state.misses,
-          stored_hyps: state.stored_hyps, entries: state.items.size
+          stored_hyps: state.stored_hyps, entries: state.items.size,
+          eval_hits: state.eval_hits, eval_misses: state.eval_misses, eval_entries: state.evals.size
         };
       }
       return result;
@@ -2743,6 +2840,43 @@ function hypcacheGenerate(module, ctx) {
   return complete;
 }
 
+
+/* Canonical evaluation cache. Repair, population search and representation
+   migration keep reaching the same program by different edit paths; the
+   canonical structural key (09c-canonical.js) plus the representation and
+   the context identity name the computation, so its outputs are computed
+   once per solve. Keys are structural, never behavioural: two programs
+   share an entry only when they are the same program after sound
+   rewriting. Bounded by entries and by stored cells; cleared with the
+   solve. Outside a scoped solve (e.g. unit tests, the curriculum) a
+   module-level cache of the same shape is used. */
+var _HC_LOCAL = { evals: new Map(), eval_hits: 0, eval_misses: 0, eval_cells: 0 };
+var HC_EVAL_ENTRIES = 4096, HC_EVAL_CELLS = 4000000;
+var _ctxIds = 0;
+function hypcacheCtxId(ctx) {
+  if (ctx._cid === undefined) ctx._cid = ++_ctxIds;
+  return ctx._cid;
+}
+function hypcacheEval(ctx, key, compute) {
+  if (key === null || key === undefined) return compute();
+  var st = _HC_STATE || _HC_LOCAL;
+  var k = hypcacheCtxId(ctx) + "|" + key, hit = st.evals.get(k);
+  if (hit !== undefined) { st.eval_hits++; return hit; }
+  st.eval_misses++;
+  var out = compute(), cells = 0, i;
+  if (out && out.length) for (i = 0; i < out.length; i++) if (out[i]) cells += out[i].length * out[i][0].length;
+  if (st.evals.size >= HC_EVAL_ENTRIES || st.eval_cells + cells > HC_EVAL_CELLS) {
+    st.evals.clear(); st.eval_cells = 0;
+  }
+  st.evals.set(k, out);
+  st.eval_cells += cells;
+  return out;
+}
+function hypcacheEvalStats() {
+  var st = _HC_STATE || _HC_LOCAL;
+  return { hits: st.eval_hits, misses: st.eval_misses, entries: st.evals.size };
+}
+function hypcacheResetLocal() { _HC_LOCAL.evals.clear(); _HC_LOCAL.eval_hits = 0; _HC_LOCAL.eval_misses = 0; _HC_LOCAL.eval_cells = 0; }
 /* ===== src/09-program.js ===== */
 /* Port of engine/program.py -- typed programs as a canonical structure ``c``
  * plus explicit parameters ``theta``.
@@ -2776,26 +2910,40 @@ var PROG = null;
   /* ``aux`` operators form a second alphabet reached through a one-bit
      escape. They are excluded from the Kraft total, so adding repair-only
      operators leaves every existing program's code length -- and therefore
-     every existing ranking -- exactly as it was. */
+     every existing ranking -- exactly as it was.
+
+     Learned macros (56b-macros.js) form a third alphabet behind a two-bit
+     escape, with their own Kraft total. A macro's weight is its VALIDATED
+     utility (held-out success and compression measured by tools/arc-macros.js),
+     not the fact that it was learned; a macro reference therefore costs
+     2 + -log2(w / W_macro) bits plus its parameters, and adding or removing
+     macros never changes the code length of a program that does not use
+     one. */
   function register(name, fn, kinds, weight, aux) {
     OPS[name] = { name: name, fn: fn, kinds: kinds || [T_GRID],
-                  weight: weight === undefined ? 1.0 : weight, aux: !!aux };
+                  weight: weight === undefined ? 1.0 : weight, aux: !!aux,
+                  macro: aux === "macro" };
     OP_BITS = null;
     return OPS[name];
   }
+  function unregister(name) { if (OPS.hasOwnProperty(name)) { delete OPS[name]; OP_BITS = null; } }
 
+  var MACRO_ESCAPE_BITS = 2.0;
   function opBits(name) {
     if (OP_BITS === null) {
       OP_BITS = {};
       var total = 0, k;
-      var auxTotal = 0;
+      var auxTotal = 0, macroTotal = 0;
       for (k in OPS) if (OPS.hasOwnProperty(k)) {
-        if (OPS[k].aux) auxTotal += OPS[k].weight; else total += OPS[k].weight;
+        if (OPS[k].macro) macroTotal += OPS[k].weight;
+        else if (OPS[k].aux) auxTotal += OPS[k].weight; else total += OPS[k].weight;
       }
       if (!total) total = 1.0;
       if (!auxTotal) auxTotal = 1.0;
+      if (!macroTotal) macroTotal = 1.0;
       for (k in OPS) if (OPS.hasOwnProperty(k))
-        OP_BITS[k] = OPS[k].aux ? 1.0 - Math.log(Math.max(OPS[k].weight, 1e-9) / auxTotal) / Math.LN2
+        OP_BITS[k] = OPS[k].macro ? MACRO_ESCAPE_BITS - Math.log(Math.max(OPS[k].weight, 1e-9) / macroTotal) / Math.LN2
+                   : OPS[k].aux ? 1.0 - Math.log(Math.max(OPS[k].weight, 1e-9) / auxTotal) / Math.LN2
                                 : -Math.log(Math.max(OPS[k].weight, 1e-9) / total) / Math.LN2;
       OP_BITS["in"] = -Math.log(1.0 / (total + 1.0)) / Math.LN2;
     }
@@ -3355,7 +3503,147 @@ var PROG = null;
     return out.slice(0, cap);
   }
 
+  /* -- trees ------------------------------------------------------------
+     The editable form of a program, shared by canonicalisation
+     (09c-canonical.js), repair (56-repair.js), population search
+     (56a-popsearch.js) and macro mining (56b-macros.js):
+       tree := {op: "in"} | {op, kids: [tree...], params: [literal...]} */
+
+  function toTree(struct, theta) {
+    var it = iterOf(theta || []);
+    return (function walk(n) {
+      if (isVar(n)) return { op: "in" };
+      if (n[0] === "hcat" || n[0] === "vcat") return { op: n[0], kids: [walk(n[1]), walk(n[2])], params: [] };
+      var kids = [], params = [], i;
+      for (i = 1; i < n.length; i++) {
+        if (isHole(n[i])) params.push(it.next());
+        else kids.push(walk(n[i]));
+      }
+      return { op: n[0], kids: kids, params: params };
+    })(struct);
+  }
+
+  function fromTree(tree) {
+    if (tree.op === "in") return { struct: VAR, theta: [] };
+    if (tree.op === "hcat" || tree.op === "vcat") {
+      var a = fromTree(tree.kids[0]), b = fromTree(tree.kids[1]);
+      return { struct: [tree.op, a.struct, b.struct], theta: a.theta.concat(b.theta) };
+    }
+    var op = OPS[tree.op];
+    if (!op) throw new Error("unknown operator " + tree.op);
+    var struct = [tree.op], theta = [], ki = 0, pi = 0, i;
+    for (i = 0; i < op.kinds.length; i++) {
+      if (op.kinds[i] === T_GRID) {
+        var sub = fromTree(tree.kids[ki++]);
+        struct.push(sub.struct); theta = theta.concat(sub.theta);
+      } else { struct.push(hole(op.kinds[i])); theta.push(tree.params[pi++]); }
+    }
+    return { struct: struct, theta: theta };
+  }
+
+  function cloneTree(t) {
+    if (t.op === "in") return { op: "in" };
+    var c = { op: t.op, kids: t.kids.map(cloneTree), params: t.params.map(function (p) {
+      return p && typeof p === "object" ? JSON.parse(JSON.stringify(p)) : p; }) };
+    if (t.rep) c.rep = t.rep;
+    return c;
+  }
+  /* pre-order list of [node, path], path = kid indices from the root */
+  function treeNodes(t) {
+    var out = [];
+    (function walk(n, path) {
+      out.push([n, path]);
+      if (n.kids) for (var i = 0; i < n.kids.length; i++) walk(n.kids[i], path.concat([i]));
+    })(t, []);
+    return out;
+  }
+  function treeAt(t, path) { var n = t, i; for (i = 0; i < path.length; i++) n = n.kids[path[i]]; return n; }
+  function treeReplace(t, path, sub) {
+    if (!path.length) return sub;
+    var c = cloneTree(t), n = c, i;
+    for (i = 0; i < path.length - 1; i++) n = n.kids[path[i]];
+    n.kids[path[path.length - 1]] = sub;
+    return c;
+  }
+  function treeSize(t) { return treeNodes(t).filter(function (p) { return p[0].op !== "in"; }).length; }
+  function treeDepth(t) {
+    if (!t || t.op === "in") return 0;
+    var d = 0, i;
+    for (i = 0; i < t.kids.length; i++) d = Math.max(d, treeDepth(t.kids[i]));
+    return d + 1;
+  }
+  function treeRender(t) { var f = fromTree(t); return render(f.struct, f.theta); }
+  function treeBits(t) { var f = fromTree(t); return structBits(f.struct) + thetaBits(f.struct, f.theta); }
+  function runTree(t, g, env) {
+    var f = fromTree(t), out;
+    try { out = evalNode(f.struct, iterOf(f.theta), g, env); } catch (e) { return null; }
+    return (out && G.valid(out)) ? out : null;
+  }
+
+  /* -- macros -----------------------------------------------------------
+     A macro is a named, typed template over existing operators whose
+     literal slots are parameters: {"$": i} marks parameter i. It is
+     registered as operator "m:<name>" of kind [G, param kinds...] in the
+     macro alphabet, so bottom-up synthesis, repair and population search can
+     use it as one step; its definition always reduces to existing typed
+     programs (expandTree), so nothing it computes is new behaviour. */
+  var MACRO_DEFS = {};
+  function instantiate(template, args) {
+    return (function walk(n) {
+      if (n.op === "in") return { op: "in" };
+      var params = n.params.map(function (p) {
+        if (p && typeof p === "object" && p.hasOwnProperty("$")) return args[p.$];
+        return p && typeof p === "object" ? JSON.parse(JSON.stringify(p)) : p;
+      });
+      return { op: n.op, kids: n.kids.map(walk), params: params };
+    })(template);
+  }
+  function defineMacro(spec) {
+    var name = "m:" + spec.name;
+    var template = spec.template, kinds = spec.params || [];
+    var compiled = null;
+    register(name, function (e, g) {
+      var args = Array.prototype.slice.call(arguments, 2), f;
+      try {
+        if (!kinds.length) { if (!compiled) compiled = fromTree(template); f = compiled; }
+        else f = fromTree(instantiate(template, args));
+      } catch (err) { return null; }
+      return evalNode(f.struct, iterOf(f.theta), g, e);
+    }, [T_GRID].concat(kinds), Math.max(1e-3, +spec.weight || 1.0), "macro");
+    MACRO_DEFS[name] = { name: name, spec: spec, kinds: kinds, template: template,
+                         version: spec.version || 1, preconditions: spec.preconditions || {} };
+    return MACRO_DEFS[name];
+  }
+  function clearMacros() {
+    Object.keys(MACRO_DEFS).forEach(function (k) { unregister(k); delete MACRO_DEFS[k]; });
+  }
+  function macroOps(ctx) {
+    return Object.keys(MACRO_DEFS).filter(function (k) {
+      var pre = MACRO_DEFS[k].preconditions || {};
+      if (ctx && pre.sameShape && !ctx.same_shape()) return false;
+      return !!OPS[k];
+    }).sort();
+  }
+  /* Replace every macro node by its instantiated definition (recursively). */
+  function expandTree(t) {
+    if (!t || t.op === "in") return t ? { op: "in" } : t;
+    var kids = t.kids.map(expandTree);
+    var def = MACRO_DEFS[t.op];
+    if (!def) return { op: t.op, kids: kids, params: t.params.slice() };
+    var body = expandTree(instantiate(def.template, t.params));
+    /* graft the macro's argument into the template's input leaf */
+    return (function graft(n) {
+      if (n.op === "in") return kids[0] ? cloneTree(kids[0]) : { op: "in" };
+      return { op: n.op, kids: n.kids.map(graft), params: n.params.slice() };
+    })(body);
+  }
+
   PROG = {
+    toTree: toTree, fromTree: fromTree, cloneTree: cloneTree, treeNodes: treeNodes, treeAt: treeAt,
+    treeReplace: treeReplace, treeSize: treeSize, treeDepth: treeDepth, treeRender: treeRender,
+    treeBits: treeBits, runTree: runTree, unregister: unregister,
+    defineMacro: defineMacro, clearMacros: clearMacros, macroOps: macroOps, expandTree: expandTree,
+    instantiate: instantiate, MACRO_DEFS: MACRO_DEFS, MACRO_ESCAPE_BITS: MACRO_ESCAPE_BITS, lit: lit,
     T_GRID: T_GRID, T_COLOR: T_COLOR, T_INT: T_INT, T_DIR: T_DIR, T_SEL: T_SEL,
     T_SEG: T_SEG, T_AXIS: T_AXIS, T_CMAP: T_CMAP, T_KEY: T_KEY, T_OFS: T_OFS, T_ROLE: T_ROLE,
     VAR: VAR, hole: hole, isHole: isHole, isVar: isVar, OPS: OPS,
@@ -3368,6 +3656,362 @@ var PROG = null;
   };
 })();
 
+/* ===== src/09c-canonical.js ===== */
+/* Canonicalisation: stop paying twice for the same idea.
+ *
+ * Bottom-up synthesis, repair and population search all generate programs
+ * that are different TEXT for the same FUNCTION: rot90(rot90(x)) is rot180(x);
+ * crop(crop(x)) is crop(x); replace(2,5)(flip_h(x)) is flip_h(replace(2,5)(x)).
+ * Executing both costs a full evaluation on every demonstration and test
+ * grid, and the second one can only ever be rejected as a behavioural
+ * duplicate afterwards. This module decides equivalence BEFORE execution
+ * wherever it can be decided soundly, at three levels:
+ *
+ *   structural   the program text after SAFE rewrites (below): equal keys are
+ *                the same function on every grid, by construction.
+ *   behaviour    the outputs on the task's own grids (train + test inputs):
+ *                equal keys are indistinguishable BY THIS TASK.
+ *   semantic     behaviour on the task's grids plus a fixed probe set
+ *                derived from the test inputs (reflections, a transposition,
+ *                a colour-role swap): equal keys are the same explanation
+ *                as far as any plausible variation of the task can tell.
+ *                Programs with equal behaviour but different semantic keys
+ *                are genuinely different explanations the task does not
+ *                decide between -- the case counterfactuals and pass@2 need.
+ *
+ * Rewrites (each one is exact; tests in c4-arc/generalize-test.js check them
+ * on random grids):
+ *   - the eight square symmetries form a group: any chain of them collapses
+ *     to one element or to nothing (table computed from the grid primitives
+ *     themselves at load time, not typed in);
+ *   - identity steps are removed (id, tile_yx(1,1));
+ *   - idempotent steps collapse (crop, compress, dedup, dedup_r, dedup_c,
+ *     grav(d), keepc(c), cropc(c)); crop after compress is compress;
+ *   - operators equivariant under the symmetries (pointwise colour maps,
+ *     crop, compress, uniform upscale/tile, pad, border, enclosed fill,
+ *     denoise) commute with them: symmetries are moved outward so chains
+ *     meet and collapse;
+ *   - parameter encodings are reduced to their canonical residue (the DSL
+ *     reads directions mod 4, selectors mod 10, ...); identity entries of
+ *     colour tables are dropped.
+ * A small bounded saturation (saturate) explores the rewrite class in both
+ * directions and returns its least element; macro mining uses it to match
+ * fragments modulo equivalence.
+ *
+ * Canonicalisation never decides that two programs are equivalent without
+ * one of these justifications. It only prunes; it never adds behaviour.
+ */
+
+var CANON = null;
+
+(function () {
+  var DIH = ["id", "rot90", "rot180", "rot270", "flip_h", "flip_v", "transpose", "anti_transpose"];
+  var DIH_FN = { id: function (g) { return g; }, rot90: G.rot90, rot180: G.rot180, rot270: G.rot270,
+                 flip_h: G.flipH, flip_v: G.flipV, transpose: G.transpose, anti_transpose: G.antiTranspose };
+  var IS_DIH = {};
+  DIH.forEach(function (d) { if (d !== "id") IS_DIH[d] = true; });
+
+  /* COMPOSE[a][b] = the single symmetry equal to "apply a, then b". Derived
+     by applying both to a 2x3 grid of distinct values, which determines a
+     symmetry uniquely. */
+  var COMPOSE = {};
+  (function () {
+    var probe = [[1, 2, 3], [4, 5, 6]], byKey = {};
+    DIH.forEach(function (d) { byKey[G.gkey(DIH_FN[d](probe))] = d; });
+    DIH.forEach(function (a) {
+      COMPOSE[a] = {};
+      DIH.forEach(function (b) { COMPOSE[a][b] = byKey[G.gkey(DIH_FN[b](DIH_FN[a](probe)))] || null; });
+    });
+  })();
+
+  var IDEMPOTENT = { crop: 1, compress: 1, dedup: 1, dedup_r: 1, dedup_c: 1, grav: 1, keepc: 1, cropc: 1, mode_cell: 1 };
+  /* f(D(x)) == D(f(x)) for every square symmetry D */
+  var COMMUTE_DIH = { replace: 1, keepc: 1, cmap: 1, crop: 1, compress: 1, upscale: 1, tile: 1, pad: 1,
+                      border: 1, fill_enclosed: 1, denoise: 1, cropc: 1 };
+  var MOD = { D: 4, A: 4, R: 4, S: 10, Y: 10, K: 5 };
+
+  var STATS = { calls: 0, rewrites: 0, ms: 0, saturations: 0 };
+  var _baseIds = 0;
+
+  function sameParams(a, b) {
+    if (a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      var x = a[i], y = b[i];
+      if (x === y) continue;
+      if (x && y && typeof x === "object" && typeof y === "object" && JSON.stringify(x) === JSON.stringify(y)) continue;
+      return false;
+    }
+    return true;
+  }
+
+  function normParams(op, params) {
+    var o = PROG.OPS[op];
+    if (!o) return params.slice();
+    var kinds = o.kinds.filter(function (k) { return k !== PROG.T_GRID; }), out = [], i;
+    for (i = 0; i < params.length; i++) {
+      var p = params[i], m = MOD[kinds[i]];
+      if (m && typeof p === "number") p = ((p % m) + m) % m;
+      else if (kinds[i] === PROG.T_CMAP && p && typeof p === "object") {
+        var t = {}, keys = Object.keys(p).sort(function (a, b) { return a - b; }), k;
+        for (k = 0; k < keys.length; k++) if (+keys[k] !== p[keys[k]]) t[keys[k]] = p[keys[k]];
+        p = t;
+      }
+      out.push(p);
+    }
+    return out;
+  }
+
+  /* One bottom-up normalisation pass. */
+  function pass(t) {
+    if (!t || t.op === "in") return { op: "in" };
+    var kids = (t.kids || []).map(pass), params = normParams(t.op, t.params || []);
+    var n = { op: t.op, kids: kids, params: params };
+    var kid = kids.length === 1 ? kids[0] : null;
+    if (n.op === "id" && kid) { STATS.rewrites++; return kid; }
+    if (n.op === "tile_yx" && params[0] === 1 && params[1] === 1 && kid) { STATS.rewrites++; return kid; }
+    if (kid && IS_DIH[n.op] && IS_DIH[kid.op]) {
+      var c = COMPOSE[kid.op][n.op];
+      STATS.rewrites++;
+      if (c === "id") return kid.kids[0];
+      return { op: c, kids: kid.kids, params: [] };
+    }
+    if (kid && IDEMPOTENT[n.op] && kid.op === n.op && sameParams(kid.params, params)) { STATS.rewrites++; return kid; }
+    if (kid && n.op === "crop" && kid.op === "compress") { STATS.rewrites++; return kid; }
+    if (kid && n.op === "mode_cell" && IS_DIH[kid.op]) { STATS.rewrites++; return { op: "mode_cell", kids: kid.kids, params: [] }; }
+    if (kid && IS_DIH[n.op] && kid.op === "mode_cell") { STATS.rewrites++; return kid; }
+    /* move symmetries outward through equivariant operators */
+    if (kid && COMMUTE_DIH[n.op] && IS_DIH[kid.op]) {
+      STATS.rewrites++;
+      return { op: kid.op, kids: [{ op: n.op, kids: kid.kids, params: params }], params: [] };
+    }
+    return n;
+  }
+
+  function render(t) {
+    try { return PROG.treeRender(t); } catch (e) { return JSON.stringify(t); }
+  }
+
+  /* Normal form: passes to a fixpoint (bounded; each pass only shrinks the
+     tree or moves a symmetry one level outward). */
+  function normalizeTree(t) {
+    var t0 = nowMs(), cur = t, key = null, i;
+    STATS.calls++;
+    for (i = 0; i < 12; i++) {
+      cur = pass(cur);
+      var k = render(cur);
+      if (k === key) break;
+      key = k;
+    }
+    STATS.ms += nowMs() - t0;
+    return cur;
+  }
+
+  function asTree(x) {
+    if (!x) return null;
+    if (x.op) return x;
+    if (x.tree) return x.tree;
+    if (x.struct) return PROG.toTree(x.struct, x.theta || []);
+    return null;
+  }
+
+  /* Structural key of a tree, a {struct, theta} program, a PROG.Prog, or a
+     repair program {base, tree, rep}. */
+  function structural(x) {
+    if (!x) return null;
+    var t = asTree(x);
+    if (!t) return null;
+    var k = render(normalizeTree(t));
+    /* an opaque base is identified by object identity, never by its name:
+       two closures may share a name and differ in fitted parameters */
+    if (x.base) k = "b" + (x.base.__cuid || (x.base.__cuid = ++_baseIds)) + ">>" + k;
+    if (x.rep) k += "@" + (typeof x.rep === "string" ? x.rep : x.rep.name);
+    return k;
+  }
+
+  function behavior(outputs) {
+    var parts = [], i;
+    for (i = 0; i < outputs.length; i++) parts.push(outputs[i] ? G.gkey(outputs[i]) : "~");
+    return parts.join("#");
+  }
+
+  /* ---------------------------------------------------------------- colours */
+
+  /* Per-grid role permutation: background -> 0, then colours by frequency
+     (ties by value), then the absent colours in increasing order. A
+     bijection on 0..9, so it is invertible. */
+  function rolePerm(g, bg) {
+    var h = G.histogram(g), cols = [], v;
+    if (bg === undefined || bg === null) bg = G.background(g);
+    for (v = 0; v < 10; v++) if (h[v] && v !== bg) cols.push(v);
+    cols.sort(function (a, b) { return (h[b] - h[a]) || (a - b); });
+    var order = [bg].concat(cols);
+    for (v = 0; v < 10; v++) if (order.indexOf(v) < 0) order.push(v);
+    var fwd = new Array(10), inv = new Array(10);
+    for (v = 0; v < 10; v++) { fwd[order[v]] = v; inv[v] = order[v]; }
+    return { fwd: fwd, inv: inv };
+  }
+  function mapColors(g, p) { return g.map(function (row) { return row.map(function (v) { return p[v]; }); }); }
+  function normalizeColors(grids, bg) {
+    var perms = grids.map(function (g) { return rolePerm(g, bg); });
+    return { grids: grids.map(function (g, i) { return mapColors(g, perms[i].fwd); }),
+             perms: perms.map(function (p) { return p.fwd; }), inverses: perms.map(function (p) { return p.inv; }) };
+  }
+
+  /* Canonical object order: top-left first, then colour, then size. Returns
+     compact descriptors (shape up to the square symmetries, bbox, colour). */
+  function normalizeObjects(objs) {
+    return objs.slice().sort(function (a, b) {
+      return (a.r0 - b.r0) || (a.c0 - b.c0) || (a.color - b.color) || (a.size() - b.size());
+    }).map(function (o) {
+      var m = o.mask(), best = null, i;
+      var forms = [m, G.rot90(m), G.rot180(m), G.rot270(m), G.flipH(m), G.flipV(m), G.transpose(m), G.antiTranspose(m)];
+      for (i = 0; i < forms.length; i++) { var k = G.gkey(forms[i]); if (best === null || k < best) best = k; }
+      return { color: o.color, r0: o.r0, c0: o.c0, h: o.height(), w: o.width(), size: o.size(), shape: best };
+    });
+  }
+
+  /* ----------------------------------------------------------------- probes */
+
+  /* Deterministic variations of the task's own test inputs (and the first
+     demonstration input): no labels exist for them and none are needed --
+     they only separate programs that the task's grids cannot. */
+  function probes(ctx) {
+    return ctx.memo("canon_probes", function () {
+      var src = ctx.test_inputs.slice(0, 2).concat(ctx.inputs().slice(0, 1)), out = [], bg = ctx.bg();
+      src.forEach(function (g) {
+        out.push(G.flipH(g));
+        if (g.length !== g[0].length || !G.gEq(G.transpose(g), g)) out.push(G.transpose(g));
+        var h = G.histogram(g), fg = [], v;
+        for (v = 0; v < 10; v++) if (h[v] && v !== bg) fg.push(v);
+        fg.sort(function (a, b) { return (h[b] - h[a]) || (a - b); });
+        if (fg.length >= 2) { var m = {}; m[fg[0]] = fg[1]; m[fg[1]] = fg[0]; out.push(G.applyCmap(g, m)); }
+      });
+      return out.slice(0, 7);
+    });
+  }
+
+  /* Semantic key: behaviour on the task's inputs plus the probes. ``run``
+     maps a grid to an output grid (or null). */
+  function semantic(run, ctx) {
+    var grids = ctx.inputs().concat(ctx.test_inputs).concat(probes(ctx)), outs = [], i;
+    for (i = 0; i < grids.length; i++) {
+      var y = null;
+      try { y = run(grids[i]); } catch (e) { y = null; }
+      outs.push(y && G.valid(y) ? y : null);
+    }
+    return behavior(outs);
+  }
+  function runnerOf(x, ctx) {
+    if (typeof x === "function") return x;
+    if (x && typeof x.run === "function") return function (g) { return x.run(g); };
+    if (x && typeof x.apply === "function") return function (g) { return x.apply(g); };
+    var t = asTree(x);
+    if (!t) return null;
+    var env = PROG.makeEnv(ctx);
+    return function (g) { return PROG.runTree(t, g, { bg: env.bg, x: g }); };
+  }
+  function semanticOf(x, ctx) {
+    var run = runnerOf(x, ctx);
+    return run ? semantic(run, ctx) : null;
+  }
+
+  function equivalent(a, b, ctx) {
+    var sa = structural(a), sb = structural(b);
+    if (sa !== null && sa === sb) return true;
+    if (!ctx) return false;
+    var ka = semanticOf(a, ctx), kb = semanticOf(b, ctx);
+    return ka !== null && ka === kb;
+  }
+
+  /* ------------------------------------------------------ bounded saturation
+     Explore the rewrite class of ``t`` in both directions (symmetries moved
+     outward AND inward through equivariant steps, independent replaces
+     swapped) up to ``cap`` members; return the least by (size, text). */
+  function variants(t) {
+    var out = [], nodes = PROG.treeNodes(t), i;
+    for (i = 0; i < nodes.length; i++) {
+      var n = nodes[i][0], path = nodes[i][1];
+      if (n.op === "in" || !n.kids || n.kids.length !== 1) continue;
+      var kid = n.kids[0];
+      if (IS_DIH[n.op] && kid.op !== "in" && COMMUTE_DIH[kid.op] && kid.kids.length === 1)
+        out.push(PROG.treeReplace(t, path, { op: kid.op, params: kid.params.slice(), kids: [{ op: n.op, params: [], kids: [PROG.cloneTree(kid.kids[0])] }] }));
+      if (COMMUTE_DIH[n.op] && IS_DIH[kid.op])
+        out.push(PROG.treeReplace(t, path, { op: kid.op, params: [], kids: [{ op: n.op, params: n.params.slice(), kids: [PROG.cloneTree(kid.kids[0])] }] }));
+      if (n.op === "replace" && kid.op === "replace") {
+        var a = n.params, b = kid.params;
+        if (a[0] !== b[0] && a[0] !== b[1] && a[1] !== b[0] && a[1] !== b[1])
+          out.push(PROG.treeReplace(t, path, { op: "replace", params: b.slice(), kids: [{ op: "replace", params: a.slice(), kids: [PROG.cloneTree(kid.kids[0])] }] }));
+      }
+    }
+    return out;
+  }
+  function saturate(t, cap) {
+    cap = cap || 48;
+    STATS.saturations++;
+    var start = normalizeTree(t), seen = new Map(), queue = [start], qi = 0;
+    seen.set(render(start), start);
+    while (qi < queue.length && seen.size < cap) {
+      var cur = queue[qi++], vs = variants(cur), i;
+      for (i = 0; i < vs.length && seen.size < cap; i++) {
+        var k = render(vs[i]);
+        if (!seen.has(k)) { seen.set(k, vs[i]); queue.push(vs[i]); }
+      }
+    }
+    var best = null, bestKey = null;
+    seen.forEach(function (v, k) {
+      var s = PROG.treeSize(v);
+      if (best === null || s < PROG.treeSize(best) || (s === PROG.treeSize(best) && k < bestKey)) { best = v; bestKey = k; }
+    });
+    return { tree: best, key: bestKey, classSize: seen.size, bounded: seen.size >= cap };
+  }
+
+  /* ------------------------------------------------------------- measurement
+     A deduper that counts what it saw at each level, so every search that
+     uses it can report generated / structurally unique / behaviourally
+     unique / semantically unique and the duplicate ratio. */
+  function Deduper(name) {
+    this.name = name || "";
+    this.generated = 0;
+    this.structural = new Set(); this.behavior = new Set(); this.semantic = new Set();
+    this.structDup = 0; this.behaviorDup = 0; this.semanticDup = 0;
+    this.ms = 0;
+  }
+  Deduper.prototype.seeStructural = function (k) {
+    this.generated++;
+    if (k === null || k === undefined) return true;
+    if (this.structural.has(k)) { this.structDup++; return false; }
+    this.structural.add(k); return true;
+  };
+  Deduper.prototype.seeBehavior = function (k) {
+    if (k === null || k === undefined) return true;
+    if (this.behavior.has(k)) { this.behaviorDup++; return false; }
+    this.behavior.add(k); return true;
+  };
+  Deduper.prototype.seeSemantic = function (k) {
+    if (k === null || k === undefined) return true;
+    if (this.semantic.has(k)) { this.semanticDup++; return false; }
+    this.semantic.add(k); return true;
+  };
+  Deduper.prototype.report = function () {
+    return { generated: this.generated, structurally_unique: this.structural.size,
+             behaviorally_unique: this.behavior.size, semantically_unique: this.semantic.size,
+             structural_duplicates: this.structDup, behavioral_duplicates: this.behaviorDup,
+             duplicate_ratio: this.generated ? Math.round((this.structDup + this.behaviorDup) / this.generated * 1000) / 1000 : 0,
+             canon_ms: Math.round(this.ms) };
+  };
+
+  var ENABLED = true;
+  CANON = {
+    DIH: DIH, COMPOSE: COMPOSE, IDEMPOTENT: IDEMPOTENT, COMMUTE_DIH: COMMUTE_DIH,
+    normalizeTree: normalizeTree, structural: structural, behavior: behavior, semantic: semanticOf,
+    semanticRun: semantic, probes: probes, normalizeColors: normalizeColors, rolePerm: rolePerm,
+    mapColors: mapColors, normalizeObjects: normalizeObjects, equivalent: equivalent,
+    saturate: saturate, variants: variants, Deduper: Deduper,
+    stats: function () { return { calls: STATS.calls, rewrites: STATS.rewrites, ms: STATS.ms, saturations: STATS.saturations }; },
+    resetStats: function () { STATS.calls = 0; STATS.rewrites = 0; STATS.ms = 0; STATS.saturations = 0; },
+    enabled: function (on) { if (on !== undefined) ENABLED = !!on; return ENABLED; }
+  };
+})();
 /* ===== src/09a-synthesis.js ===== */
 /* Port of engine/synthesis.py -- typed bottom-up synthesis over PROG
  * structures.
@@ -3413,7 +4057,11 @@ var SYN = null;
      against every demonstration. */
   var OP_BIAS = {};
 
-  function stateKey(st) {
+  /* Search-state identity: a 53-bit hash over the state's grids (see
+     G.ghashList). stateKeyExact is the exact text, used where a program is
+     stored as found. */
+  function stateKey(st) { return G.ghashList(st); }
+  function stateKeyExact(st) {
     var i, parts = [];
     for (i = 0; i < st.length; i++) parts.push(G.gkey(st[i]));
     return parts.join("#");
@@ -3494,9 +4142,82 @@ var SYN = null;
     return PROG.fitTable(op, combo, pairs, env);
   }
 
+  var NEAR_CAP = 24;
+  /* Apply one step to every grid of the parent's state. */
+  function stepState(op, params, env, state) {
+    var fn = PROG.OPS[op].fn, out = [], i, rr;
+    for (i = 0; i < state.length; i++) {
+      try { rr = fn.apply(null, [env, state[i]].concat(params)); } catch (e) { return null; }
+      if (rr === null || rr === undefined || !G.valid(rr)) return null;
+      out.push(rr);
+    }
+    return out;
+  }
+  /* Cheap signature of HOW a near state fails: root operator, depth, which
+     pairs have the target's size, and the error topology on the others
+     (fraction wrong; missing vs excess change relative to the input). */
+  function nearSig(n, ctx, target) {
+    var root = Array.isArray(n.struct) ? n.struct[0] : "in", dims = "", err = 0, cnt = 0, under = 0, excess = 0, i;
+    for (i = 0; i < target.length; i++) {
+      var a = n.state[i], t = target[i], x = ctx.train[i][0];
+      if (a.length !== t.length || a[0].length !== t[0].length) { dims += "x"; continue; }
+      dims += "=";
+      var same = x.length === t.length && x[0].length === t[0].length, r, c, bad = 0;
+      for (r = 0; r < t.length; r++) for (c = 0; c < t[0].length; c++) {
+        if (a[r][c] === t[r][c]) continue;
+        bad++;
+        if (same) { if (a[r][c] === x[r][c]) under++; else if (t[r][c] === x[r][c]) excess++; }
+      }
+      err += bad / (t.length * t[0].length); cnt++;
+    }
+    var e = cnt ? err / cnt : 1;
+    var topo = under > 2 * excess ? "u" : excess > 2 * under ? "e" : "m";
+    return root + "/" + n.depth + "/" + dims + "/" + (e < 0.05 ? "t" : e < 0.15 ? "l" : e < 0.4 ? "m" : "h") + topo;
+  }
+
   function localSlot(op) {
     var kinds = PROG.OPS[op].kinds.filter(function (k) { return k !== PROG.T_GRID; });
     return kinds.indexOf(PROG.T_CMAP);
+  }
+
+  /* Canonical structure of op(parent): the parent is already canonical, so
+     only a rewrite at the new root can apply. Operators that no rewrite
+     touches keep their text and get an incremental key; the others are
+     normalised in full (09c-canonical.js). Returns {struct, theta, key,
+     collapsed} where collapsed means the new step changed nothing
+     structurally (it merged away). */
+  var USE_CANON = true;
+  function interacts(op, parentOp) {
+    if (!CANON) return false;
+    if (op === "id" || op === "tile_yx") return true;
+    var D = CANON.COMPOSE;
+    if (D[op] && (D[parentOp] || parentOp === "mode_cell")) return true;
+    if (CANON.IDEMPOTENT[op] && parentOp === op) return true;
+    if (op === "crop" && parentOp === "compress") return true;
+    if (op === "mode_cell" && D[parentOp]) return true;
+    if (CANON.COMMUTE_DIH[op] && D[parentOp]) return true;
+    return false;
+  }
+  function paramKey(params) {
+    var s = "", i;
+    for (i = 0; i < params.length; i++) s += (i ? "," : "") + (params[i] && typeof params[i] === "object" ? JSON.stringify(params[i]) : params[i]);
+    return s;
+  }
+  /* The key is exactly PROG.render's text, built incrementally from the
+     parent's cached text so that a candidate that needed no rewrite and one
+     that was rewritten into the same program get the same key. */
+  function renderStep(op, parentKey, params) {
+    var kinds = PROG.OPS[op].kinds, parts = [], j = 0, i;
+    for (i = 0; i < kinds.length; i++) parts.push(kinds[i] === PROG.T_GRID ? parentKey : PROG.lit(params[j++], kinds[i]));
+    return op + "(" + parts.join(",") + ")";
+  }
+  function canonChild(op, params, node) {
+    var struct = PROG.structOf(op, node.struct), theta = node.theta.concat(params);
+    var pOp = Array.isArray(node.struct) && node.struct.length ? node.struct[0] : "in";
+    if (!USE_CANON || !interacts(op, pOp))
+      return { struct: struct, theta: theta, key: renderStep(op, node.ckey, params), rewritten: false };
+    var t = CANON.normalizeTree(PROG.toTree(struct, theta)), f = PROG.fromTree(t);
+    return { struct: f.struct, theta: f.theta, key: PROG.render(f.struct, f.theta), rewritten: true };
   }
 
   function search(ctx, depth, width, deadline, cap, prior) {
@@ -3510,15 +4231,25 @@ var SYN = null;
     var bias = {}, bk;
     for (bk in OP_BIAS) if (OP_BIAS.hasOwnProperty(bk)) bias[bk] = OP_BIAS[bk];
     if (prior) for (bk in prior) if (prior.hasOwnProperty(bk)) bias[bk] = prior[bk];
+    /* task-local adaptation (57b-testtime.js): temporary operator priors
+       read off this task's own demonstrations; discarded with the context */
+    if (ctx._tta && ctx._tta.opPrior) for (bk in ctx._tta.opPrior) if (ctx._tta.opPrior.hasOwnProperty(bk))
+      bias[bk] = (bias[bk] || 0) + ctx._tta.opPrior[bk];
     var hasBias = Object.keys(bias).length > 0;
     var grids = ctx.inputs().concat(ctx.test_inputs), target = ctx.outputs();
     var found = new Map(), seen = new Map();
+    /* canonical structures already evaluated in this search */
+    var canonSeen = new Set(), sstats = { generated: 0, canonical_duplicates: 0, canonicalised: 0,
+      evaluated: 0, behavior_duplicates: 0, beam_accepted: 0, near_emitted: 0, exact: 0, macro_steps: 0, levels: 0 };
+    ctx._synStats = sstats;
+    var macros = (typeof PROG.macroOps === "function") ? PROG.macroOps(ctx) : [];
 
     function expired() { return deadline !== null && deadline !== undefined && nowMs() >= deadline; }
 
     function keep(struct, theta, st) {
+      if (sstats.first_exact_evaluated === undefined) sstats.first_exact_evaluated = sstats.evaluated;
       var bits = PROG.structBits(struct) + PROG.thetaBits(struct, theta);
-      var k = stateKey(st), prev = found.get(k);
+      var k = stateKeyExact(st), prev = found.get(k);
       if (!prev || bits < prev[0]) found.set(k, [bits, struct, theta]);
     }
 
@@ -3567,7 +4298,8 @@ var SYN = null;
     }
 
     var root = { struct: PROG.VAR, theta: [], state: grids,
-                 bits: PROG.opBits("in"), depth: 0 };
+                 bits: PROG.opBits("in"), depth: 0, ckey: "$" };
+    canonSeen.add("$");
     admit(seen, stateKey(grids), 0, root.bits);
     if (trainEq(grids)) keep(PROG.VAR, [], grids);
     close(root);
@@ -3578,6 +4310,8 @@ var SYN = null;
         if (expired()) break;
         var node = frontier[ni];
         var opsHere = (lvl === 1 ? INNER_OPS : CORE_OPS).slice();
+        /* learned macros are ordinary typed steps here (56b-macros.js) */
+        for (var mi = 0; mi < macros.length; mi++) opsHere.push(macros[mi]);
         if (hasBias) opsHere.sort(function (a, b) {
           var da = bias[a] || 0, db = bias[b] || 0;
           return (db - da) || (a < b ? -1 : a > b ? 1 : 0);
@@ -3585,21 +4319,32 @@ var SYN = null;
         for (var oi2 = 0; oi2 < opsHere.length; oi2++) {
           if (expired()) break;
           var op2 = opsHere[oi2];
-          if (!(op2 in paramCache)) paramCache[op2] = paramGrid(op2, dom, 64);
+          if (!PROG.OPS[op2]) continue;
+          if (!(op2 in paramCache)) paramCache[op2] = paramGrid(op2, dom, PROG.OPS[op2].macro ? 40 : 64);
           var combos2 = paramCache[op2];
           if (!combos2) continue;
           for (var ci2 = 0; ci2 < combos2.length; ci2++) {
-            var struct2 = PROG.structOf(op2, node.struct);
-            var theta2 = node.theta.concat(combos2[ci2]);
-            /* the structure is absolute: it is applied to the original
-               grids, not to the parent's already-transformed state */
-            var st2 = applyState(struct2, theta2, env, grids);
+            sstats.generated++;
+            /* the stored structure is absolute (applied to the original
+               grids); it is the CANONICAL form of op2(parent), so an
+               equivalent program reached another way is never executed
+               twice and every program carries its shortest description */
+            var cc = canonChild(op2, combos2[ci2], node);
+            if (canonSeen.has(cc.key)) { sstats.canonical_duplicates++; continue; }
+            canonSeen.add(cc.key);
+            if (cc.rewritten) sstats.canonicalised++;
+            /* incremental evaluation: op2 applied to the parent's outputs is,
+               by construction, the canonical program's output */
+            var st2 = stepState(op2, combos2[ci2], env, node.state);
+            sstats.evaluated++;
             if (!st2) continue;
+            var struct2 = cc.struct, theta2 = cc.theta;
             var bits2 = PROG.structBits(struct2) + PROG.thetaBits(struct2, theta2);
             var key2 = stateKey(st2);
-            if (!admit(seen, key2, lvl, bits2)) continue;
+            if (!admit(seen, key2, lvl, bits2)) { sstats.behavior_duplicates++; continue; }
             var nn = { struct: struct2, theta: theta2, state: st2,
-                       bits: bits2 - (bias[op2] || 0), depth: lvl };
+                       bits: bits2 - (bias[op2] || 0), depth: lvl, ckey: cc.key };
+            if (PROG.OPS[op2].macro) sstats.macro_steps++;
             if (trainEq(st2)) keep(struct2, theta2, st2);
             nxt.set(key2, nn);
           }
@@ -3651,16 +4396,32 @@ var SYN = null;
       var near = every.filter(function (n) { return n.depth > 0 && !trainEq(n.state); });
       near.forEach(function (n) { if (n._d === undefined) n._d = distance(n.state, target); });
       near.sort(function (a, b) { return (a._d - b._d) || (a.bits - b.bits); });
-      for (var ni2 = 0; ni2 < near.length && ni2 < 12; ni2++)
-        REFINEMENT.noteTyped(ctx, near[ni2].struct, near[ni2].theta, near[ni2]._d);
+      /* qualitatively different near-solutions, not the twelve nearest
+         (which are typically one idea in twelve literal variants): at most
+         two per (root operator, depth, dims agreement, error topology) */
+      var perSig = new Map(), examined = 0;
+      for (var ni2 = 0; ni2 < near.length && sstats.near_emitted < NEAR_CAP && examined < 400; ni2++) {
+        examined++;
+        var sg = nearSig(near[ni2], ctx, target);
+        var used = perSig.get(sg) || 0;
+        if (used >= 2) continue;
+        perSig.set(sg, used + 1);
+        REFINEMENT.noteTyped(ctx, near[ni2].struct, near[ni2].theta, near[ni2]._d,
+                             { sig: sg, depth: near[ni2].depth, family: "typed" });
+        sstats.near_emitted++;
+      }
+      sstats.near_clusters = perSig.size;
     }
+    sstats.exact = found.size;
+    sstats.levels = lvl - 1;
     var out = Array.from(found.values()).sort(function (x, y) {
       return (x[0] - y[0]) || (PROG.render(x[1]) < PROG.render(y[1]) ? -1 : 1);
     }).slice(0, cap);
     return out.map(function (rec) { return new PROG.Prog(rec[1], rec[2], env); });
   }
 
-  SYN = { search: search, INNER_OPS: INNER_OPS, CORE_OPS: CORE_OPS,
+  SYN = { search: search, INNER_OPS: INNER_OPS, CORE_OPS: CORE_OPS, nearSig: nearSig,
+          canon: function (on) { if (on !== undefined) USE_CANON = !!on; return USE_CANON; },
           SEED_OPS: SEED_OPS, TERMINAL_OPS: TERMINAL_OPS,
           opBias: function (b) { if (b !== undefined) OP_BIAS = b || {}; return OP_BIAS; } };
 })();
@@ -3764,21 +4525,71 @@ var VSPACE = null;
     return den ? num / den : 0.0;
   };
 
+  /* Canonical structure of a program: macros expanded, then the sound
+     rewrites of 09c-canonical.js applied. Two programs with the same
+     canonical structure are ONE structure here, however they were written. */
+  function canonicalStruct(p) {
+    if (typeof CANON === "undefined" || !CANON || !CANON.enabled()) return p.struct;
+    try {
+      var t = PROG.toTree(p.struct, p.theta);
+      if (PROG.expandTree) t = PROG.expandTree(t);
+      var f = PROG.fromTree(CANON.normalizeTree(t));
+      return f.struct;
+    } catch (e) { return p.struct; }
+  }
+
   function structuralSupport(progs, ctx, mode, space) {
     mode = mode || "version_space_predictive";
     space = space || new Space(ctx);
     var byStruct = new Map(), i;
     for (i = 0; i < progs.length; i++) {
-      var k = PROG.render(progs[i].struct);
-      if (!byStruct.has(k)) byStruct.set(k, [progs[i].struct, []]);
+      var cs = canonicalStruct(progs[i]);
+      var k = PROG.render(cs);
+      if (!byStruct.has(k)) byStruct.set(k, [cs, []]);
       byStruct.get(k)[1].push(progs[i]);
     }
     space.stats.structures = byStruct.size;
+    space.stats.raw_structures = progs.length ? new Set(progs.map(function (p) { return PROG.render(p.struct); })).size : 0;
     var full = [];
     for (i = 0; i < ctx.train.length; i++) full.push(i);
     var out = ctx.test_inputs.map(function () { return new Map(); });
     var detail = [];
-    byStruct.forEach(function (rec) {
+    /* Semantic classes: structures that behave identically on the task's
+       grids AND on the canonical probe set are one explanation. Only the
+       heaviest structure of each class contributes support; five spellings
+       of one idea do not get five votes. */
+    var semBest = new Map(), semOf = new Map(), env0 = PROG.makeEnv(ctx);
+    if (typeof CANON !== "undefined" && CANON && CANON.enabled()) {
+      byStruct.forEach(function (rec, k) {
+        var best = rec[1].slice().sort(function (a, b) { return a.thetaBits() - b.thetaBits(); })[0];
+        var sk = null;
+        try { sk = CANON.semanticRun(function (g) { return best.run(g); }, ctx); } catch (e) { sk = null; }
+        semOf.set(k, sk);
+        if (sk === null) return;
+        var bits = PROG.structBits(rec[0]) + best.thetaBits();
+        var cur = semBest.get(sk);
+        if (!cur || bits < cur.bits || (bits === cur.bits && k < cur.key)) semBest.set(sk, { key: k, bits: bits });
+      });
+      space.stats.semantic_classes = semBest.size;
+    }
+    function tta(struct) {
+      /* task-local operator priors (57b-testtime.js): bounded, positive
+         evidence only, read from this task's own demonstrations */
+      var pr = ctx._tta && ctx._tta.opPrior, s2 = 0;
+      if (!pr) return 0;
+      (function walk(n) {
+        if (!n || PROG.isVar(n)) return;
+        if (typeof n[0] === "string" && pr[n[0]] > 0) s2 += pr[n[0]];
+        for (var q = 1; q < n.length; q++) if (Array.isArray(n[q]) && !PROG.isHole(n[q])) walk(n[q]);
+      })(struct);
+      return Math.min(2.0, 0.25 * s2);
+    }
+    byStruct.forEach(function (rec, skey) {
+      var sk0 = semOf.get(skey);
+      if (sk0 !== undefined && sk0 !== null && semBest.get(sk0).key !== skey) {
+        detail.push({ struct: PROG.render(rec[0]), bits: PROG.structBits(rec[0]), regret: null, fits: 0, duplicate_of: semBest.get(sk0).key });
+        return;
+      }
       var struct = rec[0], members = rec[1];
       var sbits = PROG.structBits(struct), j;
       if (mode === "canonical_mdl") {
@@ -3797,7 +4608,7 @@ var VSPACE = null;
       var thetas = space.thetas(struct, full);
       if (!thetas.length) thetas = members.map(function (p) { return p.theta; });
       var regret = mode === "version_space_predictive" ? space.regret(struct) : 0.0;
-      var w2 = Math.pow(2.0, -sbits - LAMBDA * regret);
+      var w2 = Math.pow(2.0, -sbits - LAMBDA * regret + tta(struct));
       for (j = 0; j < ctx.test_inputs.length; j++) {
         space.predictive(struct, thetas, ctx.test_inputs[j]).forEach(function (r2, kk) {
           var cur = out[j].get(kk);
@@ -5636,6 +6447,527 @@ var SEQ = {};
   defSolver("sequence", "sequence", generate);
 })();
 
+/* ===== src/17-representation.js ===== */
+/* Representations: the substrate a rule is written in.
+ *
+ * The same task can be a long program over raw cells and a one-step program
+ * over colour roles, or over the grid's content crop, or over the CHANGES a
+ * rule makes rather than the whole output. Search inside one substrate can
+ * be arbitrarily hard while the right substrate makes it trivial, so the
+ * choice of substrate is itself something to search over -- guided by
+ * evidence, not run blindly.
+ *
+ * A representation here is an executable re-posing of the task:
+ *
+ *   kind "frame"   a bijection applied to input AND output of every pair
+ *                  (colour roles per grid, a canonical task palette, one of
+ *                  the square symmetries); decode inverts it.
+ *   kind "input"   a view of the input only (content crop, largest object,
+ *                  separator lines stripped); outputs are unchanged.
+ *   kind "output"  an encoding of the output with an exact decoder (the
+ *                  change mask over the input, a downscaled or single-tile
+ *                  output). Applicable only when decode(encode(y)) == y on
+ *                  every demonstration.
+ *   kind "view"    analysis only (objects, relation graph, panels, runs,
+ *                  symmetry orbits, periods): features for scoring and
+ *                  diagnosis, never executed.
+ *
+ * REPRESENT.register(name, spec)          add a representation
+ * REPRESENT.encode(name, grid, ctx, i)    one grid into the representation
+ * REPRESENT.taskIn(ctx, name)             the whole task re-posed (a Ctx)
+ * REPRESENT.wrap(hyp, name, st, ctx)      a hypothesis found in the
+ *                                         representation, decoded back
+ * REPRESENT.features(name, encoded)       features of an encoded grid
+ * REPRESENT.score(name, ctx, residual)    evidence that it simplifies the task
+ * REPRESENT.rank(ctx, opts)               scored, applicable representations
+ * REPRESENT.propose(ctx, residual, hyp)   which to try for a failing
+ *                                         hypothesis, and why
+ * REPRESENT.migrate(prog, name, ctx)      carry a program into another
+ *                                         substrate (typed literals remapped,
+ *                                         then refitted on all evidence)
+ *
+ * Scores use training pairs only. A representation that does not simplify
+ * the demonstrations is not proposed; the registry never runs every
+ * representation by default.
+ */
+
+var REPRESENT = null;
+
+(function () {
+  var REGISTRY = {}, ORDER = [];
+  var DIH = [["rot90", G.rot90, G.rot270], ["rot180", G.rot180, G.rot180], ["rot270", G.rot270, G.rot90],
+             ["flip_h", G.flipH, G.flipH], ["flip_v", G.flipV, G.flipV],
+             ["transpose", G.transpose, G.transpose], ["anti_transpose", G.antiTranspose, G.antiTranspose]];
+
+  function register(name, spec) {
+    spec.name = name;
+    spec.kind = spec.kind || "frame";
+    spec.cost = spec.cost === undefined ? 2.0 : spec.cost;
+    if (!REGISTRY[name]) ORDER.push(name);
+    REGISTRY[name] = spec;
+    return spec;
+  }
+  function get(name) { return REGISTRY[name] || null; }
+
+  function mapGrid(g, p) { return g.map(function (row) { return row.map(function (v) { return p[v]; }); }); }
+  function sameDims(a, b) { return !!(a && b && a.length === b.length && a[0].length === b[0].length); }
+
+  /* ------------------------------------------------------ executable ones */
+
+  register("raw", { kind: "frame", cost: 0,
+    applicable: function () { return true; },
+    prepare: function () { return {}; },
+    encodeIn: function (g) { return g; }, encodeOut: function (y) { return y; },
+    decode: function (y) { return y; } });
+
+  /* Colour roles, per grid: background -> 0, then by frequency. The same
+     rule over differently coloured demonstrations becomes one rule. */
+  register("roles", { kind: "frame", cost: 2.0,
+    applicable: function (ctx) {
+      var pals = new Set(), i;
+      for (i = 0; i < ctx.train.length; i++) pals.add(G.palette(ctx.train[i][0]));
+      return pals.size > 1 || ctx.bg() !== 0;
+    },
+    prepare: function (ctx) { return { bg: null }; },
+    encodeIn: function (g) { return mapGrid(g, CANON.rolePerm(g).fwd); },
+    encodeOut: function (y, x) { return mapGrid(y, CANON.rolePerm(x).fwd); },
+    decode: function (y, x) { return mapGrid(y, CANON.rolePerm(x).inv); } });
+
+  /* One canonical palette for the whole task (bijection from task-wide
+     colour frequency): literal colours become comparable across frames. */
+  register("canon", { kind: "frame", cost: 1.0,
+    applicable: function (ctx) { return !!taskPerm(ctx); },
+    prepare: function (ctx) { return taskPerm(ctx); },
+    encodeIn: function (g, st) { return mapGrid(g, st.fwd); }, encodeOut: function (y, x, st) { return mapGrid(y, st.fwd); },
+    decode: function (y, x, st) { return mapGrid(y, st.inv); } });
+  function taskPerm(ctx) {
+    return ctx.memo("rep_taskperm", function () {
+      var count = new Array(10).fill(0), i, r, c;
+      function tally(g) { for (r = 0; r < g.length; r++) for (c = 0; c < g[r].length; c++) count[g[r][c]]++; }
+      for (i = 0; i < ctx.train.length; i++) { tally(ctx.train[i][0]); tally(ctx.train[i][1]); }
+      for (i = 0; i < ctx.test_inputs.length; i++) tally(ctx.test_inputs[i]);
+      var order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].sort(function (a, b) { return (count[b] - count[a]) || (a - b); });
+      var fwd = new Array(10), inv = new Array(10), ident = true;
+      for (i = 0; i < 10; i++) { fwd[order[i]] = i; inv[i] = order[i]; }
+      for (i = 0; i < 10; i++) if (fwd[i] !== i && count[i] > 0) { ident = false; break; }
+      return ident ? null : { fwd: fwd, inv: inv };
+    });
+  }
+
+  DIH.forEach(function (d) {
+    register("dih:" + d[0], { kind: "frame", cost: 3.0,
+      applicable: function () { return true; },
+      prepare: function () { return {}; },
+      encodeIn: function (g) { return d[1](g); }, encodeOut: function (y) { return d[1](y); },
+      decode: function (y) { return d[2](y); } });
+  });
+
+  register("crop", { kind: "input", cost: 2.0,
+    applicable: function (ctx) {
+      return !ctx.same_shape() && ctx.all_inputs().every(function (g) {
+        var c = G.cropToContent(g, ctx.bg()); return c && !G.gEq(c, g); });
+    },
+    prepare: function (ctx) { return { bg: ctx.bg() }; },
+    encodeIn: function (g, st) { return G.cropToContent(g, st.bg); } });
+
+  register("largest", { kind: "input", cost: 3.0,
+    applicable: function (ctx) { return !ctx.same_shape(); },
+    prepare: function (ctx) { return { bg: ctx.bg() }; },
+    encodeIn: function (g, st) {
+      var objs; try { objs = O.segment(g, "c8", st.bg); } catch (e) { return null; }
+      if (!objs || !objs.length) return null;
+      var o = O.selectExtreme(objs, "size", true);
+      return o ? G.subgrid(g, o.r0, o.c0, o.r1, o.c1) : null;
+    } });
+
+  register("strip", { kind: "input", cost: 2.5,
+    applicable: function (ctx) { return ctx.all_inputs().some(function (g) { return !!stripLines(g); }); },
+    prepare: function () { return {}; },
+    encodeIn: function (g) { return stripLines(g) || g; } });
+  function stripLines(g) {
+    var h = g.length, w = g[0].length, keepR = [], r, c, uni;
+    for (r = 0; r < h; r++) { uni = true; for (c = 1; c < w; c++) if (g[r][c] !== g[r][0]) { uni = false; break; } if (!uni) keepR.push(g[r]); }
+    if (!keepR.length || keepR.length === h) return null;
+    var t = G.transpose(keepR), keepC = [];
+    for (r = 0; r < t.length; r++) { uni = true; for (c = 1; c < t[r].length; c++) if (t[r][c] !== t[r][0]) { uni = false; break; } if (!uni) keepC.push(t[r]); }
+    return keepC.length ? G.transpose(keepC) : null;
+  }
+
+  /* The change a rule makes, drawn on the background; decoded as an overlay
+     on the input. Exact only when no demonstrated change is TO the
+     background colour, which applicable() checks. */
+  register("change", { kind: "output", cost: 2.0,
+    applicable: function (ctx) {
+      if (!ctx.same_shape()) return false;
+      var bg = ctx.bg(), i, any = false;
+      for (i = 0; i < ctx.train.length; i++) {
+        var x = ctx.train[i][0], y = ctx.train[i][1], e = changeEnc(y, x, bg);
+        if (!G.gEq(changeDec(e, x, bg), y)) return false;
+        if (!G.gEq(x, y)) any = true;
+      }
+      return any;
+    },
+    prepare: function (ctx) { return { bg: ctx.bg() }; },
+    encodeOut: function (y, x, st) { return changeEnc(y, x, st.bg); },
+    decode: function (y, x, st) { return sameDims(y, x) ? changeDec(y, x, st.bg) : null; } });
+  function changeEnc(y, x, bg) { return y.map(function (row, r) { return row.map(function (v, c) { return v === x[r][c] ? bg : v; }); }); }
+  function changeDec(e, x, bg) { return e.map(function (row, r) { return row.map(function (v, c) { return v === bg ? x[r][c] : v; }); }); }
+
+  /* Outputs that are an integer upscale / a tiling of something smaller. */
+  function outRatio(ctx, fn) {
+    var ks = null, i;
+    for (i = 0; i < ctx.train.length; i++) {
+      var y = ctx.train[i][1], found = null, k;
+      for (k = 2; k <= 5 && !found; k++) if (!(y.length % k) && !(y[0].length % k) && fn(y, k)) found = k;
+      if (!found || (ks !== null && ks !== found)) return null;
+      ks = found;
+    }
+    return ks;
+  }
+  register("down", { kind: "output", cost: 2.5,
+    applicable: function (ctx) { return !!ctx.memo("rep_down", function () { return outRatio(ctx, function (y, k) { var d = G.downscale(y, k, k); return d && G.gEq(G.upscale(d, k, k), y); }); }); },
+    prepare: function (ctx) { return { k: ctx.memo("rep_down", function () { return null; }) }; },
+    encodeOut: function (y, x, st) { return G.downscale(y, st.k, st.k); },
+    decode: function (y, x, st) { return G.upscale(y, st.k, st.k); } });
+  register("tilebase", { kind: "output", cost: 2.5,
+    applicable: function (ctx) { return !!ctx.memo("rep_tile", function () { return outRatio(ctx, function (y, k) {
+      var b = G.subgrid(y, 0, 0, y.length / k - 1, y[0].length / k - 1); return b && G.gEq(G.tile(b, k, k), y); }); }); },
+    prepare: function (ctx) { return { k: ctx.memo("rep_tile", function () { return null; }) }; },
+    encodeOut: function (y, x, st) { return G.subgrid(y, 0, 0, y.length / st.k - 1, y[0].length / st.k - 1); },
+    decode: function (y, x, st) { return G.tile(y, st.k, st.k); } });
+
+  /* --------------------------------------------------------- analysis views
+     Never executed. Their features feed scoring and diagnosis. */
+  register("objects", { kind: "view", cost: 0, features: function (g, bg) {
+    var objs; try { objs = O.segment(g, "c8", bg); } catch (e) { objs = []; }
+    var sizes = objs.map(function (o) { return o.size(); });
+    return { n: objs.length, colors: new Set(objs.map(function (o) { return o.color; })).size,
+             shapes: new Set(objs.map(function (o) { return o.norm_key(); })).size,
+             maxSize: sizes.length ? Math.max.apply(null, sizes) : 0 };
+  } });
+  register("relations", { kind: "view", cost: 0, features: function (g, bg) {
+    var objs; try { objs = O.segment(g, "c8", bg); } catch (e) { objs = []; }
+    var adj = 0, contain = 0, i, j;
+    for (i = 0; i < objs.length && i < 30; i++) for (j = i + 1; j < objs.length && j < 30; j++) {
+      var a = objs[i], b = objs[j];
+      if (a.r0 <= b.r0 && a.c0 <= b.c0 && a.r1 >= b.r1 && a.c1 >= b.c1) contain++;
+      else if (!(a.r1 + 1 < b.r0 || b.r1 + 1 < a.r0 || a.c1 + 1 < b.c0 || b.c1 + 1 < a.c0)) adj++;
+    }
+    return { adjacency: adj, containment: contain };
+  } });
+  register("panels", { kind: "view", cost: 0, features: function (g) {
+    var s = stripLines(g);
+    return { separated: !!s, panelArea: s ? G.area(s) : G.area(g) };
+  } });
+  register("runs", { kind: "view", cost: 0, features: function (g) {
+    var h = 0, v = 0, r, c;
+    for (r = 0; r < g.length; r++) for (c = 1; c < g[0].length; c++) if (g[r][c] === g[r][c - 1]) h++;
+    for (r = 1; r < g.length; r++) for (c = 0; c < g[0].length; c++) if (g[r][c] === g[r - 1][c]) v++;
+    return { horizontalRuns: h, verticalRuns: v };
+  } });
+  register("symmetry", { kind: "view", cost: 0, features: function (g) {
+    var out = {};
+    DIH.forEach(function (d) { var t = d[1](g); out[d[0]] = sameDims(t, g) && G.gEq(t, g) ? 1 : 0; });
+    return out;
+  } });
+  register("period", { kind: "view", cost: 0, features: function (g) {
+    return { rowPeriod: G.rowPeriod ? G.rowPeriod(g) : null, colPeriod: G.colPeriod ? G.colPeriod(g) : null };
+  } });
+
+  /* ------------------------------------------------------------- encoding */
+
+  function prepared(ctx, name) {
+    var spec = REGISTRY[name];
+    if (!spec || spec.kind === "view") return null;
+    return ctx.memo("rep_state:" + name, function () {
+      try { return spec.applicable(ctx) ? { spec: spec, st: spec.prepare(ctx) || {} } : false; } catch (e) { return false; }
+    }) || null;
+  }
+  function applicable(ctx, name) { return !!prepared(ctx, name); }
+
+  function encIn(p, g) {
+    if (!p.spec.encodeIn) return g;
+    try { var y = p.spec.encodeIn(g, p.st); return y && G.valid(y) ? y : null; } catch (e) { return null; }
+  }
+  function encOut(p, y, x) {
+    if (!p.spec.encodeOut) return y;
+    try { var z = p.spec.encodeOut(y, x, p.st); return z && G.valid(z) ? z : null; } catch (e) { return null; }
+  }
+  function dec(p, y, x) {
+    if (!y) return null;
+    if (!p.spec.decode) return y;
+    try { var z = p.spec.decode(y, x, p.st); return z && G.valid(z) ? z : null; } catch (e) { return null; }
+  }
+
+  function encode(name, grid, ctx) {
+    var p = prepared(ctx, name);
+    if (p) return encIn(p, grid);
+    var spec = REGISTRY[name];
+    return spec && spec.features ? spec.features(grid, ctx.bg()) : null;
+  }
+  function features(name, encoded, ctx) {
+    var spec = REGISTRY[name];
+    if (spec && spec.features) return spec.features(encoded, ctx ? ctx.bg() : 0);
+    if (!encoded || !encoded.length) return null;
+    return { h: encoded.length, w: encoded[0].length, palette: G.csSize(G.palette(encoded)) };
+  }
+
+  /* The task re-posed in representation ``name`` (a new Ctx), or null when
+     some grid cannot be encoded. */
+  function taskIn(ctx, name, deadline) {
+    var p = prepared(ctx, name);
+    if (!p) return null;
+    var train = [], tests = [], i;
+    for (i = 0; i < ctx.train.length; i++) {
+      var x = ctx.train[i][0], y = ctx.train[i][1];
+      var ex = encIn(p, x), ey = p.spec.kind === "input" ? y : encOut(p, y, x);
+      if (!ex || !ey) return null;
+      if (p.spec.kind === "output" && !G.gEq(dec(p, ey, x), y)) return null;
+      train.push([ex, ey]);
+    }
+    for (i = 0; i < ctx.test_inputs.length; i++) {
+      var tx = encIn(p, ctx.test_inputs[i]);
+      if (!tx) return null;
+      tests.push(tx);
+    }
+    var sub = new Ctx(train, tests, deadline === undefined ? ctx.deadline : deadline);
+    sub.op_prior = ctx.op_prior;
+    sub._repOf = { name: name, parent: ctx };
+    return sub;
+  }
+
+  /* Run ``fn`` (a function on encoded grids) in representation ``name``:
+     a function on raw grids. */
+  function lift(fn, name, ctx) {
+    var p = prepared(ctx, name);
+    if (!p) return null;
+    return function (x) {
+      var ex = encIn(p, x);
+      if (!ex) return null;
+      var y;
+      try { y = fn(ex); } catch (e) { return null; }
+      if (!y || !G.valid(y)) return null;
+      return p.spec.kind === "input" ? y : dec(p, y, x);
+    };
+  }
+  function wrap(hyp, name, ctx, extraCost) {
+    var f = lift(function (g) { return hyp.apply(g); }, name, ctx);
+    if (!f) return null;
+    var h = new Hyp(hyp.name + "@" + name, f, hyp.cost + (extraCost === undefined ? REGISTRY[name].cost / 8 : extraCost), hyp.solver);
+    h.representation = name;
+    if (hyp.prog) h.innerProg = hyp.prog;
+    return h;
+  }
+
+  /* --------------------------------------------------------------- scoring
+     Evidence, on demonstrations only, that the representation SIMPLIFIES
+     the task. Terms (each in [0,1] unless noted):
+       palette   the encoded outputs share one palette across pairs
+       mapping   one cellwise colour table (encoded input -> encoded output)
+                 explains the same-shape pairs: 1 - conflicting keys / keys
+       residue   cells that table leaves unexplained, as a fraction (lower
+                 is better; enters negatively)
+       shape     the output-shape law is consistent across pairs
+       shrink    how much smaller the encoded outputs are (output kinds)
+     score = 1.5 palette + 2 mapping - 2 residue + shape + 1.5 shrink
+             - cost / 4, compared against the raw representation's score. */
+  function evidence(ctx, name) {
+    return ctx.memo("rep_ev:" + name, function () {
+      var p = prepared(ctx, name);
+      if (!p) return null;
+      var enc = [], i;
+      for (i = 0; i < ctx.train.length; i++) {
+        var x = ctx.train[i][0], y = ctx.train[i][1];
+        var ex = encIn(p, x), ey = p.spec.kind === "input" ? y : encOut(p, y, x);
+        if (!ex || !ey) return null;
+        enc.push([ex, ey]);
+      }
+      var pals = enc.map(function (e) { return G.palette(e[1]); }), cnt = {}, best = 0;
+      pals.forEach(function (m) { cnt[m] = (cnt[m] || 0) + 1; if (cnt[m] > best) best = cnt[m]; });
+      var palette = best / enc.length;
+      var tab = {}, conflicts = new Set(), cells = 0, unexplained = 0, same = 0;
+      enc.forEach(function (e) {
+        if (!sameDims(e[0], e[1])) return;
+        same++;
+        for (var r = 0; r < e[0].length; r++) for (var c = 0; c < e[0][0].length; c++) {
+          var a = e[0][r][c], b = e[1][r][c];
+          if (tab.hasOwnProperty(a) && tab[a] !== b) conflicts.add(a); else tab[a] = b;
+        }
+      });
+      enc.forEach(function (e) {
+        if (!sameDims(e[0], e[1])) return;
+        for (var r = 0; r < e[0].length; r++) for (var c = 0; c < e[0][0].length; c++) {
+          cells++;
+          if (conflicts.has(e[0][r][c]) || tab[e[0][r][c]] !== e[1][r][c]) unexplained++;
+        }
+      });
+      var keys = Object.keys(tab).length;
+      var mapping = same ? 1 - conflicts.size / Math.max(1, keys) : 0;
+      var residue = cells ? unexplained / cells : 1;
+      var dimsSame = enc.every(function (e) { return sameDims(e[0], e[1]); });
+      var constOut = enc.every(function (e) { return sameDims(e[1], enc[0][1]); });
+      var shape = dimsSame || constOut ? 1 : 0;
+      var rawArea = 0, encArea = 0;
+      for (i = 0; i < ctx.train.length; i++) { rawArea += G.area(ctx.train[i][1]); encArea += G.area(enc[i][1]); }
+      var shrink = p.spec.kind === "output" ? Math.max(0, 1 - encArea / Math.max(1, rawArea)) : 0;
+      var score = 1.5 * palette + 2 * mapping - 2 * residue + shape + 1.5 * shrink - p.spec.cost / 4;
+      return { name: name, kind: p.spec.kind, palette: palette, mapping: mapping, residue: residue, shape: shape,
+               shrink: shrink, score: Math.round(score * 1000) / 1000 };
+    });
+  }
+
+  function score(name, ctx, residual) {
+    var ev = evidence(ctx, name);
+    if (!ev) return null;
+    var s = ev.score;
+    /* a hypothesis' failure can name the representation it needs */
+    if (residual && residual.diagnoses) residual.diagnoses.forEach(function (d) {
+      if (d.suggest && d.suggest.indexOf(name) >= 0) s += d.strong ? 1.0 : 0.5;
+    });
+    if (ctx._tta && ctx._tta.repPrior && ctx._tta.repPrior[name]) s += ctx._tta.repPrior[name];
+    return s;
+  }
+
+  /* Applicable executable representations, best evidence first; raw always
+     included for reference. opts.kinds filters by kind. */
+  function rank(ctx, opts) {
+    opts = opts || {};
+    var out = [];
+    ORDER.forEach(function (n) {
+      var spec = REGISTRY[n];
+      if (spec.kind === "view") return;
+      if (opts.kinds && opts.kinds.indexOf(spec.kind) < 0) return;
+      var ev = evidence(ctx, n);
+      if (!ev) return;
+      out.push({ name: n, kind: spec.kind, score: score(n, ctx, opts.residual), evidence: ev });
+    });
+    var raw = out.filter(function (o) { return o.name === "raw"; })[0];
+    out.forEach(function (o) { o.gain = raw ? Math.round((o.score - raw.score) * 1000) / 1000 : 0; });
+    out.sort(function (a, b) { return (b.score - a.score) || (a.name < b.name ? -1 : 1); });
+    return out;
+  }
+
+  /* Which substrates to try for a failing hypothesis, from its residual
+     diagnoses (55-residual.js attaches ``suggest`` lists to representation
+     failures) and from task evidence; only those that beat raw evidence or
+     are named by a diagnosis. */
+  function propose(ctx, residual, hyp, k) {
+    var cur = hyp && hyp.program && hyp.program.rep ? hyp.program.rep : "raw";
+    var named = {};
+    ((residual && residual.diagnoses) || []).forEach(function (d) {
+      (d.suggest || []).forEach(function (n) { named[n] = Math.max(named[n] || 0, d.strong ? 2 : 1); });
+    });
+    var list = rank(ctx, { residual: residual }).filter(function (o) {
+      return o.name !== cur && o.name !== "raw" && (named[o.name] || o.gain > 0.25);
+    });
+    list.forEach(function (o) { o.why = named[o.name] ? "diagnosis" : "evidence"; o.score += named[o.name] || 0; });
+    list.sort(function (a, b) { return (b.score - a.score) || (a.name < b.name ? -1 : 1); });
+    return list.slice(0, k || 3);
+  }
+
+  /* ------------------------------------------------------------- migration
+     Carry a typed tree into representation ``name``. Literal colours are
+     remapped through demonstration 0's encoding (so behaviour on that pair
+     is preserved where the program is colour-literal), then every literal
+     slot is refitted on ALL demonstrations in the new substrate (PROG.refit,
+     bounded). Returns [{tree, rep, exact}] -- refitted versions first. */
+  function migrateTree(tree, name, ctx, cap) {
+    var p = prepared(ctx, name);
+    if (!p || p.spec.kind === "view") return [];
+    var sub = taskIn(ctx, name);
+    if (!sub) return [];
+    var out = [], seen = new Set();
+    var fwd = null;
+    if (p.spec.kind === "frame" && (name === "roles" || name === "canon")) {
+      var x0 = ctx.train[0][0];
+      fwd = name === "roles" ? CANON.rolePerm(x0).fwd : p.st.fwd;
+    }
+    function remap(t) {
+      if (t.op === "in") return { op: "in" };
+      var kinds = PROG.OPS[t.op] ? PROG.OPS[t.op].kinds.filter(function (k) { return k !== PROG.T_GRID; }) : [];
+      return { op: t.op, kids: t.kids.map(remap), params: t.params.map(function (v, i) {
+        if (fwd && kinds[i] === PROG.T_COLOR && typeof v === "number") return fwd[v];
+        if (fwd && (kinds[i] === PROG.T_CMAP) && v && typeof v === "object") {
+          var m = {}; Object.keys(v).forEach(function (k) { m[fwd[+k]] = fwd[v[k]]; }); return m;
+        }
+        return v && typeof v === "object" ? JSON.parse(JSON.stringify(v)) : v;
+      }) };
+    }
+    var moved = remap(tree), f;
+    try { f = PROG.fromTree(moved); } catch (e) { return []; }
+    /* refit the literals on the whole re-posed task */
+    var thetas = [];
+    try { thetas = PROG.refit(f.struct, sub.train, sub, cap || 6, 3000); } catch (e) { thetas = []; }
+    thetas.forEach(function (th) {
+      var t = PROG.toTree(f.struct, th), k = PROG.treeRender(t);
+      if (seen.has(k)) return; seen.add(k);
+      out.push({ tree: t, rep: name, exact: true });
+    });
+    var mk = PROG.treeRender(moved);
+    if (!seen.has(mk)) out.push({ tree: moved, rep: name, exact: false });
+    return out;
+  }
+
+  /* A generic migration record for kernel hypotheses (56-repair.js uses
+     it): typed programs are remapped and refitted; opaque closures are
+     re-induced by their family inside the new substrate by the caller. */
+  function migrate(prog, name, ctx) {
+    if (!prog) return [];
+    if (!prog.base && prog.tree) return migrateTree(prog.tree, name, ctx);
+    return [{ tree: prog.tree || { op: "in" }, base: prog.base, rep: name, exact: false }];
+  }
+
+  /* ---------------------------------------------------- the search stage
+     A solver family that re-poses the task in the representations whose
+     evidence beats raw cells (never all of them) and runs typed synthesis
+     there; programs found are decoded back and verified by the portfolio
+     like any other hypothesis. Near states found in a representation are
+     handed to the candidate sink tagged with it, so repair continues in
+     that substrate. */
+  var MIN_GAIN = 0.25, STATS = { tasks: 0, tried: 0, found: 0 };
+  function generateRepresent(ctx) {
+    var ranked;
+    try { ranked = rank(ctx).filter(function (o) { return o.name !== "raw" && o.gain > MIN_GAIN; }); } catch (e) { return []; }
+    var info = { candidates: ranked.slice(0, 4).map(function (o) { return o.name + ":" + o.gain; }), tried: [] };
+    ctx._repInfo = info;
+    if (!ranked.length) return [];
+    STATS.tasks++;
+    var out = [], end = ctx.deadline === null ? nowMs() + 600 : ctx.deadline, pick = ranked.slice(0, 2), idx;
+    for (idx = 0; idx < pick.length; idx++) {
+      var left = end - nowMs();
+      if (left < 40) break;
+      var r = pick[idx], sub = taskIn(ctx, r.name, nowMs() + left / (pick.length - idx) * 0.9);
+      if (!sub) continue;
+      if (ctx._nearSink && ctx._nearSink.noteTyped) sub._nearSink = { noteTyped: (function (name) {
+        return function (c2, st, th, d, meta) { meta = meta || {}; meta.representation = name; ctx._nearSink.noteTyped(ctx, st, th, d, meta); };
+      })(r.name) };
+      var progs = [];
+      try { progs = SYN.search(sub, 3, 300, sub.deadline, 6, ctx.op_prior); } catch (e) { progs = []; }
+      STATS.tried++;
+      progs.forEach(function (pr) {
+        var fn = lift(function (g) { return pr.run(g); }, r.name, ctx);
+        if (!fn) return;
+        var h = new Hyp("rep[" + r.name + "]:" + pr.name(), fn, 2.0 + pr.codeLength() / 8 + REGISTRY[r.name].cost / 8, "represent");
+        h.representation = r.name; h.repProg = pr;
+        out.push(h);
+      });
+      if (progs.length) STATS.found++;
+      info.tried.push({ name: r.name, gain: r.gain, found: progs.length });
+    }
+    return out;
+  }
+  defSolver("represent", "represent", generateRepresent, 2, 1.0);
+
+  REPRESENT = {
+    stats: function () { return { tasks: STATS.tasks, tried: STATS.tried, found: STATS.found }; },
+    MIN_GAIN: MIN_GAIN, generate: generateRepresent,
+    register: register, get: get, names: function () { return ORDER.slice(); },
+    applicable: applicable, prepared: prepared, encode: encode, features: features, taskIn: taskIn,
+    lift: lift, wrap: wrap, evidence: evidence, score: score, rank: rank, propose: propose,
+    migrate: migrate, migrateTree: migrateTree, stripLines: stripLines,
+    encIn: encIn, encOut: encOut, decode: dec
+  };
+})();
 /* ===== src/20-compose.js ===== */
 /* Ports of engine/solvers/compose.py and engine/solvers/enumerate_dsl.py.
  *
@@ -6625,6 +7957,13 @@ var ANALOGY = {};
       }
       if (!nxt.length || nowMs() > deadline || found.size >= 4) break;
       nxt.sort(function (a, b) { return b[0] - a[0]; });
+      /* the closest chains that do not yet reproduce the demonstrations are
+         structured near-misses (55a-candidate.js); their training outputs
+         are already computed */
+      if (CANDIDATES.active(ctx)) for (i = 0; i < Math.min(3, nxt.length); i++)
+        CANDIDATES.offer(ctx, { family: "objects", module: "objchain", fn: _chain(nxt[i][1][1]),
+          name: "chain~:" + nxt[i][1][2], preds: nxt[i][1][0].slice(0, nTr), representation: "objects",
+          depth: depth, complexity: 2.6 + nxt[i][1][3], why: "chain_incomplete" });
       frontier = [];
       for (i = 0; i < Math.min(_BEAM, nxt.length); i++) frontier.push(nxt[i][1]);
     }
@@ -10586,11 +11925,19 @@ var PANELABS = {};
       for (m = 0; m < mods.length; m++) {
         if (nowMs() > deadline) break;
         try { hyps = hypcacheGenerate(mods[m], sub); } catch (e) { continue; }
+        var nearHere = 0;
         for (j = 0; j < hyps.length; j++) {
           hp = hyps[j];
           if (hp.fits(sub.train)) {
             res.push(new Hyp(inR[i][0] + "|" + hp.name, _chainIn(T, hp), 3.0 + hp.cost, "compose"));
             if (res.length > 60) break;
+          } else if (nearHere < 2 && CANDIDATES.active(ctx)) {
+            /* a specialist that almost explains the re-posed task: a near-miss
+               in the rewritten representation */
+            nearHere++;
+            CANDIDATES.offer(ctx, { family: "compose", module: "rewrite", fn: _chainIn(T, hp),
+              name: inR[i][0] + "|~" + hp.name, representation: "rewrite:" + inR[i][0], depth: 2,
+              complexity: 3.0 + hp.cost, why: "rewritten_task_mismatch" });
           }
         }
         if (res.length > 60) break;
@@ -11673,7 +13020,13 @@ var OBJPROC = {};
             var rule = _procRule(segs[si], bgs[bi], [_PAIR_KEYS[i], _PAIR_KEYS[j]], table, defs[d]);
             var sig;
             try {
-              if (!_verify(rule, ctx)) continue;
+              if (!_verify(rule, ctx)) {
+                /* an induced table that explains most objects is a repair seed */
+                CANDIDATES.offer(ctx, { family: "objects", module: "objproc", fn: rule,
+                  name: "proc2~[" + segs[si] + "/" + _PAIR_KEYS[i] + "+" + _PAIR_KEYS[j] + "|" + table.size + "]",
+                  representation: "objects:" + segs[si], depth: 3, complexity: 3.4 + 0.3 * table.size, why: "table_mismatch" });
+                continue;
+              }
               sig = _sigOf(rule, ctx);
             } catch (e) { continue; }
             if (seen.has(sig)) continue;
@@ -11708,7 +13061,7 @@ var OBJPROC = {};
         for (ki = 0; ki < keysets.length; ki++) {
           if (ctx.timed_out()) break;
           var got = _induce(rows, keysets[ki], penalty);
-          if (got === null) continue;
+          if (got === null) { if (!ki) CANDIDATES.note(ctx, "object_induction_failed", { seg: _SEGS[si], family: "objproc" }); continue; }
           var ranked = got[0], order = got[1], hit = false;
           var tables = _tables(ranked, order), ti;
           for (ti = 0; ti < tables.length; ti++) {
@@ -11720,7 +13073,13 @@ var OBJPROC = {};
               var rule = _procRule(_SEGS[si], bgs[bi], keysets[ki], table, defs[d]);
               var sig;
               try {
-                if (!_verify(rule, ctx)) continue;
+                if (!_verify(rule, ctx)) {
+                  CANDIDATES.offer(ctx, { family: "objects", module: "objproc", fn: rule,
+                    name: "proc~[" + _SEGS[si] + "/" + (keysets[ki].length ? keysets[ki].join("+") : "all") + "|" + table.size + "]",
+                    representation: "objects:" + _SEGS[si], depth: 1 + keysets[ki].length,
+                    complexity: 2.2 + 0.7 * keysets[ki].length + 0.28 * table.size, why: "table_mismatch" });
+                  continue;
+                }
                 sig = _sigOf(rule, ctx);
               } catch (e) { continue; }
               if (seen.has(sig)) { hit = true; break; }
@@ -12191,7 +13550,12 @@ var OBJPROC = {};
               covered.set(ak, n);
             }
           }
-          if (!opts.size) { failed = true; break; }
+          if (!opts.size) {
+            /* the action vocabulary cannot explain this object under this
+               segmentation: a representation failure, not a program one */
+            CANDIDATES.note(ctx, "no_action_explains_object", { seg: seg, family: "relproc", pair: t });
+            failed = true; break;
+          }
           rows.push([scene.features.get(obj), opts, covered]);
         }
       }
@@ -12250,7 +13614,13 @@ var OBJPROC = {};
             p = rule(ctx.train[t][0]);
             if (p === null || !G.gEq(p, ctx.train[t][1])) { okAll = false; break; }
           }
-          if (!okAll) continue;
+          if (!okAll) {
+            CANDIDATES.offer(ctx, { family: "objects", module: "relproc", fn: rule,
+              name: "relproc~[" + seg + "/" + (keyset.join("+") || "all") + "|" + table.size + "]",
+              representation: "relations:" + seg, depth: 2 + keyset.length,
+              complexity: 3.2 + 0.7 * keyset.length + 0.3 * table.size, why: "relation_table_mismatch" });
+            continue;
+          }
           var sigParts = [], anyNull = false;
           for (i = 0; i < ctx.test_inputs.length; i++) {
             p = rule(ctx.test_inputs[i]);
@@ -13814,6 +15184,54 @@ var CELLTREE = null;
     return { leaf: false, fi: FI, value: VAL, op: OP, yes: a, no: b };
   }
 
+  /* The same induction, but a node that would fail (depth or leaf budget
+     exhausted, no informative split) becomes a majority leaf instead of
+     failing the whole tree. The result reproduces most cells, not all: it is
+     never a hypothesis, only a structured near-miss for repair
+     (55a-candidate.js). */
+  function growLoose(rows, allowed, depth, budget, state) {
+    var ys = {}, i, n = rows.length, distinct = 0, maj = null, mn = -1;
+    for (i = 0; i < n; i++) ys[rows[i][1]] = (ys[rows[i][1]] || 0) + 1;
+    for (var k in ys) if (ys.hasOwnProperty(k)) { distinct++; if (ys[k] > mn) { mn = ys[k]; maj = k; } }
+    var majLeaf = { leaf: true, value: n ? rows.filter(function (r) { return String(r[1]) === maj; })[0][1] : null, copy: null };
+    if (distinct <= 1) return n ? { leaf: true, value: rows[0][1], copy: null } : majLeaf;
+    var fiCopy = copyLeaf(rows, allowed);
+    if (fiCopy !== null) return { leaf: true, value: null, copy: fiCopy };
+    if (depth >= MAX_DEPTH || state.leaves >= budget || n < 2) return majLeaf;
+    /* reuse the exact grower's split choice by asking it for one level */
+    var probe = { leaves: 0, splits: 0 }, best = null;
+    var base = entropyOf(ys, n);
+    for (var ai = 0; ai < allowed.length; ai++) {
+      var fi = allowed[ai], groups = new Map();
+      for (i = 0; i < n; i++) {
+        var v = rows[i][0][fi], gm = groups.get(v);
+        if (!gm) { gm = {}; groups.set(v, gm); }
+        gm[rows[i][1]] = (gm[rows[i][1]] || 0) + 1;
+      }
+      if (groups.size < 2) continue;
+      groups.forEach(function (gm, v) {
+        var kk = 0, y; for (y in gm) if (gm.hasOwnProperty(y)) kk += gm[y];
+        if (kk === 0 || kk === n) return;
+        var rest = {}; for (y in ys) if (ys.hasOwnProperty(y)) { var left = ys[y] - (gm[y] || 0); if (left) rest[y] = left; }
+        var gain = base - (kk / n) * entropyOf(gm, kk) - ((n - kk) / n) * entropyOf(rest, n - kk);
+        if (best === null || gain > best[0] + 1e-12 || (Math.abs(gain - best[0]) <= 1e-12 && (fi < best[1] || (fi === best[1] && v < best[2]))))
+          best = [gain, fi, v];
+      });
+    }
+    probe = null;
+    if (best === null || best[0] <= 1e-9) return majLeaf;
+    var yes = [], no = [];
+    for (i = 0; i < n; i++) (rows[i][0][best[1]] === best[2] ? yes : no).push(rows[i]);
+    state.leaves++; state.splits++;
+    return { leaf: false, fi: best[1], value: best[2], op: "eq",
+             yes: growLoose(yes, allowed, depth + 1, budget, state), no: growLoose(no, allowed, depth + 1, budget, state) };
+  }
+  function entropyOf(counts, n) {
+    var e = 0, k;
+    for (k in counts) if (counts.hasOwnProperty(k) && counts[k]) { var p = counts[k] / n; e -= p * Math.log(p); }
+    return e / Math.LN2;
+  }
+
   function predict(node, f) {
     while (!node.leaf)
       node = (node.op === "eq" ? f[node.fi] === node.value : f[node.fi] <= node.value)
@@ -13963,6 +15381,24 @@ var CELLTREE = null;
     return out;
   }
 
+  /* Near-miss trees for the candidate sink: only when the family found no
+     exact tree at all, on three broad feature banks, bounded. */
+  function offerLoose(ctx, pairs, bg, delta) {
+    if (!CANDIDATES.active(ctx) || ctx.timed_out()) return;
+    var rows = rowsFor(pairs, bg, delta);
+    if (!rows || !rows.length) return;
+    var list = banks().filter(function (b) { return b[0] === "all" || b[0] === "local+pos" || b[0] === "obj+field"; });
+    var ceiling = Math.max(4, Math.min(64, Math.floor(rows.length / 12)));
+    list.forEach(function (bk) {
+      if (ctx.timed_out()) return;
+      var state = { leaves: 0, splits: 0 }, tree = growLoose(rows, bk[1], 0, ceiling, state);
+      if (!tree) return;
+      CANDIDATES.offer(ctx, { family: "cellwise", module: "celltree", name: "tree~" + (delta ? "D" : "") + "[" + bk[0] + "," + state.splits + "]",
+        fn: (function (t, b, d) { return function (g) { return applyTree(t, g, b, d); }; })(tree, bg, delta),
+        representation: "cells:" + bk[0], depth: Math.min(6, state.splits), complexity: 1.0 + treeBits(tree) / 12.0, why: "impure_leaves" });
+    });
+  }
+
   function generate(ctx) {
     if (!ctx.same_shape()) return [];
     var res = [], di, i, bi;
@@ -13979,6 +15415,7 @@ var CELLTREE = null;
         if (ctx.timed_out()) break;
         var fits;
         try { fits = fitPairs(pairs, bg, null, delta, ctx.deadline); } catch (e) { continue; }
+        if (!fits.length) { try { offerLoose(ctx, pairs, bg, delta); } catch (e) { /* advisory */ } }
         var tag = bg === null ? "~" : "";
         for (i = 0; i < fits.length; i++) {
           var label = fits[i][0], tree = fits[i][1], bits = fits[i][2];
@@ -14019,6 +15456,14 @@ var CELLTREE = null;
     }
   }
 
+  function growWithLoose(rows, allowed, bitsTable, budget) {
+    return withBits(bitsTable, function () {
+      var state = { leaves: 0, splits: 0 };
+      var tree = growLoose(rows, allowed, 0, budget, state);
+      return tree === null ? null : [tree, state.splits];
+    });
+  }
+
   function growWith(rows, allowed, bitsTable, budget) {
     return withBits(bitsTable, function () {
       var ceiling = budget, ladder = [3, 6, 12, 24, 48, 96].filter(function (b) {
@@ -14041,7 +15486,7 @@ var CELLTREE = null;
 
   CELLTREE = { features: features, fitPairs: fitPairs, applyTree: applyTree,
                banks: banks, KEEP: KEEP, predict: predict,
-               growWith: growWith, bitsWith: bitsWith,
+               growWith: growWith, bitsWith: bitsWith, growLoose: growLoose, growWithLoose: growWithLoose,
                /* the iterated-rule family reuses the induction verbatim over
                   rows it builds itself, so it needs these unwrapped */
                grow: grow, treeBits: treeBits, N8D: N8D,
@@ -14220,7 +15665,17 @@ var CANVASTREE = null;
       var label = list[bi][0], allowed = list[bi][1];
       var fit = CELLTREE.growWith(rows, allowed, bits,
         Math.max(4, Math.min(48, Math.floor(rows.length / 16))));
-      if (!fit) continue;
+      if (!fit) {
+        if (CANDIDATES.active(ctx) && !ctx.timed_out()) {
+          var lf = CELLTREE.growWithLoose(rows, allowed, bits, Math.max(4, Math.min(48, Math.floor(rows.length / 16))));
+          if (lf) CANDIDATES.offer(ctx, { family: "tiling", module: "canvastree",
+            name: "canvas~[" + label + "," + (up ? "up" : "dn") + "]", representation: "canvas:" + (up ? "up" : "dn"),
+            fn: up ? (function (t, k, b) { return function (g) { return applyUp(t, g, k[0], k[1], b); }; })(lf[0], up, bg)
+                   : (function (t, k, b) { return function (g) { return applyDn(t, g, k[0], k[1], b); }; })(lf[0], dn, bg),
+            depth: Math.min(6, lf[1]), complexity: 1.0 + CELLTREE.bitsWith(lf[0], bits) / 12.0, why: "impure_leaves" });
+        }
+        continue;
+      }
       var tree = fit[0], splits = fit[1];
       var held = true;
       if (m >= 3) {
@@ -14615,7 +16070,15 @@ var PANELTREE = null;
         var budget = Math.max(3, Math.min(48, Math.floor(rws.length / 2)));
         var fit = CELLTREE.growWith(rws, FEATURE_BITS.map(function (_v, k) { return k; }),
                                     FEATURE_BITS, budget);
-        if (!fit) continue;
+        if (!fit) {
+          if (CANDIDATES.active(ctx) && !ctx.timed_out()) {
+            var lf = CELLTREE.growWithLoose(rws, FEATURE_BITS.map(function (_v, k) { return k; }), FEATURE_BITS, budget);
+            if (lf) CANDIDATES.offer(ctx, { family: "partition", module: "paneltree", name: "panels~[" + lf[1] + "]",
+              representation: "panels", fn: (function (t, b) { return function (g) { return applyTree(t, g, b); }; })(lf[0], resolved),
+              depth: Math.min(6, lf[1]), complexity: 1.0 + CELLTREE.bitsWith(lf[0], FEATURE_BITS) / 12.0, why: "impure_leaves" });
+          }
+          continue;
+        }
         var held = true, q;
         if (pairs.length >= 3) {
           for (q = 0; q < pairs.length && held; q++) {
@@ -14785,6 +16248,7 @@ var GROWTREE = null;
     return Math.min(120, Math.max(4 * depth + 4, G.gh(g) + G.gw(g)));
   }
 
+  var nearCtx = null;
   function fitPairs(pairs, bg, deadline, heldOut) {
     var out = [], di, bi, i, b;
     var all = CELLTREE.banks(), useBanks = [];
@@ -14823,7 +16287,12 @@ var GROWTREE = null;
           var got = runTo(tree, pairs[i][0], bg, capFor(pairs[i][0], depth));
           if (got === null || !G.gEq(got, pairs[i][1])) { good = false; break; }
         }
-        if (!good) continue;
+        if (!good) {
+          if (nearCtx) CANDIDATES.offer(nearCtx, { family: "cellwise", module: "growtree", name: "grow~[" + label + "]",
+            representation: "process", fn: (function (t, b2, d) { return function (g) { return runTo(t, g, b2, capFor(g, d)); }; })(tree, bg, depth),
+            depth: Math.min(6, state.splits + 1), complexity: 1.0 + CELLTREE.treeBits(tree) / 12.0, why: "process_mismatch" });
+          continue;
+        }
         var held = true;
         if (folds) {
           for (i = 0; i < folds.length; i++) {
@@ -14854,7 +16323,8 @@ var GROWTREE = null;
       var bg = backgrounds[bi];
       if (ctx.timed_out()) break;
       var fits;
-      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; }
+      nearCtx = ctx;
+      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; } finally { nearCtx = null; }
       var tag = bg === null ? "~" : "";
       for (i = 0; i < fits.length; i++) {
         var label = fits[i][0], tree = fits[i][1], bits = fits[i][2];
@@ -15240,6 +16710,10 @@ var OBJTREE = null;
     return rebuild(g, objs, labels, field);
   }
 
+  /* the context whose candidate sink receives near-misses; set by
+     generate() around fitPairs so the fitting code keeps its signature */
+  var nearCtx = null;
+
   function fitPairs(pairs, bg, deadline, heldOut) {
     var out = [], seen = {}, mi, pi, bi, i, b;
     for (mi = 0; mi < MODES.length; mi++) {
@@ -15286,7 +16760,15 @@ var OBJTREE = null;
                 var got = runTree(tree, pairs[i][0], mode2, bg);
                 if (got === null || !G.gEq(got, pairs[i][1])) { good = false; break; }
               }
-              if (!good) continue;
+              if (!good) {
+                /* the object rows were explained but running the tree does
+                   not reproduce the grids: a process-level near-miss */
+                if (nearCtx) CANDIDATES.offer(nearCtx, { family: "objects", module: "objtree",
+                  name: "objtree~[" + mode2 + "/" + label + "," + state.splits + "]", representation: "objects:" + mode2,
+                  fn: (function (t, m, b2) { return function (g) { return runTree(t, g, m, b2); }; })(tree, mode2, bg),
+                  depth: Math.min(6, state.splits + 1), complexity: BASE_COST + CELLTREE.treeBits(tree) / 12.0, why: "process_mismatch" });
+                continue;
+              }
               var held = true;
               if (folds2) {
                 for (i = 0; i < folds2.length; i++) {
@@ -15331,7 +16813,8 @@ var OBJTREE = null;
       var bg = backgrounds[bi];
       if (ctx.timed_out()) break;
       var fits;
-      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; }
+      nearCtx = ctx;
+      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; } finally { nearCtx = null; }
       var tag = bg === null ? "~" : "";
       for (i = 0; i < fits.length; i++) {
         var mode = fits[i][0], label = fits[i][1], tree = fits[i][2];
@@ -15506,6 +16989,7 @@ var REPEAT = null;
     return [out, painted];
   }
 
+  var nearCtx = null;
   function fitPairs(pairs, bg, deadline) {
     var out = [], segs = {}, mi, i, k;
     for (mi = 0; mi < MODES.length; mi++) {
@@ -15544,13 +17028,20 @@ var REPEAT = null;
           for (var ti = 0; ti < TINTS.length; ti++) {
             for (var oi2 = 0; oi2 < OVER.length; oi2++) {
               if (deadline && Date.now() / 1000 >= deadline) return out;
-              var good = true, anyPaint = false;
+              var good = true, anyPaint = false, okPairs = 0;
               for (i = 0; i < pairs.length; i++) {
                 var got = stamp(pairs[i][0], per[i][0], sels[i], nameList[ni],
                                 TINTS[ti], OVER[oi2], plans[i], per[i][1]);
                 anyPaint = anyPaint || got[1];
                 if (!G.gEq(got[0], pairs[i][1])) { good = false; break; }
+                okPairs++;
               }
+              /* reproduced at least one demonstration: a near-miss worth keeping */
+              if (!good && okPairs >= 1 && anyPaint && nearCtx)
+                CANDIDATES.offer(nearCtx, { family: "patterns", module: "repeat",
+                  name: "repeat~[" + mode + "/" + SELECTORS[si] + "/" + nameList[ni] + "]", representation: "objects:" + mode,
+                  fn: (function (m, sv, n, t, v) { return function (g) { return apply(g, m, sv, n, t, v, bg); }; })(mode, SELECTORS[si], nameList[ni], TINTS[ti], OVER[oi2]),
+                  depth: 2, complexity: BASE_COST, why: "stamp_mismatch" });
               /* a rule that paints nothing "fits" any identity task and says
                  nothing at all */
               if (good && anyPaint) {
@@ -15582,7 +17073,8 @@ var REPEAT = null;
       var bg = backgrounds[bi];
       if (ctx.timed_out()) break;
       var fits;
-      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; }
+      nearCtx = ctx;
+      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; } finally { nearCtx = null; }
       var tag = bg === null ? "~" : "";
       for (i = 0; i < fits.length; i++) {
         var f = fits[i];
@@ -15641,7 +17133,10 @@ var REPEAT = null;
 var SOLVER_PRIOR = {
   geometry: 0.0, cellwise: 1.0, partition: 0.0, symmetry: 0.0,
   objects: 1.5, tiling: 0.5, colormap: 0.0, select: 1.0,
-  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0
+  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0,
+  /* a typed program in another substrate: the substrate is an extra
+     assumption, charged a quarter unit over the same program in raw cells */
+  represent: 1.25
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -15652,7 +17147,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
   "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
-  "enumerate_dsl", "typed"];
+  "enumerate_dsl", "represent", "typed"];
 
 function orderedModules() {
   var byName = {}, i, out = [];
@@ -15913,6 +17408,7 @@ function _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, ord
       pool.forEach(function (v, k) { avail.add(k); });
       if (gi === 1 && !deepened && ran.indexOf("enumerate_dsl") >= 0) avail.add("deepen");
       try {
+        pl.extra = _searchState(ctx);
         dist = pl.distribution(sigs, ran, reservoir.a.length, fracLeft, ran.length, avail);
         /* the planner reorders families, it does not get to retire one */
         if (dist && Object.keys(dist).length) dist = PLANNER.explore(dist, undefined, avail);
@@ -15954,6 +17450,71 @@ function _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, ord
   res.diagnostics.plan = trace;
   return order;
 }
+
+/* What the search has seen so far, as planner state (06-planner.js). */
+function _searchState(ctx) {
+  var sink = ctx._nearSink, x = { nearCount: 0, nearClusters: 0 };
+  if (sink && sink.traces) {
+    var mods = 0;
+    if (sink.byModule) sink.byModule.forEach(function (l) { mods += l.length; });
+    x.nearCount = sink.traces.length + (sink.typed ? sink.typed.length : 0) + mods;
+    x.nearClusters = sink.clusters ? sink.clusters.size : 0;
+    var sigs = {}, top = null, tn = 0;
+    sink.traces.forEach(function (t) { var k = t.residual ? t.residual.sig.split("/")[0] : "?"; sigs[k] = (sigs[k] || 0) + 1; if (sigs[k] > tn) { tn = sigs[k]; top = k; } });
+    if (top) x.residualCategory = top;
+  }
+  if (ctx._synStats && ctx._synStats.generated) x.dupRatio = (ctx._synStats.canonical_duplicates + ctx._synStats.behavior_duplicates) / ctx._synStats.generated;
+  if (ctx._repInfo && ctx._repInfo.candidates && ctx._repInfo.candidates.length) x.repConfidence = +String(ctx._repInfo.candidates[0]).split(":").pop() || 0;
+  return x;
+}
+
+/* Pass@2 that is semantically diverse. Slot 2 is only worth a guess if it
+   is a different EXPLANATION, not the slot-1 idea with one parameter
+   changed. When the natural runner-up is a near-copy of slot 1 (>= 90% of
+   cells equal and most of the same supporting families) and a candidate
+   further down is a different explanation whose log-weight is within
+   MARGIN nats of the runner-up, that candidate takes slot 2. Evidence
+   still decides which different explanation; nothing here reads a label. */
+var PASS2 = (function () {
+  var ON = true, MARGIN = 2.0;
+  function sim(a, b) {
+    if (!a || !b || a.length !== b.length || a[0].length !== b[0].length) return 0;
+    var n = 0, m = 0, r, c;
+    for (r = 0; r < a.length; r++) for (c = 0; c < a[0].length; c++) { n++; if (a[r][c] === b[r][c]) m++; }
+    return m / n;
+  }
+  function jaccard(fa, fb) {
+    var inter = 0, uni = new Set();
+    fa.forEach(function (_, k) { uni.add(k); if (fb.has(k)) inter++; });
+    fb.forEach(function (_, k) { uni.add(k); });
+    return uni.size ? inter / uni.size : 1;
+  }
+  function variant(x, y, cf) {
+    if (cf && x.cf !== undefined && y.cf !== undefined && x.cf !== null && y.cf !== null) return x.cf === y.cf;
+    return sim(x.grid, y.grid) >= 0.9 && jaccard(x.fams, y.fams) >= 0.5;
+  }
+  /* scored: [[negWeight, first, grid, violations, nFamilies, families, cf]] sorted */
+  function select(scored, info) {
+    if (!ON || scored.length < 3) return scored;
+    var top = { grid: scored[0][2], fams: scored[0][5], cf: scored[0][6] };
+    var two = { grid: scored[1][2], fams: scored[1][5], cf: scored[1][6] };
+    if (!variant(top, two, true)) return scored;
+    var i;
+    for (i = 2; i < Math.min(8, scored.length); i++) {
+      if (scored[i][0] - scored[1][0] > MARGIN) break;
+      var cand = { grid: scored[i][2], fams: scored[i][5], cf: scored[i][6] };
+      if (!variant(top, cand, true) && scored[i][3] <= scored[1][3]) {
+        var out = scored.slice();
+        var moved = out.splice(i, 1)[0];
+        out.splice(1, 0, moved);
+        if (info) { info.promoted = true; info.from = i + 1; }
+        return out;
+      }
+    }
+    return scored;
+  }
+  return { select: select, diverse: function (on) { if (on !== undefined) ON = !!on; return ON; }, MARGIN: MARGIN, sim: sim };
+})();
 
 /* Keep all demonstrated shape laws when training does not distinguish them. */
 function _shapeOptions(ctx, tg) {
@@ -16059,7 +17620,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   var phase1 = [], phase2 = [];
   for (i = 0; i < mods.length; i++) ((mods[i].PHASE === 2) ? phase2 : phase1).push(mods[i]);
   var reservoir = new _MinHeap(_itemCmp), order = 0;
-  ctx._nearSink = REFINEMENT.newSink();
+  ctx._nearSink = REFINEMENT.newSink(ctx, { evalBudgetMs: Math.max(30, timeBudget * 1000 * 0.03) });
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
     order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);
@@ -16238,9 +17799,17 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       if (shapes.size && !shapes.has(gg2.length + "," + gg2[0].length)) violations += 1;
       if (allowed !== null && !G.csSubset(G.palette(gg2), allowed)) violations += 1;
       weight += violations * Math.log(0.25);
-      scored.push([-weight, first.get(gk), gg2, violations, families.size]);
+      var cfKey = null;
+      if (ctx._cfBehaviour) {
+        /* the counterfactual probe signature of the behaviour that authored
+           this output (58-counterfactual.js), when one was measured */
+        ctx._cfBehaviour.forEach(function (v, k) { if (cfKey === null && k.split("~")[ti] === gk) cfKey = v; });
+      }
+      scored.push([-weight, first.get(gk), gg2, violations, families.size, families, cfKey]);
     });
     scored.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
+    var p2info = { promoted: false };
+    scored = PASS2.select(scored, p2info);
     var predictions = [];
     for (i = 0; i < scored.length; i++) predictions.push(scored[i][2]);
     res.predictions.push(collectAll ? predictions : predictions.slice(0, k));
@@ -16249,7 +17818,8 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       distinct: scored.length,
       top_support: scored.length ? scored[0][4] : 0,
       top_violations: scored.length ? scored[0][3] : 0,
-      log_weight_margin: scored.length > 1 ? (scored[1][0] - scored[0][0]) : null
+      log_weight_margin: scored.length > 1 ? (scored[1][0] - scored[0][0]) : null,
+      pass2_promoted: p2info.promoted ? p2info.from : 0
     });
   }
   res.solver = null;
@@ -16840,10 +18410,22 @@ var BIDI = (function () {
       stats.leaf_calls++;
       var hs;try{hs=mod.generate(job.sub);}catch(e){stats.errors++;continue;}
       hs=hs.slice().sort(function(a,b){return a.cost-b.cost;});
-      var accepted=0;
+      var accepted=0,nearJob=0;
       for(var hi=0;hi<hs.length;hi++){
         if(nowMs()>=end)break outer;
         if(hs[hi].fits(job.sub.train)){keep(job,hs[hi]);if(++accepted>=3)break;}
+        else if(nearJob<1&&CANDIDATES.active(ctx)){
+          /* a leaf rule that almost explains the latent task, decoded back
+             through the inverse construction: a near-miss in that representation */
+          nearJob++;
+          (function(jb,h){
+            CANDIDATES.offer(ctx,{family:'bidirectional',module:'bidirectional',
+              name:'bidi~['+render(jb.rep.node)+']('+h.solver+':'+h.name+'('+jb.pr.p.name+'))',
+              representation:'latent:'+render(jb.rep.node),depth:1+jb.rep.depth,complexity:2.0+jb.rep.cost+jb.pr.p.cost+h.cost,
+              fn:function(g){var x=safe(jb.pr.p.run,g);if(!x)return null;var z=h.apply(x);return z?safe(jb.rep.decode,z,g):null;},
+              why:'latent_mismatch'});
+          })(job,hs[hi]);
+        }
       }
     }
     behaviors.forEach(function(h){found.push(h);});
@@ -16983,15 +18565,42 @@ var REDUCE = (function () {
                   UNSUPPORTED_ASSUMPTION: "unsupported_assumption",
                   CONTRADICTION: "contradiction", AMBIGUITY: "ambiguity" };
 
-  /* Reasoning operations the meta-controller chooses between. */
+  /* Reasoning operations the meta-controller chooses between.
+   *
+   * The last five do work the first eight cannot:
+   *   PROPOSE_REPRESENTATION  re-express a hypothesis in a different semantic
+   *                           substrate (colour roles, a geometric frame, an
+   *                           object or change-mask encoding) through the
+   *                           adapter's migrateRepresentation hook -- the
+   *                           program is carried over, the thing it is ABOUT
+   *                           changes. CHANGE_REPRESENTATION only edits the
+   *                           program inside its current substrate.
+   *   GENERATE_DISCRIMINATOR  several exact explanations predict different
+   *                           things: build inputs on which they disagree and
+   *                           record fragility / disagreement. It never picks
+   *                           a winner by label (there is none).
+   *   INVENT_ABSTRACTION      anti-unify near-solutions from different
+   *                           clusters into a parameterised template and refit
+   *                           it on all evidence (adapter.inventAbstraction).
+   *   VERIFY_DEEPLY           leave-one-out re-derivation of an exact
+   *                           explanation; one that only fits when it has seen
+   *                           every example stops counting as "solved" and the
+   *                           search continues.
+   *   RESTART_DIVERSE         a long stall: jump to the least-explored region
+   *                           (seeds and clusters never expanded) instead of
+   *                           the stalled branch's ancestor (BACKTRACK). */
   var ACTIONS = ["REFINE_BEST", "REFINE_DIVERSE", "ABSTRACT_RESIDUAL",
                  "CHANGE_REPRESENTATION", "EXPAND_PROGRAM", "SIMPLIFY_PROGRAM",
-                 "BACKTRACK", "STOP"];
+                 "BACKTRACK", "STOP",
+                 "PROPOSE_REPRESENTATION", "GENERATE_DISCRIMINATOR", "INVENT_ABSTRACTION",
+                 "VERIFY_DEEPLY", "RESTART_DIVERSE"];
   /* Which adapter repair mode each operation invokes. */
   var MODE_OF = { REFINE_BEST: "targeted", REFINE_DIVERSE: "targeted",
                   ABSTRACT_RESIDUAL: "abstract", CHANGE_REPRESENTATION: "represent",
                   EXPAND_PROGRAM: "expand", SIMPLIFY_PROGRAM: "simplify",
-                  BACKTRACK: "targeted" };
+                  BACKTRACK: "targeted", PROPOSE_REPRESENTATION: "migrate",
+                  INVENT_ABSTRACTION: "invent", RESTART_DIVERSE: "restart",
+                  GENERATE_DISCRIMINATOR: "discriminate", VERIFY_DEEPLY: "verify" };
 
   /* ------------------------------------------------------------ hypothesis */
 
@@ -17022,6 +18631,21 @@ var REDUCE = (function () {
     this.lineage = o.lineage || { parent: null, mutation: null, depth: 0, why: null,
                                   residualBefore: null, residualAfter: null,
                                   assumptionAdded: null, assumptionRemoved: null };
+    /* Representation and provenance. All optional: an adapter that never sets
+       them gets the defaults and the old behaviour. */
+    this.representationId = o.representationId || this.representation || "";
+    this.representationState = o.representationState || null;  /* adapter data for the substrate */
+    this.semanticKey = o.semanticKey || null;       /* equal = same function on a probe set */
+    this.structuralKey = o.structuralKey || null;   /* equal = same canonical program text */
+    this.sourceFamily = o.sourceFamily || "";
+    this.episodeId = o.episodeId || null;
+    this.traceId = o.traceId || null;
+    this.novelty = o.novelty || 0;                  /* 0..1: how far from what the frontier holds */
+    this.utility = o.utility || 0;
+    this.verification = o.verification || null;     /* {deep, fragility, disagreement, ...} */
+    this.counterexamples = o.counterexamples || [];
+    this.localAdaptation = o.localAdaptation || null;
+    this.abstractionsUsed = o.abstractionsUsed || [];
   }
 
   /* Child of ``parent`` produced by ``mutation``: lineage is filled in here so
@@ -17029,6 +18653,11 @@ var REDUCE = (function () {
   function derive(parent, fields, mutation) {
     var h = new Hypothesis(fields);
     h.domain = h.domain || parent.domain;
+    if (!fields || !fields.representationId) h.representationId = parent.representationId || h.representationId;
+    if (!fields || fields.representationState === undefined) h.representationState = parent.representationState || null;
+    h.sourceFamily = h.sourceFamily || parent.sourceFamily || "";
+    h.episodeId = h.episodeId || parent.episodeId || null;
+    if (!fields || !fields.abstractionsUsed) h.abstractionsUsed = (parent.abstractionsUsed || []).slice();
     h.lineage = {
       parent: parent.id, parentRef: parent, mutation: mutation || null,
       depth: (parent.lineage ? parent.lineage.depth : 0) + 1,
@@ -17201,6 +18830,12 @@ var REDUCE = (function () {
   function MetaController(opts) {
     opts = opts || {};
     this.weights = opts.weights || {};       /* learned: feature -> action -> w */
+    /* a trained C4ReasonMeta model (c4-reason-meta.js): expected progress per
+       unit of compute for each operation given the state features */
+    this.model = opts.model || null;
+    this.modelScale = opts.modelScale === undefined ? 1.0 : opts.modelScale;
+    this.priors = opts.priors === undefined ? true : !!opts.priors;
+    this.explore = opts.explore === undefined ? 0.5 : opts.explore;
     this.stats = {};
     this.trace = [];
     this.stallLimit = opts.stallLimit || 3;
@@ -17216,33 +18851,71 @@ var REDUCE = (function () {
     f.push("left:" + (st.budgetFrac > 0.66 ? "hi" : st.budgetFrac > 0.33 ? "mid" : "lo"));
     if (st.topDiag) f.push("diag:" + st.topDiag);
     if (st.repeatedDiag) f.push("repeat:1");
+    /* extended state (the legacy weight table carries none of these, so old
+       policies are unaffected; a trained C4ReasonMeta model reads them) */
+    if (st.domain) f.push("dom:" + st.domain);
+    if (st.representation) f.push("rep:" + st.representation);
+    if (st.dupRate !== undefined) f.push("dup:" + (st.dupRate > 0.5 ? "hi" : st.dupRate > 0.2 ? "mid" : "lo"));
+    if (st.depth !== undefined) f.push("depth:" + Math.min(st.depth, 4));
+    if (st.disagree) f.push("amb:1");
+    if (st.verifyFail) f.push("vfail:1");
+    if (st.repChanges) f.push("repchg:" + Math.min(st.repChanges, 2));
+    if (st.lastAction) f.push("last:" + st.lastAction + (st.lastGain > 0 ? ":+" : ":0"));
+    if (st.knowledge !== undefined && st.knowledge < 1) f.push("know:partial");
+    if (st.exactVerified) f.push("verified:1");
     return f;
   };
-  MetaController.prototype.choose = function (st, available) {
-    if (!available.length) return "STOP";
-    var feats = this.features(st), util = {}, i, a, total = 0;
+  MetaController.prototype.utilities = function (st, available, feats) {
+    feats = feats || this.features(st);
+    var util = {}, i, a, total = 0, learned = null;
     for (i = 0; i < ACTIONS.length; i++) total += this.stats[ACTIONS[i]].n;
+    if (this.model && typeof this.model.utilities === "function") {
+      try { learned = this.model.utilities(feats, available); } catch (e) { learned = null; }
+    }
     for (i = 0; i < available.length; i++) {
       a = available[i];
       var u = 0.0, s = this.stats[a];
       /* priors */
-      if (a === "REFINE_BEST") u += 1.0;                                   /* default: exploit the best near-miss */
-      if (a === "ABSTRACT_RESIDUAL" && st.topDiagStrong) u += 1.2;         /* a consistent semantic diagnosis names its own repair */
-      if (a === "REFINE_DIVERSE" && st.clusters > 1) u += 0.3 + 0.3 * Math.min(st.stall, 3); /* stalled on one idea: try another */
-      if (a === "EXPAND_PROGRAM" && st.bestResidual !== null && st.bestResidual > 0.3) u += 0.6; /* far from target: a missing step */
-      if (a === "SIMPLIFY_PROGRAM" && st.topDiag === "excessive_change") u += 0.8; /* doing too much: delete a step */
-      if (a === "CHANGE_REPRESENTATION" && (st.stall >= 2 || st.repeatedDiag)) u += 0.9; /* same failure again: change the frame */
-      if (a === "BACKTRACK" && st.stall >= 2) u += 0.7;                    /* branch stopped improving */
+      if (this.priors) {
+        if (a === "REFINE_BEST") u += 1.0;                                   /* default: exploit the best near-miss */
+        if (a === "ABSTRACT_RESIDUAL" && st.topDiagStrong) u += 1.2;         /* a consistent semantic diagnosis names its own repair */
+        if (a === "REFINE_DIVERSE" && st.clusters > 1) u += 0.3 + 0.3 * Math.min(st.stall, 3); /* stalled on one idea: try another */
+        if (a === "EXPAND_PROGRAM" && st.bestResidual !== null && st.bestResidual > 0.3) u += 0.6; /* far from target: a missing step */
+        if (a === "SIMPLIFY_PROGRAM" && st.topDiag === "excessive_change") u += 0.8; /* doing too much: delete a step */
+        if (a === "CHANGE_REPRESENTATION" && (st.stall >= 2 || st.repeatedDiag)) u += 0.9; /* same failure again: change the frame */
+        if (a === "BACKTRACK" && st.stall >= 2) u += 0.7;                    /* branch stopped improving */
+        /* the substrate itself may be wrong: repeated failure, or a failure
+           the residual attributes to the representation */
+        if (a === "PROPOSE_REPRESENTATION") u += (st.repFailure ? 1.2 : 0) + (st.stall >= 3 ? 0.4 : 0);
+        /* competing exact explanations that disagree: information, not search */
+        if (a === "GENERATE_DISCRIMINATOR" && st.disagree) u += 1.4;
+        /* two different near-solutions share structure: generalise them */
+        if (a === "INVENT_ABSTRACTION" && st.clusters > 1 && st.stall >= 1) u += 0.5;
+        /* an exact explanation nobody has cross-validated */
+        if (a === "VERIFY_DEEPLY" && st.exact > 0 && !st.exactVerified) u += 1.3;
+        /* a long stall: the region is exhausted */
+        if (a === "RESTART_DIVERSE" && st.stall >= 2 * this.stallLimit) u += 0.6;
+        /* nothing left to gain: one verified explanation, no rival */
+        if (a === "STOP" && st.exact > 0 && st.exactVerified && !st.disagree) u += 0.8 + 0.3 * Math.min(st.stall, 3);
+      }
       /* learned */
       for (var j = 0; j < feats.length; j++) {
         var row = this.weights[feats[j]];
         if (row && row[a]) u += row[a];
       }
-      /* observed payoff per operation this solve, and exploration */
+      if (learned && learned[a] !== undefined && isFinite(learned[a])) u += this.modelScale * learned[a];
+      /* observed payoff per operation this solve, and exploration: an
+         operation that has never been tried keeps a floor of utility so a
+         learned policy cannot lock the search into one path */
       if (s.n) u += Math.min(2.0, s.gain / s.n * 4.0);
-      u += 0.5 * Math.sqrt(Math.log(total + 2) / (s.n + 1));
+      u += this.explore * Math.sqrt(Math.log(total + 2) / (s.n + 1));
       util[a] = u;
     }
+    return util;
+  };
+  MetaController.prototype.choose = function (st, available) {
+    if (!available.length) return "STOP";
+    var feats = this.features(st), util = this.utilities(st, available, feats), i;
     var best = available[0];
     for (i = 1; i < available.length; i++) if (util[available[i]] > util[best]) best = available[i];
     this.trace.push({ action: best, utility: Math.round(util[best] * 100) / 100, feats: feats.slice(1) });
@@ -17287,12 +18960,37 @@ var REDUCE = (function () {
    *     not much worse (the diversity case: a different wrong answer is worth
    *     keeping, the same wrong answer is not). */
   var IMPROVE_EPS = 1e-9, SIMPLER_BITS = 2.0, DIVERSE_SLACK = 0.10;
+  /* A representation change is allowed to look worse at first: the program
+     was written for the old substrate and has not been refitted to the new
+     one yet. Bounded, so a migration cannot flood the frontier. */
+  var REP_SLACK = 0.25;
+  /* bits charged to an exact explanation that breaks on discriminating
+     probes (scaled by its fragility), or that fails leave-one-out
+     re-derivation -- enough to reorder near-ties, never to overturn an
+     exact fit into a non-fit */
+  var FRAGILITY_BITS = 4.0, DEEP_FAIL_BITS = 3.0;
   function survives(child, parent, frontier) {
     var rc = child.residual ? child.residual.norm : 1, rp = parent.residual ? parent.residual.norm : 1;
     if (rc < rp - IMPROVE_EPS) return "improved";
     if (rc <= rp + IMPROVE_EPS && child.complexity <= parent.complexity - SIMPLER_BITS) return "simpler";
     if (!frontier.byCluster.has(child.cluster) && rc <= rp + DIVERSE_SLACK) return "diverse";
+    if (child.representationId !== parent.representationId && rc <= rp + REP_SLACK) return "represented";
     return null;
+  }
+
+  var _episodes = 0;
+
+  /* Is the best hypothesis failing because of its SUBSTRATE rather than its
+     program? Adapters tag diagnoses with level "representation" or
+     "program"; a strong representation-level diagnosis, or more
+     representation-level than program-level weight, says so. */
+  function repFailureOf(h) {
+    var ds = h && h.diagnosis ? h.diagnosis : [], rep = 0, prog = 0, i;
+    for (i = 0; i < ds.length; i++) {
+      var w = (ds[i].strong ? 2 : 1) * (ds[i].weight || 0.1);
+      if (ds[i].level === "representation") { if (ds[i].strong) return true; rep += w; } else prog += w;
+    }
+    return rep > prog;
   }
 
   /* adapter: {
@@ -17301,9 +18999,23 @@ var REDUCE = (function () {
    *   diagnose(h)            -> [{kind, weight, strong?, ...}] semantic diagnoses
    *   repair(h, mode, diag)  -> [child hypotheses] (use kernel.derive)
    *   verifyExact(h)         -> bool, final guard before the exact pool
+   *   -- optional hooks; the kernel degrades gracefully without them --
+   *   structuralKey(h)       canonical program key computed BEFORE execution;
+   *                          equal keys are the same program, so the second
+   *                          is never executed
+   *   semanticKey(h)         behaviour on a probe set (after evaluation)
+   *   estimateNovelty(h, F)  0..1 distance from what frontier F holds
+   *   proposeRepresentations(h, diags)  -> children in other substrates
+   *   inventAbstraction(hs, exact)      -> generalised children
+   *   generateDiscriminator(exact)      -> {probes, fragility[], disagreement}
+   *   verifyDeep(h)          -> {pass, wins, trials} | null
+   *   restart(sample, F)     -> fresh hypotheses from unexplored regions
    * }
    * opts: deadline | maxMs, maxSteps, frontierCap, clusterCap, childCap,
-   *       maxDepth, stallLimit, exactCap, stopOnExact, weights, stats, log */
+   *       maxDepth, stallLimit, exactCap, stopOnExact, weights, stats, log,
+   *       metaModel (C4ReasonMeta), actions (allowed subset), domain,
+   *       episodeId, trajectory (array to append step records to),
+   *       checkGeneralization(h) -> bool (synthetic curricula only) */
   function refine(adapter, seeds, opts) {
     opts = opts || {};
     var t0 = nowMs();
@@ -17312,28 +19024,62 @@ var REDUCE = (function () {
     var maxDepth = opts.maxDepth || 4, exactCap = opts.exactCap || 16;
     var stallLimit = opts.stallLimit || 3, maxStall = opts.maxStall || stallLimit * 4;
     var frontier = new Frontier(opts.frontierCap || 48, opts.clusterCap);
-    var meta = new MetaController({ weights: opts.weights, stallLimit: stallLimit });
+    var meta = new MetaController({ weights: opts.weights, stallLimit: stallLimit, model: opts.metaModel || null,
+                                    modelScale: opts.metaScale, priors: opts.metaPriors, explore: opts.explore });
     var repairStats = opts.stats || new RepairStats();
-    var seen = new Set(), exact = [], exactKeys = new Set();
+    var seen = new Set(), structSeen = new Set(), exact = [], exactKeys = new Set();
+    var episodeId = opts.episodeId || ("ep" + (++_episodes));
+    var domain = opts.domain || (seeds.length && seeds[0].domain) || "";
+    var Mem = root.C4ReasonMemory || null;
+    var wm = Mem && Mem.WorkingMemory ? new Mem.WorkingMemory({ episodeId: episodeId, domain: domain }) : null;
+    var trajectory = [], trajCap = opts.trajectoryCap || 400;
+    var hooks = {
+      structural: typeof adapter.structuralKey === "function",
+      semantic: typeof adapter.semanticKey === "function",
+      novelty: typeof adapter.estimateNovelty === "function",
+      migrate: typeof adapter.proposeRepresentations === "function",
+      invent: typeof adapter.inventAbstraction === "function",
+      discriminate: typeof adapter.generateDiscriminator === "function",
+      verify: typeof adapter.verifyDeep === "function",
+      restart: typeof adapter.restart === "function"
+    };
+    var allow = opts.actions ? new Set(opts.actions) : null;
     var stats = { seeds: 0, evaluated: 0, kept: 0, duplicates: 0, wasted: 0, exact: 0,
                   steps: 0, backtracks: 0, repsSwitched: 0, depthSum: 0, madeExact: 0,
-                  bestStart: null, bestEnd: null, byMutation: {}, byDiag: {}, survival: {} };
+                  bestStart: null, bestEnd: null, byMutation: {}, byDiag: {}, survival: {},
+                  structDuplicates: 0, migrations: 0, migrationKept: 0, migrationExact: 0,
+                  discriminations: 0, inventions: 0, deepVerified: 0, deepFailed: 0, restarts: 0,
+                  maxDepthReached: 0, byAction: {} };
 
     function budgetLeft() { return Math.max(0, deadline - nowMs()) / Math.max(1, deadline - t0); }
     function mutStat(k) { return stats.byMutation[k] || (stats.byMutation[k] = { tried: 0, kept: 0, exact: 0, improved: 0 }); }
+    function actStat(a) { return stats.byAction[a] || (stats.byAction[a] = { n: 0, gain: 0, exact: 0, children: 0 }); }
 
     function admitExact(h) {
       if (exactKeys.has(h.key)) return;
       if (!adapter.verifyExact(h)) { h.status = "near"; return; }     /* the guarantee */
       exactKeys.add(h.key);
+      if (hooks.semantic) { try { h.semanticKey = adapter.semanticKey(h) || null; } catch (e) { h.semanticKey = null; } }
       mdlScore(h);
       exact.push(h);
       exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
       if (exact.length > exactCap) exact.pop();
       stats.exact++;
+      discriminated = false;
+      if (wm) wm.confirm(h.key, { id: h.id, repr: h.representationId, score: h.score });
     }
 
     function consider(h, parent, mutKind) {
+      if (!h.episodeId) h.episodeId = episodeId;
+      if (hooks.structural) {
+        var sk = null;
+        try { sk = adapter.structuralKey(h); } catch (e) { sk = null; }
+        if (sk !== null && sk !== undefined) {
+          h.structuralKey = sk;
+          if (structSeen.has(sk)) { stats.duplicates++; stats.structDuplicates++; return null; }
+          structSeen.add(sk);
+        }
+      }
       if (h.key !== null && h.key !== undefined && seen.has(h.key)) { stats.duplicates++; return null; }
       try { adapter.evaluate(h); } catch (e) { h.status = "invalid"; }
       stats.evaluated++;
@@ -17343,7 +19089,10 @@ var REDUCE = (function () {
       }
       if (h.status === "invalid") { stats.wasted++; return null; }
       mdlScore(h);
+      if (hooks.novelty) { try { h.novelty = +adapter.estimateNovelty(h, frontier) || 0; } catch (e) { h.novelty = 0; } }
+      else h.novelty = frontier.byCluster.has(h.cluster) ? 0 : 1;
       if (parent) h.lineage.residualAfter = h.residual ? h.residual.norm : null;
+      if (h.lineage && h.lineage.depth > stats.maxDepthReached) stats.maxDepthReached = h.lineage.depth;
       if (h.status === "exact") {
         admitExact(h);
         if (h.status === "exact") {
@@ -17376,21 +19125,45 @@ var REDUCE = (function () {
     stats.bestStart = bestNorm();
 
     /* afterExact: how many further operations to spend once an exact
-       explanation exists (alternatives for ranking); 0 = stop at the first */
+       explanation exists (alternatives for ranking); 0 = stop at the first.
+       An exact explanation that fails deep verification does not count. */
     var afterExact = opts.stopOnExact ? 0 : (opts.afterExact === undefined ? Infinity : opts.afterExact);
     var stall = 0, lastBest = stats.bestStart, lastDiags = [], stalledParent = null, firstExactStep = null;
+    var discriminated = false, lastAction = null, lastGain = 0, repChanges = 0;
+    function trusted() { return exact.filter(function (e) { return !(e.verification && e.verification.deep === false); }); }
+    function unverified() {
+      for (var q = 0; q < exact.length; q++) if (!exact[q].verification || exact[q].verification.deep === undefined) return exact[q];
+      return null;
+    }
+    function restartSample() {
+      /* members never expanded, least-deep first, from the least-expanded clusters */
+      var items = frontier.items.filter(function (h) { return !Object.keys(h.expanded).length; });
+      items.sort(function (a, b) {
+        return ((a.lineage ? a.lineage.depth : 0) - (b.lineage ? b.lineage.depth : 0)) || (a.score - b.score) || (a.id < b.id ? -1 : 1);
+      });
+      return items.slice(0, 6);
+    }
     while (stats.steps < maxSteps && nowMs() < deadline) {
-      if (exact.length && firstExactStep === null) firstExactStep = stats.steps;
+      var good = trusted();
+      if (good.length && firstExactStep === null) firstExactStep = stats.steps;
+      if (!good.length) firstExactStep = null;
       if (firstExactStep !== null && stats.steps - firstExactStep >= afterExact) break;
-      if (!frontier.size()) break;
-      var best = frontier.sorted()[0];
+      if (!frontier.size() && !exact.length) break;
+      var best = frontier.size() ? frontier.sorted()[0] : null;
       if (best && !best.diagnosis) { try { best.diagnosis = adapter.diagnose(best) || []; } catch (e) { best.diagnosis = []; } }
       var top = best && best.diagnosis && best.diagnosis.length ? best.diagnosis[0] : null;
       var st = {
         bestResidual: bestNorm(), stall: stall, exact: exact.length, clusters: frontier.clusters(),
         budgetFrac: budgetLeft(), topDiag: top ? top.kind : null, topDiagStrong: !!(top && top.strong),
         repeatedDiag: lastDiags.length >= 2 && top && lastDiags[lastDiags.length - 1] === top.kind &&
-                      lastDiags[lastDiags.length - 2] === top.kind
+                      lastDiags[lastDiags.length - 2] === top.kind,
+        domain: domain, representation: best ? best.representationId : null,
+        dupRate: stats.evaluated + stats.duplicates ? stats.duplicates / (stats.evaluated + stats.duplicates) : 0,
+        depth: best && best.lineage ? best.lineage.depth : 0,
+        disagree: exact.length >= 2 && !discriminated,
+        verifyFail: stats.deepFailed > 0, repChanges: repChanges,
+        repFailure: repFailureOf(best), exactVerified: good.some(function (e) { return e.verification && e.verification.deep === true; }),
+        lastAction: lastAction, lastGain: lastGain
       };
       var avail = [], modeOpen = function (m) { return frontier.best(m) !== null; };
       if (modeOpen("targeted")) avail.push("REFINE_BEST");
@@ -17400,53 +19173,185 @@ var REDUCE = (function () {
       if (modeOpen("expand")) avail.push("EXPAND_PROGRAM");
       if (modeOpen("simplify")) avail.push("SIMPLIFY_PROGRAM");
       if (stall >= 2 && stalledParent && stalledParent.lineage.parentRef) avail.push("BACKTRACK");
+      if (hooks.migrate && modeOpen("migrate")) avail.push("PROPOSE_REPRESENTATION");
+      if (hooks.invent && frontier.size() >= 2 && modeOpen("invent")) avail.push("INVENT_ABSTRACTION");
+      if (hooks.discriminate && exact.length >= 2 && !discriminated) avail.push("GENERATE_DISCRIMINATOR");
+      if (hooks.verify && unverified()) avail.push("VERIFY_DEEPLY");
+      if (stall >= stallLimit * 2 && (hooks.restart || restartSample().length)) avail.push("RESTART_DIVERSE");
+      if (good.length) avail.push("STOP");
+      if (allow) avail = avail.filter(function (a) { return allow.has(a) || a === "STOP"; });
       /* give up only after a long run of non-improving operations: the
          controller has by then been pushed through diversity, representation
          change and backtracking by the stall features */
       if (stall >= maxStall || !avail.length) break;
+      if (avail.length === 1 && avail[0] === "STOP") break;
       var action = meta.choose(st, avail);
-      if (action === "STOP") break;
-      var mode = MODE_OF[action], parent;
-      if (action === "REFINE_DIVERSE") parent = frontier.diverse(mode);
-      else if (action === "BACKTRACK") {
-        /* the stalled branch's ancestor gets its untried modes re-opened */
-        parent = stalledParent.lineage.parentRef;
-        stats.backtracks++;
-        var untried = ["represent", "expand", "simplify", "abstract", "targeted"].filter(function (m) { return !parent.expanded[m]; });
-        mode = untried.length ? untried[0] : "represent";
-        if (frontier.keys.has(parent.key) === false) frontier.add(parent);
-      } else parent = frontier.best(mode);
-      if (!parent) { meta.observe(action, 0, 0); stats.steps++; stall++; continue; }
-      parent.expanded[mode] = true;
-      if (!parent.diagnosis) { try { parent.diagnosis = adapter.diagnose(parent) || []; } catch (e) { parent.diagnosis = []; } }
-      if (mode === "represent") stats.repsSwitched++;
-      var started = nowMs(), children;
-      try { children = adapter.repair(parent, mode, parent.diagnosis, repairStats) || []; }
-      catch (e) { children = []; }
-      if (children.length > childCap) children = children.slice(0, childCap);
-      var gain = 0, before = parent.residual ? parent.residual.norm : 1, pdiag = parent.diagnosis[0] ? parent.diagnosis[0].kind : "none";
-      for (var c = 0; c < children.length; c++) {
-        if (nowMs() > deadline) break;
-        var ch = children[c], mk = ch.lineage.mutation ? ch.lineage.mutation.kind : "?";
-        mutStat(mk).tried++;
-        var outcome = consider(ch, parent, mk);
-        var ok = outcome === "exact" || outcome === "improved";
-        repairStats.observe(pdiag, mk, ok);
-        stats.byDiag[pdiag] = (stats.byDiag[pdiag] || 0) + 1;
-        if (opts.log) opts.log.push({ diag: pdiag, diagDetail: parent.diagnosis[0] || null,
-          repr: parent.representation, mutation: ch.lineage.mutation, before: before,
-          after: ch.residual ? ch.residual.norm : null, outcome: outcome || "rejected",
-          depth: ch.lineage.depth });
-        if (outcome === "exact") gain = Math.max(gain, before);
-        else if (ch.residual && outcome) gain = Math.max(gain, before - ch.residual.norm);
+      if (action === "STOP") { stats.stopped = true; break; }
+      var mode = MODE_OF[action], parent = null, started = nowMs(), children = [];
+      var dup0 = stats.duplicates, kept0 = stats.kept, exact0 = stats.exact;
+      var gain = 0, before = null, pdiag = "none", newClusters = 0, bestChildRes = null, bestChildCx = null;
+      var clusterSet = new Set(frontier.byCluster.keys());
+
+      if (action === "GENERATE_DISCRIMINATOR") {
+        /* information about competing explanations, not search */
+        var dres = null;
+        try { dres = adapter.generateDiscriminator(exact.slice()); } catch (e) { dres = null; }
+        discriminated = true;
+        stats.discriminations++;
+        if (dres && dres.fragility) {
+          for (var di = 0; di < exact.length && di < dres.fragility.length; di++) {
+            var fr = Math.max(0, Math.min(1, +dres.fragility[di] || 0));
+            exact[di].verification = exact[di].verification || {};
+            exact[di].verification.fragility = fr;
+            exact[di].verification.disagreement = dres.disagreement === undefined ? null : dres.disagreement;
+            exact[di].score += FRAGILITY_BITS * fr;
+            if (fr > 0 && wm) wm.counterexample(exact[di].key, { kind: "fragile_probe", fragility: fr });
+          }
+          exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
+          gain = dres.disagreement ? Math.min(1, +dres.disagreement) : 0;
+        }
+        if (wm && dres && dres.disagreement) wm.question("which exact explanation generalises", { disagreement: dres.disagreement });
+      } else if (action === "VERIFY_DEEPLY") {
+        var ev = unverified(), vr = null;
+        try { vr = adapter.verifyDeep(ev); } catch (e) { vr = null; }
+        ev.verification = ev.verification || {};
+        ev.verification.deep = vr ? !!vr.pass : null;
+        if (vr) { ev.verification.wins = vr.wins; ev.verification.trials = vr.trials; }
+        parent = ev; before = 0;
+        if (vr && !vr.pass) {
+          ev.score += DEEP_FAIL_BITS; stats.deepFailed++;
+          ev.counterexamples.push({ kind: "leave_one_out", wins: vr.wins, trials: vr.trials });
+          exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
+          if (wm) wm.refute(ev.key, "fails leave-one-out re-derivation");
+          gain = 0.5;
+        } else if (vr && vr.pass) { stats.deepVerified++; gain = 0.25; }
+      } else {
+        if (action === "REFINE_DIVERSE") parent = frontier.diverse(mode);
+        else if (action === "BACKTRACK") {
+          /* the stalled branch's ancestor gets its untried modes re-opened */
+          parent = stalledParent.lineage.parentRef;
+          stats.backtracks++;
+          var untried = ["represent", "expand", "simplify", "abstract", "targeted"].filter(function (m) { return !parent.expanded[m]; });
+          mode = untried.length ? untried[0] : "represent";
+          if (frontier.keys.has(parent.key) === false) frontier.add(parent);
+        } else if (action === "RESTART_DIVERSE") {
+          stats.restarts++;
+          var sample = restartSample();
+          if (hooks.restart) {
+            try { children = adapter.restart(sample, frontier) || []; } catch (e) { children = []; }
+            parent = null;
+          } else parent = sample.length ? sample[0] : frontier.diverse("expand");
+          if (!hooks.restart && parent) mode = !parent.expanded.expand ? "expand" : !parent.expanded.represent ? "represent" : "targeted";
+          stall = Math.floor(stall / 2);
+        } else parent = frontier.best(mode);
+        if (!parent && !(action === "RESTART_DIVERSE" && hooks.restart)) {
+          meta.observe(action, 0, 0); stats.steps++; stall++; lastAction = action; lastGain = 0; continue;
+        }
+        if (parent) {
+          parent.expanded[mode] = true;
+          if (!parent.diagnosis) { try { parent.diagnosis = adapter.diagnose(parent) || []; } catch (e) { parent.diagnosis = []; } }
+          pdiag = parent.diagnosis[0] ? parent.diagnosis[0].kind : "none";
+          before = parent.residual ? parent.residual.norm : 1;
+        } else before = bestNorm() === null ? 1 : bestNorm();
+        if (mode === "represent") stats.repsSwitched++;
+        if (action === "PROPOSE_REPRESENTATION") {
+          stats.migrations++;
+          try { children = adapter.proposeRepresentations(parent, parent.diagnosis) || []; } catch (e) { children = []; }
+        } else if (action === "INVENT_ABSTRACTION") {
+          stats.inventions++;
+          /* the best member of each of up to four clusters */
+          var picks = [], usedCl = new Set(), srt = frontier.sorted();
+          for (var pi = 0; pi < srt.length && picks.length < 4; pi++) {
+            if (usedCl.has(srt[pi].cluster)) continue;
+            usedCl.add(srt[pi].cluster); picks.push(srt[pi]);
+          }
+          if (picks.indexOf(parent) < 0) picks.unshift(parent);
+          try { children = adapter.inventAbstraction(picks, exact.slice()) || []; } catch (e) { children = []; }
+        } else if (action !== "RESTART_DIVERSE" || !hooks.restart) {
+          try { children = adapter.repair(parent, mode, parent.diagnosis, repairStats) || []; }
+          catch (e) { children = []; }
+        }
+        if (children.length > childCap) children = children.slice(0, childCap);
+        for (var c = 0; c < children.length; c++) {
+          if (nowMs() > deadline) break;
+          var ch = children[c], mk = ch.lineage && ch.lineage.mutation ? ch.lineage.mutation.kind : (action === "RESTART_DIVERSE" ? "restart" : "?");
+          mutStat(mk).tried++;
+          var outcome = consider(ch, parent, mk);
+          var ok = outcome === "exact" || outcome === "improved";
+          repairStats.observe(pdiag, mk, ok);
+          stats.byDiag[pdiag] = (stats.byDiag[pdiag] || 0) + 1;
+          if (parent && ch.representationId !== parent.representationId) {
+            repChanges++;
+            if (outcome) stats.migrationKept++;
+            if (outcome === "exact") stats.migrationExact++;
+          }
+          if (outcome && ch.cluster !== null && !clusterSet.has(ch.cluster)) { newClusters++; clusterSet.add(ch.cluster); }
+          if (outcome && ch.residual && (bestChildRes === null || ch.residual.norm < bestChildRes)) { bestChildRes = ch.residual.norm; bestChildCx = ch.complexity; }
+          if (opts.log) opts.log.push({ diag: pdiag, diagDetail: parent && parent.diagnosis ? parent.diagnosis[0] || null : null,
+            repr: parent ? parent.representation : null, mutation: ch.lineage ? ch.lineage.mutation : null, before: before,
+            after: ch.residual ? ch.residual.norm : null, outcome: outcome || "rejected",
+            depth: ch.lineage ? ch.lineage.depth : 0, action: action });
+          if (outcome === "exact") gain = Math.max(gain, before);
+          else if (ch.residual && outcome) gain = Math.max(gain, before - ch.residual.norm);
+        }
       }
-      meta.observe(action, gain, nowMs() - started);
+      var ms = nowMs() - started;
+      meta.observe(action, gain, ms);
+      var as = actStat(action); as.n++; as.gain += Math.max(0, gain); as.exact += stats.exact - exact0; as.children += children.length;
       stats.steps++;
-      lastDiags.push(pdiag);
+      if (wm) wm.step({ action: action, parent: parent ? parent.id : null, gain: gain, repr: parent ? parent.representationId : null,
+                        residual: bestNorm() });
+      if (trajectory.length < trajCap) trajectory.push({
+        ep: episodeId, step: stats.steps - 1, domain: domain, feats: meta.features(st).slice(1), action: action,
+        parent: parent ? parent.id : null, parentDepth: parent && parent.lineage ? parent.lineage.depth : 0,
+        repr: parent ? parent.representationId : null, resBefore: before, resAfter: bestChildRes,
+        cxBefore: parent ? parent.complexity : null, cxAfter: bestChildCx, novelty: newClusters,
+        ms: ms, children: children.length, dedup: stats.duplicates - dup0, kept: stats.kept - kept0,
+        exactFound: stats.exact - exact0, gain: gain, reachedExact: false, depthFromSolution: null, generalized: null });
+      lastAction = action; lastGain = gain;
+      if (pdiag !== "none") lastDiags.push(pdiag);
       var nb = bestNorm();
       if (lastBest === null || (nb !== null && nb < lastBest - IMPROVE_EPS) || gain > 0.5) { stall = 0; lastBest = nb; }
-      else { stall++; stalledParent = parent; }
+      else { stall++; if (parent) stalledParent = parent; }
     }
+    /* Which steps lay on a path to an exact explanation, and how far from it:
+       the supervision signal for a learned controller. Failures stay in the
+       log with reachedExact false -- they are half of what it learns from. */
+    var onPath = new Map();
+    exact.forEach(function (h) {
+      var gen = null;
+      if (opts.checkGeneralization) { try { gen = !!opts.checkGeneralization(h); } catch (e) { gen = null; } }
+      h.verification = h.verification || {};
+      if (gen !== null) h.verification.generalized = gen;
+      var cur = h, d = h.lineage ? h.lineage.depth : 0;
+      while (cur) {
+        var prev = onPath.get(cur.id);
+        var dist = d - (cur.lineage ? cur.lineage.depth : 0);
+        if (!prev || dist < prev.dist) onPath.set(cur.id, { dist: dist, gen: gen });
+        cur = cur.lineage ? cur.lineage.parentRef : null;
+      }
+    });
+    trajectory.forEach(function (t) {
+      var p = t.parent ? onPath.get(t.parent) : null;
+      if (p) { t.reachedExact = true; t.depthFromSolution = p.dist; t.generalized = p.gen; }
+    });
+    /* Off-policy samples for STOP (only when a caller collects training
+       trajectories): at every step taken while an exact explanation already
+       existed, stopping would have been right exactly when no later step
+       found another exact explanation -- the compute it would have saved. */
+    if (opts.trajectory && opts.pseudoStop !== false) {
+      var extra = [];
+      for (var ti = 0; ti < trajectory.length; ti++) {
+        var tt = trajectory[ti];
+        if (!tt.feats || tt.feats.indexOf("exact:0") >= 0 || tt.action === "STOP") continue;
+        var later = 0;
+        for (var tj = ti; tj < trajectory.length; tj++) later += trajectory[tj].exactFound || 0;
+        extra.push({ ep: tt.ep, step: tt.step, domain: tt.domain, feats: tt.feats, action: "STOP", pseudo: true,
+                     gain: later ? 0 : 0.5, children: 0, ms: 0, reachedExact: false, depthFromSolution: null, generalized: null });
+      }
+      for (ti = 0; ti < extra.length; ti++) trajectory.push(extra[ti]);
+    }
+    if (opts.trajectory && Array.isArray(opts.trajectory)) for (i = 0; i < trajectory.length; i++) opts.trajectory.push(trajectory[i]);
     stats.bestEnd = bestNorm();
     stats.frontier = frontier.size();
     stats.clusters = frontier.clusters();
@@ -17454,7 +19359,34 @@ var REDUCE = (function () {
     stats.ms = nowMs() - t0;
     stats.plan = meta.trace.map(function (t) { return t.action; });
     stats.trace = meta.trace;
-    return { exact: exact, frontier: frontier, stats: stats, meta: meta, repairStats: repairStats };
+    stats.trajectory = trajectory;
+    stats.episodeId = episodeId;
+    if (wm) {
+      exact.forEach(function (h) { if (h.verification && h.verification.deep === false) wm.refute(h.key, "leave-one-out"); });
+      stats.memory = wm.compact();
+    }
+    if (opts.episodic && typeof opts.episodic.record === "function") {
+      try {
+        opts.episodic.record({ id: episodeId, domain: domain, signature: opts.signature || null,
+          representations: trajectory.map(function (t) { return t.repr; }).filter(function (r, k, a) { return r && a.indexOf(r) === k; }),
+          operations: stats.plan.slice(), outcome: exact.length ? "exact" : "none", cost: { ms: stats.ms, evaluated: stats.evaluated },
+          failedBranches: trajectory.filter(function (t) { return !t.reachedExact && t.gain <= 0; }).length,
+          successfulBranch: exact.length ? lineagePath(exact[0]) : null,
+          counterexamples: exact.reduce(function (acc, h) { return acc.concat(h.counterexamples || []); }, []).slice(0, 8),
+          memory: stats.memory || null });
+      } catch (e) { /* memory is advisory */ }
+    }
+    return { exact: exact, frontier: frontier, stats: stats, meta: meta, repairStats: repairStats, trajectory: trajectory };
+  }
+
+  /* The mutation path from a seed to h, oldest first. */
+  function lineagePath(h) {
+    var out = [], cur = h;
+    while (cur && cur.lineage && cur.lineage.mutation) {
+      out.push({ mutation: cur.lineage.mutation.kind, detail: cur.lineage.mutation.detail || "", why: cur.lineage.why });
+      cur = cur.lineage.parentRef;
+    }
+    return out.reverse();
   }
 
   /* ---------------------------------------------------- compress / discriminate
@@ -17662,17 +19594,657 @@ var REDUCE = (function () {
   }
 
   var K = {
-    VERSION: "1.0.0",
+    VERSION: "2.0.0",
     STATUS: STATUS, FAILURE: FAILURE, ACTIONS: ACTIONS, MODE_OF: MODE_OF,
     Hypothesis: Hypothesis, derive: derive, mdlScore: mdlScore,
     ASSUMPTION_BITS: ASSUMPTION_BITS, INVARIANT_BITS: INVARIANT_BITS,
-    Frontier: Frontier, MetaController: MetaController, RepairStats: RepairStats,
+    REP_SLACK: REP_SLACK, FRAGILITY_BITS: FRAGILITY_BITS, DEEP_FAIL_BITS: DEEP_FAIL_BITS,
+    Frontier: Frontier, MetaController: MetaController, RepairStats: RepairStats, lineagePath: lineagePath,
     survives: survives, refine: refine, compress: compress, discriminate: discriminate, learnWeights: learnWeights,
     calibrate: calibrate, ReasoningGraph: ReasoningGraph,
     STAGES: STAGES, stageOf: stageOf, ruleConfidence: ruleConfidence, log2: log2
   };
   root.C4ReasonKernel = K;
   if (typeof module !== "undefined" && module.exports && !root.__C4_BUNDLED_KERNEL) module.exports = K;
+})(typeof window !== "undefined" ? window : globalThis);
+/* CELL4 reasoning memory.
+ *
+ * Not chat memory (that is c4-lm-memory.js). This is what a reasoner keeps
+ * about its OWN reasoning, in five stores with different lifetimes:
+ *
+ *   WorkingMemory      one episode: current hypotheses, confirmed facts, open
+ *                      questions, contradictions, the current representation,
+ *                      the plan so far, the current residual and the recent
+ *                      operations that failed. Discarded with the episode
+ *                      after compact() has summarised it.
+ *   EpisodicMemory     compressed episodes: problem signature, representation
+ *                      sequence, failed branches, the successful branch,
+ *                      counterexamples, operations, cost, outcome. Bounded
+ *                      FIFO; never stores an answer to reuse as a shortcut
+ *                      (record() drops any field named like one).
+ *   SemanticMemory     domain-independent facts that were verified through a
+ *                      permitted source, with provenance and confidence. For
+ *                      ARC these are abstract mechanisms ("keys open doors"),
+ *                      never literal grids.
+ *   ProceduralMemory   "after residual X in representation Y, operation Z
+ *                      tended to help": success counts with Laplace-smoothed
+ *                      log-odds priors, the table a controller reads.
+ *   AbstractionMemory  learned reusable schemas (ARC macros, reasoning
+ *                      templates) with the bookkeeping that decides whether
+ *                      they stay: support, failures, training and held-out
+ *                      utility, description-length gain, lineage, version.
+ *
+ * compact(trace) turns a long reasoning trace into CONFIRMED / UNRESOLVED /
+ * REFUTED / CURRENT PLAN / REUSABLE ABSTRACTIONS / IMPORTANT COUNTEREXAMPLES,
+ * each item with its provenance. Compression never rewrites a confirmed fact:
+ * a confirmed item can only be moved to REFUTED by an explicit refutation
+ * that is itself recorded.
+ *
+ * Deterministic, local, bounded; no network, no external model.
+ */
+(function (root) {
+  "use strict";
+
+  function clip(a, n) { return a.length > n ? a.slice(a.length - n) : a; }
+  function now() { return Date.now(); }
+
+  /* Field names that would turn an episode into an answer cache. */
+  var FORBIDDEN = { answer: 1, answers: 1, output: 1, outputs: 1, testOutput: 1, test_output: 1,
+                    prediction: 1, predictions: 1, solution_grid: 1, label: 1, labels: 1 };
+  function scrub(o, depth) {
+    if (!o || typeof o !== "object" || (depth || 0) > 4) return o;
+    if (Array.isArray(o)) return o.map(function (v) { return scrub(v, (depth || 0) + 1); });
+    var out = {}, k;
+    for (k in o) if (Object.prototype.hasOwnProperty.call(o, k) && !FORBIDDEN[k]) out[k] = scrub(o[k], (depth || 0) + 1);
+    return out;
+  }
+
+  /* ---------------------------------------------------------- working memory */
+
+  function WorkingMemory(o) {
+    o = o || {};
+    this.episodeId = o.episodeId || null;
+    this.domain = o.domain || "";
+    this.hypotheses = [];          /* ids currently in play (bounded) */
+    this.facts = new Map();        /* key -> {status, provenance, t} */
+    this.questions = [];           /* open questions */
+    this.contradictions = [];
+    this.representation = null;
+    this.plan = [];                /* operations taken, in order */
+    this.residual = null;
+    this.failed = [];              /* recent operations with no gain */
+    this.counterexamples = [];
+    this.abstractions = [];
+    this.cap = o.cap || 64;
+    this._t = 0;
+  }
+  WorkingMemory.prototype._stamp = function () { return ++this._t; };
+  WorkingMemory.prototype.hold = function (id) {
+    if (this.hypotheses.indexOf(id) < 0) this.hypotheses = clip(this.hypotheses.concat([id]), this.cap);
+  };
+  /* A fact that passed its verifier. */
+  WorkingMemory.prototype.confirm = function (key, provenance) {
+    var cur = this.facts.get(key);
+    if (cur && cur.status === "REFUTED") return cur;            /* refutation is sticky */
+    var rec = { key: key, status: "CONFIRMED", provenance: provenance || null, t: this._stamp() };
+    this.facts.set(key, rec);
+    return rec;
+  };
+  /* Explicit refutation, with its reason kept: the only way a confirmed item
+     changes status. */
+  WorkingMemory.prototype.refute = function (key, why) {
+    var cur = this.facts.get(key);
+    var rec = { key: key, status: "REFUTED", provenance: cur ? cur.provenance : null, why: why || "",
+                was: cur ? cur.status : null, t: this._stamp() };
+    this.facts.set(key, rec);
+    this.contradictions = clip(this.contradictions.concat([{ key: key, why: why || "" }]), this.cap);
+    return rec;
+  };
+  WorkingMemory.prototype.question = function (text, detail) {
+    for (var i = 0; i < this.questions.length; i++) if (this.questions[i].text === text) { this.questions[i].detail = detail; return; }
+    this.questions = clip(this.questions.concat([{ text: text, detail: detail || null, t: this._stamp() }]), 16);
+  };
+  WorkingMemory.prototype.resolve = function (text) {
+    this.questions = this.questions.filter(function (q) { return q.text !== text; });
+  };
+  WorkingMemory.prototype.counterexample = function (key, ce) {
+    this.counterexamples = clip(this.counterexamples.concat([{ key: key, ce: ce, t: this._stamp() }]), 16);
+  };
+  WorkingMemory.prototype.abstraction = function (a) {
+    this.abstractions = clip(this.abstractions.concat([a]), 16);
+  };
+  /* One reasoning operation and its outcome. */
+  WorkingMemory.prototype.step = function (s) {
+    this.plan = clip(this.plan.concat([s.action]), 128);
+    if (s.repr) this.representation = s.repr;
+    if (s.residual !== undefined) this.residual = s.residual;
+    if (!(s.gain > 0)) this.failed = clip(this.failed.concat([{ action: s.action, parent: s.parent, t: this._stamp() }]), 8);
+    if (s.parent) this.hold(s.parent);
+  };
+  /* How many of the last n operations were ``action`` and gained nothing. */
+  WorkingMemory.prototype.recentFailures = function (action, n) {
+    var recent = this.failed.slice(-Math.max(1, n || 4));
+    return recent.filter(function (f) { return !action || f.action === action; }).length;
+  };
+  WorkingMemory.prototype.byStatus = function (s) {
+    var out = [];
+    this.facts.forEach(function (v) { if (v.status === s) out.push(v); });
+    return out.sort(function (a, b) { return a.t - b.t; });
+  };
+  WorkingMemory.prototype.compact = function () {
+    return compact({
+      facts: Array.from(this.facts.values()), questions: this.questions, plan: this.plan,
+      abstractions: this.abstractions, counterexamples: this.counterexamples,
+      representation: this.representation, residual: this.residual, contradictions: this.contradictions
+    });
+  };
+
+  /* ------------------------------------------------------------- compaction
+   *
+   * Input: {facts:[{key,status,provenance,why?}], questions, plan,
+   * abstractions, counterexamples, ...} or a flat list of trace steps
+   * {kind: "confirm"|"refute"|"question"|"resolve"|"step"|"abstraction"|
+   *  "counterexample", ...}. Output sections are bounded; everything keeps
+   * its provenance. A key confirmed and later refuted appears in REFUTED
+   * with the confirmation recorded under ``was`` -- never silently dropped
+   * or rewritten. */
+  function compact(trace, opts) {
+    opts = opts || {};
+    var cap = opts.cap || 24;
+    var facts = new Map(), questions = [], plan = [], abstractions = [], ces = [];
+    function apply(s) {
+      if (!s) return;
+      if (s.kind === "confirm") {
+        var cur = facts.get(s.key);
+        if (!cur || cur.status !== "REFUTED") facts.set(s.key, { key: s.key, status: "CONFIRMED", provenance: s.provenance || null });
+      } else if (s.kind === "refute") {
+        var prev = facts.get(s.key);
+        facts.set(s.key, { key: s.key, status: "REFUTED", provenance: prev ? prev.provenance : (s.provenance || null),
+                           why: s.why || "", was: prev ? prev.status : null });
+      } else if (s.kind === "question") questions.push({ text: s.text, detail: s.detail || null });
+      else if (s.kind === "resolve") questions = questions.filter(function (q) { return q.text !== s.text; });
+      else if (s.kind === "step") plan.push(s.action);
+      else if (s.kind === "abstraction") abstractions.push(s.abstraction || s);
+      else if (s.kind === "counterexample") ces.push({ key: s.key, ce: s.ce || null });
+    }
+    if (Array.isArray(trace)) trace.forEach(apply);
+    else if (trace) {
+      (trace.facts || []).forEach(function (f) { facts.set(f.key, { key: f.key, status: f.status, provenance: f.provenance || null, why: f.why, was: f.was }); });
+      questions = (trace.questions || []).slice();
+      plan = (trace.plan || []).slice();
+      abstractions = (trace.abstractions || []).slice();
+      ces = (trace.counterexamples || []).slice();
+    }
+    var confirmed = [], refuted = [];
+    facts.forEach(function (f) { (f.status === "REFUTED" ? refuted : f.status === "CONFIRMED" ? confirmed : []).push(f); });
+    /* run-length encode the plan: a trace of 200 operations compresses to
+       its shape ("REFINE_BEST x12, PROPOSE_REPRESENTATION, ...") */
+    var rle = [];
+    plan.forEach(function (a) {
+      var last = rle[rle.length - 1];
+      if (last && last.action === a) last.n++; else rle.push({ action: a, n: 1 });
+    });
+    return {
+      CONFIRMED: confirmed.slice(0, cap),
+      UNRESOLVED: questions.slice(-cap),
+      REFUTED: refuted.slice(0, cap),
+      CURRENT_PLAN: rle.slice(-cap).map(function (r) { return r.n > 1 ? r.action + " x" + r.n : r.action; }),
+      REUSABLE_ABSTRACTIONS: abstractions.slice(0, cap),
+      IMPORTANT_COUNTEREXAMPLES: ces.slice(0, cap),
+      sizes: { facts: facts.size, plan: plan.length, compressedPlan: rle.length }
+    };
+  }
+
+  /* --------------------------------------------------------- episodic memory */
+
+  function EpisodicMemory(o) {
+    o = o || {};
+    this.cap = o.cap || 256;
+    this.episodes = [];
+  }
+  EpisodicMemory.prototype.record = function (ep) {
+    var e = scrub(ep);
+    e.recorded = this.episodes.length;
+    this.episodes.push(e);
+    if (this.episodes.length > this.cap) this.episodes.shift();
+    return e;
+  };
+  /* Episodes whose signature overlaps ``sig`` (Jaccard over string tags). */
+  EpisodicMemory.prototype.similar = function (sig, k) {
+    var q = new Set(sig || []), out = [];
+    this.episodes.forEach(function (e) {
+      var s = e.signature || [], inter = 0, i;
+      for (i = 0; i < s.length; i++) if (q.has(s[i])) inter++;
+      var uni = q.size + s.length - inter;
+      if (inter) out.push([inter / uni, e]);
+    });
+    out.sort(function (a, b) { return (b[0] - a[0]) || (a[1].recorded - b[1].recorded); });
+    return out.slice(0, k || 5).map(function (x) { return { sim: x[0], episode: x[1] }; });
+  };
+  EpisodicMemory.prototype.summary = function () {
+    var out = { episodes: this.episodes.length, exact: 0, byDomain: {} };
+    this.episodes.forEach(function (e) {
+      if (e.outcome === "exact") out.exact++;
+      out.byDomain[e.domain || "?"] = (out.byDomain[e.domain || "?"] || 0) + 1;
+    });
+    return out;
+  };
+  EpisodicMemory.prototype.toJSON = function () { return { cap: this.cap, episodes: this.episodes }; };
+
+  /* --------------------------------------------------------- semantic memory */
+
+  function SemanticMemory() { this.facts = new Map(); }
+  /* A fact enters only with provenance; confidence accumulates as evidence
+     (confirm/contradict counts), never by assertion. */
+  SemanticMemory.prototype.add = function (key, value, provenance) {
+    if (!provenance) throw new Error("semantic facts need provenance");
+    var cur = this.facts.get(key);
+    if (!cur) { cur = { key: key, value: value, confirm: 0, contradict: 0, sources: [] }; this.facts.set(key, cur); }
+    if (JSON.stringify(cur.value) !== JSON.stringify(value)) { cur.contradict++; cur.conflict = value; }
+    else cur.confirm++;
+    if (cur.sources.indexOf(provenance) < 0) cur.sources = clip(cur.sources.concat([provenance]), 8);
+    return cur;
+  };
+  SemanticMemory.prototype.contradict = function (key, provenance) {
+    var cur = this.facts.get(key);
+    if (cur) { cur.contradict++; if (provenance) cur.sources = clip(cur.sources.concat(["-" + provenance]), 8); }
+    return cur || null;
+  };
+  SemanticMemory.prototype.get = function (key) {
+    var f = this.facts.get(key);
+    if (!f) return null;
+    return { key: key, value: f.value, confidence: (f.confirm + 1) / (f.confirm + f.contradict + 2),
+             confirm: f.confirm, contradict: f.contradict, sources: f.sources.slice() };
+  };
+  SemanticMemory.prototype.keys = function () { return Array.from(this.facts.keys()); };
+  SemanticMemory.prototype.toJSON = function () { return Array.from(this.facts.values()); };
+  SemanticMemory.fromJSON = function (rows) {
+    var m = new SemanticMemory();
+    (rows || []).forEach(function (r) { m.facts.set(r.key, { key: r.key, value: r.value, confirm: r.confirm || 0, contradict: r.contradict || 0, sources: r.sources || [] }); });
+    return m;
+  };
+
+  /* ------------------------------------------------------- procedural memory */
+
+  function ProceduralMemory(data) {
+    this.t = {};
+    if (data && data.table) for (var k in data.table) if (Object.prototype.hasOwnProperty.call(data.table, k))
+      this.t[k] = [data.table[k][0], data.table[k][1]];
+  }
+  function pkey(residual, repr, op) { return (residual || "*") + "|" + (repr || "*") + "|" + op; }
+  ProceduralMemory.prototype.observe = function (residual, repr, op, success) {
+    var keys = [pkey(residual, repr, op), pkey(residual, null, op), pkey(null, repr, op), pkey(null, null, op)], i;
+    for (i = 0; i < keys.length; i++) {
+      var r = this.t[keys[i]] || (this.t[keys[i]] = [0, 0]);
+      r[1]++; if (success) r[0]++;
+    }
+  };
+  /* Laplace-smoothed log-odds that ``op`` helps in (residual, repr), backing
+     off to less specific contexts when the specific one is thin. */
+  ProceduralMemory.prototype.prior = function (residual, repr, op, minCount) {
+    var keys = [pkey(residual, repr, op), pkey(residual, null, op), pkey(null, repr, op), pkey(null, null, op)], i;
+    minCount = minCount || 4;
+    for (i = 0; i < keys.length; i++) {
+      var r = this.t[keys[i]];
+      if (r && r[1] >= minCount) return Math.log((r[0] + 1) / (r[1] - r[0] + 1));
+    }
+    return 0;
+  };
+  ProceduralMemory.prototype.rank = function (residual, repr, ops) {
+    var self = this;
+    return ops.slice().sort(function (a, b) { return (self.prior(residual, repr, b) - self.prior(residual, repr, a)) || (a < b ? -1 : 1); });
+  };
+  ProceduralMemory.prototype.toJSON = function () { return { table: this.t }; };
+
+  /* ------------------------------------------------------ abstraction memory */
+
+  var ABS_FIELDS = ["id", "domain", "type", "template", "params", "preconditions", "representation",
+                    "support", "failures", "trainUtility", "heldoutUtility", "mdlGain", "lineage", "version"];
+  function AbstractionMemory() { this.items = new Map(); }
+  AbstractionMemory.prototype.propose = function (a) {
+    if (!a || !a.id) throw new Error("abstraction needs an id");
+    var cur = this.items.get(a.id), rec = {}, i;
+    for (i = 0; i < ABS_FIELDS.length; i++) rec[ABS_FIELDS[i]] = a[ABS_FIELDS[i]] === undefined ? null : a[ABS_FIELDS[i]];
+    rec.support = +a.support || 0; rec.failures = +a.failures || 0;
+    rec.version = cur ? (cur.version || 1) + 1 : (a.version || 1);
+    rec.lineage = (cur && cur.lineage ? cur.lineage : []).concat(a.lineage ? [].concat(a.lineage) : []);
+    rec.status = a.status || (cur ? cur.status : "candidate");
+    this.items.set(a.id, rec);
+    return rec;
+  };
+  AbstractionMemory.prototype.use = function (id, success) {
+    var r = this.items.get(id);
+    if (!r) return null;
+    if (success) r.support++; else r.failures++;
+    return r;
+  };
+  /* The acceptance rule: an abstraction stays active only while it has
+     earned it -- enough support, positive compression, held-out utility not
+     negative, and failures not concentrated. */
+  AbstractionMemory.prototype.judge = function (id, opts) {
+    opts = opts || {};
+    var r = this.items.get(id);
+    if (!r) return null;
+    var minSupport = opts.minSupport || 3;
+    var ok = r.support >= minSupport && (r.mdlGain || 0) > 0 && (r.heldoutUtility === null || r.heldoutUtility >= 0) &&
+             r.failures <= Math.max(2, r.support);
+    r.status = ok ? "active" : (r.status === "active" ? "retired" : "rejected");
+    return r.status;
+  };
+  AbstractionMemory.prototype.active = function (domain) {
+    var out = [];
+    this.items.forEach(function (r) { if (r.status === "active" && (!domain || r.domain === domain)) out.push(r); });
+    return out.sort(function (a, b) { return (b.mdlGain || 0) - (a.mdlGain || 0) || (a.id < b.id ? -1 : 1); });
+  };
+  AbstractionMemory.prototype.all = function () { return Array.from(this.items.values()); };
+  AbstractionMemory.prototype.toJSON = function () { return this.all(); };
+  AbstractionMemory.fromJSON = function (rows) {
+    var m = new AbstractionMemory();
+    (rows || []).forEach(function (r) { m.items.set(r.id, r); });
+    return m;
+  };
+
+  /* A process-wide store shared by every domain adapter that runs in this
+     page or process (ARC engine, ARC-3 agent, language deliberation). The
+     domains share metacognition through it, not domain content. */
+  var SHARED = { episodic: new EpisodicMemory({ cap: 512 }), procedural: new ProceduralMemory(),
+                 semantic: new SemanticMemory(), abstractions: new AbstractionMemory() };
+
+  var M = {
+    VERSION: "1.0.0",
+    WorkingMemory: WorkingMemory, EpisodicMemory: EpisodicMemory, SemanticMemory: SemanticMemory,
+    ProceduralMemory: ProceduralMemory, AbstractionMemory: AbstractionMemory,
+    compact: compact, scrub: scrub, shared: SHARED
+  };
+  root.C4ReasonMemory = M;
+  if (typeof module !== "undefined" && module.exports && !root.__C4_BUNDLED_KERNEL) module.exports = M;
+})(typeof window !== "undefined" ? window : globalThis);
+/* CELL4 learned reasoning-operation controller.
+ *
+ * The kernel (c4-reason-kernel.js) chooses its next reasoning OPERATION --
+ * refine, change representation, discriminate, verify, restart, stop -- from
+ * a state description. Its hand-written priors are a reasonable start; this
+ * module learns, from logged search trajectories, how much each operation
+ * actually tends to achieve in each kind of state:
+ *
+ *     u(a | x) = b_a + sum_f w_{a,f} x_f        x_f in {0,1} state features
+ *
+ * fitted by ridge regression (cyclic coordinate descent, deterministic) to
+ *
+ *     y = (immediate progress + path credit) / compute cost
+ *
+ *   immediate progress   residual reduction, or 1 for an exact discovery,
+ *                        or the information an operation yielded
+ *                        (disagreement found, a failed cross-validation)
+ *   path credit          the step lay on the lineage of an exact solution,
+ *                        discounted by its distance from it -- and cut when
+ *                        that solution did NOT generalise to held-out
+ *                        synthetic input (a path to an overfit is not worth
+ *                        imitating)
+ *   compute cost         1 + 0.05 per child evaluated + ms / 250
+ *
+ * Failures are kept: a step that achieved nothing is a training example
+ * with y = 0 for that state and operation, which is how the model learns
+ * what NOT to do. Nothing here is domain specific: the features are strings
+ * (res:high, stall:3, amb:1, dom:arc, rep:roles ...) produced by the kernel's
+ * MetaController for ARC, ARC-3 and language problems alike.
+ *
+ * choose() keeps an exploration floor: every valid operation retains a
+ * minimum share (deterministic schedule, no Math.random), so a learned
+ * policy can never permanently retire an operation.
+ *
+ * Also here, shared across domains: allocate() -- adaptive compute. Given
+ * generic signals (candidate count, agreement, verification, residual, stall,
+ * ambiguity, knowledge gaps) it says fast path or deep path and why.
+ *
+ * Exports root.C4ReasonMeta and CommonJS. Local, deterministic, no network.
+ */
+(function (root) {
+  "use strict";
+
+  var K = root.C4ReasonKernel;
+  if (!K && typeof require === "function") { try { K = require("./c4-reason-kernel.js"); } catch (e) { K = null; } }
+  var ACTIONS = K ? K.ACTIONS.slice() : ["REFINE_BEST", "REFINE_DIVERSE", "ABSTRACT_RESIDUAL", "CHANGE_REPRESENTATION",
+    "EXPAND_PROGRAM", "SIMPLIFY_PROGRAM", "BACKTRACK", "STOP", "PROPOSE_REPRESENTATION", "GENERATE_DISCRIMINATOR",
+    "INVENT_ABSTRACTION", "VERIFY_DEEPLY", "RESTART_DIVERSE"];
+
+  /* ----------------------------------------------------------------- target */
+
+  function target(t, opts) {
+    opts = opts || {};
+    var immediate = Math.max(0, Math.min(1, +t.gain || 0));
+    if (t.exactFound > 0) immediate = Math.max(immediate, 1);
+    var credit = 0;
+    if (t.reachedExact) {
+      credit = 0.6 * Math.pow(0.7, Math.max(0, t.depthFromSolution || 0));
+      if (t.generalized === false) credit *= 0.3;
+      else if (t.generalized === true) credit *= 1.2;
+    }
+    var cost = 1 + 0.05 * (+t.children || 0) + (opts.ignoreTime ? 0 : (+t.ms || 0) / 250);
+    return (immediate + credit) / cost;
+  }
+
+  /* ------------------------------------------------------------------ model */
+
+  function Model(data) {
+    data = data || {};
+    this.b = data.b || {};           /* action -> intercept */
+    this.w = data.w || {};           /* action -> feature -> weight */
+    this.n = data.n || {};           /* action -> training samples */
+    this.meta = data.meta || {};
+    this.version = data.version || 1;
+    /* target mean / spread over all training steps: utilities are reported
+       as z-scores so they are commensurate with the kernel's stated priors
+       (which are in units of about one) whatever the target's scale */
+    this.mu = data.mu === undefined ? 0 : data.mu;
+    this.sd = data.sd === undefined ? 1 : data.sd;
+  }
+  Model.prototype.trained = function () { return Object.keys(this.b).length > 0; };
+  Model.prototype.utility = function (feats, a) {
+    var u = this.b[a] || 0, row = this.w[a], i;
+    if (row) for (i = 0; i < feats.length; i++) if (row[feats[i]]) u += row[feats[i]];
+    return u;
+  };
+  /* Utilities for the available actions. Actions the model never saw get
+     the mean intercept, not zero, so they are neither favoured nor starved. */
+  Model.prototype.utilities = function (feats, available) {
+    var out = {}, keys = Object.keys(this.b), mean = 0, i;
+    for (i = 0; i < keys.length; i++) mean += this.b[keys[i]];
+    mean = keys.length ? mean / keys.length : 0;
+    var acts = available || ACTIONS, sd = this.sd > 1e-6 ? this.sd : 1;
+    for (i = 0; i < acts.length; i++)
+      out[acts[i]] = ((this.b[acts[i]] === undefined ? mean : this.utility(feats, acts[i])) - this.mu) / sd;
+    return out;
+  };
+  /* Pick an action; every ``floorEvery``-th call takes the least-tried
+     available action instead (deterministic exploration floor). */
+  Model.prototype.choose = function (feats, available, state) {
+    state = state || {};
+    var u = this.utilities(feats, available), best = available[0], i;
+    for (i = 1; i < available.length; i++) if (u[available[i]] > u[best]) best = available[i];
+    var every = state.floorEvery || 7;
+    state.calls = (state.calls || 0) + 1;
+    state.tried = state.tried || {};
+    if (available.length > 1 && state.calls % every === 0) {
+      var least = available[0];
+      for (i = 1; i < available.length; i++) if ((state.tried[available[i]] || 0) < (state.tried[least] || 0)) least = available[i];
+      best = least;
+    }
+    state.tried[best] = (state.tried[best] || 0) + 1;
+    return best;
+  };
+  Model.prototype.toJSON = function () { return { b: this.b, w: this.w, n: this.n, meta: this.meta, version: this.version, mu: this.mu, sd: this.sd }; };
+
+  /* Ridge regression per action over sparse binary features, by cyclic
+     coordinate descent (exact per-coordinate minimisation; deterministic
+     order). Features seen fewer than minCount times for an action are
+     dropped: a weight from three examples is noise. */
+  function train(trajectories, opts) {
+    opts = opts || {};
+    var lambda = opts.lambda === undefined ? 4.0 : opts.lambda;
+    var minCount = opts.minCount || 5, sweeps = opts.sweeps || 40;
+    var byAction = {};
+    (trajectories || []).forEach(function (t) {
+      if (!t || !t.action || !t.feats) return;
+      (byAction[t.action] || (byAction[t.action] = [])).push({ x: t.feats.slice(), y: target(t, opts) });
+    });
+    var all = [];
+    Object.keys(byAction).forEach(function (a) { byAction[a].forEach(function (r) { all.push(r.y); }); });
+    var mu = all.length ? all.reduce(function (s, v) { return s + v; }, 0) / all.length : 0;
+    var sd = all.length ? Math.sqrt(all.reduce(function (s, v) { return s + (v - mu) * (v - mu); }, 0) / all.length) : 1;
+    var model = new Model({ mu: Math.round(mu * 1e4) / 1e4, sd: Math.round(Math.max(1e-3, sd) * 1e4) / 1e4,
+                            meta: { trainedOn: (trajectories || []).length, lambda: lambda, minCount: minCount,
+                                    note: opts.note || "trained on synthetic reasoning trajectories" } });
+    Object.keys(byAction).sort().forEach(function (a) {
+      var rows = byAction[a], n = rows.length, cnt = {}, i, j;
+      if (n < minCount) return;
+      rows.forEach(function (r) { r.x.forEach(function (f) { cnt[f] = (cnt[f] || 0) + 1; }); });
+      var feats = Object.keys(cnt).filter(function (f) { return cnt[f] >= minCount; }).sort();
+      var idx = {}; feats.forEach(function (f, k) { idx[f] = k; });
+      var X = rows.map(function (r) { return r.x.filter(function (f) { return idx[f] !== undefined; }).map(function (f) { return idx[f]; }); });
+      var y = rows.map(function (r) { return r.y; });
+      var mean = y.reduce(function (s, v) { return s + v; }, 0) / n;
+      var w = new Float64Array(feats.length), pred = new Float64Array(n);
+      for (i = 0; i < n; i++) pred[i] = mean;
+      /* column lists */
+      var cols = feats.map(function () { return []; });
+      for (i = 0; i < n; i++) for (j = 0; j < X[i].length; j++) cols[X[i][j]].push(i);
+      for (var sweep = 0; sweep < sweeps; sweep++) {
+        var delta = 0;
+        for (j = 0; j < feats.length; j++) {
+          var col = cols[j], rsum = 0, k;
+          for (k = 0; k < col.length; k++) rsum += y[col[k]] - pred[col[k]] + w[j];
+          var nw = rsum / (col.length + lambda);
+          var d = nw - w[j];
+          if (d !== 0) { for (k = 0; k < col.length; k++) pred[col[k]] += d; w[j] = nw; delta += Math.abs(d); }
+        }
+        if (delta < 1e-7) break;
+      }
+      model.b[a] = Math.round(mean * 1e4) / 1e4;
+      model.n[a] = n;
+      var row = {};
+      for (j = 0; j < feats.length; j++) if (Math.abs(w[j]) >= 1e-4) row[feats[j]] = Math.round(w[j] * 1e4) / 1e4;
+      model.w[a] = row;
+    });
+    return model;
+  }
+
+  /* Mean target of held-out steps under the model's choice vs under the
+     logged choice, estimated only on states where the chosen action was
+     actually logged (no counterfactual invention): the fraction of states
+     in which the model ranks the logged action with the higher realised
+     payoff first. Returns {pairs, agree, rankAccuracy}. */
+  function evaluate(model, trajectories, opts) {
+    var byState = {};
+    (trajectories || []).forEach(function (t) {
+      if (!t || !t.feats) return;
+      var k = t.feats.slice().sort().join("&");
+      (byState[k] || (byState[k] = [])).push(t);
+    });
+    var pairs = 0, agree = 0;
+    Object.keys(byState).forEach(function (k) {
+      var rows = byState[k], i, j;
+      for (i = 0; i < rows.length; i++) for (j = i + 1; j < rows.length; j++) {
+        if (rows[i].action === rows[j].action) continue;
+        var yi = target(rows[i], opts), yj = target(rows[j], opts);
+        if (Math.abs(yi - yj) < 1e-6) continue;
+        pairs++;
+        var ui = model.utility(rows[i].feats, rows[i].action), uj = model.utility(rows[j].feats, rows[j].action);
+        if ((ui > uj) === (yi > yj)) agree++;
+      }
+    });
+    return { pairs: pairs, agree: agree, rankAccuracy: pairs ? agree / pairs : null };
+  }
+
+  /* Did the model learn the behaviours a good reasoner should have? Each
+     probe compares an operation's utility in the state that calls for it
+     against a neutral state. Positive = learned. */
+  function behaviours(model) {
+    function u(feats, a) { return model.utility(feats, a); }
+    var base = ["res:mid", "stall:0", "exact:0", "div:some", "left:hi"];
+    function st(extra, drop) { return base.filter(function (f) { return !drop || drop.indexOf(f.split(":")[0]) < 0; }).concat(extra); }
+    return {
+      switch_representation_after_stall:
+        (u(st(["stall:3"], ["stall"]), "PROPOSE_REPRESENTATION") - u(st(["stall:3"], ["stall"]), "REFINE_BEST")) -
+        (u(base, "PROPOSE_REPRESENTATION") - u(base, "REFINE_BEST")),
+      expand_after_underfit:
+        (u(st(["res:high"], ["res"]), "EXPAND_PROGRAM") - u(st(["res:high"], ["res"]), "REFINE_BEST")) -
+        (u(st(["res:tiny"], ["res"]), "EXPAND_PROGRAM") - u(st(["res:tiny"], ["res"]), "REFINE_BEST")),
+      simplify_after_excess:
+        (u(st(["diag:excessive_change"]), "SIMPLIFY_PROGRAM") - u(base, "SIMPLIFY_PROGRAM")),
+      discriminate_when_ambiguous:
+        (u(st(["amb:1", "exact:few"], ["exact"]), "GENERATE_DISCRIMINATOR") - u(st(["exact:few"], ["exact"]), "GENERATE_DISCRIMINATOR")),
+      stop_when_verified:
+        (u(st(["exact:few", "verified:1"], ["exact"]), "STOP") - u(st(["exact:few"], ["exact"]), "STOP"))
+    };
+  }
+
+  /* Human-readable summary: the strongest positive features per action. */
+  function explain(model, k) {
+    var out = {};
+    Object.keys(model.w).sort().forEach(function (a) {
+      var row = model.w[a];
+      out[a] = { intercept: model.b[a], n: model.n[a],
+        favours: Object.keys(row).sort(function (x, y) { return row[y] - row[x]; }).slice(0, k || 5)
+          .filter(function (f) { return row[f] > 0; }).map(function (f) { return f + " " + row[f]; }) };
+    });
+    return out;
+  }
+
+  /* -------------------------------------------------------- adaptive compute
+   *
+   * Shared by the ARC portfolio and language deliberation. Signals, all
+   * optional: {candidates, exact, agreeing, disagreeing, verified,
+   * verifierFailed, residual (0..1), stall, ambiguous, knowledgeGap,
+   * interacting (constraint count), steps (derivation length), confidence}.
+   * Returns {mode: "fast"|"deep", depth: 0..3, reasons: []}. Each rule is
+   * stated; nothing is tuned to a benchmark. */
+  function allocate(sig) {
+    sig = sig || {};
+    var reasons = [], deep = 0;
+    if (sig.exact === 1 && sig.verified && !sig.disagreeing && !sig.ambiguous && (sig.confidence === undefined || sig.confidence >= 0.8))
+      return { mode: "fast", depth: 0, reasons: ["one verified explanation, no rival"] };
+    if (!sig.candidates && !sig.exact) { deep++; reasons.push("no candidate"); }
+    if (sig.disagreeing) { deep++; reasons.push("candidates disagree"); }
+    if (sig.verifierFailed) { deep++; reasons.push("verifier failed"); }
+    if (sig.ambiguous) { deep++; reasons.push("ambiguous interpretation"); }
+    if (sig.knowledgeGap) { deep++; reasons.push("knowledge gap"); }
+    if (sig.residual !== undefined && sig.residual > 0 && sig.residual < 0.35) { deep++; reasons.push("structured near-miss"); }
+    if ((sig.interacting || 0) >= 3) { deep++; reasons.push("interacting constraints"); }
+    if ((sig.steps || 0) >= 4) { deep++; reasons.push("long derivation"); }
+    if (sig.confidence !== undefined && sig.confidence < 0.5) { deep++; reasons.push("low confidence"); }
+    return deep ? { mode: "deep", depth: Math.min(3, deep), reasons: reasons } : { mode: "fast", depth: 0, reasons: ["no difficulty signal"] };
+  }
+
+  /* ------------------------------------------------- one controller, all domains
+   *
+   * A process-wide hub: every domain logs its search trajectories here and
+   * reads the same model back. ARC, ARC-3 and language reasoning therefore
+   * learn their OPERATION selection jointly (dom:<domain> is a feature, so
+   * domain-specific differences are still expressible). */
+  var HUB = {
+    model: null,
+    buffer: [],
+    cap: 20000,
+    log: function (steps) {
+      if (!steps) return;
+      for (var i = 0; i < steps.length; i++) {
+        this.buffer.push(steps[i]);
+        if (this.buffer.length > this.cap) this.buffer.shift();
+      }
+    },
+    retrain: function (opts) { this.model = train(this.buffer, opts); return this.model; },
+    load: function (data) { this.model = data ? new Model(data) : null; return this.model; },
+    active: function () { return this.model && this.model.trained() ? this.model : null; }
+  };
+
+  var META = {
+    VERSION: "1.0.0", ACTIONS: ACTIONS,
+    Model: Model, train: train, target: target, evaluate: evaluate, behaviours: behaviours, explain: explain,
+    allocate: allocate, hub: HUB
+  };
+  root.C4ReasonMeta = META;
+  if (typeof module !== "undefined" && module.exports && !root.__C4_BUNDLED_KERNEL) module.exports = META;
 })(typeof window !== "undefined" ? window : globalThis);
 /* ===== src/55-residual.js ===== */
 /* Structured residuals: HOW a candidate program fails, not just whether.
@@ -18206,16 +20778,480 @@ var RESID = null;
     if (regs.length && regs.every(function (r) { return r.cells <= 2; }) && quickR.norm < 0.05)
       diags.push({ kind: "local_cells", regions: regs.length, weight: 0.3, strong: false });
     if (quickR.invariants) diags.push({ kind: "invariant_violation", count: quickR.invariants, weight: 0.2, strong: false });
+    representationDiagnoses(preds, ctx, quickR, per, objs, geos, subs, dimsRel, diags);
     diags.sort(function (a, b) { return (b.strong - a.strong) || (b.weight - a.weight); });
     return { residual: quickR, diagnoses: diags, per: per };
   }
 
-  RESID = { quick: quick, quickPair: quickPair, diagnose: diagnose, invariantsOf: invariantsOf,
+  /* --------------------------------------------- representation vs program
+   *
+   * The diagnoses above say WHAT is wrong. These say whether the failure is
+   * the PROGRAM's (a parameter, a step, a predicate) or the REPRESENTATION's
+   * (the substrate the program is written in cannot express the rule
+   * simply). Each carries ``level`` ("representation" | "program") and,
+   * where a registered representation (17-representation.js) or repair mode
+   * addresses it, ``suggest`` / ``repair``. Weights are kept below the
+   * semantic diagnoses' so the established repair ordering is not displaced
+   * unless the evidence is consistent (strong). */
+  function representationDiagnoses(preds, ctx, q, per, objs, geos, subs, dimsRel, diags) {
+    var n = ctx.train.length, bg = ctx.bg(), i;
+    var failing = q.pairs.filter(function (p) { return !p.exact; }).length;
+    if (!failing) return;
+    /* colours: per-pair substitutions that disagree with each other while
+       each is itself consistent -> the colours are roles, not literals */
+    var okSubs = subs.filter(function (s) { return s; });
+    if (okSubs.length >= 2) {
+      var clash = false, merged = {};
+      okSubs.forEach(function (s) { for (var k in s) if (s.hasOwnProperty(k)) { if (merged.hasOwnProperty(k) && merged[k] !== s[k]) clash = true; merged[k] = s[k]; } });
+      if (clash) diags.push({ kind: "wrong_representation", level: "representation", detail: "colour_roles",
+                              suggest: ["roles", "canon"], weight: 0.55, strong: okSubs.length === failing });
+    }
+    var inPals = new Set(ctx.inputs().map(function (g) { return G.palette(g); }));
+    if (q.paletteBad && inPals.size > 1)
+      diags.push({ kind: "wrong_object_correspondence", level: "representation", suggest: ["roles"], weight: 0.35, strong: false });
+    /* geometry: each failing pair is an exact symmetry of its target, but
+       not the same symmetry -> the coordinate frame differs per pair */
+    var geoOk = geos.filter(function (g) { return g && g.kind === "orientation"; });
+    if (geoOk.length >= 2 && new Set(geoOk.map(function (g) { return g.op; })).size > 1)
+      diags.push({ kind: "wrong_coordinate_frame", level: "representation", suggest: ["dih:transpose", "dih:rot90", "dih:flip_h"],
+                   weight: 0.5, strong: geoOk.length === failing });
+    /* symmetry: every target is invariant under a symmetry the prediction breaks */
+    var symOps = ["flip_h", "flip_v", "transpose", "rot180"], si;
+    for (si = 0; si < symOps.length; si++) {
+      var f = { flip_h: G.flipH, flip_v: G.flipV, transpose: G.transpose, rot180: G.rot180 }[symOps[si]];
+      var tSym = 0, pBreak = 0;
+      for (i = 0; i < n; i++) {
+        var t = ctx.train[i][1], p = preds[i];
+        var ft = f(t);
+        if (sameDims(ft, t) && G.gEq(ft, t)) {
+          tSym++;
+          if (p && !q.pairs[i].exact) { var fp = f(p); if (!(sameDims(fp, p) && G.gEq(fp, p))) pBreak++; }
+        }
+      }
+      if (tSym === n && pBreak) {
+        diags.push({ kind: "wrong_symmetry_frame", level: "representation", op: symOps[si], suggest: ["dih:" + symOps[si]],
+                     repair: "expand", weight: 0.45, strong: pBreak === failing });
+        break;
+      }
+    }
+    /* objects: low cell error but chaotic object correspondence -> the
+       segmentation or grouping is wrong, not the rule */
+    var okObjs = objs.filter(function (o) { return o; });
+    if (okObjs.length && q.norm < 0.15) {
+      var miss = 0, extra = 0, correct = 0, moved = [];
+      okObjs.forEach(function (o) { miss += o.missing.length; extra += o.extra.length; correct += o.correct; moved = moved.concat(o.moved); });
+      if (miss && extra && miss + extra > correct)
+        diags.push({ kind: "wrong_segmentation", level: "representation", repair: "param:K", weight: 0.4, strong: false });
+      var cd = okObjs.reduce(function (s, o) { return s + o.countDiff; }, 0);
+      if (cd && miss && extra)
+        diags.push({ kind: "wrong_grouping", level: "representation", merged: cd < 0 ? "split" : "merged", repair: "param:K", weight: 0.3, strong: false });
+      /* moved objects whose displacement differs by pair: the anchor, not the
+         offset, is wrong */
+      if (moved.length >= 2 && new Set(moved.map(function (m) { return m.join(","); })).size > 1)
+        diags.push({ kind: "wrong_anchor", level: "program", repair: "anchor", weight: 0.35, strong: false });
+      var flips = okObjs.reduce(function (s, o) { return s + o.relationFlips; }, 0);
+      if (flips && correct)
+        diags.push({ kind: "wrong_relation_graph", level: "representation", suggest: [], repair: "relations", weight: 0.3, strong: false });
+    }
+    /* panels: separator lines in the inputs and the error confined to part
+       of the grid -> the panel decomposition is wrong */
+    if (ctx.same_shape() && REPRESENT && REPRESENT.stripLines) {
+      var sep = ctx.inputs().every(function (g) { return !!REPRESENT.stripLines(g); });
+      if (sep) {
+        var confined = 0;
+        per.forEach(function (d) {
+          if (!d.regions || !d.regions.length) return;
+          var cells = d.regions.reduce(function (s, r) { return s + r.cells; }, 0);
+          var box = d.regions.reduce(function (b, r) { return [Math.min(b[0], r.r0), Math.min(b[1], r.c0), Math.max(b[2], r.r1), Math.max(b[3], r.c1)]; }, [99, 99, -1, -1]);
+          if (cells && (box[2] - box[0] + 1) * (box[3] - box[1] + 1) < 0.5 * d.q.area) confined++;
+        });
+        if (confined) diags.push({ kind: "wrong_panel_decomposition", level: "representation", suggest: ["strip"], weight: 0.35, strong: confined === failing });
+      }
+    }
+    /* one consistent extra transform explains the residual: a missing step */
+    var dimsStrong = dimsRel.length && dimsRel.every(function (d) { return d && d.kind !== "other"; });
+    var geoStrong = geos.length && geos.every(function (g) { return g; }) && new Set(geos.map(function (g) { return JSON.stringify(g); })).size === 1;
+    if (dimsStrong || geoStrong)
+      diags.push({ kind: "missing_composition", level: "program", repair: "expand", weight: 0.4, strong: !!(dimsStrong || geoStrong) && failing === n });
+    /* predicate scope: too many / too few objects handled, by a separable class */
+    diags.forEach(function (d) {
+      if (d.kind === "excess_change_class") d.alias = "overgeneralized_predicate";
+      if (d.kind === "unhandled_object_class" && d.polarity === "under") d.alias = "undergeneralized_predicate";
+    });
+    var over = diags.filter(function (d) { return d.alias === "overgeneralized_predicate"; })[0];
+    if (over) diags.push({ kind: "overgeneralized_predicate", level: "program", feature: over.feature, value: over.value, repair: "specialize", weight: 0.3, strong: false });
+    var under = diags.filter(function (d) { return d.alias === "undergeneralized_predicate"; })[0];
+    if (under) diags.push({ kind: "undergeneralized_predicate", level: "program", feature: under.feature, value: under.value, repair: "generalize", weight: 0.3, strong: false });
+    /* representation failure overall: several representation-level signals
+       and no strong program-level repair */
+    var repN = diags.filter(function (d) { return d.level === "representation"; }).length;
+    var strongProg = diags.some(function (d) { return d.strong && d.level !== "representation" && d.kind !== "missing_composition"; });
+    if (repN >= 2 && !strongProg) {
+      var sugg = [];
+      diags.forEach(function (d) { (d.suggest || []).forEach(function (s) { if (sugg.indexOf(s) < 0) sugg.push(s); }); });
+      diags.push({ kind: "wrong_representation", level: "representation", detail: "multiple_signals", suggest: sugg,
+                   weight: 0.45, strong: false });
+    }
+  }
+
+  /* Is a failure the representation's or the program's? */
+  function failureLevel(diags) {
+    var rep = 0, prog = 0;
+    (diags || []).forEach(function (d) {
+      var w = (d.strong ? 2 : 1) * (d.weight || 0.1);
+      if (d.level === "representation") rep += w; else prog += w;
+    });
+    return { level: rep > prog ? "representation" : "program", representation: rep, program: prog };
+  }
+
+  RESID = { quick: quick, quickPair: quickPair, diagnose: diagnose, invariantsOf: invariantsOf, failureLevel: failureLevel,
             violations: violations, dimsRelation: dimsRelation, substitution: substitution,
             geometric: geometric, errorRegions: errorRegions, objectResidual: objectResidual,
             classPair: classPair, separatingClass: separatingClass, objFeatures: objFeatures,
             changeComponents: changeComponents, changeClass: changeClass, CHANGE_FEATURES: CHANGE_FEATURES,
             CLASS_FEATURES: CLASS_FEATURES };
+})();
+/* ===== src/55a-candidate.js ===== */
+/* Structured near-misses: one object, one sink, every solver family.
+ *
+ * Solver families search internally -- induced object tables, grown trees,
+ * chained object programs, re-posed sub-tasks -- and used to throw away
+ * everything that did not reproduce every demonstration. Those failures are
+ * the most informative thing the search produced: "right on three pairs,
+ * wrong colour on the fourth", "right objects, wrong displacement". A
+ * CandidateTrace keeps such a failure as a structured object:
+ *
+ *   family / module / name        who proposed it
+ *   program                       closure (opaque), typed {struct, theta},
+ *                                 or repair {base, tree}
+ *   representation                the substrate it was written in
+ *   trainPreds                    its outputs on the demonstration inputs
+ *   residual                      RESID.quick over the demonstrations
+ *   satisfied / violated          which demonstrations it reproduces
+ *   behaviorKey / structuralKey   duplicate detection (09c-canonical.js)
+ *   complexity, depth, params,
+ *   lineage, why (rejection),
+ *   cost (generation ms)
+ *
+ * The CandidateSink collects traces with hard bounds: a per-module offer
+ * cap, an evaluation time budget, deduplication by behaviour and structure,
+ * at most ``perCluster`` traces per (family, residual signature,
+ * representation, root operator) cluster, and a global cap. It is what the
+ * refinement kernel, population search and task-local adaptation seed from.
+ *
+ * Backward compatibility: REFINEMENT.noteNear / noteTyped (57-refinement.js)
+ * still exist and route here.
+ *
+ * Nothing a trace holds is an answer: traces are built from demonstrations
+ * only and are never emitted as predictions. A near-miss becomes a
+ * prediction only after repair makes it reproduce every demonstration.
+ */
+
+var CANDIDATES = null;
+
+(function () {
+  var DEFAULTS = { perModule: 8, perCluster: 2, total: 96, offerCap: 40, evalBudgetMs: 90, typedCap: 32 };
+  var _ids = 0;
+
+  function CandidateTrace(o) {
+    this.id = "c" + (++_ids);
+    this.family = o.family || "?";
+    this.module = o.module || this.family;
+    this.name = o.name || "";
+    this.kind = o.kind || (o.tree ? "repair" : o.struct ? "typed" : "closure");
+    this.hyp = o.hyp || null;                 /* closure hypothesis (Hyp) */
+    this.struct = o.struct || null; this.theta = o.theta || null;
+    this.tree = o.tree || null;
+    this.representation = o.representation || "raw";
+    this.trainPreds = o.trainPreds || null;
+    this.residual = null;
+    this.diagnoses = null;
+    this.complexity = o.complexity === undefined ? null : o.complexity;
+    this.satisfied = []; this.violated = [];
+    this.behaviorKey = null; this.structuralKey = o.structuralKey || null; this.semanticKey = null;
+    this.depth = o.depth || 0;
+    this.lineage = o.lineage || [];
+    this.params = o.params || null;
+    this.why = o.why || "demonstration_mismatch";
+    this.cost = o.cost || 0;
+    this.score = o.score === undefined ? null : o.score;   /* closeness in [0,1], 1 = exact */
+    this.sig = o.sig || null;
+    this.cluster = null;
+  }
+  CandidateTrace.prototype.rootOp = function () {
+    if (this.tree) return this.tree.op;
+    if (this.struct && Array.isArray(this.struct)) return this.struct[0] || "in";
+    var m = /^([A-Za-z_]+)/.exec(this.name || "");
+    return m ? m[1] : "?";
+  };
+  CandidateTrace.prototype.summary = function () {
+    return { id: this.id, family: this.family, module: this.module, name: String(this.name).slice(0, 100),
+             representation: this.representation, residual: this.residual ? Math.round(this.residual.norm * 1000) / 1000 : null,
+             sig: this.residual ? this.residual.sig : this.sig, satisfied: this.satisfied.length, violated: this.violated.length,
+             depth: this.depth, why: this.why, complexity: this.complexity, cluster: this.cluster };
+  };
+
+  function CandidateSink(ctx, opts) {
+    opts = opts || {};
+    this.ctx = ctx || null;
+    this.opts = {};
+    for (var k in DEFAULTS) this.opts[k] = opts[k] === undefined ? DEFAULTS[k] : opts[k];
+    this.byModule = new Map();       /* legacy cheap records: module -> [{hyp, score, solver, module, t}] */
+    this.typed = [];                 /* typed near states from synthesis */
+    this.traces = [];                /* evaluated traces */
+    this.clusters = new Map();       /* cluster -> [trace] */
+    this.behaviors = new Set();
+    this.structs = new Set();
+    this.offersByModule = {};
+    this.notes = [];
+    this.evalMs = 0;
+    this.stats = { offered: 0, evaluated: 0, kept: 0, dupBehavior: 0, dupStruct: 0, capped: 0, evicted: 0,
+                   budgetStopped: 0, exactOffered: 0, byFamily: {}, notes: {} };
+  }
+
+  function famStat(sink, f) {
+    return sink.stats.byFamily[f] || (sink.stats.byFamily[f] = { offered: 0, kept: 0, best: null });
+  }
+
+  /* Closeness in [0,1]: fraction of demonstrations reproduced plus partial
+     credit for cell agreement on the others (the old noteNear score). */
+  function closeness(res) {
+    if (!res) return 0;
+    var n = res.pairs.length, s = 0, i;
+    for (i = 0; i < n; i++) {
+      var q = res.pairs[i];
+      if (q.exact) s += 1;
+      else if (q.valid && q.dims) s += Math.max(0, 1 - q.norm) * 0.9;
+      else if (q.valid) s += 0.2;
+    }
+    return n ? s / n : 0;
+  }
+
+  CandidateSink.prototype._evaluate = function (tr, runFn) {
+    var ctx = this.ctx, preds = tr.trainPreds, i;
+    if (!preds) {
+      var t0 = nowMs();
+      preds = [];
+      for (i = 0; i < ctx.train.length; i++) {
+        var y = null;
+        try { y = runFn(ctx.train[i][0]); } catch (e) { y = null; }
+        preds.push(y && G.valid(y) ? y : null);
+      }
+      this.evalMs += nowMs() - t0;
+      tr.trainPreds = preds;
+    }
+    this.stats.evaluated++;
+    tr.residual = RESID.quick(preds, ctx);
+    tr.satisfied = []; tr.violated = [];
+    for (i = 0; i < preds.length; i++) (tr.residual.pairs[i].exact ? tr.satisfied : tr.violated).push(i);
+    tr.score = closeness(tr.residual);
+    tr.behaviorKey = tr.family + "|" + CANON.behavior(preds);
+    return tr;
+  };
+
+  CandidateSink.prototype._admit = function (tr) {
+    var o = this.opts;
+    if (this.behaviors.has(tr.behaviorKey)) { this.stats.dupBehavior++; return false; }
+    if (tr.structuralKey && this.structs.has(tr.structuralKey)) { this.stats.dupStruct++; return false; }
+    if (tr.residual && tr.residual.exact) { this.stats.exactOffered++; return false; }   /* exact ones are the portfolio's */
+    if (!tr.trainPreds || tr.trainPreds.every(function (p) { return p === null; })) return false;
+    var depthB = tr.depth <= 1 ? "1" : tr.depth <= 3 ? "3" : "5";
+    tr.cluster = tr.family + "|" + (tr.residual ? tr.residual.sig : tr.sig) + "|" + tr.representation + "|" + tr.rootOp() + "|" + depthB;
+    var lst = this.clusters.get(tr.cluster) || [];
+    function worse(a, b) { return (b.score - a.score) || ((a.complexity || 0) - (b.complexity || 0)); }
+    if (lst.length >= o.perCluster) {
+      lst.sort(worse);
+      if (worse(tr, lst[lst.length - 1]) >= 0) { this.stats.capped++; return false; }
+      this._remove(lst[lst.length - 1]);
+      lst = this.clusters.get(tr.cluster) || [];
+    }
+    if (this.traces.length >= o.total) {
+      /* evict the worst trace of the most crowded cluster */
+      var crowd = null, n = -1;
+      this.clusters.forEach(function (v, k) { if (v.length > n || (v.length === n && k > crowd)) { n = v.length; crowd = k; } });
+      var vict = this.clusters.get(crowd).slice().sort(worse);
+      var victim = vict[vict.length - 1];
+      if (crowd === tr.cluster && worse(tr, victim) >= 0) { this.stats.capped++; return false; }
+      this._remove(victim);
+      this.stats.evicted++;
+      lst = this.clusters.get(tr.cluster) || [];
+    }
+    lst.push(tr);
+    this.clusters.set(tr.cluster, lst);
+    this.traces.push(tr);
+    this.behaviors.add(tr.behaviorKey);
+    if (tr.structuralKey) this.structs.add(tr.structuralKey);
+    this.stats.kept++;
+    var fs = famStat(this, tr.family);
+    fs.kept++;
+    if (fs.best === null || tr.score > fs.best) fs.best = Math.round(tr.score * 1000) / 1000;
+    return true;
+  };
+  CandidateSink.prototype._remove = function (tr) {
+    var i = this.traces.indexOf(tr);
+    if (i >= 0) this.traces.splice(i, 1);
+    var lst = this.clusters.get(tr.cluster);
+    if (lst) { var j = lst.indexOf(tr); if (j >= 0) lst.splice(j, 1); if (!lst.length) this.clusters.delete(tr.cluster); }
+    this.behaviors.delete(tr.behaviorKey);
+    if (tr.structuralKey) this.structs.delete(tr.structuralKey);
+  };
+
+  /* Offer a failed candidate. spec: {family, module, name, fn | hyp,
+     representation, depth, params, why, complexity, preds?, structuralKey?}.
+     Cheap to call: returns immediately when the module's offer cap or the
+     evaluation budget is spent. */
+  CandidateSink.prototype.offer = function (spec) {
+    var mod = spec.module || spec.family || "?";
+    this.stats.offered++;
+    famStat(this, spec.family || mod).offered++;
+    var n = (this.offersByModule[mod] = (this.offersByModule[mod] || 0) + 1);
+    if (n > this.opts.offerCap) return false;
+    if (!spec.preds && this.evalMs > this.opts.evalBudgetMs) { this.stats.budgetStopped++; return false; }
+    var tr = new CandidateTrace({ family: spec.family || mod, module: mod, name: spec.name, hyp: spec.hyp || null,
+      representation: spec.representation, depth: spec.depth, params: spec.params, why: spec.why,
+      complexity: spec.complexity, trainPreds: spec.preds || null, structuralKey: spec.structuralKey || null,
+      tree: spec.tree || null, struct: spec.struct || null, theta: spec.theta || null, cost: spec.cost });
+    var fn = spec.fn || (spec.hyp ? function (g) { return spec.hyp.apply(g); } : null);
+    if (!tr.trainPreds && !fn) return false;
+    if (!tr.hyp && fn) tr.hyp = new Hyp(spec.name || "near", fn, spec.complexity === undefined ? 5.0 : spec.complexity, spec.family || mod);
+    this._evaluate(tr, fn);
+    return this._admit(tr);
+  };
+
+  /* Legacy entry from the portfolio's validation (_candidates): the pairs
+     before t were reproduced, pair t produced p. Kept as a cheap record;
+     evaluated fully only if it is among the best when seeds are drawn. */
+  CandidateSink.prototype.noteNear = function (ctx, mod, hyp, t, p) {
+    if (p === null) return;
+    var target = ctx.train[t][1], agree = 0, ph = p.length, pw = p[0].length, th = target.length, tw = target[0].length;
+    if (ph === th && pw === tw) {
+      var n = 0, m = 0, r, c;
+      for (r = 0; r < th; r++) for (c = 0; c < tw; c++) { n++; if (p[r][c] === target[r][c]) m++; }
+      agree = m / n;
+    } else if ((ph === tw && pw === th) || (!(th % ph) && !(tw % pw)) || (!(ph % th) && !(pw % tw))) {
+      agree = 0.35;
+    }
+    var score = (t + agree) / ctx.train.length;
+    if (score <= 0.1) return;
+    var key = mod.__name__, lst = this.byModule.get(key);
+    this.stats.offered++;
+    famStat(this, hyp.solver || key).offered++;
+    if (!lst) { lst = []; this.byModule.set(key, lst); }
+    var rec = { hyp: hyp, score: score, solver: hyp.solver, module: key, t: t };
+    if (lst.length < this.opts.perModule) lst.push(rec);
+    else {
+      var worst = 0, i;
+      for (i = 1; i < lst.length; i++) if (lst[i].score < lst[worst].score) worst = i;
+      if (score > lst[worst].score) lst[worst] = rec;
+    }
+  };
+
+  /* Typed near states from bottom-up synthesis (already executed there). */
+  CandidateSink.prototype.noteTyped = function (ctx, struct, theta, dist, meta) {
+    meta = meta || {};
+    this.typed.push({ struct: struct, theta: theta, score: 1 - Math.min(1, dist), sig: meta.sig || null,
+                      depth: meta.depth || 0, family: meta.family || "typed", representation: meta.representation || "raw" });
+    if (this.typed.length > this.opts.typedCap * 2) {
+      this.typed.sort(function (a, b) { return b.score - a.score; });
+      this.typed.length = this.opts.typedCap;
+    }
+  };
+
+  /* A structured failure that is not a program: e.g. "no action in the
+     vocabulary explains object k under segmentation c8". Representation
+     proposals read these. */
+  CandidateSink.prototype.note = function (kind, detail) {
+    this.stats.notes[kind] = (this.stats.notes[kind] || 0) + 1;
+    if (this.notes.length < 64) this.notes.push({ kind: kind, detail: detail || null });
+  };
+
+  /* Fold the legacy module records into evaluated traces (best first, within
+     the evaluation budget). */
+  CandidateSink.prototype.materialize = function () {
+    var self = this, recs = [];
+    this.byModule.forEach(function (lst) { recs = recs.concat(lst); });
+    recs.sort(function (a, b) { return (b.score - a.score) || (a.module < b.module ? -1 : a.module > b.module ? 1 : 0); });
+    this.byModule = new Map();
+    recs.forEach(function (r) {
+      if (self.evalMs > self.opts.evalBudgetMs * 1.5) return;
+      var tr = new CandidateTrace({ family: r.solver || r.module, module: r.module, name: r.hyp.name, hyp: r.hyp,
+                                    complexity: Number(r.hyp.cost) || null, why: "failed_pair_" + r.t });
+      self._evaluate(tr, function (g) { return r.hyp.apply(g); });
+      self._admit(tr);
+    });
+    return this;
+  };
+
+  /* Seeds for the refinement kernel / population search: typed near states
+     and evaluated traces, best first, bounded per family, deduplicated by
+     name. ``adapter`` is a REPAIR.ArcAdapter. */
+  CandidateSink.prototype.seeds = function (adapter, opts) {
+    opts = opts || {};
+    var maxSeeds = opts.max || 40, perFam = opts.perFamily || 8, typedN = opts.typed || 10;
+    this.materialize();
+    var all = [], i;
+    this.traces.forEach(function (t) { all.push({ trace: t, score: t.score, family: t.family }); });
+    this.typed.sort(function (a, b) { return b.score - a.score; });
+    this.typed.slice(0, typedN).forEach(function (t) { all.push({ typed: t, score: t.score, family: "typed" }); });
+    all.sort(function (a, b) { return b.score - a.score; });
+    var fam = {}, seen = new Set(), out = [];
+    for (i = 0; i < all.length && out.length < maxSeeds; i++) {
+      var s = all[i], f = s.family || "?";
+      if ((fam[f] || 0) >= perFam) continue;
+      var h;
+      if (s.typed) {
+        var tree = PROG.toTree(s.typed.struct, s.typed.theta);
+        var nm = "typed:" + PROG.treeRender(tree);
+        if (seen.has(nm)) continue; seen.add(nm);
+        h = adapter.seed(null, tree, { seedScore: s.score, family: "typed", sig: s.typed.sig, rep: s.typed.representation });
+      } else {
+        var t = s.trace, nm2 = t.family + ":" + t.name;
+        if (seen.has(nm2)) continue; seen.add(nm2);
+        if (t.tree && !t.hyp) h = adapter.seed(null, t.tree, { seedScore: s.score, family: t.family, trace: t.id });
+        else h = adapter.seed(t.hyp, null, { seedScore: s.score, family: t.family, trace: t.id, representation: t.representation });
+      }
+      h.sourceFamily = f;
+      h.traceId = s.trace ? s.trace.id : null;
+      fam[f] = (fam[f] || 0) + 1;
+      out.push(h);
+    }
+    return { seeds: out, families: fam };
+  };
+
+  /* Traces not used as seeds (for RESTART_DIVERSE / population search). */
+  CandidateSink.prototype.reserve = function (used, k) {
+    var ids = new Set((used || []).map(function (h) { return h.traceId; }).filter(Boolean));
+    return this.traces.filter(function (t) { return !ids.has(t.id); })
+      .sort(function (a, b) { return b.score - a.score; }).slice(0, k || 8);
+  };
+
+  CandidateSink.prototype.report = function () {
+    var fams = {}, self = this;
+    Object.keys(this.stats.byFamily).sort().forEach(function (f) { fams[f] = self.stats.byFamily[f]; });
+    return { offered: this.stats.offered, evaluated: this.stats.evaluated, kept: this.traces.length,
+             typed: this.typed.length, clusters: this.clusters.size, dup_behavior: this.stats.dupBehavior,
+             dup_structural: this.stats.dupStruct, capped: this.stats.capped, evicted: this.stats.evicted,
+             budget_stopped: this.stats.budgetStopped, eval_ms: Math.round(this.evalMs),
+             near_miss_by_family: fams, notes: this.stats.notes,
+             best: this.traces.slice().sort(function (a, b) { return b.score - a.score; }).slice(0, 5).map(function (t) { return t.summary(); }) };
+  };
+
+  /* The one call every instrumented solver makes. Free when no sink is
+     attached (sub-contexts, leave-one-out folds, unit tests). */
+  function offer(ctx, spec) {
+    var sink = ctx && ctx._nearSink;
+    if (!sink || typeof sink.offer !== "function") return false;
+    try { return sink.offer(spec); } catch (e) { return false; }
+  }
+  function note(ctx, kind, detail) {
+    var sink = ctx && ctx._nearSink;
+    if (sink && typeof sink.note === "function") sink.note(kind, detail);
+  }
+  function active(ctx) { return !!(ctx && ctx._nearSink && typeof ctx._nearSink.offer === "function"); }
+
+  CANDIDATES = { CandidateTrace: CandidateTrace, CandidateSink: CandidateSink, offer: offer, note: note,
+                 active: active, closeness: closeness, DEFAULTS: DEFAULTS,
+                 newSink: function (ctx, opts) { return new CandidateSink(ctx, opts); } };
 })();
 /* ===== src/56-repair.js ===== */
 /* Program repair: residual-driven mutation of typed programs.
@@ -18516,6 +21552,9 @@ var REPAIR = null;
     this.outColors = G.csList(ctx.out_palette());
     this.newColors = G.csList(ctx.new_colors());
     this.stats = { runs: 0, baseRuns: 0 };
+    this.repCache = new Map();
+    this.sink = null;
+    this.usedSeeds = [];
   }
   ArcAdapter.prototype.baseOutputs = function (base) {
     if (!base) return this.grids;
@@ -18540,15 +21579,46 @@ var REPAIR = null;
     catch (e) { return null; }
     return (out && G.valid(out)) ? out : null;
   }
-  ArcAdapter.prototype.execute = function (prog) {
-    var bo = this.baseOutputs(prog.base), f = fromTree(prog.tree), out = [], i;
-    this.stats.runs++;
-    for (i = 0; i < this.grids.length; i++) out.push(runTree(f, bo[i], this.grids[i], this.bg));
-    return out;
+  /* Representation (17-representation.js): a program may be written in
+     another substrate. Execution is then encode -> base -> tree -> decode,
+     and every residual is still measured against the raw demonstrations. */
+  ArcAdapter.prototype.rep = function (name) {
+    if (!name || name === "raw" || typeof REPRESENT === "undefined") return null;
+    var hit = this.repCache.get(name);
+    if (hit !== undefined) return hit;
+    var p = REPRESENT.prepared(this.ctx, name), sub = p ? REPRESENT.taskIn(this.ctx, name) : null;
+    var rec = p && sub ? { name: name, p: p, bg: sub.bg(), sub: sub } : null;
+    this.repCache.set(name, rec);
+    return rec;
   };
+  ArcAdapter.prototype.execute = function (prog) {
+    var self = this;
+    var key = CANON ? CANON.structural(prog) : null;
+    return hypcacheEval(this.ctx, key, function () {
+      var f = fromTree(prog.tree), out = [], i, R = self.rep(prog.rep);
+      self.stats.runs++;
+      if (!R) {
+        var bo = self.baseOutputs(prog.base);
+        for (i = 0; i < self.grids.length; i++) out.push(runTree(f, bo[i], self.grids[i], self.bg));
+        return out;
+      }
+      for (i = 0; i < self.grids.length; i++) out.push(runInRep(R, prog.base, f, self.grids[i]));
+      return out;
+    });
+  };
+  function runInRep(R, base, f, x) {
+    var ex = REPRESENT.encIn(R.p, x);
+    if (!ex) return null;
+    var b = ex;
+    if (base) { try { b = base.apply(ex); } catch (e) { b = null; } if (!b || !G.valid(b)) return null; }
+    var y = runTree(f, b, ex, R.bg);
+    if (!y) return null;
+    return R.p.spec.kind === "input" ? y : REPRESENT.decode(R.p, y, x);
+  }
   /* A standalone closure for the portfolio: base then tree, on any grid. */
   ArcAdapter.prototype.closure = function (prog) {
-    var f = fromTree(prog.tree), base = prog.base, bg = this.bg;
+    var f = fromTree(prog.tree), base = prog.base, bg = this.bg, R = this.rep(prog.rep);
+    if (R) return function (g) { return runInRep(R, base, f, g); };
     return function (g) {
       var b = base ? base.apply(g) : g;
       if (!b || !G.valid(b)) return null;
@@ -18557,10 +21627,157 @@ var REPAIR = null;
   };
 
   ArcAdapter.prototype.seed = function (base, tree, meta) {
+    meta = meta || {};
+    var rep = meta.rep && meta.rep !== "raw" && this.rep(meta.rep) ? meta.rep : null;
     var h = new K.Hypothesis({ domain: "arc", representation: base ? "closure>prog" : "typed",
-      program: { base: base || null, tree: tree || { op: "in" } }, latentState: meta || {} });
+      representationId: rep || "raw",
+      program: { base: base || null, tree: tree || { op: "in" }, rep: rep }, latentState: meta });
     if (base) h.assumptions = [];
+    h.sourceFamily = meta.family || (base ? base.solver : "typed");
     return h;
+  };
+
+  /* ------------------------------------------------ kernel hooks (optional) */
+
+  ArcAdapter.prototype.structuralKey = function (h) {
+    return CANON ? CANON.structural(h.program) : null;
+  };
+  ArcAdapter.prototype.semanticKey = function (h) {
+    return CANON ? CANON.semanticRun(this.closure(h.program), this.ctx) : null;
+  };
+  ArcAdapter.prototype.estimateNovelty = function (h, frontier) {
+    if (!frontier.byCluster.has(h.cluster)) return 1;
+    return frontier.byCluster.get(h.cluster).length <= 1 ? 0.5 : 0;
+  };
+
+  /* PROPOSE_REPRESENTATION: move a hypothesis into another substrate. Typed
+     programs are carried over (literals remapped, then refitted on every
+     demonstration in the new substrate); an opaque specialist's rule is
+     re-induced by its own family inside the re-posed task. */
+  ArcAdapter.prototype.proposeRepresentations = function (h, diags) {
+    if (typeof REPRESENT === "undefined") return [];
+    var self = this, out = [], props = REPRESENT.propose(this.ctx, { diagnoses: diags || [] }, h, 3);
+    this.stats.repProposals = (this.stats.repProposals || 0) + props.length;
+    props.forEach(function (pr) {
+      if (!self.rep(pr.name)) return;
+      var mut = function (detail, exact) { return { kind: "migrate:" + pr.name, detail: detail, bits: 2 + (REPRESENT.get(pr.name).cost || 0), why: pr.why }; };
+      if (!h.program.base) {
+        var moved = REPRESENT.migrateTree(h.program.tree, pr.name, self.ctx, 4);
+        moved.slice(0, 3).forEach(function (m) {
+          var c = K.derive(h, { domain: "arc", representation: "typed", representationId: pr.name,
+            program: { base: null, tree: m.tree, rep: pr.name }, latentState: {} }, mut(m.exact ? "refit" : "remap"));
+          out.push(c);
+        });
+      } else {
+        /* re-induce with the base's own family in the new substrate */
+        var mod = self.moduleOf(h);
+        if (!mod) {
+          out.push(K.derive(h, { domain: "arc", representation: h.representation, representationId: pr.name,
+            program: { base: h.program.base, tree: h.program.tree, rep: pr.name }, latentState: {} }, mut("conjugate")));
+          return;
+        }
+        var sub = REPRESENT.taskIn(self.ctx, pr.name, nowMs() + 60);
+        if (!sub) return;
+        var hs = [];
+        try { hs = mod.generate(sub) || []; } catch (e) { hs = []; }
+        hs.slice(0, 3).forEach(function (hy) {
+          out.push(K.derive(h, { domain: "arc", representation: "closure>prog", representationId: pr.name,
+            program: { base: hy, tree: { op: "in" }, rep: pr.name }, latentState: {} }, mut("reinduce:" + hy.name)));
+        });
+      }
+    });
+    return out;
+  };
+  ArcAdapter.prototype.moduleOf = function (h) {
+    var m = h.latentState && (h.latentState.module || null);
+    if (m && moduleByName(m)) return moduleByName(m);
+    return null;
+  };
+
+  /* INVENT_ABSTRACTION: anti-unify the typed programs of near-solutions from
+     different clusters. Where two programs share an operator skeleton the
+     differing literals become holes and the template is refitted on ALL
+     demonstrations (PROG.refit); a colour-literal program is also offered
+     with its colours generalised to roles. Evidence from several
+     hypotheses is combined; nothing is enumerated blindly. */
+  ArcAdapter.prototype.inventAbstraction = function (hs) {
+    var self = this, out = [], typed = hs.filter(function (h) { return !h.program.base && h.program.tree.op !== "in"; });
+    function skeleton(t) { return t.op === "in" ? "$" : t.op + "(" + t.kids.map(skeleton).join(",") + ")"; }
+    var groups = {};
+    typed.forEach(function (h) { var k = skeleton(h.program.tree) + "@" + (h.program.rep || "raw"); (groups[k] || (groups[k] = [])).push(h); });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k], h0 = g[0], f;
+      try { f = fromTree(h0.program.tree); } catch (e) { return; }
+      var R = self.rep(h0.program.rep), pairs = R ? R.sub.train : self.ctx.train, cx = R ? R.sub : self.ctx;
+      var thetas = [];
+      try { thetas = T.refit(f.struct, pairs, cx, 4, 3000); } catch (e) { thetas = []; }
+      thetas.forEach(function (th) {
+        out.push(K.derive(h0, { domain: "arc", representation: h0.representation, program: { base: null, tree: T.toTree(f.struct, th), rep: h0.program.rep || null },
+          latentState: {} }, { kind: "invent:antiunify", detail: k + " x" + g.length, bits: 1 + g.length }));
+      });
+    });
+    /* partial evidence: the common subtree of two different skeletons */
+    if (typed.length >= 2 && out.length < 4) {
+      var a = typed[0].program.tree, b = typed[1].program.tree;
+      var common = commonSuffix(a, b);
+      if (common && common.op !== "in") {
+        var fc = fromTree(common), th2 = [];
+        try { th2 = T.refit(fc.struct, self.ctx.train, self.ctx, 2, 1500); } catch (e) { th2 = []; }
+        th2.forEach(function (th) {
+          out.push(K.derive(typed[0], { domain: "arc", representation: "typed", program: { base: null, tree: T.toTree(fc.struct, th), rep: null },
+            latentState: {} }, { kind: "invent:common", detail: skeleton(common), bits: 2 }));
+        });
+      }
+    }
+    return out;
+  };
+  /* the innermost (input-side) chain two unary programs share */
+  function commonSuffix(a, b) {
+    function chain(t) { var c = []; while (t && t.op !== "in" && t.kids && t.kids.length === 1) { c.push(t); t = t.kids[0]; } return c.reverse(); }
+    var ca = chain(a), cb = chain(b), i = 0;
+    while (i < ca.length && i < cb.length && ca[i].op === cb[i].op && JSON.stringify(ca[i].params) === JSON.stringify(cb[i].params)) i++;
+    if (!i) return null;
+    return T.cloneTree(ca[i - 1]);
+  }
+
+  /* VERIFY_DEEPLY: leave-one-out re-derivation of the repair's parameters. */
+  ArcAdapter.prototype.verifyDeep = function (h) {
+    if (typeof REFINEMENT === "undefined" || !REFINEMENT || !REFINEMENT.repairLOO) return null;
+    if (h.program.rep) return null;
+    var r = null;
+    try { r = REFINEMENT.repairLOO(this, h, nowMs() + 80); } catch (e) { r = null; }
+    if (!r || !r.trials) return null;
+    return { pass: r.wins / r.trials >= 0.5, wins: r.wins, trials: r.trials };
+  };
+
+  /* GENERATE_DISCRIMINATOR: active probes (58-counterfactual.js). */
+  ArcAdapter.prototype.generateDiscriminator = function (exact) {
+    if (typeof CFACT === "undefined" || !CFACT || !CFACT.discriminate) return null;
+    var self = this;
+    return CFACT.discriminate(this.ctx, exact.map(function (h) { return self.closure(h.program); }), { budgetMs: 60 });
+  };
+
+  /* RESTART_DIVERSE: seeds the refinement never used (candidate sink
+     reserve), then structural perturbations of unexplored hypotheses. */
+  ArcAdapter.prototype.restart = function (sample) {
+    var self = this, out = [];
+    if (this.sink && this.sink.reserve) {
+      this.sink.reserve(this.usedSeeds || [], 4).forEach(function (tr) {
+        var h = tr.tree && !tr.hyp ? self.seed(null, tr.tree, { family: tr.family, trace: tr.id })
+                                   : self.seed(tr.hyp, null, { family: tr.family, trace: tr.id, module: tr.module });
+        h.traceId = tr.id;
+        out.push(h);
+      });
+      this.usedSeeds = (this.usedSeeds || []).concat(out);
+    }
+    (sample || []).slice(0, 3).forEach(function (h) {
+      ["crop", "transpose", "complete"].forEach(function (op) {
+        var t = withLeaf(h.program.tree, op);
+        if (t) out.push(K.derive(h, { domain: "arc", representation: h.representation, program: { base: h.program.base, tree: t, rep: h.program.rep || null },
+          latentState: {} }, { kind: "restart:prepend", detail: op, bits: 2 }));
+      });
+    });
+    return out;
   };
 
   ArcAdapter.prototype.evaluate = function (h) {
@@ -18577,7 +21794,8 @@ var REPAIR = null;
     var base = h.program.base;
     h.complexity = (base ? Math.max(0, Number(base.cost) || 0) * 8 : 0) + treeBits(h.program.tree);
     h.key = outs.map(function (g) { return g ? G.gkey(g) : "~"; }).join("#");
-    h.cluster = q.sig + "|" + (base ? base.solver : "typed") + "|" + h.program.tree.op;
+    h.cluster = q.sig + "|" + (base ? base.solver : "typed") + "|" + h.program.tree.op + (h.program.rep ? "@" + h.program.rep : "");
+    h.representationId = h.program.rep || "raw";
     var testOk = te.every(function (g) { return g !== null; });
     if (q.exact) h.status = testOk ? "exact" : "invalid";
     else h.status = tr.every(function (g) { return g === null; }) ? "invalid" : "near";
@@ -18597,6 +21815,23 @@ var REPAIR = null;
 
   ArcAdapter.prototype.diagnose = function (h) {
     var d = RESID.diagnose(h.latentState.train, this.ctx);
+    /* iteration scope: does running the program once more on its own output
+       get closer? Then the rule should be applied until it stops changing,
+       not once (or once more). Only this adapter can test it: it needs the
+       program, not just its predictions. */
+    try {
+      if (!h.program.base && !h.program.rep && h.program.tree.op !== "in" && d.residual && !d.residual.exact) {
+        var f = fromTree(h.program.tree), again = [], i;
+        for (i = 0; i < this.nTr; i++) {
+          var p = h.latentState.train[i];
+          again.push(p ? runTree(f, p, this.ctx.train[i][0], this.bg) : null);
+        }
+        var q2 = RESID.quick(again, this.ctx);
+        if (q2.norm < d.residual.norm - 1e-9)
+          d.diagnoses.push({ kind: "wrong_iteration_scope", level: "program", repair: "iterate", weight: 0.5, strong: q2.exact });
+      }
+    } catch (e) { /* advisory */ }
+    d.diagnoses.sort(function (a, b) { return (b.strong - a.strong) || (b.weight - a.weight); });
     h.latentState.diagDetail = d;
     return d.diagnoses;
   };
@@ -18640,7 +21875,7 @@ var REPAIR = null;
     var mut = { kind: kind, detail: detail || "", bits: bits };
     if (extra) for (var k in extra) mut[k] = extra[k];
     var h = K.derive(this.p, { domain: "arc", representation: this.p.representation,
-      program: { base: this.p.program.base, tree: tree }, latentState: {} }, mut);
+      program: { base: this.p.program.base, tree: tree, rep: this.p.program.rep || null }, latentState: {} }, mut);
     var learned = this.stats ? this.stats.prior(this.diag, kind) : 0;
     this.list.push([prio + 0.5 * learned - 0.02 * bits, this.list.length, h]);
   };
@@ -18666,7 +21901,7 @@ var REPAIR = null;
   function nodeInputs(adapter, h, path) {
     var node = at(h.program.tree, path);
     if (!node.kids || !node.kids.length) return null;
-    var sub = { base: h.program.base, tree: node.kids[0] };
+    var sub = { base: h.program.base, tree: node.kids[0], rep: h.program.rep || null };
     return adapter.execute(sub).slice(0, adapter.nTr);
   }
 
@@ -18937,6 +22172,26 @@ var REPAIR = null;
         break;
       case "relation_mismatch": addParamSubs(P, [T.T_SEL, T.T_DIR, T.T_OFS], prio, null, 10); break;
       case "no_output": addDeletes(P, prio); addOpSubs(P, prio - 0.1); break;
+      case "wrong_iteration_scope":
+        P.add(wrap(P.p.program.tree, P.p.program.tree.op, P.p.program.tree.params.slice()), "iterate", "twice", prio + 0.5);
+        break;
+      case "wrong_segmentation": case "wrong_grouping":
+        addParamSubs(P, [T.T_SEG], prio + 0.2, null, 8); addParamSubs(P, [T.T_SEL, T.T_KEY], prio - 0.1, null, 8); break;
+      case "wrong_anchor":
+        addParamSubs(P, [T.T_SEL], prio + 0.1, null, 10); addObjectMoves(P, d, prio - 0.1); break;
+      case "wrong_symmetry_frame":
+        /* the target has a symmetry the prediction breaks: complete it */
+        P.add(wrap(P.p.program.tree, "complete"), "append:local", "complete", prio);
+        P.add(wrap(P.p.program.tree, "repair"), "append:local", "repair", prio - 0.05);
+        break;
+      case "missing_composition":
+        addLocal(P, d, prio - 0.2);
+        DIHEDRAL.forEach(function (op) { P.add(wrap(P.p.program.tree, op), "append:dihedral", op, prio - 0.3); });
+        break;
+      case "overgeneralized_predicate":
+        P.add(wrap(P.p.program.tree, "restrict_objs", [{ f: d.feature, v: d.value, inv: true }]), "specialize", d.feature + "=" + d.value, prio);
+        break;
+      case "undergeneralized_predicate": addForall(P, prio); break;
       default: addParamSubs(P, null, prio - 0.5, null, 8);
     }
   }
@@ -18974,11 +22229,602 @@ var REPAIR = null;
     return P.done();
   };
 
-  REPAIR = { ArcAdapter: ArcAdapter, toTree: toTree, fromTree: fromTree, render: render,
+  REPAIR = { ArcAdapter: ArcAdapter, toTree: toTree, fromTree: fromTree, render: render, runInRep: runInRep,
+             wrap: wrap, withLeaf: withLeaf, Proposals: Proposals, addForDiag: addForDiag, addParamSubs: addParamSubs,
+             addOpSubs: addOpSubs, addDeletes: addDeletes, addClosers: addClosers, addLocal: addLocal, addRoles: addRoles,
+             addForall: addForall, addMasks: addMasks, SIBLINGS: SIBLINGS, DIHEDRAL: DIHEDRAL, EXPAND: EXPAND,
              treeBits: treeBits, nodesOf: nodesOf, usesInput: usesInput, roleOf: roleOf,
              roleColor: roleColor, paramKinds: paramKinds, runTree: runTree, clone: clone,
              fitCtxTable: fitCtxTable };
 })();
+/* ===== src/56a-popsearch.js ===== */
+/* Population search over typed programs.
+ *
+ * The refinement kernel (c4-reason-kernel.js) is a best-first repair loop:
+ * a child survives only if it improves the residual, is simpler, or opens a
+ * new cluster. That is efficient when every step of the correct repair
+ * reduces the residual, and blind when it does not -- when the right program
+ * is three edits away and the first two edits make the output WORSE (a
+ * plateau or a valley), which is exactly the case of a deeper composition.
+ *
+ * This module keeps a population instead of a frontier:
+ *
+ *   archive     a small MAP-Elites grid: one niche per (representation,
+ *               residual class, root operator, depth bucket); each niche
+ *               keeps a few elites ranked by residual then description
+ *               length. A neutral variant (same residual, different
+ *               behaviour) is kept when its niche has room, so the search
+ *               can drift across plateaus instead of discarding them.
+ *   pareto      the non-dominated set over (residual, description length,
+ *               invariant violations, novelty, test executability) -- no
+ *               single scalar eliminates diversity early.
+ *   selection   rotates between the least-selected niche (exploration), the
+ *               Pareto front (trade-offs) and the best elite (exploitation).
+ *   variation   16 mutation classes (below), residual-targeted repairs from
+ *               the ARC adapter, crossover (subtree exchange between
+ *               elites) and multi-edit steps (2-3 mutations at once, to
+ *               cross a valley in one move).
+ *   bounds      tree depth <= 6, structural duplicates rejected BEFORE
+ *               execution (09c-canonical.js), behavioural duplicates after,
+ *               evaluation cache per solve, niche and archive caps, a
+ *               deadline and an evaluation cap.
+ *
+ * Mutation classes:
+ *   param, opsub, subtree_sub (crossover), insert, delete, compose (B after
+ *   A), decompose (a subtree alone), specialize (restrict to an object /
+ *   change class), generalize (drop a restriction; select <-> forall),
+ *   role (literal colour -> semantic role), selector, migrate
+ *   (representation), macro_sub, macro_expand, anchor (which object a
+ *   relative operation refers to), frame (conjugate by a symmetry).
+ *
+ * HARD REQUIREMENT kept: a program leaves this module only if the adapter's
+ * verifier (independent re-execution) says it reproduces every
+ * demonstration and executes on every test input.
+ */
+
+var POPSEARCH = null;
+
+(function () {
+  var K = root.C4ReasonKernel;
+  var T = PROG;
+  var CLASSES = ["param", "opsub", "subtree_sub", "insert", "delete", "compose", "decompose", "specialize",
+                 "generalize", "role", "selector", "migrate", "macro_sub", "macro_expand", "anchor", "frame", "targeted"];
+  var MAX_TREE_DEPTH = 6;
+  /* learned class weights (curriculum), overridden per task by test-time
+     adaptation; uniform when absent */
+  var PRIOR = { classWeights: null };
+  function setPrior(p) { PRIOR = p || { classWeights: null }; }
+
+  function rng(seed) {
+    var s = (seed >>> 0) || 0x9e3779b9;
+    return function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+  }
+  function pick(r, a) { return a[Math.floor(r() * a.length)]; }
+
+  var INSERT_OPS = ["rot90", "rot180", "rot270", "flip_h", "flip_v", "transpose", "anti_transpose", "crop", "compress",
+    "dedup", "trim", "denoise", "bbox_fill", "repair", "complete", "connect", "outline", "frame_in", "grav", "shift",
+    "move_objs", "upscale", "downscale", "tile", "mirror_cat", "half", "keepc", "replace", "fill_enclosed", "fillholes",
+    "outline_c", "connect_c", "pick_crop", "keep_only", "drop_one", "offset", "keep_role", "drop_role",
+    "changes_on_bg", "changes_on_fg", "border", "pad", "cropc"];
+  var FEATURES_Q = ["enclosed", "border", "holes", "single", "rect", "largest", "smallest", "color", "size"];
+  var CHANGE_Q = ["largest", "smallest", "span", "rect", "border", "horiz", "vert", "color", "size"];
+
+  function kindsOf(op) { return T.OPS[op] ? T.OPS[op].kinds.filter(function (k) { return k !== T.T_GRID; }) : []; }
+  function randParam(r, kind, dom, ctx) {
+    if (kind === "Q") return { f: pick(r, FEATURES_Q), v: pick(r, [0, 1]), inv: r() < 0.5 };
+    var d = dom[kind];
+    if (!d || !d.length) return 0;
+    return pick(r, d);
+  }
+  function randomStep(r, kid, dom, macros) {
+    var pool = INSERT_OPS.concat(macros || []), op = null, tries = 0;
+    while (tries++ < 8) {
+      op = pick(r, pool);
+      if (T.OPS[op] && kindsOf(op).every(function (k) { return k !== T.T_CMAP && k !== "T"; })) break;
+      op = null;
+    }
+    if (!op) return null;
+    return { op: op, kids: [kid], params: kindsOf(op).map(function (k) { return randParam(r, k, dom); }) };
+  }
+  function unary(n) { return n.op !== "in" && n.kids && n.kids.length === 1; }
+  function leafPath(t) {
+    var list = T.treeNodes(t), i;
+    for (i = 0; i < list.length; i++) if (list[i][0].op === "in") return list[i][1];
+    return null;
+  }
+
+  /* ------------------------------------------------------------ mutations
+     Each returns a new tree (or {tree, rep}) or null. ``h`` is the parent
+     kernel hypothesis; ``env`` = {r, dom, ctx, adapter, donors, macros}. */
+  var MUT = {};
+  MUT.param = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return p[0].op !== "in" && p[0].params && p[0].params.length; });
+    if (!nodes.length) return null;
+    var n = pick(env.r, nodes), ks = kindsOf(n[0].op), j = Math.floor(env.r() * ks.length);
+    if (ks[j] === T.T_CMAP || ks[j] === "T") return null;
+    var c = T.cloneTree(n[0]); c.params[j] = randParam(env.r, ks[j], env.dom);
+    return T.treeReplace(t, n[1], c);
+  };
+  MUT.opsub = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return p[0].op !== "in" && p[0].op !== "hcat" && p[0].op !== "vcat"; });
+    if (!nodes.length) return null;
+    var n = pick(env.r, nodes), sig = T.OPS[n[0].op] ? T.OPS[n[0].op].kinds.join("") : "";
+    var alts = [];
+    REPAIR.SIBLINGS.forEach(function (g) { if (g.indexOf(n[0].op) >= 0) g.forEach(function (o) { if (o !== n[0].op && T.OPS[o] && T.OPS[o].kinds.join("") === sig) alts.push(o); }); });
+    if (!alts.length) return null;
+    var c = T.cloneTree(n[0]); c.op = pick(env.r, alts);
+    return T.treeReplace(t, n[1], c);
+  };
+  MUT.subtree_sub = function (t, env) {
+    if (!env.donors.length) return null;
+    var nodes = T.treeNodes(t).filter(function (p) { return p[0].op !== "in"; });
+    if (!nodes.length) return null;
+    var n = pick(env.r, nodes), donor = pick(env.r, env.donors);
+    var dn = T.treeNodes(donor).filter(function (p) { return p[0].op !== "in"; });
+    if (!dn.length) return null;
+    return T.treeReplace(t, n[1], T.cloneTree(pick(env.r, dn)[0]));
+  };
+  MUT.insert = function (t, env) {
+    var nodes = T.treeNodes(t), n = pick(env.r, nodes);
+    var step = randomStep(env.r, T.cloneTree(n[0]), env.dom, env.macros);
+    return step ? T.treeReplace(t, n[1], step) : null;
+  };
+  MUT["delete"] = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return unary(p[0]); });
+    if (!nodes.length) return null;
+    var n = pick(env.r, nodes);
+    return T.treeReplace(t, n[1], T.cloneTree(n[0].kids[0]));
+  };
+  MUT.compose = function (t, env) {
+    if (!env.donors.length) return null;
+    var d = pick(env.r, env.donors), lp = leafPath(d);
+    if (!lp) return null;
+    /* donor after parent, or parent after donor */
+    return env.r() < 0.5 ? T.treeReplace(d, lp, T.cloneTree(t)) : (function () {
+      var lp2 = leafPath(t); return lp2 ? T.treeReplace(t, lp2, T.cloneTree(d)) : null; })();
+  };
+  MUT.decompose = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return p[1].length && p[0].op !== "in"; });
+    if (!nodes.length) return null;
+    return T.cloneTree(pick(env.r, nodes)[0]);
+  };
+  MUT.specialize = function (t, env) {
+    if (!env.ctx.same_shape()) return null;
+    if (env.r() < 0.5) return { op: "restrict_objs", kids: [T.cloneTree(t)], params: [{ f: pick(env.r, FEATURES_Q), v: pick(env.r, [0, 1]), inv: env.r() < 0.5 }] };
+    return { op: "filter_changes", kids: [T.cloneTree(t)], params: [{ f: pick(env.r, CHANGE_Q), v: 1, inv: false }] };
+  };
+  MUT.generalize = function (t, env) {
+    var nodes = T.treeNodes(t);
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i][0];
+      if (n.op === "restrict_objs" || n.op === "filter_changes") return T.treeReplace(t, nodes[i][1], T.cloneTree(n.kids[0]));
+      if (n.op === "keep_only") return T.treeReplace(t, nodes[i][1], { op: "select_by", kids: [T.cloneTree(n.kids[0])], params: [n.params[0], Math.floor(env.r() * 10), pick(env.r, [0, 1, 2, 3])] });
+      if (n.op === "select_by") return T.treeReplace(t, nodes[i][1], { op: "keep_only", kids: [T.cloneTree(n.kids[0])], params: [n.params[0], Math.floor(env.r() * 10)] });
+    }
+    return null;
+  };
+  MUT.role = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return ["replace", "keepc", "cropc"].indexOf(p[0].op) >= 0; });
+    if (!nodes.length) return null;
+    var n = pick(env.r, nodes)[0], path = nodes.filter(function (p) { return p[0] === n; })[0][1];
+    var role = Math.floor(env.r() * 4);
+    var rep = n.op === "replace" ? { op: "role_replace", params: [role, n.params[1]] }
+            : n.op === "keepc" ? { op: "keep_role", params: [role] } : { op: "crop_role", params: [role] };
+    rep.kids = [T.cloneTree(n.kids[0])];
+    return T.treeReplace(t, path, rep);
+  };
+  MUT.selector = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return kindsOf(p[0].op).indexOf(T.T_SEL) >= 0; });
+    if (!nodes.length) return null;
+    var n = pick(env.r, nodes), j = kindsOf(n[0].op).indexOf(T.T_SEL), c = T.cloneTree(n[0]);
+    c.params[j] = Math.floor(env.r() * 10);
+    return T.treeReplace(t, n[1], c);
+  };
+  MUT.migrate = function (t, env, h) {
+    if (typeof REPRESENT === "undefined" || !env.reps.length) return null;
+    var cur = h.program.rep || "raw", opts = env.reps.filter(function (n) { return n !== cur; });
+    if (!opts.length) return null;
+    var name = pick(env.r, opts), moved = REPRESENT.migrateTree(t, name, env.ctx, 2);
+    return moved.length ? { tree: moved[0].tree, rep: name } : null;
+  };
+  MUT.macro_sub = function (t, env) {
+    if (!env.macros.length) return null;
+    var nodes = T.treeNodes(t), n = pick(env.r, nodes), m = pick(env.r, env.macros);
+    var step = { op: m, kids: [T.cloneTree(n[0])], params: kindsOf(m).map(function (k) { return randParam(env.r, k, env.dom); }) };
+    return T.treeReplace(t, n[1], step);
+  };
+  MUT.macro_expand = function (t) {
+    var nodes = T.treeNodes(t).filter(function (p) { return T.OPS[p[0].op] && T.OPS[p[0].op].macro; });
+    if (!nodes.length) return null;
+    var n = nodes[0];
+    return T.treeReplace(t, n[1], T.expandTree(n[0]));
+  };
+  MUT.anchor = function (t, env) {
+    var nodes = T.treeNodes(t).filter(function (p) { return p[0].op === "offset_obj" || p[0].op === "offset" || p[0].op === "paint_obj"; });
+    if (!nodes.length) {
+      /* no relative operation yet: move one selected object */
+      return { op: "offset_obj", kids: [T.cloneTree(t)], params: [0, Math.floor(env.r() * 10), pick(env.r, [-2, -1, 1, 2]), pick(env.r, [-1, 0, 1])] };
+    }
+    var n = pick(env.r, nodes), c = T.cloneTree(n[0]);
+    if (c.op === "offset") c = { op: "offset_obj", kids: c.kids, params: [0, Math.floor(env.r() * 10), c.params[0], c.params[1]] };
+    else c.params[1] = Math.floor(env.r() * 10);
+    return T.treeReplace(t, n[1], c);
+  };
+  MUT.frame = function (t, env) {
+    var D = [["rot90", "rot270"], ["rot180", "rot180"], ["flip_h", "flip_h"], ["flip_v", "flip_v"], ["transpose", "transpose"], ["anti_transpose", "anti_transpose"]];
+    var d = pick(env.r, D), lp = leafPath(t);
+    if (!lp) return null;
+    var inner = T.treeReplace(t, lp, { op: d[0], kids: [{ op: "in" }], params: [] });
+    return { op: d[1], kids: [inner], params: [] };
+  };
+
+  /* ------------------------------------------------------------- archive */
+
+  function nicheOf(h) {
+    var sig = h.residual && h.residual.sig ? h.residual.sig : "?";
+    var t = h.program.tree, d = T.treeDepth(t);
+    return (h.program.rep || "raw") + "|" + sig + "|" + (h.program.base ? "B:" + h.program.base.solver + ">" : "") + t.op + "|" + (d <= 1 ? 1 : d <= 2 ? 2 : d <= 3 ? 3 : 4);
+  }
+  function better(a, b) {
+    var ra = a.residual ? a.residual.norm : 1, rb = b.residual ? b.residual.norm : 1;
+    return (ra - rb) || ((a.invariantViolations || 0) - (b.invariantViolations || 0)) || (a.complexity - b.complexity);
+  }
+  function dominates(a, b) {
+    var ra = a.residual ? a.residual.norm : 1, rb = b.residual ? b.residual.norm : 1;
+    var ge = ra <= rb && a.complexity <= b.complexity && (a.invariantViolations || 0) <= (b.invariantViolations || 0);
+    var gt = ra < rb || a.complexity < b.complexity || (a.invariantViolations || 0) < (b.invariantViolations || 0);
+    return ge && gt;
+  }
+  function Archive(nicheCap, cap) {
+    this.niches = new Map(); this.nicheCap = nicheCap || 3; this.cap = cap || 96;
+    this.size = 0; this.selected = new Map(); this.pareto = [];
+  }
+  Archive.prototype.add = function (h) {
+    var k = nicheOf(h), lst = this.niches.get(k) || [];
+    if (lst.length >= this.nicheCap) {
+      lst.sort(better);
+      if (better(h, lst[lst.length - 1]) >= 0 && lst.some(function (e) { return (e.residual ? e.residual.norm : 1) <= (h.residual ? h.residual.norm : 1); })) return false;
+      lst.pop(); this.size--;
+    }
+    if (this.size >= this.cap) {
+      /* evict the worst elite of the fullest niche */
+      var crowd = null, n = -1;
+      this.niches.forEach(function (v, kk) { if (v.length > n || (v.length === n && kk > crowd)) { n = v.length; crowd = kk; } });
+      var cl = this.niches.get(crowd); cl.sort(better);
+      if (crowd === k && better(h, cl[cl.length - 1]) >= 0) return false;
+      cl.pop(); this.size--;
+      if (!cl.length) this.niches.delete(crowd);
+      lst = this.niches.get(k) || [];
+    }
+    lst.push(h); this.niches.set(k, lst); this.size++;
+    h._niche = k;
+    /* Pareto front */
+    if (!this.pareto.some(function (p) { return dominates(p, h); })) {
+      this.pareto = this.pareto.filter(function (p) { return !dominates(h, p); });
+      this.pareto.push(h);
+      if (this.pareto.length > 24) { this.pareto.sort(better); this.pareto.length = 24; }
+    }
+    return true;
+  };
+  Archive.prototype.all = function () { var out = []; this.niches.forEach(function (v) { out = out.concat(v); }); return out; };
+  Archive.prototype.best = function () { var a = this.all(); a.sort(better); return a[0] || null; };
+  Archive.prototype.select = function (r, round) {
+    var mode = round % 3, self = this;
+    if (mode === 0) {
+      /* least-selected niche */
+      var bestK = null, bestN = Infinity;
+      this.niches.forEach(function (v, k) { var s = self.selected.get(k) || 0; if (s < bestN || (s === bestN && k < bestK)) { bestN = s; bestK = k; } });
+      if (bestK === null) return null;
+      this.selected.set(bestK, bestN + 1);
+      var lst = this.niches.get(bestK);
+      return lst[Math.floor(r() * lst.length)];
+    }
+    if (mode === 1 && this.pareto.length) return this.pareto[Math.floor(r() * this.pareto.length)];
+    var all = this.all().sort(better);
+    return all.length ? all[Math.min(all.length - 1, Math.floor(r() * r() * all.length))] : null;
+  };
+
+  /* --------------------------------------------------------------- search
+     adapter: REPAIR.ArcAdapter. seeds: kernel hypotheses (typed trees,
+     possibly with a base). opts: deadline, maxEvals, afterExact, seed,
+     classes (allowed mutation classes; ablations), multiEdit, stats. */
+  function search(adapter, seeds, opts) {
+    opts = opts || {};
+    var t0 = nowMs(), deadline = opts.deadline || (t0 + (opts.maxMs || 400));
+    var maxEvals = opts.maxEvals || 4000, ctx = adapter.ctx;
+    var r = rng(opts.seed !== undefined ? opts.seed : (G.ghashList(ctx.inputs()) % 4294967296));
+    var archive = new Archive(opts.nicheCap || 3, opts.archiveCap || 96);
+    var exact = [], exactKeys = new Set(), structSeen = new Set(), behSeen = new Set();
+    var allowed = opts.classes ? opts.classes.slice() : CLASSES.slice();
+    var st = { seeds: 0, generated: 0, struct_dup: 0, behavior_dup: 0, evaluated: 0, invalid: 0, kept: 0,
+               exact: 0, rounds: 0, byClass: {}, maxDepth: 0, exactDepths: [], bestStart: null, bestEnd: null,
+               depthCap: 0, multiEdits: 0 };
+    var env = { r: r, dom: T.domains(ctx), ctx: ctx, adapter: adapter, donors: [],
+                macros: typeof T.macroOps === "function" ? T.macroOps(ctx) : [],
+                reps: typeof REPRESENT !== "undefined" ? REPRESENT.rank(ctx).filter(function (o) { return o.gain > 0 && o.name !== "raw"; }).slice(0, 3).map(function (o) { return o.name; }) : [] };
+    var weights = {};
+    allowed.forEach(function (c) {
+      var w = PRIOR.classWeights && PRIOR.classWeights[c] !== undefined ? PRIOR.classWeights[c] : 1;
+      if (ctx._tta && ctx._tta.mutPrior && ctx._tta.mutPrior[c] !== undefined) w *= ctx._tta.mutPrior[c];
+      if (c === "macro_sub" && !env.macros.length) w = 0;
+      if (c === "macro_expand" && !env.macros.length) w = 0;
+      if (c === "migrate" && !env.reps.length) w = 0;
+      weights[c] = Math.max(0, w);
+    });
+    var wsum = allowed.reduce(function (s, c) { return s + weights[c]; }, 0) || 1;
+    function drawClass() {
+      var x = r() * wsum, i;
+      for (i = 0; i < allowed.length; i++) { x -= weights[allowed[i]]; if (x <= 0) return allowed[i]; }
+      return allowed[allowed.length - 1];
+    }
+    function cstat(c) { return st.byClass[c] || (st.byClass[c] = { tried: 0, kept: 0, improved: 0, exact: 0 }); }
+
+    function consider(h, parent, cls) {
+      var sk = CANON ? CANON.structural(h.program) : null;
+      st.generated++;
+      if (sk !== null) { if (structSeen.has(sk)) { st.struct_dup++; return null; } structSeen.add(sk); }
+      try { adapter.evaluate(h); } catch (e) { h.status = "invalid"; }
+      st.evaluated++;
+      if (h.status === "invalid") { st.invalid++; return null; }
+      if (behSeen.has(h.key)) { st.behavior_dup++; return null; }
+      behSeen.add(h.key);
+      K.mdlScore(h);
+      var d = h.lineage ? h.lineage.depth : 0;
+      if (d > st.maxDepth) st.maxDepth = d;
+      if (h.status === "exact") {
+        if (!exactKeys.has(h.key) && adapter.verifyExact(h)) {
+          exactKeys.add(h.key); exact.push(h); st.exact++; st.exactDepths.push(d);
+          if (cls) cstat(cls).exact++;
+          return "exact";
+        }
+        h.status = "near";
+      }
+      if (archive.add(h)) {
+        st.kept++;
+        if (cls) cstat(cls).kept++;
+        if (parent && h.residual && parent.residual && h.residual.norm < parent.residual.norm - 1e-9 && cls) cstat(cls).improved++;
+        if (!h.program.base && h.program.tree.op !== "in") env.donors.push(h.program.tree);
+        if (env.donors.length > 48) env.donors.shift();
+        return "kept";
+      }
+      return null;
+    }
+
+    for (var i = 0; i < seeds.length; i++) {
+      if (nowMs() > deadline) break;
+      st.seeds++;
+      consider(seeds[i], null, null);
+      if (!seeds[i].program.base && seeds[i].program.tree.op !== "in") env.donors.push(seeds[i].program.tree);
+    }
+    var b0 = archive.best();
+    st.bestStart = b0 && b0.residual ? b0.residual.norm : null;
+    var afterExact = opts.afterExact === undefined ? 60 : opts.afterExact, firstExactAt = null;
+
+    while (nowMs() < deadline && st.evaluated < maxEvals) {
+      if (exact.length && firstExactAt === null) firstExactAt = st.evaluated;
+      if (firstExactAt !== null && st.evaluated - firstExactAt >= afterExact) break;
+      var parent = archive.select(r, st.rounds++);
+      if (!parent) break;
+      var cls = drawClass(), children = [];
+      cstat(cls).tried++;
+      if (cls === "targeted") {
+        if (!parent.diagnosis) { try { parent.diagnosis = adapter.diagnose(parent) || []; } catch (e) { parent.diagnosis = []; } }
+        try { children = (adapter.repair(parent, "targeted", parent.diagnosis, null) || []).slice(0, 4); } catch (e) { children = []; }
+      } else {
+        var edits = 1;
+        /* multi-edit: occasionally two or three mutations at once */
+        if (opts.multiEdit !== false) { var u = r(); if (u < 0.2) edits = 2; else if (u < 0.28) edits = 3; }
+        if (edits > 1) st.multiEdits++;
+        var tree = parent.program.tree, rep = parent.program.rep || null, ok = true, names = [];
+        for (var e = 0; e < edits && ok; e++) {
+          var c2 = e === 0 ? cls : drawClass();
+          if (c2 === "targeted") c2 = "param";
+          var fnm = MUT[c2];
+          var res = null;
+          try { res = fnm ? fnm(tree, env, parent) : null; } catch (err) { res = null; }
+          if (!res) { ok = false; break; }
+          if (res.tree) { tree = res.tree; rep = res.rep; } else tree = res;
+          names.push(c2);
+        }
+        if (!ok) continue;
+        if (T.treeDepth(tree) > MAX_TREE_DEPTH) { st.depthCap++; continue; }
+        children = [K.derive(parent, { domain: "arc", representation: parent.representation, representationId: rep || "raw",
+          program: { base: parent.program.base, tree: tree, rep: rep }, latentState: {} },
+          { kind: "pop:" + names.join("+"), detail: "", bits: 1.5 * names.length })];
+      }
+      for (var ci = 0; ci < children.length; ci++) {
+        if (nowMs() > deadline) break;
+        consider(children[ci], parent, cls);
+      }
+    }
+    var b1 = archive.best();
+    st.bestEnd = b1 && b1.residual ? b1.residual.norm : null;
+    st.niches = archive.niches.size;
+    st.archive = archive.size;
+    st.pareto = archive.pareto.length;
+    st.ms = nowMs() - t0;
+    st.unique_per_s = st.ms ? Math.round((st.evaluated - st.behavior_dup) / (st.ms / 1000)) : null;
+    exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
+    return { exact: exact.slice(0, 12), archive: archive, stats: st };
+  }
+
+  POPSEARCH = { search: search, CLASSES: CLASSES, MUT: MUT, Archive: Archive, setPrior: setPrior,
+                prior: function () { return PRIOR; }, nicheOf: nicheOf, MAX_TREE_DEPTH: MAX_TREE_DEPTH };
+})();
+/* ===== src/56b-macros.js ===== */
+/* Reusable abstractions: mining macros from solved programs.
+ *
+ *   1. canonicalise every solved program (09c-canonical.js normal form)
+ *      so equal ideas are written the same way
+ *   2. enumerate its sub-programs of two or more operators (chains through
+ *      the input side and whole subtrees)
+ *   3. group them by operator skeleton and ANTI-UNIFY each group: a literal
+ *      that is the same in every member stays a literal, a literal that
+ *      differs becomes a typed parameter
+ *   4. support = number of distinct solved PROBLEMS containing the skeleton
+ *      (not occurrences: one problem repeating a fragment is not evidence
+ *      that the fragment is a reusable concept)
+ *   5. compression gain = sum over uses of (bits of the fragment - bits of a
+ *      macro reference with its parameters) - bits of the definition
+ *
+ * Mining only proposes. Whether a macro is ACCEPTED is decided by
+ * tools/arc-macros.js on held-out compositions (it must improve held-out
+ * solving or cut search cost without an accuracy loss); accepted macros are
+ * written to 56c-macro-library.js (generated) and loaded here as typed
+ * operators of the macro alphabet (09-program.js), where synthesis, repair
+ * and population search use them like any other step. Every macro reduces
+ * to existing operators, so it can make a program SHORTER to find, never
+ * compute something new.
+ *
+ * Sources are programs the system itself found, or the generator programs
+ * of the synthetic curriculum's TRAINING split. Never benchmark answers.
+ */
+
+var MACROS = null;
+
+(function () {
+  var T = PROG;
+  var LIB = [], STATS = { loaded: 0, uses: 0 };
+
+  function kindsOf(op) { return T.OPS[op] ? T.OPS[op].kinds.filter(function (k) { return k !== T.T_GRID; }) : []; }
+  function skeleton(t) { return t.op === "in" ? "$" : t.op + "(" + t.kids.map(skeleton).join(",") + ")"; }
+
+  /* Sub-programs of size >= 2 that are closed over one input leaf: every
+     subtree, and every contiguous section of a unary chain. */
+  function fragments(t) {
+    var out = [], seen = new Set();
+    function addFrag(f) {
+      if (T.treeSize(f) < 2) return;
+      var k = T.treeRender(f);
+      if (seen.has(k)) return; seen.add(k); out.push(f);
+    }
+    T.treeNodes(t).forEach(function (p) {
+      var n = p[0];
+      if (n.op === "in") return;
+      addFrag(T.cloneTree(n));
+      /* chain sections: cut the chain below n at every depth */
+      var cur = n, depth = 0;
+      while (cur && cur.kids && cur.kids.length === 1 && cur.kids[0].op !== "in" && depth < 5) {
+        depth++;
+        var cut = (function copyUntil(x, d) {
+          if (d === 0) return { op: "in" };
+          return { op: x.op, kids: [copyUntil(x.kids[0], d - 1)], params: x.params.slice() };
+        })(n, depth + 1);
+        addFrag(cut);
+        cur = cur.kids[0];
+      }
+    });
+    return out;
+  }
+
+  /* Anti-unification of same-skeleton fragments: returns {template, params
+     (kinds), literalSlots} where differing literals became {"$": i}. */
+  function antiUnify(frags) {
+    var holes = [];
+    function walk(nodes) {
+      var n0 = nodes[0];
+      if (n0.op === "in") return { op: "in" };
+      var ks = kindsOf(n0.op), params = [], j;
+      for (j = 0; j < n0.params.length; j++) {
+        var v0 = JSON.stringify(n0.params[j]), same = nodes.every(function (n) { return JSON.stringify(n.params[j]) === v0; });
+        if (same) params.push(n0.params[j] && typeof n0.params[j] === "object" ? JSON.parse(v0) : n0.params[j]);
+        else { params.push({ $: holes.length }); holes.push(ks[j]); }
+      }
+      var kids = [], i;
+      for (i = 0; i < n0.kids.length; i++) kids.push(walk(nodes.map(function (n) { return n.kids[i]; })));
+      return { op: n0.op, kids: kids, params: params };
+    }
+    return { template: walk(frags), params: holes };
+  }
+
+  function refBits(kinds) {
+    var b = T.MACRO_ESCAPE_BITS + 3.0, i;          /* escape + ~8 macros */
+    for (i = 0; i < kinds.length; i++) b += (T.DOMAIN_BITS[kinds[i]] || 4.0);
+    return b;
+  }
+
+  /* programs: [{tree, task}] (canonical or not). Returns candidates sorted
+     by estimated compression gain. */
+  function mine(programs, opts) {
+    opts = opts || {};
+    var minSupport = opts.minSupport || 3, maxParams = opts.maxParams === undefined ? 3 : opts.maxParams;
+    var bySkel = new Map();
+    programs.forEach(function (p) {
+      var t = p.tree;
+      /* the rewrite NORMAL form (symmetries outermost), not the saturation's
+         lexicographic minimum: a consistent orientation keeps shared inner
+         fragments contiguous across programs */
+      try { t = CANON.normalizeTree(t); } catch (e) { /* keep */ }
+      fragments(t).forEach(function (f) {
+        var k = skeleton(f), g = bySkel.get(k);
+        if (!g) { g = { skel: k, frags: [], tasks: new Set() }; bySkel.set(k, g); }
+        g.frags.push(f); g.tasks.add(p.task);
+      });
+    });
+    var out = [];
+    bySkel.forEach(function (g) {
+      if (g.tasks.size < minSupport) return;
+      /* ops that cannot be parameterised (fitted tables) are excluded */
+      if (g.frags.some(function (f) { return T.treeNodes(f).some(function (q) { return kindsOf(q[0].op).some(function (k) { return k === T.T_CMAP || k === "T" || k === "Q"; }); }); })) return;
+      var au = antiUnify(g.frags);
+      if (au.params.length > maxParams) return;
+      var defBits = T.treeBits(T.instantiate(au.template, au.params.map(function () { return 0; })));
+      var gain = 0;
+      g.frags.forEach(function (f) { gain += T.treeBits(f) - refBits(au.params); });
+      gain -= defBits;
+      if (gain <= 0) return;
+      out.push({ skeleton: g.skel, template: au.template, params: au.params, support: g.tasks.size,
+                 occurrences: g.frags.length, mdlGain: Math.round(gain * 100) / 100, size: T.treeSize(g.frags[0]) });
+    });
+    /* prefer larger fragments when one skeleton contains another with the
+       same support: the smaller is implied */
+    out.sort(function (a, b) { return (b.mdlGain - a.mdlGain) || (b.size - a.size) || (a.skeleton < b.skeleton ? -1 : 1); });
+    return out.slice(0, opts.limit || 40);
+  }
+
+  function nameOf(c, i) {
+    return (c.name || ("L" + i + "_" + c.skeleton.replace(/[^a-z0-9]+/gi, "_").replace(/_+$/, "").slice(0, 40)));
+  }
+
+  /* Register macros as typed operators. Each record: {name, template,
+     params, weight, support, heldoutUtility, mdlGain, version, preconditions}. */
+  function load(list) {
+    clear();
+    (list || []).forEach(function (m, i) {
+      var name = m.name || nameOf(m, i);
+      T.defineMacro({ name: name, template: m.template, params: m.params || [], weight: m.weight || 1,
+                      version: m.version || 1, preconditions: m.preconditions || {} });
+      var rec = { id: "m:" + name, domain: "arc", type: "G->G", template: m.template, params: m.params || [],
+                  preconditions: m.preconditions || {}, representation: m.representation || "raw",
+                  support: m.support || 0, failures: m.failures || 0, trainUtility: m.trainUtility === undefined ? null : m.trainUtility,
+                  heldoutUtility: m.heldoutUtility === undefined ? null : m.heldoutUtility, mdlGain: m.mdlGain || 0,
+                  lineage: m.lineage || [], version: m.version || 1, status: "active" };
+      LIB.push(rec);
+      if (root.C4ReasonMemory) root.C4ReasonMemory.shared.abstractions.propose(rec);
+    });
+    STATS.loaded = LIB.length;
+    return LIB.length;
+  }
+  function clear() { T.clearMacros(); LIB = []; STATS.loaded = 0; }
+  function active() { return LIB.slice(); }
+
+  /* How many macro steps a program uses (for usage reports). */
+  function uses(tree) {
+    return T.treeNodes(tree).filter(function (p) { return T.OPS[p[0].op] && T.OPS[p[0].op].macro; }).length;
+  }
+
+  MACROS = { mine: mine, fragments: fragments, antiUnify: antiUnify, skeleton: skeleton, load: load, clear: clear,
+             active: active, uses: uses, refBits: refBits, stats: function () { return { loaded: STATS.loaded }; } };
+})();
+/* ===== src/56c-macro-library.js ===== */
+/* GENERATED FILE -- do not edit by hand.
+ * Learned macro library written by tools/arc-macros.js from the synthetic
+ * curriculum's TRAINING split (programs the solver found, and generator
+ * programs of training tasks). Each macro was accepted only after it
+ * improved held-out compositional solving or cut search cost without an
+ * accuracy loss. No ARC benchmark data is used.
+ * Regenerate with: npm run arc:macros */
+MACROS.load([]);
 /* ===== src/57-refinement.js ===== */
 /* The refinement stage of the portfolio: stop throwing away near-solutions.
  *
@@ -19015,70 +22861,33 @@ var REFINEMENT = null;
   function setPolicy(p) { POLICY = p || { weights: {}, table: null }; }
 
   var LOG = null;                     /* repair-policy training log, when enabled */
+  /* stage switches (ablations): population search, the learned meta
+     controller, allowed kernel actions, repair depth */
+  var OPTS = { pop: true, meta: true, actions: null, maxDepth: 4, tta: true };
+  function setOptions(o) { for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) OPTS[k] = o[k]; return OPTS; }
   function enableLog(on) { LOG = on ? [] : null; return LOG; }
   function takeLog() { var l = LOG; LOG = LOG ? [] : null; return l; }
 
-  /* Called by _candidates for a hypothesis that failed on training pair t
-     with prediction p. Records only a score, so a non-fit costs O(area). */
+  /* Near-misses are CandidateTraces in a CandidateSink (55a-candidate.js).
+     These three entry points are kept for callers written against the
+     original record lists; they route there. */
   function noteNear(ctx, mod, hyp, t, p) {
     var sink = ctx._nearSink;
     if (!sink || p === null) return;
-    var target = ctx.train[t][1], agree = 0, ph = p.length, pw = p[0].length, th = target.length, tw = target[0].length;
-    if (ph === th && pw === tw) {
-      var n = 0, m = 0, r, c;
-      for (r = 0; r < th; r++) for (c = 0; c < tw; c++) { n++; if (p[r][c] === target[r][c]) m++; }
-      agree = m / n;
-    } else if ((ph === tw && pw === th) || (!(th % ph) && !(tw % pw)) || (!(ph % th) && !(pw % tw))) {
-      /* wrong size, but in a relation a dims repair (transpose, scale,
-         crop) can close: partial credit */
-      agree = 0.35;
-    }
-    var score = (t + agree) / ctx.train.length;
-    if (score <= 0.1) return;
-    var key = mod.__name__, lst = sink.byModule.get(key);
-    if (!lst) { lst = []; sink.byModule.set(key, lst); }
-    if (lst.length < PER_MODULE) lst.push({ hyp: hyp, score: score, solver: hyp.solver, module: key });
-    else {
-      var worst = 0, i;
-      for (i = 1; i < lst.length; i++) if (lst[i].score < lst[worst].score) worst = i;
-      if (score > lst[worst].score) lst[worst] = { hyp: hyp, score: score, solver: hyp.solver, module: key };
-    }
+    if (typeof sink.noteNear === "function") { sink.noteNear(ctx, mod, hyp, t, p); return; }
   }
 
-  /* Called by the typed synthesiser with its closest non-exact states. */
-  function noteTyped(ctx, struct, theta, dist) {
+  function noteTyped(ctx, struct, theta, dist, meta) {
     var sink = ctx._nearSink;
     if (!sink) return;
-    sink.typed.push({ struct: struct, theta: theta, score: 1 - Math.min(1, dist) });
+    if (typeof sink.noteTyped === "function") sink.noteTyped(ctx, struct, theta, dist, meta);
   }
 
-  function newSink() { return { byModule: new Map(), typed: [] }; }
+  function newSink(ctx, opts) { return CANDIDATES.newSink(ctx || null, opts); }
 
   function seedsFrom(adapter, sink) {
-    var all = [];
-    sink.byModule.forEach(function (lst) { all = all.concat(lst); });
-    sink.typed.sort(function (a, b) { return b.score - a.score; });
-    sink.typed.slice(0, TYPED_NEAR).forEach(function (t) { all.push({ typed: t, score: t.score, solver: "typed" }); });
-    all.sort(function (a, b) { return b.score - a.score; });
-    var perFam = {}, seen = new Set(), out = [], i;
-    for (i = 0; i < all.length && out.length < MAX_SEEDS; i++) {
-      var s = all[i], fam = s.solver || "?";
-      if ((perFam[fam] || 0) >= PER_FAMILY) continue;
-      var h;
-      if (s.typed) {
-        var tree = REPAIR.toTree(s.typed.struct, s.typed.theta);
-        var nm = "typed:" + REPAIR.render(tree);
-        if (seen.has(nm)) continue; seen.add(nm);
-        h = adapter.seed(null, tree, { seedScore: s.score, family: "typed" });
-      } else {
-        var nm2 = s.hyp.solver + ":" + s.hyp.name;
-        if (seen.has(nm2)) continue; seen.add(nm2);
-        h = adapter.seed(s.hyp, null, { seedScore: s.score, family: fam });
-      }
-      perFam[fam] = (perFam[fam] || 0) + 1;
-      out.push(h);
-    }
-    return { seeds: out, families: perFam };
+    if (!sink.ctx) sink.ctx = adapter.ctx;
+    return sink.seeds(adapter, { max: MAX_SEEDS, perFamily: PER_FAMILY, typed: TYPED_NEAR });
   }
 
   /* Leave-one-out for a repaired program: refit the parameters the repair
@@ -19161,6 +22970,10 @@ var REFINEMENT = null;
 
   var REPAIR_MODULE = { __name__: "repair", SOLVER: "repair", PHASE: 3, NO_LOO: true,
                         generate: function () { return []; } };
+  /* programs found by the adapted synthesis pass are ordinary typed
+     programs; their module is typed synthesis (so leave-one-out applies) */
+  var TTA_MODULE = { __name__: "typed_adapted", SOLVER: "typed", PHASE: 3,
+                     generate: function (c) { return typeof moduleByName === "function" && moduleByName("typed") ? moduleByName("typed").generate(c) : []; } };
 
   function hasExecutable(ctx, reservoir) {
     return reservoir.a.some(function (item) {
@@ -19175,6 +22988,7 @@ var REFINEMENT = null;
     var diag = { ran: false };
     res.diagnostics.refinement = diag;
     if (!sink || !K) return order;
+    if (OPTS.off) { diag.skipped = "disabled"; return order; }
     var now = nowMs(), exec = hasExecutable(ctx, reservoir);
     /* time: what the schedule left unused; plus the evaluation reserve when
        nothing executable exists, keeping a small margin for voting */
@@ -19182,32 +22996,86 @@ var REFINEMENT = null;
     diag.has_exact = exec;
     if (end - now < 40) { diag.skipped = "no_budget"; return order; }
     var adapter = new REPAIR.ArcAdapter(ctx);
+    adapter.sink = sink;
+    /* Nothing executable yet: adapt to THIS task before searching deeper
+       (57b-testtime.js) -- temporary priors from its own demonstrations,
+       then one synthesis pass under them. Exact programs found go straight
+       to the reservoir; near states join the sink before seeding. */
+    if (!exec && OPTS.tta && typeof TESTTIME !== "undefined" && end - now > 80) {
+      try {
+        var tta = TESTTIME.adapt(ctx, sink, { budgetMs: Math.min(150, (end - now) * 0.18) });
+        diag.tta = tta.report;
+        var synEnd = nowMs() + (end - nowMs()) * 0.3;
+        ctx._nearSink = sink; ctx.deadline = synEnd;
+        var progs = TESTTIME.adaptedSearch(ctx, synEnd, 200);
+        ctx._nearSink = null;
+        diag.tta.adapted_found = progs.length;
+        progs.forEach(function (p) {
+          var hy = new Hyp(p.name(), (function (q) { return function (g) { return q.run(g); }; })(p), 2.0 + p.codeLength() / 8.0, "typed");
+          hy.prog = p;
+          if (!ctx.test_inputs.every(function (g) { return _prediction(hy, g) !== null; })) return;
+          var sc = hy.cost + Number(SOLVER_PRIOR.typed) + Number(bias.typed || 0);
+          var it = [-sc, -order, hy, TTA_MODULE];
+          order += 1;
+          if (reservoir.a.length < 600) reservoir.push(it); else if (_itemCmp(it, reservoir.a[0]) > 0) reservoir.replaceRoot(it);
+        });
+        if (progs.length) exec = hasExecutable(ctx, reservoir);
+      } catch (e) { ctx._nearSink = null; diag.tta_error = String(e && e.message).slice(0, 120); }
+    }
     var sd = seedsFrom(adapter, sink);
+    adapter.usedSeeds = sd.seeds.slice();
     diag.seed_families = sd.families;
+    try { diag.candidates = sink.report(); } catch (e) { diag.candidates = null; }
     if (!sd.seeds.length) { diag.skipped = "no_near_misses"; return order; }
     diag.ran = true;
     ctx.deadline = end;
     var stats = new K.RepairStats(POLICY.table ? { table: POLICY.table } : null);
+    var M = root.C4ReasonMeta, metaModel = OPTS.meta && M && M.hub.active() ? M.hub.active() : null;
     /* With an exact explanation in hand, refinement is a short search for
        alternatives. Without one it is the only remaining search, so a stall
-       is tolerated for longer before giving up (the deadline still binds). */
+       is tolerated for longer before giving up (the deadline still binds).
+       Without one, it also shares the stage with population search
+       (56a-popsearch.js): the kernel's best-first repair first, on half the
+       time, then a population seeded from its frontier. */
+    var refineEnd = (exec || !OPTS.pop) ? end : now + (end - now) * 0.5;
+    var traj = [];
     var out = K.refine(adapter, sd.seeds, {
-      deadline: end, maxSteps: exec ? 40 : 200, frontierCap: 48, clusterCap: 6, childCap: 12,
-      maxDepth: 3, stallLimit: 3, maxStall: exec ? 12 : 40, exactCap: 12, afterExact: exec ? 0 : 4,
-      weights: POLICY.weights, stats: stats, log: LOG
+      deadline: refineEnd, maxSteps: exec ? 40 : 200, frontierCap: 48, clusterCap: 6, childCap: 12,
+      maxDepth: OPTS.maxDepth, stallLimit: 3, maxStall: exec ? 12 : 40, exactCap: 12, afterExact: exec ? 0 : 4,
+      weights: POLICY.weights, stats: stats, log: LOG, metaModel: metaModel, domain: "arc",
+      actions: OPTS.actions || null, trajectory: traj, episodic: M && root.C4ReasonMemory ? root.C4ReasonMemory.shared.episodic : null
     });
+    if (M && M.hub) M.hub.log(traj);
+    var pop = null;
+    if (OPTS.pop && !exec && !out.exact.length && end - nowMs() > 60 && typeof POPSEARCH !== "undefined") {
+      var popSeeds = out.frontier.sorted().slice(0, 16);
+      if (!popSeeds.length) popSeeds = sd.seeds;
+      try { pop = POPSEARCH.search(adapter, popSeeds, { deadline: end, afterExact: 40 }); } catch (e) { pop = null; diag.popsearch_error = String(e && e.message).slice(0, 120); }
+      if (pop) {
+        var ps = pop.stats;
+        diag.popsearch = { seeds: ps.seeds, generated: ps.generated, evaluated: ps.evaluated, struct_dup: ps.struct_dup,
+          behavior_dup: ps.behavior_dup, exact: ps.exact, niches: ps.niches, archive: ps.archive, max_depth: ps.maxDepth,
+          exact_depths: ps.exactDepths, best_start: ps.bestStart, best_end: ps.bestEnd, ms: ps.ms, by_class: ps.byClass,
+          multi_edits: ps.multiEdits };
+      }
+    }
     var st = out.stats;
     diag.stats = { seeds: st.seeds, evaluated: st.evaluated, kept: st.kept, duplicates: st.duplicates,
       wasted: st.wasted, steps: st.steps, exact: st.exact, made_exact: st.madeExact,
       mean_depth: st.madeExact ? st.depthSum / st.madeExact : null, backtracks: st.backtracks,
       representation_switches: st.repsSwitched, best_start: st.bestStart, best_end: st.bestEnd,
       frontier: st.frontier, clusters: st.clusters, evicted: st.evicted, ms: st.ms,
-      by_mutation: st.byMutation, by_diag: st.byDiag, survival: st.survival, plan: st.plan };
+      by_mutation: st.byMutation, by_diag: st.byDiag, survival: st.survival, plan: st.plan,
+      struct_duplicates: st.structDuplicates, migrations: st.migrations, migration_kept: st.migrationKept,
+      migration_exact: st.migrationExact, discriminations: st.discriminations, inventions: st.inventions,
+      deep_verified: st.deepVerified, deep_failed: st.deepFailed, restarts: st.restarts, max_depth: st.maxDepthReached,
+      by_action: st.byAction, memory: st.memory || null };
     diag.base_runs = adapter.stats.baseRuns;
     diag.exact = [];
     var i, looEnd = Math.min(deadline - Math.max(60, budgetMs * 0.03), nowMs() + budgetMs * 0.05);
-    for (i = 0; i < out.exact.length; i++) {
-      var h = out.exact[i], base = h.program.base;
+    var exacts = out.exact.concat(pop ? pop.exact : []);
+    for (i = 0; i < exacts.length; i++) {
+      var h = exacts[i], base = h.program.base, fromPop = pop && pop.exact.indexOf(h) >= 0;
       var tb = REPAIR.treeBits(h.program.tree);
       var cost = base ? Number(base.cost) + (tb + h.repairBits) / 8 : 2.0 + (tb + h.repairBits) / 8;
       var fam = base ? base.solver : "typed";
@@ -19217,10 +23085,12 @@ var REFINEMENT = null;
       var adj = loo && loo.trials ? (1.5 - 4.5 * loo.wins / loo.trials) * loo.trials / ctx.train.length : 0;
       var score = cost + prior + adj;
       if (!isFinite(score)) continue;
-      var name = "repair:" + (base ? base.solver + ":" + base.name + " >> " : "") + REPAIR.render(h.program.tree);
-      var hyp = new Hyp(name, adapter.closure(h.program), cost, "repair");
+      var name = (fromPop ? "pop:" : "repair:") + (base ? base.solver + ":" + base.name + " >> " : "") + REPAIR.render(h.program.tree) +
+                 (h.program.rep ? "@" + h.program.rep : "");
+      var hyp = new Hyp(name, adapter.closure(h.program), cost, fromPop ? "popsearch" : "repair");
       hyp.lineage = lineageOf(h);
-      if (!base && !REPAIR.usesInput(h.program.tree)) {
+      hyp.representation = h.program.rep || "raw";
+      if (!base && !h.program.rep && !REPAIR.usesInput(h.program.tree)) {
         var f = REPAIR.fromTree(h.program.tree);
         hyp.prog = new PROG.Prog(f.struct, f.theta, PROG.makeEnv(ctx));
       }
@@ -19246,6 +23116,7 @@ var REFINEMENT = null;
   REFINEMENT = { noteNear: noteNear, noteTyped: noteTyped, newSink: newSink, stage: stage,
                  seedsFrom: seedsFrom, repairLOO: repairLOO, setPolicy: setPolicy,
                  policy: function () { return POLICY; }, enableLog: enableLog, takeLog: takeLog,
+                 options: setOptions,
                  MODULE: REPAIR_MODULE };
 })();
 /* ===== src/57a-repair-policy.js ===== */
@@ -19254,6 +23125,139 @@ var REFINEMENT = null;
  * table: diagnosis|repair -> [helped, tried]; weights: feature -> operation.
  * Regenerate with: node tools/arc-curriculum.js --write && npm run build */
 REFINEMENT.setPolicy({"table":{"object_moved|append:offset":[386,1055],"*|append:offset":[597,1419],"object_moved|param:D":[751,4572],"*|param:D":[1043,6973],"object_moved|append:objmove":[616,5274],"*|append:objmove":[842,6573],"object_moved|forall":[2,22],"*|forall":[54,511],"missing_objects|param:K":[11,92],"*|param:K":[80,1370],"missing_objects|append:local":[0,100],"*|append:local":[377,14394],"missing_objects|closer":[0,18],"*|closer":[262,1234],"missing_objects|param:Y":[0,57],"*|param:Y":[1,298],"object_moved|param:K":[17,249],"object_moved|param:S":[4,356],"*|param:S":[53,2388],"missing_objects|param:S":[10,199],"missing_objects|forall":[21,80],"missing_objects|invert":[2,7],"*|invert":[9,331],"missing_objects|opsub":[16,212],"*|opsub":[1445,18717],"unhandled_object_class|restrict":[34,1448],"*|restrict":[51,1673],"unhandled_object_class|append:offset":[43,128],"unhandled_object_class|param:D":[56,467],"unhandled_object_class|append:objmove":[57,464],"color_substitution|param:C":[249,2126],"*|param:C":[760,7026],"color_substitution|closer":[107,263],"color_substitution|mask":[3,42],"*|mask":[313,1742],"color_substitution|delete":[2,16],"*|delete":[178,1552],"object_moved|opsub":[550,6114],"object_moved|mask":[104,361],"object_moved|prepend":[29,1092],"*|prepend":[143,6459],"object_moved|append:local":[174,1830],"object_moved|append:objpaint":[5,279],"*|append:objpaint":[69,8099],"object_moved|closer":[36,159],"missed_change|append:local":[131,8138],"unhandled_object_class|append:local":[13,1086],"missed_change|append:objpaint":[32,3828],"object_moved|invert":[0,41],"object_reoriented|param:D":[32,229],"object_reoriented|append:local":[2,111],"object_reoriented|opsub":[45,587],"count_mismatch|append:local":[7,151],"count_mismatch|param:D":[12,75],"count_mismatch|opsub":[38,769],"missed_change|opsub":[77,2121],"missed_change|mask":[23,356],"missed_change|prepend":[19,896],"count_mismatch|param:I":[0,95],"*|param:I":[1,570],"consistent_translation|append:offset":[151,152],"consistent_translation|param:D":[128,417],"consistent_translation|append:objmove":[149,593],"object_moved|param:O":[270,3426],"*|param:O":[373,4902],"none|param:O":[0,167],"none|opsub":[13,529],"no_output|delete":[15,295],"no_output|opsub":[15,965],"palette_mismatch|param:K":[9,165],"palette_mismatch|param:S":[3,337],"palette_mismatch|append:local":[2,365],"palette_mismatch|param:O":[27,371],"none|param:K":[1,24],"none|param:S":[0,34],"topology_changed|append:local":[23,1244],"none|prepend":[0,131],"palette_mismatch|opsub":[56,1592],"object_reoriented|param:O":[8,147],"count_mismatch|param:K":[0,18],"count_mismatch|param:S":[1,32],"count_mismatch|param:O":[1,52],"wrong_dims|append:crop":[236,12989],"*|append:crop":[243,13500],"wrong_dims|prepend":[69,2695],"wrong_dims|append:dihedral":[190,8736],"*|append:dihedral":[367,9759],"wrong_dims|opsub":[502,2585],"no_output|append:crop":[0,115],"wrong_dims|append:scale":[70,152],"*|append:scale":[70,152],"object_recolored|closer":[93,410],"object_recolored|append:objpaint":[13,2959],"object_recolored|param:C":[62,786],"object_recolored|opsub":[4,442],"palette_mismatch|param:C":[153,1036],"object_recolored|param:K":[5,80],"object_recolored|param:S":[6,150],"object_recolored|append:local":[4,260],"object_recolored|append:generic":[0,30],"*|append:generic":[10,1223],"object_recolored|append:dihedral":[0,30],"object_recolored|prepend":[4,269],"wrong_orientation|append:dihedral":[129,258],"wrong_orientation|append:crop":[3,157],"wrong_orientation|prepend":[3,47],"excessive_change|mask":[93,525],"excessive_change|delete":[85,680],"excessive_change|filter":[45,729],"*|filter":[88,1088],"excessive_change|param:D":[12,298],"excessive_change|append:local":[7,72],"excessive_change|opsub":[20,390],"wrong_dims|append:extend":[68,860],"*|append:extend":[68,884],"no_output|param:K":[0,10],"no_output|mask":[1,14],"no_output|prepend":[0,35],"wrong_dims|append:generic":[0,561],"wrong_dims|append:local":[4,461],"no_output|append:generic":[0,18],"no_output|append:dihedral":[0,28],"wrong_dims|param:K":[4,71],"wrong_dims|mask":[4,34],"unhandled_object_class|mask":[52,226],"unhandled_object_class|delete":[23,181],"unhandled_object_class|filter":[16,153],"unhandled_object_class|param:K":[11,304],"unhandled_object_class|param:S":[14,778],"missed_change|param:K":[11,220],"missed_change|invert":[3,121],"object_moved|delete":[42,176],"object_moved|filter":[21,143],"excessive_change|restrict":[10,20],"palette_mismatch|param:D":[22,381],"object_recolored|param:D":[9,112],"palette_mismatch|invert":[2,30],"missed_change|param:S":[10,231],"object_recolored|invert":[0,5],"excessive_change|param:K":[6,71],"excessive_change|param:S":[3,107],"excessive_change|reorder":[6,31],"*|reorder":[9,96],"excessive_change|forall":[2,50],"excessive_change|invert":[0,10],"wrong_change|param:C":[36,318],"wrong_change|param:K":[2,21],"wrong_change|param:S":[0,25],"consistent_translation|restrict":[0,27],"missing_objects|param:C":[40,213],"missing_objects|param:D":[4,36],"excessive_change|param:C":[109,559],"consistent_translation|opsub":[0,35],"unhandled_object_class|opsub":[71,1195],"unhandled_object_class|param:O":[14,219],"unhandled_object_class|invert":[0,62],"missed_change|param:D":[3,142],"unhandled_object_class|prepend":[3,331],"wrong_change|append:objpaint":[0,61],"object_recolored|mask":[3,62],"unhandled_object_class|param:C":[22,288],"wrong_orientation|append:offset":[9,24],"wrong_orientation|append:objmove":[19,127],"no_output|append:extend":[0,24],"wrong_dims|invert":[2,13],"missed_change|param:C":[17,519],"topology_changed|opsub":[18,243],"topology_changed|param:D":[4,17],"topology_changed|prepend":[0,38],"palette_mismatch|closer":[4,87],"palette_mismatch|param:Y":[0,89],"palette_mismatch|prepend":[2,275],"color_substitution|append:objpaint":[2,178],"wrong_dims|param:S":[2,28],"wrong_orientation|param:K":[1,10],"wrong_orientation|opsub":[3,257],"wrong_dims|forall":[0,96],"missed_change|closer":[12,223],"excessive_change|param:O":[11,105],"color_substitution|append:crop":[0,12],"wrong_dims|param:C":[2,284],"missing_objects|prepend":[0,47],"wrong_orientation|mask":[4,8],"wrong_orientation|delete":[0,9],"wrong_orientation|filter":[3,10],"wrong_orientation|param:C":[4,61],"unhandled_object_class|closer":[8,45],"unhandled_object_class|append:objpaint":[10,750],"color_substitution|append:local":[4,142],"object_moved|append:crop":[4,126],"object_moved|append:dihedral":[8,231],"missing_objects|param:I":[0,15],"object_reoriented|param:I":[0,21],"wrong_dims|param:I":[1,67],"wrong_dims|param:D":[4,78],"no_output|invert":[0,19],"missed_change|append:generic":[0,202],"missed_change|append:dihedral":[14,215],"consistent_translation|forall":[0,10],"object_moved|append:generic":[6,207],"wrong_dims|delete":[3,70],"wrong_dims|param:O":[0,14],"color_substitution|restrict":[6,34],"missing_objects|mask":[1,5],"missed_change|forall":[26,110],"palette_mismatch|mask":[5,38],"wrong_orientation|restrict":[1,32],"consistent_translation|mask":[5,10],"consistent_translation|param:O":[30,127],"consistent_translation|filter":[1,15],"object_moved|param:C":[36,548],"object_reoriented|param:C":[2,78],"color_substitution|opsub":[3,196],"missed_change|restrict":[0,112],"unhandled_object_class|append:generic":[0,35],"unhandled_object_class|append:dihedral":[21,79],"unhandled_object_class|param:Y":[1,87],"wrong_change|param:O":[1,30],"wrong_change|opsub":[11,242],"consistent_translation|param:I":[0,66],"count_mismatch|invert":[0,6],"count_mismatch|mask":[3,13],"count_mismatch|prepend":[9,189],"color_substitution|prepend":[0,124],"color_substitution|append:dihedral":[0,16],"wrong_dims|select":[0,10],"*|select":[3,81],"object_moved|param:I":[0,200],"extra_objects|append:local":[0,5],"extra_objects|param:I":[0,6],"extra_objects|opsub":[0,39],"extra_objects|prepend":[0,31],"object_reoriented|closer":[0,13],"object_reoriented|param:K":[0,24],"object_reoriented|param:S":[0,72],"object_reoriented|prepend":[2,109],"palette_mismatch|param:I":[0,34],"object_reoriented|mask":[4,18],"missed_change|param:O":[4,144],"excessive_change|prepend":[3,74],"missed_change|append:offset":[4,19],"missed_change|append:objmove":[1,21],"object_recolored|append:offset":[2,28],"object_recolored|param:O":[5,76],"object_recolored|append:objmove":[0,82],"count_mismatch|delete":[1,13],"color_substitution|append:offset":[2,12],"no_output|forall":[0,20],"local_cells|append:local":[0,144],"local_cells|opsub":[2,76],"wrong_change|param:D":[2,56],"palette_mismatch|append:generic":[1,41],"palette_mismatch|append:dihedral":[0,46],"color_substitution|param:D":[0,16],"missing_objects|param:O":[0,8],"relation_mismatch|param:S":[0,9],"count_mismatch|closer":[1,9],"count_mismatch|forall":[0,10],"wrong_change|mask":[7,18],"wrong_change|prepend":[0,43],"wrong_orientation|param:D":[3,12],"*|role":[0,10],"object_moved|reorder":[0,16],"consistent_translation|append:crop":[0,13],"wrong_orientation|param:O":[0,10],"wrong_change|append:local":[0,7],"consistent_translation|append:local":[2,120],"palette_mismatch|delete":[0,17],"palette_mismatch|reorder":[1,4],"count_mismatch|append:generic":[1,42],"count_mismatch|append:dihedral":[2,42],"unhandled_object_class|append:crop":[0,60],"wrong_orientation|append:local":[3,88],"color_substitution|filter":[0,25],"extra_objects|append:generic":[0,6],"extra_objects|append:dihedral":[0,6],"object_recolored|delete":[2,14],"object_recolored|filter":[1,9],"wrong_change|invert":[0,9],"unhandled_object_class|forall":[0,58],"wrong_change|forall":[0,10],"missed_change|delete":[4,41],"unhandled_object_class|select":[2,21],"none|param:D":[1,65],"none|param:I":[0,60],"count_mismatch|param:Y":[0,20],"wrong_orientation|forall":[3,35],"topology_changed|param:C":[27,141],"wrong_dims|reorder":[0,4],"extra_objects|param:C":[0,11],"topology_changed|mask":[1,4],"none|append:generic":[0,28],"none|append:dihedral":[0,29],"none|delete":[0,20],"none|reorder":[0,12],"count_mismatch|reorder":[1,4],"none|append:local":[1,48],"count_mismatch|param:C":[1,33],"none|param:C":[0,8],"color_substitution|param:K":[1,8],"color_substitution|param:S":[0,9],"palette_mismatch|forall":[0,10],"missed_change|select":[0,30],"missed_change|param:Y":[0,14],"wrong_orientation|append:objpaint":[7,44],"missed_change|append:crop":[0,6],"excessive_change|append:crop":[0,15],"extra_objects|param:S":[0,8],"no_output|param:C":[0,10],"color_substitution|append:generic":[0,12],"missed_change|reorder":[0,17],"local_cells|mask":[0,4],"local_cells|prepend":[0,16],"color_substitution|append:objmove":[0,6],"topology_changed|append:generic":[0,17],"topology_changed|append:dihedral":[2,18],"wrong_change|append:generic":[1,12],"wrong_change|append:dihedral":[1,12],"wrong_orientation|param:S":[0,6],"palette_mismatch|select":[0,10],"palette_mismatch|append:crop":[0,6],"no_output|param:S":[0,7],"excessive_change|param:Y":[0,14],"consistent_translation|delete":[0,8],"excessive_change|append:objmove":[0,6],"excessive_change|select":[1,10],"relation_mismatch|opsub":[1,128],"relation_mismatch|prepend":[0,16],"relation_mismatch|append:generic":[1,6],"relation_mismatch|append:dihedral":[0,6],"relation_mismatch|delete":[1,5],"relation_mismatch|append:local":[0,12],"excess_change_class|filter":[1,4],"excess_change_class|param:C":[0,4],"none|param:Y":[0,14],"no_output|append:local":[0,10],"object_reoriented|append:generic":[0,6],"object_reoriented|append:dihedral":[0,6]},"weights":{"res:mid":{"ABSTRACT_RESIDUAL":0.183,"REFINE_BEST":0.213,"REFINE_DIVERSE":-0.405,"CHANGE_REPRESENTATION":-0.338,"BACKTRACK":-0.275,"EXPAND_PROGRAM":-1.07,"SIMPLIFY_PROGRAM":-0.805},"stall:0":{"ABSTRACT_RESIDUAL":0.391,"REFINE_BEST":0.112,"CHANGE_REPRESENTATION":-0.363,"REFINE_DIVERSE":-0.159},"exact:0":{"ABSTRACT_RESIDUAL":-0.24,"REFINE_BEST":-0.186,"CHANGE_REPRESENTATION":-0.494,"REFINE_DIVERSE":-0.616,"BACKTRACK":-0.494,"SIMPLIFY_PROGRAM":-0.644,"EXPAND_PROGRAM":-1.378},"div:1":{"ABSTRACT_RESIDUAL":0.741,"REFINE_BEST":0.344,"CHANGE_REPRESENTATION":0.144},"left:hi":{"ABSTRACT_RESIDUAL":-0.231,"REFINE_BEST":-0.172,"CHANGE_REPRESENTATION":-0.458,"REFINE_DIVERSE":-0.605,"BACKTRACK":-0.499,"SIMPLIFY_PROGRAM":-0.626,"EXPAND_PROGRAM":-1.164},"diag:object_moved":{"ABSTRACT_RESIDUAL":0.067,"REFINE_BEST":0.522,"REFINE_DIVERSE":-0.368,"CHANGE_REPRESENTATION":-0.449,"BACKTRACK":-0.347},"bias":{"ABSTRACT_RESIDUAL":-0.24,"REFINE_BEST":-0.186,"CHANGE_REPRESENTATION":-0.494,"REFINE_DIVERSE":-0.616,"BACKTRACK":-0.494,"SIMPLIFY_PROGRAM":-0.644,"EXPAND_PROGRAM":-1.378},"res:low":{"REFINE_BEST":-0.288,"CHANGE_REPRESENTATION":-0.689,"ABSTRACT_RESIDUAL":-0.238,"BACKTRACK":-0.452,"REFINE_DIVERSE":-0.474,"EXPAND_PROGRAM":-0.693,"SIMPLIFY_PROGRAM":-0.693},"div:some":{"REFINE_BEST":-0.164,"ABSTRACT_RESIDUAL":-0.567,"REFINE_DIVERSE":-0.391,"CHANGE_REPRESENTATION":0.034,"BACKTRACK":-0.733,"EXPAND_PROGRAM":-0.805},"diag:missing_objects":{"REFINE_BEST":-0.094,"CHANGE_REPRESENTATION":-0.226,"REFINE_DIVERSE":-0.372},"stall:1":{"REFINE_BEST":-0.415,"CHANGE_REPRESENTATION":-0.337,"ABSTRACT_RESIDUAL":-0.842,"REFINE_DIVERSE":-0.405},"div:wide":{"REFINE_BEST":-0.516,"CHANGE_REPRESENTATION":-0.562,"REFINE_DIVERSE":-0.621,"ABSTRACT_RESIDUAL":-0.909,"BACKTRACK":-0.47,"SIMPLIFY_PROGRAM":-0.595,"EXPAND_PROGRAM":-1.376},"repeat:1":{"CHANGE_REPRESENTATION":-0.271,"REFINE_DIVERSE":-0.853,"ABSTRACT_RESIDUAL":-0.881,"BACKTRACK":-0.715,"REFINE_BEST":-0.482,"EXPAND_PROGRAM":-1.763},"diag:unhandled_object_class":{"ABSTRACT_RESIDUAL":-0.816,"REFINE_BEST":-0.093,"CHANGE_REPRESENTATION":-0.513,"REFINE_DIVERSE":-0.733,"BACKTRACK":-0.413},"res:tiny":{"REFINE_BEST":-0.54,"ABSTRACT_RESIDUAL":-0.666,"CHANGE_REPRESENTATION":-1.254,"REFINE_DIVERSE":-0.508,"BACKTRACK":-0.591,"SIMPLIFY_PROGRAM":-0.28},"diag:color_substitution":{"REFINE_BEST":-0.07,"ABSTRACT_RESIDUAL":0.233,"BACKTRACK":-1.04,"REFINE_DIVERSE":-0.687,"CHANGE_REPRESENTATION":-1.32},"stall:2":{"REFINE_DIVERSE":-0.701,"BACKTRACK":-0.399,"CHANGE_REPRESENTATION":-0.534,"REFINE_BEST":-0.319,"ABSTRACT_RESIDUAL":-0.795},"stall:3":{"REFINE_DIVERSE":-0.612,"ABSTRACT_RESIDUAL":-1.042,"CHANGE_REPRESENTATION":-0.506,"BACKTRACK":-0.498,"REFINE_BEST":-0.689,"SIMPLIFY_PROGRAM":-0.672,"EXPAND_PROGRAM":-1.454},"diag:object_reoriented":{"REFINE_BEST":0.059,"REFINE_DIVERSE":-0.378,"CHANGE_REPRESENTATION":-0.347,"BACKTRACK":-0.424},"diag:missed_change":{"REFINE_BEST":-0.543,"REFINE_DIVERSE":-0.517,"CHANGE_REPRESENTATION":-0.527,"BACKTRACK":-0.27,"ABSTRACT_RESIDUAL":-1.067},"diag:count_mismatch":{"REFINE_BEST":-0.273,"REFINE_DIVERSE":-0.405,"CHANGE_REPRESENTATION":-0.347,"BACKTRACK":-0.347},"diag:consistent_translation":{"ABSTRACT_RESIDUAL":2.346},"res:high":{"ABSTRACT_RESIDUAL":0.092,"REFINE_BEST":-0.424,"REFINE_DIVERSE":-1.083,"CHANGE_REPRESENTATION":-0.119,"BACKTRACK":-1.18,"EXPAND_PROGRAM":-1.498},"left:mid":{"REFINE_DIVERSE":-0.71,"CHANGE_REPRESENTATION":-1.089,"BACKTRACK":-0.432,"REFINE_BEST":-1.269,"ABSTRACT_RESIDUAL":-0.723,"EXPAND_PROGRAM":-1.417},"diag:wrong_dims":{"REFINE_BEST":-0.566,"REFINE_DIVERSE":-1.129,"CHANGE_REPRESENTATION":-0.112,"ABSTRACT_RESIDUAL":-0.042,"BACKTRACK":-1.609,"EXPAND_PROGRAM":-1.819},"diag:object_recolored":{"ABSTRACT_RESIDUAL":-0.493,"REFINE_BEST":-0.36,"CHANGE_REPRESENTATION":-0.944,"REFINE_DIVERSE":-0.421,"BACKTRACK":-0.549},"diag:excessive_change":{"ABSTRACT_RESIDUAL":-0.317,"REFINE_BEST":0.421,"SIMPLIFY_PROGRAM":-0.413,"CHANGE_REPRESENTATION":-0.824,"REFINE_DIVERSE":-0.23,"BACKTRACK":0.168},"diag:no_output":{"REFINE_DIVERSE":-1.007},"diag:palette_mismatch":{"REFINE_BEST":-0.303,"REFINE_DIVERSE":-0.349,"CHANGE_REPRESENTATION":-0.834,"BACKTRACK":-0.399},"diag:wrong_orientation":{"ABSTRACT_RESIDUAL":2.308,"REFINE_BEST":1.199},"diag:topology_changed":{"REFINE_BEST":-0.238,"CHANGE_REPRESENTATION":-0.424,"REFINE_DIVERSE":-0.49},"left:lo":{"REFINE_BEST":-1.151,"REFINE_DIVERSE":-0.875,"CHANGE_REPRESENTATION":-1.472},"diag:extra_objects":{"REFINE_BEST":-0.837,"REFINE_DIVERSE":-0.347,"CHANGE_REPRESENTATION":-1.199},"diag:local_cells":{"REFINE_BEST":-0.584,"REFINE_DIVERSE":-0.644,"CHANGE_REPRESENTATION":-0.867,"BACKTRACK":-0.424},"diag:wrong_change":{"REFINE_BEST":-0.347,"REFINE_DIVERSE":-0.432}}});
+/* ===== src/57b-testtime.js ===== */
+/* Task-local test-time adaptation.
+ *
+ * Before spending the rest of a task's budget on deeper search, look at what
+ * the task's OWN demonstrations say about which operations matter. Nothing
+ * here reads a test output (there is none in the context), and nothing
+ * survives the task: the priors live on the context object and are
+ * discarded with it.
+ *
+ *   folds        for m >= 3 demonstrations: hold one out, run a small typed
+ *                synthesis on the other m-1, and check each program found
+ *                on the held-out one. Operators in programs that
+ *                reconstruct the held-out demonstration gain prior; those
+ *                in programs that only fit what they saw lose it (they are
+ *                what overfitting is made of here).
+ *   near-misses  candidate traces (55a-candidate.js) that reproduce some
+ *                demonstrations but not others are fold results the
+ *                generators already paid for: their operators, their
+ *                representation and their residual class are read the same
+ *                way, at no extra execution cost.
+ *
+ * Output: ctx._tta = {
+ *   opPrior     operator -> bias (bits) for typed synthesis ordering
+ *   repPrior    representation -> score bonus (17-representation.js)
+ *   mutPrior    population-search mutation class -> weight multiplier
+ *   families    solver family -> best near-miss closeness (seed ordering)
+ *   report      what was learned, for diagnostics
+ * }
+ * All of it temporary. A literal mapping learned here is never persisted.
+ */
+
+var TESTTIME = null;
+
+(function () {
+  var MAX_BIAS = 2.0;
+
+  function opsOf(struct) {
+    var out = [];
+    (function walk(n) {
+      if (!n || PROG.isVar(n)) return;
+      if (typeof n[0] === "string") out.push(n[0]);
+      for (var i = 1; i < n.length; i++) if (Array.isArray(n[i]) && !PROG.isHole(n[i])) walk(n[i]);
+    })(struct);
+    return out;
+  }
+  function treeOps(t) { return PROG.treeNodes(t).map(function (p) { return p[0].op; }).filter(function (o) { return o !== "in"; }); }
+
+  /* Residual class of the near-misses -> which mutation classes to favour. */
+  var MUT_BY_SIG = {
+    dims: { insert: 1.6, "delete": 1.3, frame: 1.4, decompose: 1.3, compose: 1.2 },
+    under: { insert: 1.4, generalize: 1.5, role: 1.1, compose: 1.2 },
+    excess: { specialize: 1.7, "delete": 1.4, decompose: 1.2 },
+    mixed: { param: 1.3, opsub: 1.3, targeted: 1.3, role: 1.2 },
+    cells: { param: 1.3, targeted: 1.4 }
+  };
+
+  function adapt(ctx, sink, opts) {
+    opts = opts || {};
+    var t0 = nowMs(), end = t0 + (opts.budgetMs || 120), m = ctx.train.length;
+    var gain = {}, loss = {}, reps = {}, fams = {}, sigs = {}, rep = { folds: 0, fold_programs: 0, validated: 0, overfit: 0, traces: 0 };
+    function add(map, k, v) { map[k] = (map[k] || 0) + v; }
+
+    /* near-miss traces as free folds */
+    if (sink) {
+      try { sink.materialize(); } catch (e) { /* advisory */ }
+      (sink.traces || []).forEach(function (tr) {
+        rep.traces++;
+        var frac = tr.satisfied.length / Math.max(1, m);
+        fams[tr.family] = Math.max(fams[tr.family] || 0, tr.score || 0);
+        if (tr.residual && tr.residual.sig) add(sigs, tr.residual.sig.split("/")[0].split("+")[0], 1);
+        if (tr.representation && tr.representation !== "raw" && frac >= 0.5) add(reps, tr.representation, 0.25 * frac);
+        var ops = tr.tree ? treeOps(tr.tree) : tr.struct ? opsOf(tr.struct) : [];
+        ops.forEach(function (o) { add(gain, o, 0.4 * frac); });
+      });
+      (sink.typed || []).forEach(function (tp) {
+        if (tp.representation && tp.representation !== "raw") add(reps, tp.representation, 0.2 * tp.score);
+        opsOf(tp.struct).forEach(function (o) { add(gain, o, 0.25 * tp.score); });
+        if (tp.sig) add(sigs, tp.sig.split("/").slice(-1)[0].slice(-1) === "u" ? "under" : tp.sig.slice(-1) === "e" ? "excess" : "mixed", 0.5);
+      });
+    }
+
+    /* pseudo-held-out folds */
+    if (m >= 3 && opts.folds !== false) {
+      var per = Math.max(15, (end - nowMs()) / m);
+      for (var f = 0; f < m; f++) {
+        if (nowMs() > end - 10) break;
+        var sub = new Ctx(ctx.train.slice(0, f).concat(ctx.train.slice(f + 1)), [ctx.train[f][0]], nowMs() + per);
+        sub.op_prior = ctx.op_prior;
+        var progs = [];
+        try { progs = SYN.search(sub, 2, 60, sub.deadline, 6, ctx.op_prior); } catch (e) { progs = []; }
+        rep.folds++;
+        progs.forEach(function (p) {
+          rep.fold_programs++;
+          var y = p.run(ctx.train[f][0]), ok = !!(y && G.gEq(y, ctx.train[f][1]));
+          var ops = opsOf(p.struct);
+          if (ok) { rep.validated++; ops.forEach(function (o) { add(gain, o, 1.0); }); }
+          else { rep.overfit++; ops.forEach(function (o) { add(loss, o, 0.6); }); }
+        });
+      }
+    }
+
+    var opPrior = {};
+    Object.keys(gain).concat(Object.keys(loss)).forEach(function (o) {
+      if (opPrior.hasOwnProperty(o) || !PROG.OPS[o]) return;
+      var v = (gain[o] || 0) - (loss[o] || 0);
+      if (Math.abs(v) >= 0.2) opPrior[o] = Math.max(-MAX_BIAS, Math.min(MAX_BIAS, Math.round(v * 100) / 100));
+    });
+    var mutPrior = {}, top = null, tn = 0;
+    Object.keys(sigs).forEach(function (k) { if (sigs[k] > tn) { tn = sigs[k]; top = k; } });
+    if (top && MUT_BY_SIG[top]) mutPrior = MUT_BY_SIG[top];
+    var repPrior = {};
+    Object.keys(reps).forEach(function (k) { repPrior[k] = Math.min(1.5, Math.round(reps[k] * 100) / 100); });
+    rep.ms = nowMs() - t0;
+    rep.top_residual = top;
+    rep.op_prior = opPrior;
+    rep.rep_prior = repPrior;
+    ctx._tta = { opPrior: opPrior, repPrior: repPrior, mutPrior: mutPrior, families: fams, report: rep };
+    return ctx._tta;
+  }
+
+  /* A short synthesis pass under the adapted priors: the same search, a
+     different order -- which is all a prior may change. */
+  function adaptedSearch(ctx, deadline, width) {
+    if (!ctx._tta || !Object.keys(ctx._tta.opPrior).length) return [];
+    var progs = [];
+    try { progs = SYN.search(ctx, 3, width || 200, deadline, 8, ctx.op_prior); } catch (e) { progs = []; }
+    return progs;
+  }
+
+  function discard(ctx) { ctx._tta = null; }
+
+  TESTTIME = { adapt: adapt, adaptedSearch: adaptedSearch, discard: discard, MUT_BY_SIG: MUT_BY_SIG };
+})();
 /* ===== src/58-counterfactual.js ===== */
 /* Counterfactual discrimination between exact explanations.
  *
@@ -19344,6 +23348,144 @@ var CFACT = null;
     return null;
   }
 
+  /* ------------------------------------------------ active discrimination
+   *
+   * Instead of a fixed probe list: a pool of plausible perturbations of the
+   * task's own inputs, from which the probes that make the competing
+   * programs DISAGREE most are chosen. Candidate edits:
+   *   recolour a role, move an object, duplicate an object, remove an object,
+   *   resize an object, change spacing, change count (remove/duplicate),
+   *   swap two objects, break a symmetry, keep a symmetry but move the
+   *   content, recolour a distractor, change the canvas size (only when
+   *   every demonstration already varies its size).
+   * Plausibility: a valid grid, at least one object left, colours drawn from
+   * the task's palette, the demonstrated input invariants kept (constant
+   * input size, a background that stays the background). */
+  function freeSpot(g, h, w, bg, avoid) {
+    var H = g.length, W = g[0].length, r, c, i, j;
+    for (r = 0; r + h <= H; r++) for (c = 0; c + w <= W; c++) {
+      var ok = true;
+      for (i = -1; i <= h && ok; i++) for (j = -1; j <= w; j++) {
+        var y = r + i, x = c + j;
+        if (y < 0 || y >= H || x < 0 || x >= W) continue;
+        if (g[y][x] !== bg) { ok = false; break; }
+      }
+      if (ok && !(avoid && r === avoid[0] && c === avoid[1])) return [r, c];
+    }
+    return null;
+  }
+  function cellsOfObj(o) { var out = [], it = o.cells.values(), s = it.next(); while (!s.done) { out.push([s.value >> 6, s.value & 63]); s = it.next(); } return out; }
+  function paintCells(g, cells, dr, dc, colorOf) {
+    var out = G.copyGrid(g), i;
+    for (i = 0; i < cells.length; i++) {
+      var r = cells[i][0] + dr, c = cells[i][1] + dc;
+      if (r < 0 || r >= g.length || c < 0 || c >= g[0].length) return null;
+      out[r][c] = colorOf(cells[i]);
+    }
+    return out;
+  }
+  function mutationPool(ctx, g, bg) {
+    var out = [], os = objs(g, bg), hist = G.histogram(g), fg = [], v, i;
+    for (v = 0; v < G.NCOLORS; v++) if (v !== bg && hist[v]) fg.push(v);
+    fg.sort(function (a, b) { return (hist[b] - hist[a]) || (a - b); });
+    var taskPal = G.csList(G.csUnion(ctx.in_palette(), ctx.out_palette())).filter(function (c) { return c !== bg; });
+    function push(kind, grid) { if (grid && G.valid(grid) && !G.gEq(grid, g)) out.push({ kind: kind, grid: grid }); }
+    if (fg.length >= 2) { var m = {}; m[fg[0]] = fg[1]; m[fg[1]] = fg[0]; push("recolor_role", G.applyCmap(g, m)); }
+    var unused = taskPal.filter(function (c) { return !hist[c]; });
+    if (fg.length && unused.length) { var m2 = {}; m2[fg[fg.length - 1]] = unused[0]; push("recolor_distractor", G.applyCmap(g, m2)); }
+    var bySize = os.slice().sort(function (a, b) { return (a.size() - b.size()) || (a.r0 - b.r0) || (a.c0 - b.c0); });
+    if (os.length >= 2) {
+      [bySize[0], bySize[bySize.length - 1]].forEach(function (o, k) {
+        var rm = G.copyGrid(g); cellsOfObj(o).forEach(function (p) { rm[p[0]][p[1]] = bg; });
+        push(k ? "remove_largest" : "remove_smallest", rm);
+      });
+    }
+    for (i = 0; i < os.length && i < 4; i++) { var mv = nudge(g, os[i], bg); if (mv) { push("move_object", mv); if (i >= 1) break; } }
+    if (os.length) {
+      var o = bySize[0], cs = cellsOfObj(o), spot = freeSpot(g, o.height(), o.width(), bg, [o.r0, o.c0]);
+      if (spot) push("duplicate_object", paintCells(g, cs, spot[0] - o.r0, spot[1] - o.c0, function (p) { return g[p[0]][p[1]]; }));
+      if (o.is_rect && o.is_rect() && o.r1 + 1 < g.length) {
+        var grow = G.copyGrid(g), ok = true;
+        for (var cc = o.c0; cc <= o.c1; cc++) { if (g[o.r1 + 1][cc] !== bg) ok = false; else grow[o.r1 + 1][cc] = o.color; }
+        if (ok) push("resize_object", grow);
+      }
+    }
+    if (os.length >= 2) {
+      var right = os.slice().sort(function (a, b) { return b.c1 - a.c1; })[0];
+      var sp = paintCells(G.copyGrid(g), cellsOfObj(right), 0, 0, function () { return bg; });
+      if (sp) { sp = paintCells(sp, cellsOfObj(right), 0, 1, function (p) { return g[p[0]][p[1]]; }); push("change_spacing", sp); }
+      var a = bySize[0], b = bySize[bySize.length - 1];
+      if (a.height() === b.height() && a.width() === b.width()) {
+        var sw = G.paste(g, G.subgrid(g, a.r0, a.c0, a.r1, a.c1), b.r0, b.c0);
+        sw = G.paste(sw, G.subgrid(g, b.r0, b.c0, b.r1, b.c1), a.r0, a.c0);
+        push("swap_objects", sw);
+      }
+    }
+    var fh = G.flipH(g);
+    if (G.gEq(fh, g) && os.length) { var br = G.copyGrid(g); cellsOfObj(bySize[0]).forEach(function (p) { br[p[0]][p[1]] = bg; }); push("break_symmetry", br); }
+    else if (os.length) push("move_content", G.translate(g, 0, 1, bg));
+    /* canvas size: only when the demonstrations themselves vary in size */
+    var dimsVary = new Set(ctx.inputs().map(function (x) { return x.length + "x" + x[0].length; })).size > 1;
+    if (dimsVary && g.length < 30) push("change_canvas", G.vconcat(g, [g[0].map(function () { return bg; })]));
+    return out;
+  }
+  function plausible(ctx, g, bg) {
+    if (!g || !G.valid(g)) return false;
+    if (!objs(g, bg).length) return false;
+    var inPal = ctx.in_palette() | ctx.out_palette();
+    if (!G.csSubset(G.palette(g), inPal)) return false;
+    var shapes = new Set(ctx.inputs().map(function (x) { return x.length + "x" + x[0].length; }));
+    if (shapes.size === 1 && !shapes.has(g.length + "x" + g[0].length)) return false;
+    return G.background(g) === bg || !G.csHas(G.palette(g), bg);
+  }
+  /* fns: functions grid -> grid|null (the competing exact programs).
+     Returns {probes: [kind], fragility: [per fn], disagreement, agreement,
+     pool: n, behaviours: [probe outputs key per fn]} -- no labels. */
+  function discriminate(ctx, fns, opts) {
+    opts = opts || {};
+    var end = nowMs() + (opts.budgetMs || 60), bg = ctx.bg(), inv = RESID.invariantsOf(ctx);
+    var srcs = ctx.test_inputs.concat(ctx.inputs().slice(0, 1)), pool = [], i, j, k;
+    for (i = 0; i < srcs.length && pool.length < 48; i++)
+      pool = pool.concat(mutationPool(ctx, srcs[i], bg).filter(function (p) { return plausible(ctx, p.grid, bg); }));
+    pool = pool.slice(0, 48);
+    var outs = [], broken = fns.map(function () { return 0; }), evaluated = 0;
+    for (i = 0; i < pool.length; i++) {
+      if (nowMs() > end) break;
+      var row = [];
+      for (j = 0; j < fns.length; j++) {
+        var y = null;
+        try { y = fns[j](pool[i].grid); } catch (e) { y = null; }
+        if (!y || !G.valid(y) || RESID.violations(y, pool[i].grid, inv, bg) > 0) { broken[j]++; row.push(null); }
+        else row.push(G.gkey(y));
+      }
+      outs.push(row); evaluated++;
+    }
+    if (!evaluated) return { probes: [], fragility: fns.map(function () { return 0; }), disagreement: 0, pool: 0 };
+    /* pairwise disagreement per probe, among programs that answered */
+    var dis = outs.map(function (row) {
+      var pairs = 0, differ = 0;
+      for (j = 0; j < row.length; j++) for (k = j + 1; k < row.length; k++) {
+        if (row[j] === null || row[k] === null) continue;
+        pairs++; if (row[j] !== row[k]) differ++;
+      }
+      return pairs ? differ / pairs : 0;
+    });
+    var order = outs.map(function (_, q) { return q; }).sort(function (a, b) { return (dis[b] - dis[a]) || (a - b); });
+    var chosen = [], kinds = {};
+    order.forEach(function (q) { if (chosen.length < 6 && dis[q] > 0 && (kinds[pool[q].kind] || 0) < 2) { chosen.push(q); kinds[pool[q].kind] = (kinds[pool[q].kind] || 0) + 1; } });
+    var agreement = fns.map(function (_, a) { return fns.map(function (__, b) {
+      var same = 0, n = 0;
+      outs.forEach(function (row) { if (row[a] !== null && row[b] !== null) { n++; if (row[a] === row[b]) same++; } });
+      return n ? same / n : 1; }); });
+    return {
+      probes: chosen.map(function (q) { return pool[q].kind; }),
+      fragility: broken.map(function (b) { return b / evaluated; }),
+      disagreement: chosen.length ? chosen.reduce(function (s, q) { return s + dis[q]; }, 0) / chosen.length : 0,
+      agreement: agreement, pool: evaluated,
+      behaviours: fns.map(function (_, a) { return outs.map(function (row) { return row[a]; }).join("|"); })
+    };
+  }
+
   function adjust(ctx, fitted, sigsByIdx, res, deadline, budgetMs) {
     var info = { ran: false };
     res.diagnostics.counterfactual = info;
@@ -19369,31 +23511,56 @@ var CFACT = null;
     }
     var end = Math.min(deadline - 40, nowMs() + budgetMs * 0.06);
     if (end - nowMs() < 25) { info.reason = "no_budget"; return; }
-    var bg = ctx.bg(), probes = [], srcs = ctx.test_inputs.concat(ctx.inputs().slice(0, 1));
-    for (i = 0; i < srcs.length && probes.length < MAX_PROBES; i++)
-      probes = probes.concat(probesFor(srcs[i], bg).map(function (p) { p.src = i; return p; }));
-    probes = probes.slice(0, MAX_PROBES);
-    if (!probes.length) { info.reason = "no_probes"; return; }
-    var inv = RESID.invariantsOf(ctx);
-    var timedOut = false;
-    var disc = K.discriminate(reps.map(function (r) { return r[2]; }), probes, function (h, p) {
-      if (nowMs() > end) { timedOut = true; return null; }
-      return _prediction(h, p.grid);
-    }, function (out, p) { return RESID.violations(out, p.grid, inv, bg) === 0; });
-    if (timedOut) { info.reason = "timed_out"; return; }
-    info.ran = true;
-    info.probes = probes.map(function (p) { return p.kind; });
+    var bg = ctx.bg();
+    if (!ACTIVE) {
+      /* the original fixed probe list (kept for ablation) */
+      var probes = [], srcs = ctx.test_inputs.concat(ctx.inputs().slice(0, 1));
+      for (i = 0; i < srcs.length && probes.length < MAX_PROBES; i++)
+        probes = probes.concat(probesFor(srcs[i], bg).map(function (p) { p.src = i; return p; }));
+      probes = probes.slice(0, MAX_PROBES);
+      if (!probes.length) { info.reason = "no_probes"; return; }
+      var inv = RESID.invariantsOf(ctx);
+      var timedOut = false;
+      var disc0 = K.discriminate(reps.map(function (r) { return r[2]; }), probes, function (h, p) {
+        if (nowMs() > end) { timedOut = true; return null; }
+        return _prediction(h, p.grid);
+      }, function (out, p) { return RESID.violations(out, p.grid, inv, bg) === 0; });
+      if (timedOut) { info.reason = "timed_out"; return; }
+      info.ran = true; info.mode = "fixed";
+      info.probes = probes.map(function (p) { return p.kind; });
+      info.behaviours = groups.size;
+      info.divergent_probes = disc0.divergentProbes.map(function (j) { return probes[j].kind; });
+      info.hypotheses = [];
+      for (i = 0; i < reps.length; i++) {
+        var fr0 = 1 - disc0.robustness[i], pen0 = FRAGILITY_COST * fr0;
+        reps[i][0] += pen0;
+        info.hypotheses.push({ name: reps[i][2].solver + ":" + String(reps[i][2].name).slice(0, 80),
+          robustness: Math.round(disc0.robustness[i] * 100) / 100, violations: disc0.violations[i], penalty: Math.round(pen0 * 100) / 100 });
+      }
+      return;
+    }
+    var disc = discriminate(ctx, reps.map(function (r) { return function (g) { return _prediction(r[2], g); }; }),
+                            { budgetMs: Math.max(20, end - nowMs()) });
+    if (!disc.pool) { info.reason = "no_probes"; return; }
+    info.ran = true; info.mode = "active";
+    info.pool = disc.pool;
+    info.probes = disc.probes;
     info.behaviours = groups.size;
-    info.divergent_probes = disc.divergentProbes.map(function (j) { return probes[j].kind; });
+    info.divergent_probes = disc.probes;
+    info.disagreement = Math.round(disc.disagreement * 1000) / 1000;
     info.hypotheses = [];
+    /* per behaviour: its probe signature, for semantically diverse pass@2 */
+    var sem = new Map();
     for (i = 0; i < reps.length; i++) {
-      var fragility = 1 - disc.robustness[i];
+      var fragility = disc.fragility[i];
       var pen = FRAGILITY_COST * fragility;
       reps[i][0] += pen;
+      var sk = _sigKey(sigsByIdx.get(reps[i][1]));
+      if (!sem.has(sk)) sem.set(sk, disc.behaviours[i]);
       info.hypotheses.push({ name: reps[i][2].solver + ":" + String(reps[i][2].name).slice(0, 80),
-        robustness: Math.round(disc.robustness[i] * 100) / 100, violations: disc.violations[i],
-        penalty: Math.round(pen * 100) / 100 });
+        robustness: Math.round((1 - fragility) * 100) / 100, penalty: Math.round(pen * 100) / 100 });
     }
+    ctx._cfBehaviour = sem;
     /* pairs that never diverge on any probe yet predict differently are the
        interesting ambiguity: the counterfactuals did not reach it */
     var undecided = 0, a, b;
@@ -19402,7 +23569,10 @@ var CFACT = null;
     info.undecided_pairs = undecided;
   }
 
-  CFACT = { adjust: adjust, probesFor: probesFor, FRAGILITY_COST: FRAGILITY_COST };
+  var ACTIVE = true;
+  CFACT = { adjust: adjust, probesFor: probesFor, FRAGILITY_COST: FRAGILITY_COST, discriminate: discriminate,
+            mutationPool: mutationPool, plausible: plausible,
+            active: function (on) { if (on !== undefined) ACTIVE = !!on; return ACTIVE; } };
 })();
 /* ===== src/59-equivariant.js ===== */
 /* Equivariant re-framing.
@@ -19455,20 +23625,51 @@ var REFRAME = (function () {
     return res.n_fit > 0 && res.predictions.some(function (p) { return p && p.length; });
   }
 
+  /* Frames as REPRESENTATIONS (17-representation.js): the colour-role and
+     canonical-palette frames and all seven non-trivial symmetries, ordered
+     by the evidence that each simplifies the demonstrations. Decoding is
+     given the frame's input, so a per-grid frame (colour roles) inverts
+     correctly. Falls back to the fixed list when the registry is absent. */
+  function evidenceFrames(train, testInputs, maxFrames) {
+    if (typeof REPRESENT === "undefined" || !REPRESENT) return null;
+    var ctx;
+    try { ctx = new Ctx(train, testInputs); } catch (e) { return null; }
+    var ranked = REPRESENT.rank(ctx, { kinds: ["frame"] }).filter(function (o) { return o.name !== "raw"; });
+    return { ctx: ctx, frames: ranked.slice(0, maxFrames).map(function (o) {
+      var p = REPRESENT.prepared(ctx, o.name);
+      return { name: o.name, gain: o.gain,
+               fwdPair: function (x, y) { return [REPRESENT.encIn(p, x), y ? REPRESENT.encOut(p, y, x) : null]; },
+               invFor: function (x) { return function (g) { return REPRESENT.decode(p, g, x); }; } };
+    }) };
+  }
+
   /* opts.reframe: false disables; opts.reframe_budget: seconds for all
-     frames (default half the base budget); opts.reframe_frames: max frames */
+     frames (default half the base budget); opts.reframe_frames: max frames.
+     Triggered when no program fits (as before) and ALSO, with a quarter of
+     the budget, when a frame shows strong evidence (gain > 1) while the raw
+     top prediction violates a demonstrated shape or palette law. */
   function solveReframed(solveFn, train, testInputs, opts) {
     opts = opts || {};
     var res = solveFn(train, testInputs, opts);
-    if (opts.reframe === false || hasCandidate(res)) return res;
+    if (opts.reframe === false) return res;
     var base = opts.time_budget === undefined ? 30.0 : opts.time_budget;
-    var budget = opts.reframe_budget === undefined ? base * 0.5 : opts.reframe_budget;
     var maxFrames = opts.reframe_frames === undefined ? 3 : opts.reframe_frames;
+    var ev = evidenceFrames(train, testInputs, maxFrames), weak = false;
+    if (hasCandidate(res)) {
+      var viol = res.diagnostics && res.diagnostics.predictions && res.diagnostics.predictions.some(function (p) { return p.top_violations > 0; });
+      weak = !!(viol && ev && ev.frames.length && ev.frames[0].gain > 1.0);
+      if (!weak) return res;
+    }
+    var budget = opts.reframe_budget === undefined ? base * (weak ? 0.25 : 0.5) : opts.reframe_budget;
     if (!(budget > 0)) return res;
-    var frames = [], cf = colourFrame(train, testInputs);
-    if (cf) frames.push(cf);
-    for (var g = 0; g < GEOMETRIC.length; g++) frames.push(GEOMETRIC[g]);
-    frames = frames.slice(0, maxFrames);
+    var frames = [];
+    if (ev && ev.frames.length) frames = ev.frames;
+    else {
+      var cf = colourFrame(train, testInputs);
+      if (cf) frames.push(cf);
+      for (var g = 0; g < GEOMETRIC.length; g++) frames.push(GEOMETRIC[g]);
+    }
+    frames = frames.slice(0, weak ? 1 : maxFrames);
     var t0 = nowMs(), tried = [];
     for (var f = 0; f < frames.length; f++) {
       var left = budget - (nowMs() - t0) / 1000;
@@ -19476,8 +23677,16 @@ var REFRAME = (function () {
       var fr = frames[f], per = left / (frames.length - f);
       var tTrain = [], tTest = [], ok = true, i;
       try {
-        for (i = 0; i < train.length; i++) tTrain.push([fr.fwd(train[i][0]), fr.fwd(train[i][1])]);
-        for (i = 0; i < testInputs.length; i++) tTest.push(fr.fwd(testInputs[i]));
+        for (i = 0; i < train.length; i++) {
+          var pr = fr.fwdPair ? fr.fwdPair(train[i][0], train[i][1]) : [fr.fwd(train[i][0]), fr.fwd(train[i][1])];
+          if (!pr[0] || !pr[1]) { ok = false; break; }
+          tTrain.push(pr);
+        }
+        for (i = 0; i < testInputs.length && ok; i++) {
+          var tx = fr.fwdPair ? fr.fwdPair(testInputs[i], null)[0] : fr.fwd(testInputs[i]);
+          if (!tx) { ok = false; break; }
+          tTest.push(tx);
+        }
       } catch (e) { ok = false; }
       if (!ok) continue;
       var sub = {}, k;
@@ -19488,16 +23697,29 @@ var REFRAME = (function () {
       tried.push(fr.name);
       if (!hasCandidate(r2)) continue;
       /* back to the task's own frame */
-      var preds = r2.predictions.map(function (list) {
-        return (list || []).map(function (gr) { try { return gridOk(gr) ? fr.inv(gr) : gr; } catch (e) { return gr; } });
+      var preds = r2.predictions.map(function (list, ti) {
+        var inv = fr.invFor ? fr.invFor(testInputs[ti]) : fr.inv;
+        return (list || []).map(function (gr) { try { return gridOk(gr) ? inv(gr) : gr; } catch (e) { return gr; } })
+          .filter(function (gr) { return gridOk(gr); });
       });
+      if (weak) {
+        /* the raw answer broke a demonstrated law; the frame's answers go
+           first, the raw ones stay as later guesses */
+        var r2top = r2.diagnostics && r2.diagnostics.predictions ? r2.diagnostics.predictions.every(function (p) { return !p.top_violations; }) : false;
+        if (!r2top) { res.diagnostics.reframe = { frame: fr.name, tried: tried.slice(), weak: true, used: false }; continue; }
+        preds = preds.map(function (list, ti) {
+          var seenK = new Set(list.map(function (gr) { return G.gkey(gr); }));
+          return list.concat((res.predictions[ti] || []).filter(function (gr) { return !seenK.has(G.gkey(gr)); }));
+        });
+      }
       res.predictions = preds;
       res.chosen = (r2.chosen || []).map(function (c) { return c ? [c[0] + "@" + fr.name, c[1]] : c; });
       res.solver = r2.solver ? r2.solver + "@" + fr.name : null;
       res.hyps = (r2.hyps || []).map(function (h) { return [h[0] + "@" + fr.name, h[1]]; });
       res.n_fit = r2.n_fit; res.n_hyps = (res.n_hyps || 0) + (r2.n_hyps || 0);
       res.diagnostics = res.diagnostics || {};
-      res.diagnostics.reframe = { frame: fr.name, tried: tried.slice(), seconds: (nowMs() - t0) / 1000 };
+      res.diagnostics.reframe = { frame: fr.name, tried: tried.slice(), seconds: (nowMs() - t0) / 1000, weak: weak,
+                                  evidence: fr.gain === undefined ? null : fr.gain };
       res.elapsed = (res.elapsed || 0) + (nowMs() - t0) / 1000;
       return res;
     }
@@ -19507,13 +23729,34 @@ var REFRAME = (function () {
     return res;
   }
 
-  return { solveReframed: solveReframed, colourFrame: colourFrame, GEOMETRIC: GEOMETRIC };
+  return { solveReframed: solveReframed, colourFrame: colourFrame, GEOMETRIC: GEOMETRIC, evidenceFrames: evidenceFrames };
 })();
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
 
 function loadPolicy(data) { return new Policy(data); }
-function loadPlanner(data) { return data ? new Planner(data) : null; }
+function loadPlanner(data, opts) { return data ? new Planner(data, opts) : null; }
+
+/* Engine-wide switches for ablations and evaluation modes. Every switch
+   defaults to the full system; bench.js records which were set. */
+function configure(o) {
+  o = o || {};
+  var out = {};
+  if (o.canon !== undefined) { SYN.canon(!!o.canon); CANON.enabled(!!o.canon); out.canon = !!o.canon; }
+  if (o.pop !== undefined || o.tta !== undefined || o.meta !== undefined || o.refine !== undefined || o.maxDepth !== undefined) {
+    var ro = {};
+    if (o.pop !== undefined) ro.pop = !!o.pop;
+    if (o.tta !== undefined) ro.tta = !!o.tta;
+    if (o.meta !== undefined) ro.meta = !!o.meta;
+    if (o.refine !== undefined) ro.off = !o.refine;
+    if (o.maxDepth !== undefined) ro.maxDepth = o.maxDepth;
+    out.refinement = REFINEMENT.options(ro);
+  }
+  if (o.counterfactual !== undefined) out.counterfactual_active = CFACT.active(!!o.counterfactual);
+  if (o.macros === false) { PROG.clearMacros(); out.macros = false; }
+  if (o.pass2 !== undefined) out.pass2 = PASS2.diverse(!!o.pass2);
+  return out;
+}
 
 /* Solve one ARC task. ``task`` is the standard ARC JSON shape:
    {train: [{input, output}, ...], test: [{input, output?}, ...]}.
@@ -19552,7 +23795,9 @@ var ENGINE = {
   DELTA_STENCILS: DELTA_STENCILS,
   REPEAT: REPEAT,
   RESID: RESID, REPAIR: REPAIR, REFINEMENT: REFINEMENT, CFACT: CFACT, REFRAME: REFRAME,
-  KERNEL: root.C4ReasonKernel,
+  KERNEL: root.C4ReasonKernel, MEMORY: root.C4ReasonMemory, META: root.C4ReasonMeta,
+  CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
+  MACROS: MACROS, PASS2: PASS2,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,
@@ -19560,7 +23805,7 @@ var ENGINE = {
   orderedModules: orderedModules,
   solve: solve, solveTask: solveTask, scoreTask: scoreTask,
   signatures: signatures,
-  loadPolicy: loadPolicy, loadPlanner: loadPlanner,
+  loadPolicy: loadPolicy, loadPlanner: loadPlanner, configure: configure,
   activatePolicy: activatePolicy, activatePlanner: activatePlanner,
   moduleNames: function () {
     var out = [], i, mods = orderedModules();

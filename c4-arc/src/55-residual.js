@@ -530,11 +530,133 @@ var RESID = null;
     if (regs.length && regs.every(function (r) { return r.cells <= 2; }) && quickR.norm < 0.05)
       diags.push({ kind: "local_cells", regions: regs.length, weight: 0.3, strong: false });
     if (quickR.invariants) diags.push({ kind: "invariant_violation", count: quickR.invariants, weight: 0.2, strong: false });
+    representationDiagnoses(preds, ctx, quickR, per, objs, geos, subs, dimsRel, diags);
     diags.sort(function (a, b) { return (b.strong - a.strong) || (b.weight - a.weight); });
     return { residual: quickR, diagnoses: diags, per: per };
   }
 
-  RESID = { quick: quick, quickPair: quickPair, diagnose: diagnose, invariantsOf: invariantsOf,
+  /* --------------------------------------------- representation vs program
+   *
+   * The diagnoses above say WHAT is wrong. These say whether the failure is
+   * the PROGRAM's (a parameter, a step, a predicate) or the REPRESENTATION's
+   * (the substrate the program is written in cannot express the rule
+   * simply). Each carries ``level`` ("representation" | "program") and,
+   * where a registered representation (17-representation.js) or repair mode
+   * addresses it, ``suggest`` / ``repair``. Weights are kept below the
+   * semantic diagnoses' so the established repair ordering is not displaced
+   * unless the evidence is consistent (strong). */
+  function representationDiagnoses(preds, ctx, q, per, objs, geos, subs, dimsRel, diags) {
+    var n = ctx.train.length, bg = ctx.bg(), i;
+    var failing = q.pairs.filter(function (p) { return !p.exact; }).length;
+    if (!failing) return;
+    /* colours: per-pair substitutions that disagree with each other while
+       each is itself consistent -> the colours are roles, not literals */
+    var okSubs = subs.filter(function (s) { return s; });
+    if (okSubs.length >= 2) {
+      var clash = false, merged = {};
+      okSubs.forEach(function (s) { for (var k in s) if (s.hasOwnProperty(k)) { if (merged.hasOwnProperty(k) && merged[k] !== s[k]) clash = true; merged[k] = s[k]; } });
+      if (clash) diags.push({ kind: "wrong_representation", level: "representation", detail: "colour_roles",
+                              suggest: ["roles", "canon"], weight: 0.55, strong: okSubs.length === failing });
+    }
+    var inPals = new Set(ctx.inputs().map(function (g) { return G.palette(g); }));
+    if (q.paletteBad && inPals.size > 1)
+      diags.push({ kind: "wrong_object_correspondence", level: "representation", suggest: ["roles"], weight: 0.35, strong: false });
+    /* geometry: each failing pair is an exact symmetry of its target, but
+       not the same symmetry -> the coordinate frame differs per pair */
+    var geoOk = geos.filter(function (g) { return g && g.kind === "orientation"; });
+    if (geoOk.length >= 2 && new Set(geoOk.map(function (g) { return g.op; })).size > 1)
+      diags.push({ kind: "wrong_coordinate_frame", level: "representation", suggest: ["dih:transpose", "dih:rot90", "dih:flip_h"],
+                   weight: 0.5, strong: geoOk.length === failing });
+    /* symmetry: every target is invariant under a symmetry the prediction breaks */
+    var symOps = ["flip_h", "flip_v", "transpose", "rot180"], si;
+    for (si = 0; si < symOps.length; si++) {
+      var f = { flip_h: G.flipH, flip_v: G.flipV, transpose: G.transpose, rot180: G.rot180 }[symOps[si]];
+      var tSym = 0, pBreak = 0;
+      for (i = 0; i < n; i++) {
+        var t = ctx.train[i][1], p = preds[i];
+        var ft = f(t);
+        if (sameDims(ft, t) && G.gEq(ft, t)) {
+          tSym++;
+          if (p && !q.pairs[i].exact) { var fp = f(p); if (!(sameDims(fp, p) && G.gEq(fp, p))) pBreak++; }
+        }
+      }
+      if (tSym === n && pBreak) {
+        diags.push({ kind: "wrong_symmetry_frame", level: "representation", op: symOps[si], suggest: ["dih:" + symOps[si]],
+                     repair: "expand", weight: 0.45, strong: pBreak === failing });
+        break;
+      }
+    }
+    /* objects: low cell error but chaotic object correspondence -> the
+       segmentation or grouping is wrong, not the rule */
+    var okObjs = objs.filter(function (o) { return o; });
+    if (okObjs.length && q.norm < 0.15) {
+      var miss = 0, extra = 0, correct = 0, moved = [];
+      okObjs.forEach(function (o) { miss += o.missing.length; extra += o.extra.length; correct += o.correct; moved = moved.concat(o.moved); });
+      if (miss && extra && miss + extra > correct)
+        diags.push({ kind: "wrong_segmentation", level: "representation", repair: "param:K", weight: 0.4, strong: false });
+      var cd = okObjs.reduce(function (s, o) { return s + o.countDiff; }, 0);
+      if (cd && miss && extra)
+        diags.push({ kind: "wrong_grouping", level: "representation", merged: cd < 0 ? "split" : "merged", repair: "param:K", weight: 0.3, strong: false });
+      /* moved objects whose displacement differs by pair: the anchor, not the
+         offset, is wrong */
+      if (moved.length >= 2 && new Set(moved.map(function (m) { return m.join(","); })).size > 1)
+        diags.push({ kind: "wrong_anchor", level: "program", repair: "anchor", weight: 0.35, strong: false });
+      var flips = okObjs.reduce(function (s, o) { return s + o.relationFlips; }, 0);
+      if (flips && correct)
+        diags.push({ kind: "wrong_relation_graph", level: "representation", suggest: [], repair: "relations", weight: 0.3, strong: false });
+    }
+    /* panels: separator lines in the inputs and the error confined to part
+       of the grid -> the panel decomposition is wrong */
+    if (ctx.same_shape() && REPRESENT && REPRESENT.stripLines) {
+      var sep = ctx.inputs().every(function (g) { return !!REPRESENT.stripLines(g); });
+      if (sep) {
+        var confined = 0;
+        per.forEach(function (d) {
+          if (!d.regions || !d.regions.length) return;
+          var cells = d.regions.reduce(function (s, r) { return s + r.cells; }, 0);
+          var box = d.regions.reduce(function (b, r) { return [Math.min(b[0], r.r0), Math.min(b[1], r.c0), Math.max(b[2], r.r1), Math.max(b[3], r.c1)]; }, [99, 99, -1, -1]);
+          if (cells && (box[2] - box[0] + 1) * (box[3] - box[1] + 1) < 0.5 * d.q.area) confined++;
+        });
+        if (confined) diags.push({ kind: "wrong_panel_decomposition", level: "representation", suggest: ["strip"], weight: 0.35, strong: confined === failing });
+      }
+    }
+    /* one consistent extra transform explains the residual: a missing step */
+    var dimsStrong = dimsRel.length && dimsRel.every(function (d) { return d && d.kind !== "other"; });
+    var geoStrong = geos.length && geos.every(function (g) { return g; }) && new Set(geos.map(function (g) { return JSON.stringify(g); })).size === 1;
+    if (dimsStrong || geoStrong)
+      diags.push({ kind: "missing_composition", level: "program", repair: "expand", weight: 0.4, strong: !!(dimsStrong || geoStrong) && failing === n });
+    /* predicate scope: too many / too few objects handled, by a separable class */
+    diags.forEach(function (d) {
+      if (d.kind === "excess_change_class") d.alias = "overgeneralized_predicate";
+      if (d.kind === "unhandled_object_class" && d.polarity === "under") d.alias = "undergeneralized_predicate";
+    });
+    var over = diags.filter(function (d) { return d.alias === "overgeneralized_predicate"; })[0];
+    if (over) diags.push({ kind: "overgeneralized_predicate", level: "program", feature: over.feature, value: over.value, repair: "specialize", weight: 0.3, strong: false });
+    var under = diags.filter(function (d) { return d.alias === "undergeneralized_predicate"; })[0];
+    if (under) diags.push({ kind: "undergeneralized_predicate", level: "program", feature: under.feature, value: under.value, repair: "generalize", weight: 0.3, strong: false });
+    /* representation failure overall: several representation-level signals
+       and no strong program-level repair */
+    var repN = diags.filter(function (d) { return d.level === "representation"; }).length;
+    var strongProg = diags.some(function (d) { return d.strong && d.level !== "representation" && d.kind !== "missing_composition"; });
+    if (repN >= 2 && !strongProg) {
+      var sugg = [];
+      diags.forEach(function (d) { (d.suggest || []).forEach(function (s) { if (sugg.indexOf(s) < 0) sugg.push(s); }); });
+      diags.push({ kind: "wrong_representation", level: "representation", detail: "multiple_signals", suggest: sugg,
+                   weight: 0.45, strong: false });
+    }
+  }
+
+  /* Is a failure the representation's or the program's? */
+  function failureLevel(diags) {
+    var rep = 0, prog = 0;
+    (diags || []).forEach(function (d) {
+      var w = (d.strong ? 2 : 1) * (d.weight || 0.1);
+      if (d.level === "representation") rep += w; else prog += w;
+    });
+    return { level: rep > prog ? "representation" : "program", representation: rep, program: prog };
+  }
+
+  RESID = { quick: quick, quickPair: quickPair, diagnose: diagnose, invariantsOf: invariantsOf, failureLevel: failureLevel,
             violations: violations, dimsRelation: dimsRelation, substitution: substitution,
             geometric: geometric, errorRegions: errorRegions, objectResidual: objectResidual,
             classPair: classPair, separatingClass: separatingClass, objFeatures: objFeatures,

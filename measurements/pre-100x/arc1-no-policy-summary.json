@@ -1,0 +1,24 @@
+{
+  "engine_sha256": "fa4d1feac8dfead29629ea35f523410d524e385168174d7027135b531b1277ac",
+  "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
+  "policy_sha256": null,
+  "budget": 3,
+  "jobs": 3,
+  "start": 0,
+  "end": 400,
+  "without": [],
+  "ids": [],
+  "node": "v22.22.2",
+  "n": 400,
+  "top1": 231,
+  "top2": 237,
+  "oracle_retained": 238,
+  "task_seconds": 1073.544999999999,
+  "wall_seconds": 358.798,
+  "failures": {
+    "SOLVED": 231,
+    "NO_CANDIDATE": 121,
+    "NO_CORRECT_RETAINED_PREDICTION": 41,
+    "RIGHT_OUTPUT_OUTRANKED": 7
+  }
+}

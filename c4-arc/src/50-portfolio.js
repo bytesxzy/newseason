@@ -11,7 +11,10 @@
 var SOLVER_PRIOR = {
   geometry: 0.0, cellwise: 1.0, partition: 0.0, symmetry: 0.0,
   objects: 1.5, tiling: 0.5, colormap: 0.0, select: 1.0,
-  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0
+  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0,
+  /* a typed program in another substrate: the substrate is an extra
+     assumption, charged a quarter unit over the same program in raw cells */
+  represent: 1.25
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -22,7 +25,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
   "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
-  "enumerate_dsl", "typed"];
+  "enumerate_dsl", "represent", "typed"];
 
 function orderedModules() {
   var byName = {}, i, out = [];
@@ -283,6 +286,7 @@ function _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, ord
       pool.forEach(function (v, k) { avail.add(k); });
       if (gi === 1 && !deepened && ran.indexOf("enumerate_dsl") >= 0) avail.add("deepen");
       try {
+        pl.extra = _searchState(ctx);
         dist = pl.distribution(sigs, ran, reservoir.a.length, fracLeft, ran.length, avail);
         /* the planner reorders families, it does not get to retire one */
         if (dist && Object.keys(dist).length) dist = PLANNER.explore(dist, undefined, avail);
@@ -324,6 +328,71 @@ function _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, ord
   res.diagnostics.plan = trace;
   return order;
 }
+
+/* What the search has seen so far, as planner state (06-planner.js). */
+function _searchState(ctx) {
+  var sink = ctx._nearSink, x = { nearCount: 0, nearClusters: 0 };
+  if (sink && sink.traces) {
+    var mods = 0;
+    if (sink.byModule) sink.byModule.forEach(function (l) { mods += l.length; });
+    x.nearCount = sink.traces.length + (sink.typed ? sink.typed.length : 0) + mods;
+    x.nearClusters = sink.clusters ? sink.clusters.size : 0;
+    var sigs = {}, top = null, tn = 0;
+    sink.traces.forEach(function (t) { var k = t.residual ? t.residual.sig.split("/")[0] : "?"; sigs[k] = (sigs[k] || 0) + 1; if (sigs[k] > tn) { tn = sigs[k]; top = k; } });
+    if (top) x.residualCategory = top;
+  }
+  if (ctx._synStats && ctx._synStats.generated) x.dupRatio = (ctx._synStats.canonical_duplicates + ctx._synStats.behavior_duplicates) / ctx._synStats.generated;
+  if (ctx._repInfo && ctx._repInfo.candidates && ctx._repInfo.candidates.length) x.repConfidence = +String(ctx._repInfo.candidates[0]).split(":").pop() || 0;
+  return x;
+}
+
+/* Pass@2 that is semantically diverse. Slot 2 is only worth a guess if it
+   is a different EXPLANATION, not the slot-1 idea with one parameter
+   changed. When the natural runner-up is a near-copy of slot 1 (>= 90% of
+   cells equal and most of the same supporting families) and a candidate
+   further down is a different explanation whose log-weight is within
+   MARGIN nats of the runner-up, that candidate takes slot 2. Evidence
+   still decides which different explanation; nothing here reads a label. */
+var PASS2 = (function () {
+  var ON = true, MARGIN = 2.0;
+  function sim(a, b) {
+    if (!a || !b || a.length !== b.length || a[0].length !== b[0].length) return 0;
+    var n = 0, m = 0, r, c;
+    for (r = 0; r < a.length; r++) for (c = 0; c < a[0].length; c++) { n++; if (a[r][c] === b[r][c]) m++; }
+    return m / n;
+  }
+  function jaccard(fa, fb) {
+    var inter = 0, uni = new Set();
+    fa.forEach(function (_, k) { uni.add(k); if (fb.has(k)) inter++; });
+    fb.forEach(function (_, k) { uni.add(k); });
+    return uni.size ? inter / uni.size : 1;
+  }
+  function variant(x, y, cf) {
+    if (cf && x.cf !== undefined && y.cf !== undefined && x.cf !== null && y.cf !== null) return x.cf === y.cf;
+    return sim(x.grid, y.grid) >= 0.9 && jaccard(x.fams, y.fams) >= 0.5;
+  }
+  /* scored: [[negWeight, first, grid, violations, nFamilies, families, cf]] sorted */
+  function select(scored, info) {
+    if (!ON || scored.length < 3) return scored;
+    var top = { grid: scored[0][2], fams: scored[0][5], cf: scored[0][6] };
+    var two = { grid: scored[1][2], fams: scored[1][5], cf: scored[1][6] };
+    if (!variant(top, two, true)) return scored;
+    var i;
+    for (i = 2; i < Math.min(8, scored.length); i++) {
+      if (scored[i][0] - scored[1][0] > MARGIN) break;
+      var cand = { grid: scored[i][2], fams: scored[i][5], cf: scored[i][6] };
+      if (!variant(top, cand, true) && scored[i][3] <= scored[1][3]) {
+        var out = scored.slice();
+        var moved = out.splice(i, 1)[0];
+        out.splice(1, 0, moved);
+        if (info) { info.promoted = true; info.from = i + 1; }
+        return out;
+      }
+    }
+    return scored;
+  }
+  return { select: select, diverse: function (on) { if (on !== undefined) ON = !!on; return ON; }, MARGIN: MARGIN, sim: sim };
+})();
 
 /* Keep all demonstrated shape laws when training does not distinguish them. */
 function _shapeOptions(ctx, tg) {
@@ -429,7 +498,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   var phase1 = [], phase2 = [];
   for (i = 0; i < mods.length; i++) ((mods[i].PHASE === 2) ? phase2 : phase1).push(mods[i]);
   var reservoir = new _MinHeap(_itemCmp), order = 0;
-  ctx._nearSink = REFINEMENT.newSink();
+  ctx._nearSink = REFINEMENT.newSink(ctx, { evalBudgetMs: Math.max(30, timeBudget * 1000 * 0.03) });
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
     order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);
@@ -608,9 +677,17 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       if (shapes.size && !shapes.has(gg2.length + "," + gg2[0].length)) violations += 1;
       if (allowed !== null && !G.csSubset(G.palette(gg2), allowed)) violations += 1;
       weight += violations * Math.log(0.25);
-      scored.push([-weight, first.get(gk), gg2, violations, families.size]);
+      var cfKey = null;
+      if (ctx._cfBehaviour) {
+        /* the counterfactual probe signature of the behaviour that authored
+           this output (58-counterfactual.js), when one was measured */
+        ctx._cfBehaviour.forEach(function (v, k) { if (cfKey === null && k.split("~")[ti] === gk) cfKey = v; });
+      }
+      scored.push([-weight, first.get(gk), gg2, violations, families.size, families, cfKey]);
     });
     scored.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
+    var p2info = { promoted: false };
+    scored = PASS2.select(scored, p2info);
     var predictions = [];
     for (i = 0; i < scored.length; i++) predictions.push(scored[i][2]);
     res.predictions.push(collectAll ? predictions : predictions.slice(0, k));
@@ -619,7 +696,8 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       distinct: scored.length,
       top_support: scored.length ? scored[0][4] : 0,
       top_violations: scored.length ? scored[0][3] : 0,
-      log_weight_margin: scored.length > 1 ? (scored[1][0] - scored[0][0]) : null
+      log_weight_margin: scored.length > 1 ? (scored[1][0] - scored[0][0]) : null,
+      pass2_promoted: p2info.promoted ? p2info.from : 0
     });
   }
   res.solver = null;

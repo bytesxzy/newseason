@@ -148,6 +148,7 @@ var REPEAT = null;
     return [out, painted];
   }
 
+  var nearCtx = null;
   function fitPairs(pairs, bg, deadline) {
     var out = [], segs = {}, mi, i, k;
     for (mi = 0; mi < MODES.length; mi++) {
@@ -186,13 +187,20 @@ var REPEAT = null;
           for (var ti = 0; ti < TINTS.length; ti++) {
             for (var oi2 = 0; oi2 < OVER.length; oi2++) {
               if (deadline && Date.now() / 1000 >= deadline) return out;
-              var good = true, anyPaint = false;
+              var good = true, anyPaint = false, okPairs = 0;
               for (i = 0; i < pairs.length; i++) {
                 var got = stamp(pairs[i][0], per[i][0], sels[i], nameList[ni],
                                 TINTS[ti], OVER[oi2], plans[i], per[i][1]);
                 anyPaint = anyPaint || got[1];
                 if (!G.gEq(got[0], pairs[i][1])) { good = false; break; }
+                okPairs++;
               }
+              /* reproduced at least one demonstration: a near-miss worth keeping */
+              if (!good && okPairs >= 1 && anyPaint && nearCtx)
+                CANDIDATES.offer(nearCtx, { family: "patterns", module: "repeat",
+                  name: "repeat~[" + mode + "/" + SELECTORS[si] + "/" + nameList[ni] + "]", representation: "objects:" + mode,
+                  fn: (function (m, sv, n, t, v) { return function (g) { return apply(g, m, sv, n, t, v, bg); }; })(mode, SELECTORS[si], nameList[ni], TINTS[ti], OVER[oi2]),
+                  depth: 2, complexity: BASE_COST, why: "stamp_mismatch" });
               /* a rule that paints nothing "fits" any identity task and says
                  nothing at all */
               if (good && anyPaint) {
@@ -224,7 +232,8 @@ var REPEAT = null;
       var bg = backgrounds[bi];
       if (ctx.timed_out()) break;
       var fits;
-      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; }
+      nearCtx = ctx;
+      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; } finally { nearCtx = null; }
       var tag = bg === null ? "~" : "";
       for (i = 0; i < fits.length; i++) {
         var f = fits[i];

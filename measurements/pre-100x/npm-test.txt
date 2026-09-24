@@ -1,0 +1,143 @@
+
+> cell4-arc-local@1.1.0 test
+> node c4-arc/test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js
+
+PASS scene shape equivalence, relations, strict tie rejection
+PASS inverse constructors round-trip and reject invalid grids
+PASS inverse construction composes crop, rotation, and anisotropic scale
+PASS nested inverse constructors transfer to different dimensions/colors
+PASS partial periods extend with an induced palette change
+PASS typed filtered reduction transfers to new square sizes and positions
+PASS marker-aligned assembly is invariant to positions and palette
+PASS all demos constrain a shared program
+PASS inference cannot access a test answer and does not mutate inputs
+PASS zero budget respects boundary
+PASS conditional composition preserves budget after an executable exact fit
+PASS bounded search is repeatable when work cap completes
+12 tests passed
+PASS residual: one pixel wrong is a local cell defect, not a wrong rule
+PASS residual: one colour wrong everywhere is a consistent colour substitution
+PASS residual: whole output shifted by one cell is a consistent translation
+PASS residual: missing object vs extra object are told apart
+PASS residual: right shape in the wrong relative place is an object move
+PASS residual: correct rule except one object class names the class
+PASS repair: wrong translation magnitude
+PASS repair: wrong colour parameter
+PASS repair: wrong object selector
+PASS repair: missing composition step
+PASS repair: incorrect rotation
+PASS repair: wrong object predicate
+PASS repair: excessive change filtered by change-set class
+PASS frontier: bounded, cluster-diverse, duplicate-free
+PASS frontier: mutation loops terminate on duplicate states
+PASS near-solutions are never emitted as answers
+PASS exact repairs stay exact through the portfolio
+PASS counterfactual: two exact rules that agree on every demonstration are discriminated, not decided
+PASS kernel discriminate reports fragility without labels
+PASS MDL score: exact beats near at equal complexity; repair path costs bits
+PASS aux repair operators leave existing program code lengths unchanged
+21 kernel tests passed
+PASS browser globals, script order, planner load, corpus API, solving, answer isolation
+Scope: script-level browser integration. Unrelated scripts missing from the original archive are not supplied.
+the site must NOT answer general questions from its own docs:
+  ok    machine reasoning
+  ok    quantum fuzz
+  ok    the capital of Nigeria
+  ok    photosynthesis
+  ok    quantum computing
+  ok    the French revolution
+  ok    neural networks
+  ok    transformers
+the site must STILL answer about itself:
+  ok    GABRIEL
+  ok    ASTRA
+  ok    the cell tree
+  ok    MAX_SLICE
+  ok    objtree
+  ok    delta_stencils
+  ok    CELL4
+a non-definitional question is not gated at all:
+  ok    empty concept passes
+a statement is not a research query:
+  ok    "etc, you see the issue - it needs way WAY be"
+  ok    "kind of self explanatory, but it needs bette"
+  ok    "What is machine reasoning?"
+  ok    "What is the capital of Nigeria?"
+  ok    "how does the cell tree rank hypotheses"
+  ok    "define quantum fuzz"
+known residual (not a failure): "the version space" -> false
+all gates correct
+PASS falsification removes the derivation with an invalid intermediate step
+PASS a derivation that fails its verifier is eliminated, the surviving answer is selected
+PASS independent derivations genuinely differ in method and agree on the answer
+PASS multiple choice by elimination
+PASS calibration: verified multi-path answer is more confident than an unsupported single path
+PASS knowledge is kept apart from reasoning
+PASS reasoning graph: contradiction demotes the weaker claim and what depends on it
+PASS interpretation: algebra in the text is not read as bare arithmetic
+PASS exact tools: rationals, polynomials, number theory, probability, graphs, CSP
+PASS visual facts enter the reasoning graph and are checked against coordinates
+PASS world model: infers action effects from transitions
+PASS world model: a blocked move is explained by a condition, not a contradiction
+PASS world model: a false prior rule is revised after contradictory evidence
+PASS world model: cross-level memory keeps mechanics, drops layout
+PASS world model: exploration favours uncertain actions early and exploitation later
+PASS kernel meta-controller learns feature -> operation weights from traces
+PASS staged beliefs: tentative -> candidate -> persistent, retired by contradiction
+17 reasoning-kernel tests passed
+PASS prose: prefix product, passive result
+PASS prose: purpose infinitive states the result
+PASS prose: two-unknown system from sum/difference
+PASS prose: word numbers and fractions
+PASS dice: one die, a named face
+PASS percent typography: attached sign is a percentage
+PASS percent typography: spaced sign is modulo
+PASS fragment: operator word stands for the connective
+PASS fragment: conversion without 'to'
+PASS sense: 'tongue' read as language
+PASS sense: 'pen' read as writer
+PASS paraphrase: 'keep its government' is the capital
+PASS facts: gloss paraphrase selects the entity's fact
+PASS contraction is not a name
+PASS polite wrappers strip to a fixpoint
+PASS off-topic guard: unknown subject is not replaced by a known one
+PASS request about an unknown named thing is not small talk
+PASS memory does not take a word problem as a personal fact
+PASS dictated form: list stays a list
+PASS dictated form: one word stays one word
+20/20 phrasing checks passed
+PASS module loads in the page
+PASS glossary covers every word
+PASS grammar words are defined by role
+PASS a rate is one quantity with a compound dimension
+PASS distance = speed x time
+PASS rate with 'every' and a named output unit
+PASS price per volume x volume = money
+PASS missing time is named, answer given per unit of it
+PASS missing speed is named by its inverse
+PASS fuel from speed, time and the knowledge base's fuel economy
+PASS a verb is not a counted thing; no nonsense answer
+PASS pipeline answers the quantity question
+PASS pipeline exposes the reading
+13/13 comprehension checks passed
+PASS an unknown topic gets an honest answer, not a word-by-word guess
+PASS a reaction is not answered as a question about the last topic's words
+PASS a reaction after a non-answer is read as noticing it
+PASS a repeated question is noticed as a repeat
+PASS the count of repeats is tracked
+PASS the system never says the same thing twice
+PASS consecutive reactions are counted, not answered identically
+PASS a real answer asked again is given again, and the repeat is acknowledged
+PASS a repeat in different words is still a repeat
+PASS the same topic in a different form is a new request
+PASS a different question is not a repeat
+11/11 awareness checks passed
+npm notice
+npm notice New major version of npm available! 10.9.7 -> 12.1.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.1.0
+npm notice To update run: npm install -g npm@12.1.0
+npm notice
+
+real	0m10.761s
+user	0m13.267s
+sys	0m2.956s

@@ -1,0 +1,54 @@
+  ok   syntax: c4-lm-code.js
+  ok   syntax: c4-lm-compose.js
+  ok   syntax: c4-lm-comprehend.js
+  ok   syntax: c4-lm-core.js
+  ok   syntax: c4-lm-evidence.js
+  ok   syntax: c4-lm-kb.js
+  ok   syntax: c4-lm-lexicon.js
+  ok   syntax: c4-lm-memory.js
+  ok   syntax: c4-lm-problem.js
+  ok   syntax: c4-lm-realize.js
+  ok   syntax: c4-lm-reason.js
+  ok   syntax: c4-lm-retrieve.js
+  ok   syntax: c4-lm.js
+  ok   page boots with no load errors
+  ok   robots API present
+  ok   language stack ready
+  ok   knowledge base built  (381)
+  ok   no artificial delay in page source
+  ok   in-page self test (no new failures)  (23/24; pre-existing: reason modules loaded)
+  ok   edge input: empty string  (Ask me anything — a fact, a calculation,)
+  ok   edge input: whitespace only  (Ask me anything — a fact, a calculation,)
+  ok   edge input: punctuation only  (Ask me anything — a fact, a calculation,)
+  ok   edge input: single character  (Understood — say more and I'll dig in.)
+  ok   edge input: emoji only  (Ask me anything — a fact, a calculation,)
+  ok   edge input: control characters  (Got it. What would you like me to work o)
+  ok   edge input: html injection  (France has Paris as its capital. It is i)
+  ok   edge input: sql-ish input  (A drop table users would be a person who)
+  ok   edge input: regex metacharacters  (Paired A/B, 32 fit-split tasks, `--budge)
+  ok   edge input: very long input  (Chlorophyll absorbs photons, which drive)
+  ok   edge input: repeated word  (Understood — say more and I'll dig in.)
+  ok   edge input: non-latin script  (Ask me anything — a fact, a calculation,)
+  ok   edge input: mixed script  (I don't have anything reliable on π and )
+  ok   edge input: numbers only  (Fair reaction — that wasn't a real answe)
+  ok   edge input: newlines  (France's capital is Paris. It is in West)
+  ok   repeated question keeps its facts, worded afresh  (You asked this just now — same / You asked this just now — same)
+  ok   repeat is not slower  (7 -> 6)
+  ok   offline: local computation unaffected  (17 * 23 works out to 391.)
+  ok   offline: local knowledge unaffected  (France has Paris as its capital. It is i)
+  ok   offline: current question degrades honestly  (A current bitcoin price would be an amount of money expected)
+  ok   hanging source does not hang the answer  (2536 ms)
+  ok   garbage source response handled  (Python is a high-level, dynamically typed programm)
+  ok   partially unavailable sources handled  (Node.js is a runtime that executes JavaScript outs)
+  ok   corrupted cached artifacts tolerated  (France has Paris as its capital. It is i)
+  ok   missing conversation pack tolerated  (Hello. What can I look into for you?)
+  ok   dialogue sequence
+  ok   code construction returns verified code  (```javascript
+function unique(items) {
+ )
+  ok   emitted program was executed against its example  (true)
+  ok   SQL construction  (```sql
+SELECT country, COUNT(*) AS user_count
+FROM)
+
+48/48 checks passed

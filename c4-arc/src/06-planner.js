@@ -88,14 +88,40 @@ Memory.prototype.features = function (sigs, k, exclude) {
   return out;
 };
 
-function Planner(data) {
+/* opts.clean: drop the benchmark-derived memory rows (signature -> family
+   -> TASK ID of a solved development task). The learned general weights are
+   kept. Results of a clean planner and of the legacy planner are different
+   measurements and must be reported separately (c4-arc/bench.js records
+   which one ran). */
+function Planner(data, opts) {
   var d = data || {}, feat;
   this.w = {};
   var src = d.w || {};
   for (feat in src) if (Object.prototype.hasOwnProperty.call(src, feat)) this.w[feat] = src[feat];
-  this.memory = new Memory(d.memory || []);
+  this.clean = !!(opts && opts.clean);
+  this.mode = this.clean ? "clean" : "legacy";
+  this.memory = new Memory(this.clean ? [] : (d.memory || []));
   this.meta = d.meta || {};
   this.trained = Object.keys(this.w).length > 0;
+  this.extra = null;
+}
+
+/* Search-state features beyond the task signature and the run history:
+   what the near-miss sink and the typed search have seen so far. The
+   shipped weights carry none of them (their logit contribution is zero
+   until a planner is trained with them); they are computed live and
+   reported so a planner fitted on synthetic curricula can use them. */
+function _stateFeatures(x) {
+  if (!x) return [];
+  var f = [];
+  f.push("s:near:" + (x.nearCount === 0 ? "0" : x.nearCount < 6 ? "few" : "many"));
+  f.push("s:neardiv:" + (x.nearClusters <= 1 ? "1" : x.nearClusters < 5 ? "some" : "wide"));
+  if (x.dupRatio !== undefined) f.push("s:dup:" + (x.dupRatio > 0.3 ? "hi" : x.dupRatio > 0.1 ? "mid" : "lo"));
+  if (x.repConfidence !== undefined) f.push("s:rep:" + (x.repConfidence > 1 ? "strong" : x.repConfidence > 0.25 ? "some" : "none"));
+  if (x.residualCategory) f.push("s:res:" + x.residualCategory);
+  if (x.semanticClusters !== undefined) f.push("s:sem:" + Math.min(3, x.semanticClusters));
+  if (x.disagreement !== undefined) f.push("s:disagree:" + (x.disagreement > 1 ? "1" : "0"));
+  return f;
 }
 
 Planner.prototype.features = function (sigs, ran, nFit, fracLeft, step, exclude) {
@@ -103,6 +129,7 @@ Planner.prototype.features = function (sigs, ran, nFit, fracLeft, step, exclude)
     .concat(_historyFeatures(ran || [], nFit || 0,
                              fracLeft === undefined ? 1.0 : fracLeft, step || 0))
     .concat(this.memory.features(sigs, 12, exclude))
+    .concat(_stateFeatures(this.extra))
     .concat(["bias"]);
 };
 
@@ -175,7 +202,7 @@ function explore(dist, epsilon, available) {
 }
 
 var PLANNER = {
-  FAMILIES: FAMILIES, ACTIONS: ACTIONS, Planner: Planner, Memory: Memory,
+  FAMILIES: FAMILIES, ACTIONS: ACTIONS, Planner: Planner, Memory: Memory, stateFeatures: _stateFeatures,
   activate: activatePlanner, active: activePlanner,
   explore: explore, EPSILON: PLANNER_EPSILON
 };

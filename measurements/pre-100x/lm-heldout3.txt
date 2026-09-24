@@ -1,0 +1,1 @@
+{"pass":"34/36","accuracy_pct":94.4,"by_category":{"quantity":{"total":15,"pass":15},"underdetermined":{"total":7,"pass":7},"knowledge":{"total":10,"pass":8},"abstain":{"total":4,"pass":4}},"latency":{"p50":54,"p90":77,"max":109}}

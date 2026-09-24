@@ -788,7 +788,13 @@ var OBJPROC = {};
             var rule = _procRule(segs[si], bgs[bi], [_PAIR_KEYS[i], _PAIR_KEYS[j]], table, defs[d]);
             var sig;
             try {
-              if (!_verify(rule, ctx)) continue;
+              if (!_verify(rule, ctx)) {
+                /* an induced table that explains most objects is a repair seed */
+                CANDIDATES.offer(ctx, { family: "objects", module: "objproc", fn: rule,
+                  name: "proc2~[" + segs[si] + "/" + _PAIR_KEYS[i] + "+" + _PAIR_KEYS[j] + "|" + table.size + "]",
+                  representation: "objects:" + segs[si], depth: 3, complexity: 3.4 + 0.3 * table.size, why: "table_mismatch" });
+                continue;
+              }
               sig = _sigOf(rule, ctx);
             } catch (e) { continue; }
             if (seen.has(sig)) continue;
@@ -823,7 +829,7 @@ var OBJPROC = {};
         for (ki = 0; ki < keysets.length; ki++) {
           if (ctx.timed_out()) break;
           var got = _induce(rows, keysets[ki], penalty);
-          if (got === null) continue;
+          if (got === null) { if (!ki) CANDIDATES.note(ctx, "object_induction_failed", { seg: _SEGS[si], family: "objproc" }); continue; }
           var ranked = got[0], order = got[1], hit = false;
           var tables = _tables(ranked, order), ti;
           for (ti = 0; ti < tables.length; ti++) {
@@ -835,7 +841,13 @@ var OBJPROC = {};
               var rule = _procRule(_SEGS[si], bgs[bi], keysets[ki], table, defs[d]);
               var sig;
               try {
-                if (!_verify(rule, ctx)) continue;
+                if (!_verify(rule, ctx)) {
+                  CANDIDATES.offer(ctx, { family: "objects", module: "objproc", fn: rule,
+                    name: "proc~[" + _SEGS[si] + "/" + (keysets[ki].length ? keysets[ki].join("+") : "all") + "|" + table.size + "]",
+                    representation: "objects:" + _SEGS[si], depth: 1 + keysets[ki].length,
+                    complexity: 2.2 + 0.7 * keysets[ki].length + 0.28 * table.size, why: "table_mismatch" });
+                  continue;
+                }
                 sig = _sigOf(rule, ctx);
               } catch (e) { continue; }
               if (seen.has(sig)) { hit = true; break; }

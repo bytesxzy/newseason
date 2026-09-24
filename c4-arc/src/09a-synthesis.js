@@ -43,7 +43,11 @@ var SYN = null;
      against every demonstration. */
   var OP_BIAS = {};
 
-  function stateKey(st) {
+  /* Search-state identity: a 53-bit hash over the state's grids (see
+     G.ghashList). stateKeyExact is the exact text, used where a program is
+     stored as found. */
+  function stateKey(st) { return G.ghashList(st); }
+  function stateKeyExact(st) {
     var i, parts = [];
     for (i = 0; i < st.length; i++) parts.push(G.gkey(st[i]));
     return parts.join("#");
@@ -124,9 +128,82 @@ var SYN = null;
     return PROG.fitTable(op, combo, pairs, env);
   }
 
+  var NEAR_CAP = 24;
+  /* Apply one step to every grid of the parent's state. */
+  function stepState(op, params, env, state) {
+    var fn = PROG.OPS[op].fn, out = [], i, rr;
+    for (i = 0; i < state.length; i++) {
+      try { rr = fn.apply(null, [env, state[i]].concat(params)); } catch (e) { return null; }
+      if (rr === null || rr === undefined || !G.valid(rr)) return null;
+      out.push(rr);
+    }
+    return out;
+  }
+  /* Cheap signature of HOW a near state fails: root operator, depth, which
+     pairs have the target's size, and the error topology on the others
+     (fraction wrong; missing vs excess change relative to the input). */
+  function nearSig(n, ctx, target) {
+    var root = Array.isArray(n.struct) ? n.struct[0] : "in", dims = "", err = 0, cnt = 0, under = 0, excess = 0, i;
+    for (i = 0; i < target.length; i++) {
+      var a = n.state[i], t = target[i], x = ctx.train[i][0];
+      if (a.length !== t.length || a[0].length !== t[0].length) { dims += "x"; continue; }
+      dims += "=";
+      var same = x.length === t.length && x[0].length === t[0].length, r, c, bad = 0;
+      for (r = 0; r < t.length; r++) for (c = 0; c < t[0].length; c++) {
+        if (a[r][c] === t[r][c]) continue;
+        bad++;
+        if (same) { if (a[r][c] === x[r][c]) under++; else if (t[r][c] === x[r][c]) excess++; }
+      }
+      err += bad / (t.length * t[0].length); cnt++;
+    }
+    var e = cnt ? err / cnt : 1;
+    var topo = under > 2 * excess ? "u" : excess > 2 * under ? "e" : "m";
+    return root + "/" + n.depth + "/" + dims + "/" + (e < 0.05 ? "t" : e < 0.15 ? "l" : e < 0.4 ? "m" : "h") + topo;
+  }
+
   function localSlot(op) {
     var kinds = PROG.OPS[op].kinds.filter(function (k) { return k !== PROG.T_GRID; });
     return kinds.indexOf(PROG.T_CMAP);
+  }
+
+  /* Canonical structure of op(parent): the parent is already canonical, so
+     only a rewrite at the new root can apply. Operators that no rewrite
+     touches keep their text and get an incremental key; the others are
+     normalised in full (09c-canonical.js). Returns {struct, theta, key,
+     collapsed} where collapsed means the new step changed nothing
+     structurally (it merged away). */
+  var USE_CANON = true;
+  function interacts(op, parentOp) {
+    if (!CANON) return false;
+    if (op === "id" || op === "tile_yx") return true;
+    var D = CANON.COMPOSE;
+    if (D[op] && (D[parentOp] || parentOp === "mode_cell")) return true;
+    if (CANON.IDEMPOTENT[op] && parentOp === op) return true;
+    if (op === "crop" && parentOp === "compress") return true;
+    if (op === "mode_cell" && D[parentOp]) return true;
+    if (CANON.COMMUTE_DIH[op] && D[parentOp]) return true;
+    return false;
+  }
+  function paramKey(params) {
+    var s = "", i;
+    for (i = 0; i < params.length; i++) s += (i ? "," : "") + (params[i] && typeof params[i] === "object" ? JSON.stringify(params[i]) : params[i]);
+    return s;
+  }
+  /* The key is exactly PROG.render's text, built incrementally from the
+     parent's cached text so that a candidate that needed no rewrite and one
+     that was rewritten into the same program get the same key. */
+  function renderStep(op, parentKey, params) {
+    var kinds = PROG.OPS[op].kinds, parts = [], j = 0, i;
+    for (i = 0; i < kinds.length; i++) parts.push(kinds[i] === PROG.T_GRID ? parentKey : PROG.lit(params[j++], kinds[i]));
+    return op + "(" + parts.join(",") + ")";
+  }
+  function canonChild(op, params, node) {
+    var struct = PROG.structOf(op, node.struct), theta = node.theta.concat(params);
+    var pOp = Array.isArray(node.struct) && node.struct.length ? node.struct[0] : "in";
+    if (!USE_CANON || !interacts(op, pOp))
+      return { struct: struct, theta: theta, key: renderStep(op, node.ckey, params), rewritten: false };
+    var t = CANON.normalizeTree(PROG.toTree(struct, theta)), f = PROG.fromTree(t);
+    return { struct: f.struct, theta: f.theta, key: PROG.render(f.struct, f.theta), rewritten: true };
   }
 
   function search(ctx, depth, width, deadline, cap, prior) {
@@ -140,15 +217,25 @@ var SYN = null;
     var bias = {}, bk;
     for (bk in OP_BIAS) if (OP_BIAS.hasOwnProperty(bk)) bias[bk] = OP_BIAS[bk];
     if (prior) for (bk in prior) if (prior.hasOwnProperty(bk)) bias[bk] = prior[bk];
+    /* task-local adaptation (57b-testtime.js): temporary operator priors
+       read off this task's own demonstrations; discarded with the context */
+    if (ctx._tta && ctx._tta.opPrior) for (bk in ctx._tta.opPrior) if (ctx._tta.opPrior.hasOwnProperty(bk))
+      bias[bk] = (bias[bk] || 0) + ctx._tta.opPrior[bk];
     var hasBias = Object.keys(bias).length > 0;
     var grids = ctx.inputs().concat(ctx.test_inputs), target = ctx.outputs();
     var found = new Map(), seen = new Map();
+    /* canonical structures already evaluated in this search */
+    var canonSeen = new Set(), sstats = { generated: 0, canonical_duplicates: 0, canonicalised: 0,
+      evaluated: 0, behavior_duplicates: 0, beam_accepted: 0, near_emitted: 0, exact: 0, macro_steps: 0, levels: 0 };
+    ctx._synStats = sstats;
+    var macros = (typeof PROG.macroOps === "function") ? PROG.macroOps(ctx) : [];
 
     function expired() { return deadline !== null && deadline !== undefined && nowMs() >= deadline; }
 
     function keep(struct, theta, st) {
+      if (sstats.first_exact_evaluated === undefined) sstats.first_exact_evaluated = sstats.evaluated;
       var bits = PROG.structBits(struct) + PROG.thetaBits(struct, theta);
-      var k = stateKey(st), prev = found.get(k);
+      var k = stateKeyExact(st), prev = found.get(k);
       if (!prev || bits < prev[0]) found.set(k, [bits, struct, theta]);
     }
 
@@ -197,7 +284,8 @@ var SYN = null;
     }
 
     var root = { struct: PROG.VAR, theta: [], state: grids,
-                 bits: PROG.opBits("in"), depth: 0 };
+                 bits: PROG.opBits("in"), depth: 0, ckey: "$" };
+    canonSeen.add("$");
     admit(seen, stateKey(grids), 0, root.bits);
     if (trainEq(grids)) keep(PROG.VAR, [], grids);
     close(root);
@@ -208,6 +296,8 @@ var SYN = null;
         if (expired()) break;
         var node = frontier[ni];
         var opsHere = (lvl === 1 ? INNER_OPS : CORE_OPS).slice();
+        /* learned macros are ordinary typed steps here (56b-macros.js) */
+        for (var mi = 0; mi < macros.length; mi++) opsHere.push(macros[mi]);
         if (hasBias) opsHere.sort(function (a, b) {
           var da = bias[a] || 0, db = bias[b] || 0;
           return (db - da) || (a < b ? -1 : a > b ? 1 : 0);
@@ -215,21 +305,32 @@ var SYN = null;
         for (var oi2 = 0; oi2 < opsHere.length; oi2++) {
           if (expired()) break;
           var op2 = opsHere[oi2];
-          if (!(op2 in paramCache)) paramCache[op2] = paramGrid(op2, dom, 64);
+          if (!PROG.OPS[op2]) continue;
+          if (!(op2 in paramCache)) paramCache[op2] = paramGrid(op2, dom, PROG.OPS[op2].macro ? 40 : 64);
           var combos2 = paramCache[op2];
           if (!combos2) continue;
           for (var ci2 = 0; ci2 < combos2.length; ci2++) {
-            var struct2 = PROG.structOf(op2, node.struct);
-            var theta2 = node.theta.concat(combos2[ci2]);
-            /* the structure is absolute: it is applied to the original
-               grids, not to the parent's already-transformed state */
-            var st2 = applyState(struct2, theta2, env, grids);
+            sstats.generated++;
+            /* the stored structure is absolute (applied to the original
+               grids); it is the CANONICAL form of op2(parent), so an
+               equivalent program reached another way is never executed
+               twice and every program carries its shortest description */
+            var cc = canonChild(op2, combos2[ci2], node);
+            if (canonSeen.has(cc.key)) { sstats.canonical_duplicates++; continue; }
+            canonSeen.add(cc.key);
+            if (cc.rewritten) sstats.canonicalised++;
+            /* incremental evaluation: op2 applied to the parent's outputs is,
+               by construction, the canonical program's output */
+            var st2 = stepState(op2, combos2[ci2], env, node.state);
+            sstats.evaluated++;
             if (!st2) continue;
+            var struct2 = cc.struct, theta2 = cc.theta;
             var bits2 = PROG.structBits(struct2) + PROG.thetaBits(struct2, theta2);
             var key2 = stateKey(st2);
-            if (!admit(seen, key2, lvl, bits2)) continue;
+            if (!admit(seen, key2, lvl, bits2)) { sstats.behavior_duplicates++; continue; }
             var nn = { struct: struct2, theta: theta2, state: st2,
-                       bits: bits2 - (bias[op2] || 0), depth: lvl };
+                       bits: bits2 - (bias[op2] || 0), depth: lvl, ckey: cc.key };
+            if (PROG.OPS[op2].macro) sstats.macro_steps++;
             if (trainEq(st2)) keep(struct2, theta2, st2);
             nxt.set(key2, nn);
           }
@@ -281,16 +382,32 @@ var SYN = null;
       var near = every.filter(function (n) { return n.depth > 0 && !trainEq(n.state); });
       near.forEach(function (n) { if (n._d === undefined) n._d = distance(n.state, target); });
       near.sort(function (a, b) { return (a._d - b._d) || (a.bits - b.bits); });
-      for (var ni2 = 0; ni2 < near.length && ni2 < 12; ni2++)
-        REFINEMENT.noteTyped(ctx, near[ni2].struct, near[ni2].theta, near[ni2]._d);
+      /* qualitatively different near-solutions, not the twelve nearest
+         (which are typically one idea in twelve literal variants): at most
+         two per (root operator, depth, dims agreement, error topology) */
+      var perSig = new Map(), examined = 0;
+      for (var ni2 = 0; ni2 < near.length && sstats.near_emitted < NEAR_CAP && examined < 400; ni2++) {
+        examined++;
+        var sg = nearSig(near[ni2], ctx, target);
+        var used = perSig.get(sg) || 0;
+        if (used >= 2) continue;
+        perSig.set(sg, used + 1);
+        REFINEMENT.noteTyped(ctx, near[ni2].struct, near[ni2].theta, near[ni2]._d,
+                             { sig: sg, depth: near[ni2].depth, family: "typed" });
+        sstats.near_emitted++;
+      }
+      sstats.near_clusters = perSig.size;
     }
+    sstats.exact = found.size;
+    sstats.levels = lvl - 1;
     var out = Array.from(found.values()).sort(function (x, y) {
       return (x[0] - y[0]) || (PROG.render(x[1]) < PROG.render(y[1]) ? -1 : 1);
     }).slice(0, cap);
     return out.map(function (rec) { return new PROG.Prog(rec[1], rec[2], env); });
   }
 
-  SYN = { search: search, INNER_OPS: INNER_OPS, CORE_OPS: CORE_OPS,
+  SYN = { search: search, INNER_OPS: INNER_OPS, CORE_OPS: CORE_OPS, nearSig: nearSig,
+          canon: function (on) { if (on !== undefined) USE_CANON = !!on; return USE_CANON; },
           SEED_OPS: SEED_OPS, TERMINAL_OPS: TERMINAL_OPS,
           opBias: function (b) { if (b !== undefined) OP_BIAS = b || {}; return OP_BIAS; } };
 })();

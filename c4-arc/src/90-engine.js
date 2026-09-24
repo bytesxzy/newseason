@@ -2,7 +2,28 @@
 /* Public surface of the bundle. */
 
 function loadPolicy(data) { return new Policy(data); }
-function loadPlanner(data) { return data ? new Planner(data) : null; }
+function loadPlanner(data, opts) { return data ? new Planner(data, opts) : null; }
+
+/* Engine-wide switches for ablations and evaluation modes. Every switch
+   defaults to the full system; bench.js records which were set. */
+function configure(o) {
+  o = o || {};
+  var out = {};
+  if (o.canon !== undefined) { SYN.canon(!!o.canon); CANON.enabled(!!o.canon); out.canon = !!o.canon; }
+  if (o.pop !== undefined || o.tta !== undefined || o.meta !== undefined || o.refine !== undefined || o.maxDepth !== undefined) {
+    var ro = {};
+    if (o.pop !== undefined) ro.pop = !!o.pop;
+    if (o.tta !== undefined) ro.tta = !!o.tta;
+    if (o.meta !== undefined) ro.meta = !!o.meta;
+    if (o.refine !== undefined) ro.off = !o.refine;
+    if (o.maxDepth !== undefined) ro.maxDepth = o.maxDepth;
+    out.refinement = REFINEMENT.options(ro);
+  }
+  if (o.counterfactual !== undefined) out.counterfactual_active = CFACT.active(!!o.counterfactual);
+  if (o.macros === false) { PROG.clearMacros(); out.macros = false; }
+  if (o.pass2 !== undefined) out.pass2 = PASS2.diverse(!!o.pass2);
+  return out;
+}
 
 /* Solve one ARC task. ``task`` is the standard ARC JSON shape:
    {train: [{input, output}, ...], test: [{input, output?}, ...]}.
@@ -41,7 +62,9 @@ var ENGINE = {
   DELTA_STENCILS: DELTA_STENCILS,
   REPEAT: REPEAT,
   RESID: RESID, REPAIR: REPAIR, REFINEMENT: REFINEMENT, CFACT: CFACT, REFRAME: REFRAME,
-  KERNEL: root.C4ReasonKernel,
+  KERNEL: root.C4ReasonKernel, MEMORY: root.C4ReasonMemory, META: root.C4ReasonMeta,
+  CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
+  MACROS: MACROS, PASS2: PASS2,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,
@@ -49,7 +72,7 @@ var ENGINE = {
   orderedModules: orderedModules,
   solve: solve, solveTask: solveTask, scoreTask: scoreTask,
   signatures: signatures,
-  loadPolicy: loadPolicy, loadPlanner: loadPlanner,
+  loadPolicy: loadPolicy, loadPlanner: loadPlanner, configure: configure,
   activatePolicy: activatePolicy, activatePlanner: activatePlanner,
   moduleNames: function () {
     var out = [], i, mods = orderedModules();

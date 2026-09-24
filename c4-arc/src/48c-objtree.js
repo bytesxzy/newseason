@@ -358,6 +358,10 @@ var OBJTREE = null;
     return rebuild(g, objs, labels, field);
   }
 
+  /* the context whose candidate sink receives near-misses; set by
+     generate() around fitPairs so the fitting code keeps its signature */
+  var nearCtx = null;
+
   function fitPairs(pairs, bg, deadline, heldOut) {
     var out = [], seen = {}, mi, pi, bi, i, b;
     for (mi = 0; mi < MODES.length; mi++) {
@@ -404,7 +408,15 @@ var OBJTREE = null;
                 var got = runTree(tree, pairs[i][0], mode2, bg);
                 if (got === null || !G.gEq(got, pairs[i][1])) { good = false; break; }
               }
-              if (!good) continue;
+              if (!good) {
+                /* the object rows were explained but running the tree does
+                   not reproduce the grids: a process-level near-miss */
+                if (nearCtx) CANDIDATES.offer(nearCtx, { family: "objects", module: "objtree",
+                  name: "objtree~[" + mode2 + "/" + label + "," + state.splits + "]", representation: "objects:" + mode2,
+                  fn: (function (t, m, b2) { return function (g) { return runTree(t, g, m, b2); }; })(tree, mode2, bg),
+                  depth: Math.min(6, state.splits + 1), complexity: BASE_COST + CELLTREE.treeBits(tree) / 12.0, why: "process_mismatch" });
+                continue;
+              }
               var held = true;
               if (folds2) {
                 for (i = 0; i < folds2.length; i++) {
@@ -449,7 +461,8 @@ var OBJTREE = null;
       var bg = backgrounds[bi];
       if (ctx.timed_out()) break;
       var fits;
-      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; }
+      nearCtx = ctx;
+      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; } finally { nearCtx = null; }
       var tag = bg === null ? "~" : "";
       for (i = 0; i < fits.length; i++) {
         var mode = fits[i][0], label = fits[i][1], tree = fits[i][2];

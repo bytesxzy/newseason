@@ -297,6 +297,9 @@ var REPAIR = null;
     this.outColors = G.csList(ctx.out_palette());
     this.newColors = G.csList(ctx.new_colors());
     this.stats = { runs: 0, baseRuns: 0 };
+    this.repCache = new Map();
+    this.sink = null;
+    this.usedSeeds = [];
   }
   ArcAdapter.prototype.baseOutputs = function (base) {
     if (!base) return this.grids;
@@ -321,15 +324,46 @@ var REPAIR = null;
     catch (e) { return null; }
     return (out && G.valid(out)) ? out : null;
   }
-  ArcAdapter.prototype.execute = function (prog) {
-    var bo = this.baseOutputs(prog.base), f = fromTree(prog.tree), out = [], i;
-    this.stats.runs++;
-    for (i = 0; i < this.grids.length; i++) out.push(runTree(f, bo[i], this.grids[i], this.bg));
-    return out;
+  /* Representation (17-representation.js): a program may be written in
+     another substrate. Execution is then encode -> base -> tree -> decode,
+     and every residual is still measured against the raw demonstrations. */
+  ArcAdapter.prototype.rep = function (name) {
+    if (!name || name === "raw" || typeof REPRESENT === "undefined") return null;
+    var hit = this.repCache.get(name);
+    if (hit !== undefined) return hit;
+    var p = REPRESENT.prepared(this.ctx, name), sub = p ? REPRESENT.taskIn(this.ctx, name) : null;
+    var rec = p && sub ? { name: name, p: p, bg: sub.bg(), sub: sub } : null;
+    this.repCache.set(name, rec);
+    return rec;
   };
+  ArcAdapter.prototype.execute = function (prog) {
+    var self = this;
+    var key = CANON ? CANON.structural(prog) : null;
+    return hypcacheEval(this.ctx, key, function () {
+      var f = fromTree(prog.tree), out = [], i, R = self.rep(prog.rep);
+      self.stats.runs++;
+      if (!R) {
+        var bo = self.baseOutputs(prog.base);
+        for (i = 0; i < self.grids.length; i++) out.push(runTree(f, bo[i], self.grids[i], self.bg));
+        return out;
+      }
+      for (i = 0; i < self.grids.length; i++) out.push(runInRep(R, prog.base, f, self.grids[i]));
+      return out;
+    });
+  };
+  function runInRep(R, base, f, x) {
+    var ex = REPRESENT.encIn(R.p, x);
+    if (!ex) return null;
+    var b = ex;
+    if (base) { try { b = base.apply(ex); } catch (e) { b = null; } if (!b || !G.valid(b)) return null; }
+    var y = runTree(f, b, ex, R.bg);
+    if (!y) return null;
+    return R.p.spec.kind === "input" ? y : REPRESENT.decode(R.p, y, x);
+  }
   /* A standalone closure for the portfolio: base then tree, on any grid. */
   ArcAdapter.prototype.closure = function (prog) {
-    var f = fromTree(prog.tree), base = prog.base, bg = this.bg;
+    var f = fromTree(prog.tree), base = prog.base, bg = this.bg, R = this.rep(prog.rep);
+    if (R) return function (g) { return runInRep(R, base, f, g); };
     return function (g) {
       var b = base ? base.apply(g) : g;
       if (!b || !G.valid(b)) return null;
@@ -338,10 +372,157 @@ var REPAIR = null;
   };
 
   ArcAdapter.prototype.seed = function (base, tree, meta) {
+    meta = meta || {};
+    var rep = meta.rep && meta.rep !== "raw" && this.rep(meta.rep) ? meta.rep : null;
     var h = new K.Hypothesis({ domain: "arc", representation: base ? "closure>prog" : "typed",
-      program: { base: base || null, tree: tree || { op: "in" } }, latentState: meta || {} });
+      representationId: rep || "raw",
+      program: { base: base || null, tree: tree || { op: "in" }, rep: rep }, latentState: meta });
     if (base) h.assumptions = [];
+    h.sourceFamily = meta.family || (base ? base.solver : "typed");
     return h;
+  };
+
+  /* ------------------------------------------------ kernel hooks (optional) */
+
+  ArcAdapter.prototype.structuralKey = function (h) {
+    return CANON ? CANON.structural(h.program) : null;
+  };
+  ArcAdapter.prototype.semanticKey = function (h) {
+    return CANON ? CANON.semanticRun(this.closure(h.program), this.ctx) : null;
+  };
+  ArcAdapter.prototype.estimateNovelty = function (h, frontier) {
+    if (!frontier.byCluster.has(h.cluster)) return 1;
+    return frontier.byCluster.get(h.cluster).length <= 1 ? 0.5 : 0;
+  };
+
+  /* PROPOSE_REPRESENTATION: move a hypothesis into another substrate. Typed
+     programs are carried over (literals remapped, then refitted on every
+     demonstration in the new substrate); an opaque specialist's rule is
+     re-induced by its own family inside the re-posed task. */
+  ArcAdapter.prototype.proposeRepresentations = function (h, diags) {
+    if (typeof REPRESENT === "undefined") return [];
+    var self = this, out = [], props = REPRESENT.propose(this.ctx, { diagnoses: diags || [] }, h, 3);
+    this.stats.repProposals = (this.stats.repProposals || 0) + props.length;
+    props.forEach(function (pr) {
+      if (!self.rep(pr.name)) return;
+      var mut = function (detail, exact) { return { kind: "migrate:" + pr.name, detail: detail, bits: 2 + (REPRESENT.get(pr.name).cost || 0), why: pr.why }; };
+      if (!h.program.base) {
+        var moved = REPRESENT.migrateTree(h.program.tree, pr.name, self.ctx, 4);
+        moved.slice(0, 3).forEach(function (m) {
+          var c = K.derive(h, { domain: "arc", representation: "typed", representationId: pr.name,
+            program: { base: null, tree: m.tree, rep: pr.name }, latentState: {} }, mut(m.exact ? "refit" : "remap"));
+          out.push(c);
+        });
+      } else {
+        /* re-induce with the base's own family in the new substrate */
+        var mod = self.moduleOf(h);
+        if (!mod) {
+          out.push(K.derive(h, { domain: "arc", representation: h.representation, representationId: pr.name,
+            program: { base: h.program.base, tree: h.program.tree, rep: pr.name }, latentState: {} }, mut("conjugate")));
+          return;
+        }
+        var sub = REPRESENT.taskIn(self.ctx, pr.name, nowMs() + 60);
+        if (!sub) return;
+        var hs = [];
+        try { hs = mod.generate(sub) || []; } catch (e) { hs = []; }
+        hs.slice(0, 3).forEach(function (hy) {
+          out.push(K.derive(h, { domain: "arc", representation: "closure>prog", representationId: pr.name,
+            program: { base: hy, tree: { op: "in" }, rep: pr.name }, latentState: {} }, mut("reinduce:" + hy.name)));
+        });
+      }
+    });
+    return out;
+  };
+  ArcAdapter.prototype.moduleOf = function (h) {
+    var m = h.latentState && (h.latentState.module || null);
+    if (m && moduleByName(m)) return moduleByName(m);
+    return null;
+  };
+
+  /* INVENT_ABSTRACTION: anti-unify the typed programs of near-solutions from
+     different clusters. Where two programs share an operator skeleton the
+     differing literals become holes and the template is refitted on ALL
+     demonstrations (PROG.refit); a colour-literal program is also offered
+     with its colours generalised to roles. Evidence from several
+     hypotheses is combined; nothing is enumerated blindly. */
+  ArcAdapter.prototype.inventAbstraction = function (hs) {
+    var self = this, out = [], typed = hs.filter(function (h) { return !h.program.base && h.program.tree.op !== "in"; });
+    function skeleton(t) { return t.op === "in" ? "$" : t.op + "(" + t.kids.map(skeleton).join(",") + ")"; }
+    var groups = {};
+    typed.forEach(function (h) { var k = skeleton(h.program.tree) + "@" + (h.program.rep || "raw"); (groups[k] || (groups[k] = [])).push(h); });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k], h0 = g[0], f;
+      try { f = fromTree(h0.program.tree); } catch (e) { return; }
+      var R = self.rep(h0.program.rep), pairs = R ? R.sub.train : self.ctx.train, cx = R ? R.sub : self.ctx;
+      var thetas = [];
+      try { thetas = T.refit(f.struct, pairs, cx, 4, 3000); } catch (e) { thetas = []; }
+      thetas.forEach(function (th) {
+        out.push(K.derive(h0, { domain: "arc", representation: h0.representation, program: { base: null, tree: T.toTree(f.struct, th), rep: h0.program.rep || null },
+          latentState: {} }, { kind: "invent:antiunify", detail: k + " x" + g.length, bits: 1 + g.length }));
+      });
+    });
+    /* partial evidence: the common subtree of two different skeletons */
+    if (typed.length >= 2 && out.length < 4) {
+      var a = typed[0].program.tree, b = typed[1].program.tree;
+      var common = commonSuffix(a, b);
+      if (common && common.op !== "in") {
+        var fc = fromTree(common), th2 = [];
+        try { th2 = T.refit(fc.struct, self.ctx.train, self.ctx, 2, 1500); } catch (e) { th2 = []; }
+        th2.forEach(function (th) {
+          out.push(K.derive(typed[0], { domain: "arc", representation: "typed", program: { base: null, tree: T.toTree(fc.struct, th), rep: null },
+            latentState: {} }, { kind: "invent:common", detail: skeleton(common), bits: 2 }));
+        });
+      }
+    }
+    return out;
+  };
+  /* the innermost (input-side) chain two unary programs share */
+  function commonSuffix(a, b) {
+    function chain(t) { var c = []; while (t && t.op !== "in" && t.kids && t.kids.length === 1) { c.push(t); t = t.kids[0]; } return c.reverse(); }
+    var ca = chain(a), cb = chain(b), i = 0;
+    while (i < ca.length && i < cb.length && ca[i].op === cb[i].op && JSON.stringify(ca[i].params) === JSON.stringify(cb[i].params)) i++;
+    if (!i) return null;
+    return T.cloneTree(ca[i - 1]);
+  }
+
+  /* VERIFY_DEEPLY: leave-one-out re-derivation of the repair's parameters. */
+  ArcAdapter.prototype.verifyDeep = function (h) {
+    if (typeof REFINEMENT === "undefined" || !REFINEMENT || !REFINEMENT.repairLOO) return null;
+    if (h.program.rep) return null;
+    var r = null;
+    try { r = REFINEMENT.repairLOO(this, h, nowMs() + 80); } catch (e) { r = null; }
+    if (!r || !r.trials) return null;
+    return { pass: r.wins / r.trials >= 0.5, wins: r.wins, trials: r.trials };
+  };
+
+  /* GENERATE_DISCRIMINATOR: active probes (58-counterfactual.js). */
+  ArcAdapter.prototype.generateDiscriminator = function (exact) {
+    if (typeof CFACT === "undefined" || !CFACT || !CFACT.discriminate) return null;
+    var self = this;
+    return CFACT.discriminate(this.ctx, exact.map(function (h) { return self.closure(h.program); }), { budgetMs: 60 });
+  };
+
+  /* RESTART_DIVERSE: seeds the refinement never used (candidate sink
+     reserve), then structural perturbations of unexplored hypotheses. */
+  ArcAdapter.prototype.restart = function (sample) {
+    var self = this, out = [];
+    if (this.sink && this.sink.reserve) {
+      this.sink.reserve(this.usedSeeds || [], 4).forEach(function (tr) {
+        var h = tr.tree && !tr.hyp ? self.seed(null, tr.tree, { family: tr.family, trace: tr.id })
+                                   : self.seed(tr.hyp, null, { family: tr.family, trace: tr.id, module: tr.module });
+        h.traceId = tr.id;
+        out.push(h);
+      });
+      this.usedSeeds = (this.usedSeeds || []).concat(out);
+    }
+    (sample || []).slice(0, 3).forEach(function (h) {
+      ["crop", "transpose", "complete"].forEach(function (op) {
+        var t = withLeaf(h.program.tree, op);
+        if (t) out.push(K.derive(h, { domain: "arc", representation: h.representation, program: { base: h.program.base, tree: t, rep: h.program.rep || null },
+          latentState: {} }, { kind: "restart:prepend", detail: op, bits: 2 }));
+      });
+    });
+    return out;
   };
 
   ArcAdapter.prototype.evaluate = function (h) {
@@ -358,7 +539,8 @@ var REPAIR = null;
     var base = h.program.base;
     h.complexity = (base ? Math.max(0, Number(base.cost) || 0) * 8 : 0) + treeBits(h.program.tree);
     h.key = outs.map(function (g) { return g ? G.gkey(g) : "~"; }).join("#");
-    h.cluster = q.sig + "|" + (base ? base.solver : "typed") + "|" + h.program.tree.op;
+    h.cluster = q.sig + "|" + (base ? base.solver : "typed") + "|" + h.program.tree.op + (h.program.rep ? "@" + h.program.rep : "");
+    h.representationId = h.program.rep || "raw";
     var testOk = te.every(function (g) { return g !== null; });
     if (q.exact) h.status = testOk ? "exact" : "invalid";
     else h.status = tr.every(function (g) { return g === null; }) ? "invalid" : "near";
@@ -378,6 +560,23 @@ var REPAIR = null;
 
   ArcAdapter.prototype.diagnose = function (h) {
     var d = RESID.diagnose(h.latentState.train, this.ctx);
+    /* iteration scope: does running the program once more on its own output
+       get closer? Then the rule should be applied until it stops changing,
+       not once (or once more). Only this adapter can test it: it needs the
+       program, not just its predictions. */
+    try {
+      if (!h.program.base && !h.program.rep && h.program.tree.op !== "in" && d.residual && !d.residual.exact) {
+        var f = fromTree(h.program.tree), again = [], i;
+        for (i = 0; i < this.nTr; i++) {
+          var p = h.latentState.train[i];
+          again.push(p ? runTree(f, p, this.ctx.train[i][0], this.bg) : null);
+        }
+        var q2 = RESID.quick(again, this.ctx);
+        if (q2.norm < d.residual.norm - 1e-9)
+          d.diagnoses.push({ kind: "wrong_iteration_scope", level: "program", repair: "iterate", weight: 0.5, strong: q2.exact });
+      }
+    } catch (e) { /* advisory */ }
+    d.diagnoses.sort(function (a, b) { return (b.strong - a.strong) || (b.weight - a.weight); });
     h.latentState.diagDetail = d;
     return d.diagnoses;
   };
@@ -421,7 +620,7 @@ var REPAIR = null;
     var mut = { kind: kind, detail: detail || "", bits: bits };
     if (extra) for (var k in extra) mut[k] = extra[k];
     var h = K.derive(this.p, { domain: "arc", representation: this.p.representation,
-      program: { base: this.p.program.base, tree: tree }, latentState: {} }, mut);
+      program: { base: this.p.program.base, tree: tree, rep: this.p.program.rep || null }, latentState: {} }, mut);
     var learned = this.stats ? this.stats.prior(this.diag, kind) : 0;
     this.list.push([prio + 0.5 * learned - 0.02 * bits, this.list.length, h]);
   };
@@ -447,7 +646,7 @@ var REPAIR = null;
   function nodeInputs(adapter, h, path) {
     var node = at(h.program.tree, path);
     if (!node.kids || !node.kids.length) return null;
-    var sub = { base: h.program.base, tree: node.kids[0] };
+    var sub = { base: h.program.base, tree: node.kids[0], rep: h.program.rep || null };
     return adapter.execute(sub).slice(0, adapter.nTr);
   }
 
@@ -718,6 +917,26 @@ var REPAIR = null;
         break;
       case "relation_mismatch": addParamSubs(P, [T.T_SEL, T.T_DIR, T.T_OFS], prio, null, 10); break;
       case "no_output": addDeletes(P, prio); addOpSubs(P, prio - 0.1); break;
+      case "wrong_iteration_scope":
+        P.add(wrap(P.p.program.tree, P.p.program.tree.op, P.p.program.tree.params.slice()), "iterate", "twice", prio + 0.5);
+        break;
+      case "wrong_segmentation": case "wrong_grouping":
+        addParamSubs(P, [T.T_SEG], prio + 0.2, null, 8); addParamSubs(P, [T.T_SEL, T.T_KEY], prio - 0.1, null, 8); break;
+      case "wrong_anchor":
+        addParamSubs(P, [T.T_SEL], prio + 0.1, null, 10); addObjectMoves(P, d, prio - 0.1); break;
+      case "wrong_symmetry_frame":
+        /* the target has a symmetry the prediction breaks: complete it */
+        P.add(wrap(P.p.program.tree, "complete"), "append:local", "complete", prio);
+        P.add(wrap(P.p.program.tree, "repair"), "append:local", "repair", prio - 0.05);
+        break;
+      case "missing_composition":
+        addLocal(P, d, prio - 0.2);
+        DIHEDRAL.forEach(function (op) { P.add(wrap(P.p.program.tree, op), "append:dihedral", op, prio - 0.3); });
+        break;
+      case "overgeneralized_predicate":
+        P.add(wrap(P.p.program.tree, "restrict_objs", [{ f: d.feature, v: d.value, inv: true }]), "specialize", d.feature + "=" + d.value, prio);
+        break;
+      case "undergeneralized_predicate": addForall(P, prio); break;
       default: addParamSubs(P, null, prio - 0.5, null, 8);
     }
   }
@@ -755,7 +974,10 @@ var REPAIR = null;
     return P.done();
   };
 
-  REPAIR = { ArcAdapter: ArcAdapter, toTree: toTree, fromTree: fromTree, render: render,
+  REPAIR = { ArcAdapter: ArcAdapter, toTree: toTree, fromTree: fromTree, render: render, runInRep: runInRep,
+             wrap: wrap, withLeaf: withLeaf, Proposals: Proposals, addForDiag: addForDiag, addParamSubs: addParamSubs,
+             addOpSubs: addOpSubs, addDeletes: addDeletes, addClosers: addClosers, addLocal: addLocal, addRoles: addRoles,
+             addForall: addForall, addMasks: addMasks, SIBLINGS: SIBLINGS, DIHEDRAL: DIHEDRAL, EXPAND: EXPAND,
              treeBits: treeBits, nodesOf: nodesOf, usesInput: usesInput, roleOf: roleOf,
              roleColor: roleColor, paramKinds: paramKinds, runTree: runTree, clone: clone,
              fitCtxTable: fitCtxTable };

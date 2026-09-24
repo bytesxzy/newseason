@@ -31,26 +31,40 @@ var PROG = null;
   /* ``aux`` operators form a second alphabet reached through a one-bit
      escape. They are excluded from the Kraft total, so adding repair-only
      operators leaves every existing program's code length -- and therefore
-     every existing ranking -- exactly as it was. */
+     every existing ranking -- exactly as it was.
+
+     Learned macros (56b-macros.js) form a third alphabet behind a two-bit
+     escape, with their own Kraft total. A macro's weight is its VALIDATED
+     utility (held-out success and compression measured by tools/arc-macros.js),
+     not the fact that it was learned; a macro reference therefore costs
+     2 + -log2(w / W_macro) bits plus its parameters, and adding or removing
+     macros never changes the code length of a program that does not use
+     one. */
   function register(name, fn, kinds, weight, aux) {
     OPS[name] = { name: name, fn: fn, kinds: kinds || [T_GRID],
-                  weight: weight === undefined ? 1.0 : weight, aux: !!aux };
+                  weight: weight === undefined ? 1.0 : weight, aux: !!aux,
+                  macro: aux === "macro" };
     OP_BITS = null;
     return OPS[name];
   }
+  function unregister(name) { if (OPS.hasOwnProperty(name)) { delete OPS[name]; OP_BITS = null; } }
 
+  var MACRO_ESCAPE_BITS = 2.0;
   function opBits(name) {
     if (OP_BITS === null) {
       OP_BITS = {};
       var total = 0, k;
-      var auxTotal = 0;
+      var auxTotal = 0, macroTotal = 0;
       for (k in OPS) if (OPS.hasOwnProperty(k)) {
-        if (OPS[k].aux) auxTotal += OPS[k].weight; else total += OPS[k].weight;
+        if (OPS[k].macro) macroTotal += OPS[k].weight;
+        else if (OPS[k].aux) auxTotal += OPS[k].weight; else total += OPS[k].weight;
       }
       if (!total) total = 1.0;
       if (!auxTotal) auxTotal = 1.0;
+      if (!macroTotal) macroTotal = 1.0;
       for (k in OPS) if (OPS.hasOwnProperty(k))
-        OP_BITS[k] = OPS[k].aux ? 1.0 - Math.log(Math.max(OPS[k].weight, 1e-9) / auxTotal) / Math.LN2
+        OP_BITS[k] = OPS[k].macro ? MACRO_ESCAPE_BITS - Math.log(Math.max(OPS[k].weight, 1e-9) / macroTotal) / Math.LN2
+                   : OPS[k].aux ? 1.0 - Math.log(Math.max(OPS[k].weight, 1e-9) / auxTotal) / Math.LN2
                                 : -Math.log(Math.max(OPS[k].weight, 1e-9) / total) / Math.LN2;
       OP_BITS["in"] = -Math.log(1.0 / (total + 1.0)) / Math.LN2;
     }
@@ -610,7 +624,147 @@ var PROG = null;
     return out.slice(0, cap);
   }
 
+  /* -- trees ------------------------------------------------------------
+     The editable form of a program, shared by canonicalisation
+     (09c-canonical.js), repair (56-repair.js), population search
+     (56a-popsearch.js) and macro mining (56b-macros.js):
+       tree := {op: "in"} | {op, kids: [tree...], params: [literal...]} */
+
+  function toTree(struct, theta) {
+    var it = iterOf(theta || []);
+    return (function walk(n) {
+      if (isVar(n)) return { op: "in" };
+      if (n[0] === "hcat" || n[0] === "vcat") return { op: n[0], kids: [walk(n[1]), walk(n[2])], params: [] };
+      var kids = [], params = [], i;
+      for (i = 1; i < n.length; i++) {
+        if (isHole(n[i])) params.push(it.next());
+        else kids.push(walk(n[i]));
+      }
+      return { op: n[0], kids: kids, params: params };
+    })(struct);
+  }
+
+  function fromTree(tree) {
+    if (tree.op === "in") return { struct: VAR, theta: [] };
+    if (tree.op === "hcat" || tree.op === "vcat") {
+      var a = fromTree(tree.kids[0]), b = fromTree(tree.kids[1]);
+      return { struct: [tree.op, a.struct, b.struct], theta: a.theta.concat(b.theta) };
+    }
+    var op = OPS[tree.op];
+    if (!op) throw new Error("unknown operator " + tree.op);
+    var struct = [tree.op], theta = [], ki = 0, pi = 0, i;
+    for (i = 0; i < op.kinds.length; i++) {
+      if (op.kinds[i] === T_GRID) {
+        var sub = fromTree(tree.kids[ki++]);
+        struct.push(sub.struct); theta = theta.concat(sub.theta);
+      } else { struct.push(hole(op.kinds[i])); theta.push(tree.params[pi++]); }
+    }
+    return { struct: struct, theta: theta };
+  }
+
+  function cloneTree(t) {
+    if (t.op === "in") return { op: "in" };
+    var c = { op: t.op, kids: t.kids.map(cloneTree), params: t.params.map(function (p) {
+      return p && typeof p === "object" ? JSON.parse(JSON.stringify(p)) : p; }) };
+    if (t.rep) c.rep = t.rep;
+    return c;
+  }
+  /* pre-order list of [node, path], path = kid indices from the root */
+  function treeNodes(t) {
+    var out = [];
+    (function walk(n, path) {
+      out.push([n, path]);
+      if (n.kids) for (var i = 0; i < n.kids.length; i++) walk(n.kids[i], path.concat([i]));
+    })(t, []);
+    return out;
+  }
+  function treeAt(t, path) { var n = t, i; for (i = 0; i < path.length; i++) n = n.kids[path[i]]; return n; }
+  function treeReplace(t, path, sub) {
+    if (!path.length) return sub;
+    var c = cloneTree(t), n = c, i;
+    for (i = 0; i < path.length - 1; i++) n = n.kids[path[i]];
+    n.kids[path[path.length - 1]] = sub;
+    return c;
+  }
+  function treeSize(t) { return treeNodes(t).filter(function (p) { return p[0].op !== "in"; }).length; }
+  function treeDepth(t) {
+    if (!t || t.op === "in") return 0;
+    var d = 0, i;
+    for (i = 0; i < t.kids.length; i++) d = Math.max(d, treeDepth(t.kids[i]));
+    return d + 1;
+  }
+  function treeRender(t) { var f = fromTree(t); return render(f.struct, f.theta); }
+  function treeBits(t) { var f = fromTree(t); return structBits(f.struct) + thetaBits(f.struct, f.theta); }
+  function runTree(t, g, env) {
+    var f = fromTree(t), out;
+    try { out = evalNode(f.struct, iterOf(f.theta), g, env); } catch (e) { return null; }
+    return (out && G.valid(out)) ? out : null;
+  }
+
+  /* -- macros -----------------------------------------------------------
+     A macro is a named, typed template over existing operators whose
+     literal slots are parameters: {"$": i} marks parameter i. It is
+     registered as operator "m:<name>" of kind [G, param kinds...] in the
+     macro alphabet, so bottom-up synthesis, repair and population search can
+     use it as one step; its definition always reduces to existing typed
+     programs (expandTree), so nothing it computes is new behaviour. */
+  var MACRO_DEFS = {};
+  function instantiate(template, args) {
+    return (function walk(n) {
+      if (n.op === "in") return { op: "in" };
+      var params = n.params.map(function (p) {
+        if (p && typeof p === "object" && p.hasOwnProperty("$")) return args[p.$];
+        return p && typeof p === "object" ? JSON.parse(JSON.stringify(p)) : p;
+      });
+      return { op: n.op, kids: n.kids.map(walk), params: params };
+    })(template);
+  }
+  function defineMacro(spec) {
+    var name = "m:" + spec.name;
+    var template = spec.template, kinds = spec.params || [];
+    var compiled = null;
+    register(name, function (e, g) {
+      var args = Array.prototype.slice.call(arguments, 2), f;
+      try {
+        if (!kinds.length) { if (!compiled) compiled = fromTree(template); f = compiled; }
+        else f = fromTree(instantiate(template, args));
+      } catch (err) { return null; }
+      return evalNode(f.struct, iterOf(f.theta), g, e);
+    }, [T_GRID].concat(kinds), Math.max(1e-3, +spec.weight || 1.0), "macro");
+    MACRO_DEFS[name] = { name: name, spec: spec, kinds: kinds, template: template,
+                         version: spec.version || 1, preconditions: spec.preconditions || {} };
+    return MACRO_DEFS[name];
+  }
+  function clearMacros() {
+    Object.keys(MACRO_DEFS).forEach(function (k) { unregister(k); delete MACRO_DEFS[k]; });
+  }
+  function macroOps(ctx) {
+    return Object.keys(MACRO_DEFS).filter(function (k) {
+      var pre = MACRO_DEFS[k].preconditions || {};
+      if (ctx && pre.sameShape && !ctx.same_shape()) return false;
+      return !!OPS[k];
+    }).sort();
+  }
+  /* Replace every macro node by its instantiated definition (recursively). */
+  function expandTree(t) {
+    if (!t || t.op === "in") return t ? { op: "in" } : t;
+    var kids = t.kids.map(expandTree);
+    var def = MACRO_DEFS[t.op];
+    if (!def) return { op: t.op, kids: kids, params: t.params.slice() };
+    var body = expandTree(instantiate(def.template, t.params));
+    /* graft the macro's argument into the template's input leaf */
+    return (function graft(n) {
+      if (n.op === "in") return kids[0] ? cloneTree(kids[0]) : { op: "in" };
+      return { op: n.op, kids: n.kids.map(graft), params: n.params.slice() };
+    })(body);
+  }
+
   PROG = {
+    toTree: toTree, fromTree: fromTree, cloneTree: cloneTree, treeNodes: treeNodes, treeAt: treeAt,
+    treeReplace: treeReplace, treeSize: treeSize, treeDepth: treeDepth, treeRender: treeRender,
+    treeBits: treeBits, runTree: runTree, unregister: unregister,
+    defineMacro: defineMacro, clearMacros: clearMacros, macroOps: macroOps, expandTree: expandTree,
+    instantiate: instantiate, MACRO_DEFS: MACRO_DEFS, MACRO_ESCAPE_BITS: MACRO_ESCAPE_BITS, lit: lit,
     T_GRID: T_GRID, T_COLOR: T_COLOR, T_INT: T_INT, T_DIR: T_DIR, T_SEL: T_SEL,
     T_SEG: T_SEG, T_AXIS: T_AXIS, T_CMAP: T_CMAP, T_KEY: T_KEY, T_OFS: T_OFS, T_ROLE: T_ROLE,
     VAR: VAR, hole: hole, isHole: isHole, isVar: isVar, OPS: OPS,

@@ -165,7 +165,17 @@ var CANVASTREE = null;
       var label = list[bi][0], allowed = list[bi][1];
       var fit = CELLTREE.growWith(rows, allowed, bits,
         Math.max(4, Math.min(48, Math.floor(rows.length / 16))));
-      if (!fit) continue;
+      if (!fit) {
+        if (CANDIDATES.active(ctx) && !ctx.timed_out()) {
+          var lf = CELLTREE.growWithLoose(rows, allowed, bits, Math.max(4, Math.min(48, Math.floor(rows.length / 16))));
+          if (lf) CANDIDATES.offer(ctx, { family: "tiling", module: "canvastree",
+            name: "canvas~[" + label + "," + (up ? "up" : "dn") + "]", representation: "canvas:" + (up ? "up" : "dn"),
+            fn: up ? (function (t, k, b) { return function (g) { return applyUp(t, g, k[0], k[1], b); }; })(lf[0], up, bg)
+                   : (function (t, k, b) { return function (g) { return applyDn(t, g, k[0], k[1], b); }; })(lf[0], dn, bg),
+            depth: Math.min(6, lf[1]), complexity: 1.0 + CELLTREE.bitsWith(lf[0], bits) / 12.0, why: "impure_leaves" });
+        }
+        continue;
+      }
       var tree = fit[0], splits = fit[1];
       var held = true;
       if (m >= 3) {

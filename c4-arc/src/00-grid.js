@@ -30,10 +30,61 @@ function gkey(g) {
   return k;
 }
 
+/* 53-bit structural hash of a grid, two independent 32-bit lanes seeded
+   with the dimensions, cached on the grid like gkey. For search-state
+   deduplication only: a collision (probability ~n^2 / 2^54 for n states) can
+   cost a missed state, never a wrong answer, because every program is still
+   verified against the demonstrations cell by cell. Profiling the typed
+   synthesis put 46% of its time in building gkey strings for states that are
+   only ever compared, never read. */
+function ghashLanes(g) {
+  if (g.__h1 === undefined) {
+    var h = g.length, w = h ? g[0].length : 0, a = 0x811c9dc5 ^ (h * 64 + w), b = Math.imul(0x27d4eb2d, h * 131 + w + 7), r, c, row, v;
+    for (r = 0; r < h; r++) {
+      row = g[r];
+      for (c = 0; c < w; c++) {
+        v = row[c] + 1;
+        a = Math.imul(a ^ v, 16777619);
+        b = Math.imul(b ^ (v * 0x9e3779b1), 0x85ebca6b);
+        b = (b << 13) | (b >>> 19);
+      }
+      a = Math.imul(a ^ 0xff, 16777619);
+    }
+    g.__h1 = a >>> 0; g.__h2 = (b ^ (b >>> 16)) >>> 0;
+  }
+  return g;
+}
+function ghash(g) { ghashLanes(g); return g.__h1 * 2097152 + (g.__h2 & 2097151); }
+/* one number for an ordered list of grids (a search state) */
+function ghashList(list) {
+  var a = 0x9747b28c ^ list.length, b = 0x85ebca6b, i, g;
+  for (i = 0; i < list.length; i++) {
+    g = list[i];
+    if (!g) { a = Math.imul(a ^ 0x7f4a7c15, 0x5bd1e995); continue; }
+    ghashLanes(g);
+    a = Math.imul(a ^ g.__h1, 0x5bd1e995); a ^= a >>> 15;
+    b = Math.imul(b ^ g.__h2, 0xc2b2ae35); b ^= b >>> 13;
+  }
+  return (a >>> 0) * 2097152 + ((b >>> 0) & 2097151);
+}
+
+/* Structural equality. Same answer as comparing gkey strings, without
+   building them: dimensions, then cached keys or hash lanes when both sides
+   already carry them, then the cells themselves with an early exit. */
 function gEq(a, b) {
   if (a === b) return true;
   if (a === null || b === null || a === undefined || b === undefined) return false;
-  return gkey(a) === gkey(b);
+  var h = a.length, r, c, x, y;
+  if (h !== b.length) return false;
+  if (a.__k !== undefined && b.__k !== undefined) return a.__k === b.__k;
+  if (a.__h1 !== undefined && b.__h1 !== undefined && (a.__h1 !== b.__h1 || a.__h2 !== b.__h2)) return false;
+  for (r = 0; r < h; r++) {
+    x = a[r]; y = b[r];
+    if (x === y) continue;
+    if (!x || !y || x.length !== y.length) return false;
+    for (c = 0; c < x.length; c++) if (x[c] !== y[c]) return false;
+  }
+  return true;
 }
 
 /* Colour sets are 10-bit masks: the palette algebra below is set union,
@@ -115,7 +166,20 @@ function rot90(g) {
 }
 function rot180(g) { return flipH(flipV(g)); }
 function rot270(g) { var t = transpose(g); return t.reverse(); }
-function antiTranspose(g) { var t = transpose(flipH(g)); return t.reverse(); }
+/* Reflection in the anti-diagonal: (r, c) -> (W-1-c, H-1-r). The previous
+   body, reverse(transpose(flipH(g))), equals transpose(g) -- a duplicate of
+   another symmetry that left the eighth one unreachable. The canonicaliser's
+   group table (09c-canonical.js) is derived from these primitives, which is
+   how the duplicate was found. */
+function antiTranspose(g) {
+  var h = g.length, w = g[0].length, out = [], i, j, row;
+  for (i = 0; i < w; i++) {
+    row = new Array(h);
+    for (j = 0; j < h; j++) row[j] = g[h - 1 - j][w - 1 - i];
+    out.push(row);
+  }
+  return out;
+}
 
 var DIHEDRAL = [
   ["id", function (g) { return g; }],
@@ -611,6 +675,7 @@ function wrapTranslate(g, dr, dc) {
 
 var G = {
   NCOLORS: NCOLORS, enc: enc, decR: decR, decC: decC, gkey: gkey, gEq: gEq,
+  ghash: ghash, ghashList: ghashList,
   csAdd: csAdd, csHas: csHas, csUnion: csUnion, csDiff: csDiff, csSubset: csSubset,
   csSize: csSize, csList: csList, csFrom: csFrom,
   dims: dims, gh: gh, gw: gw, area: area, valid: valid, isGrid: isGrid, asGrid: asGrid,

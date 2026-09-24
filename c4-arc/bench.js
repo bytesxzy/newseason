@@ -7,7 +7,11 @@ const { Worker, isMainThread, parentPort, workerData } = require('node:worker_th
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
 if (!isMainThread) {
   const E = require(workerData.engine);
-  if (workerData.policy) E.activatePlanner(E.loadPlanner(require(workerData.policy)));
+  if (workerData.policy) E.activatePlanner(E.loadPlanner(require(workerData.policy), { clean: workerData.policyMode === 'clean' }));
+  if (workerData.ablate && workerData.ablate.length && E.configure) {
+    const off = {}; for (const a of workerData.ablate) off[a] = false;
+    E.configure(off);
+  }
   parentPort.on('message', ({index, task}) => {
     try {
       for (const t of task.test) Object.defineProperty(t, 'output', {get() {throw Error('Test-output access during inference');}});
@@ -22,11 +26,20 @@ if (!isMainThread) {
   function arg(k,d) {const i=args.indexOf('--'+k); return i<0?d:args[i+1];}
   const root = path.resolve(arg('root',path.join(__dirname,'..')));
   const engine = path.join(root,'c4-arc-engine.js');
-  const policy = args.includes('--no-policy') ? null : path.join(root,'c4-arc-policy.js');
+  /* policy modes, never mixed in one result directory:
+       legacy  the shipped planner, including its benchmark-derived memory
+       clean   the same planner with the task-history memory rows removed
+       none    no planner (equivalent to the old --no-policy) */
+  const policyMode = args.includes('--no-policy') ? 'none' : arg('policy-mode', 'legacy');
+  if (!['legacy', 'clean', 'none'].includes(policyMode)) throw Error('--policy-mode must be legacy, clean or none');
+  const policy = policyMode === 'none' ? null : path.join(root,'c4-arc-policy.js');
+  /* ablations: canon,pop,tta,meta,refine,counterfactual,macros,pass2 switch
+     an engine stage off; represent removes the representation family */
+  const ablate = arg('ablate','').split(',').filter(Boolean);
   const budget = Number(arg('budget',3)), jobs = Number(arg('jobs',2));
   const start=Number(arg('start',0)), end=Number(arg('end',400));
   const out=path.resolve(arg('out',path.join(root,'bench-results')));
-  const without=arg('without','').split(',').filter(Boolean);
+  const without=arg('without','').split(',').filter(Boolean).concat(ablate.includes('represent')?['represent']:[]);
   if (!(budget>0 && Number.isInteger(jobs) && jobs>=1 && jobs<=4)) throw Error('Use positive budget and 1..4 workers');
   fs.mkdirSync(out,{recursive:true});
   const prefix=arg('prefix','arc1_');
@@ -35,7 +48,9 @@ if (!isMainThread) {
   const grid=s=>s.split('|').map(r=>[...r].map(Number));
   const pairs=s=>s.split(';').filter(Boolean).map(p=>{const [x,y]=p.split('>'); return {input:grid(x), output:y?grid(y):undefined};});
   const tasks=packed.filter(t=>!ids.length||ids.includes(t[0])).map(t=>({id:t[0],train:pairs(t[1]),test:pairs(t[2])}));
-  const config={engine_sha256:hash(fs.readFileSync(engine)),corpus_sha256:hash(fs.readFileSync(path.join(root,'c4-arc-tasks.js'))),policy_sha256:policy?hash(fs.readFileSync(policy)):null,budget,jobs,start,end,without,ids,node:process.version};
+  const config={engine_sha256:hash(fs.readFileSync(engine)),corpus_sha256:hash(fs.readFileSync(path.join(root,'c4-arc-tasks.js'))),policy_sha256:policy?hash(fs.readFileSync(policy)):null,budget,jobs,start,end,without,ids,node:process.version,
+    policy_mode:policyMode,ablate,
+    note:policyMode==='legacy'?'legacy planner: its memory was built from solved ARC development tasks; not a clean measurement':policyMode==='clean'?'clean planner: task-history memory disabled; general weights (fitted on development tasks) kept':'no planner'};
   const meta=path.join(out,'config.json');
   if(fs.existsSync(meta)&&JSON.stringify(JSON.parse(fs.readFileSync(meta)))!==JSON.stringify(config)) throw Error('Resume configuration mismatch; use a fresh output directory');
   fs.writeFileSync(meta,JSON.stringify(config,null,2));
@@ -66,7 +81,7 @@ if (!isMainThread) {
   if(!queue.length) finish();
   else for(let i=0;i<Math.min(jobs,queue.length);i++) {
     active++;
-    const w=new Worker(__filename,{workerData:{engine,policy,budget,without}});
+    const w=new Worker(__filename,{workerData:{engine,policy,policyMode,ablate,budget,without}});
     let timer, current;
     function next(){if(!queue.length){w.terminate();if(--active===0)finish();return;}current=queue.shift();const t=tasks[current];timer=setTimeout(()=>{throw Error(`Worker watchdog expired on ${t.id}; committed tasks can be resumed`);},Math.max(30000,budget*5000));w.postMessage({index:current,task:{train:t.train,test:t.test.map(p=>({input:p.input}))}});}
     w.on('message',msg=>{clearTimeout(timer);save(msg.index,msg);next();});

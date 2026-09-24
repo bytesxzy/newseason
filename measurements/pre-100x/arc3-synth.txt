@@ -1,0 +1,47 @@
+{
+ "with_transfer": {
+  "complete_rate": 0.8111111111111111,
+  "over": 11,
+  "timeout": 6,
+  "semantics_rate": 0.9083333333333333,
+  "steps_first": 20.5,
+  "steps_later": 18.033333333333335,
+  "bySuite": {
+   "basic": {
+    "levels": 15,
+    "complete": 15,
+    "over": 0
+   },
+   "hazard": {
+    "levels": 15,
+    "complete": 10,
+    "over": 5
+   },
+   "keydoor": {
+    "levels": 15,
+    "complete": 12,
+    "over": 0
+   },
+   "button": {
+    "levels": 15,
+    "complete": 13,
+    "over": 0
+   },
+   "teleport": {
+    "levels": 15,
+    "complete": 15,
+    "over": 0
+   },
+   "hazard+keydoor": {
+    "levels": 15,
+    "complete": 8,
+    "over": 6
+   }
+  }
+ },
+ "without_transfer": {
+  "complete_rate": 0.6444444444444445,
+  "steps_first": 20.5,
+  "steps_later": 23.7
+ }
+}

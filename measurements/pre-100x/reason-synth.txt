@@ -1,0 +1,18 @@
+{
+ "overall": {
+  "n": 256,
+  "accuracy": 1,
+  "coverage": 1,
+  "brier": 0.0036600507812499915,
+  "ece": 0.02665234374999603,
+  "wrong_confident": 0
+ },
+ "derivation_check": {
+  "corrupted": 103,
+  "detected": 103,
+  "localized": 103,
+  "correct_chains": 97,
+  "false_alarms": 0
+ },
+ "by_family": "linear:1.00 quadratic:1.00 system:1.00 deriv:1.00 integral:1.00 choose:1.00 gcd:1.00 lcm:1.00 modpow:1.00 prime:1.00 dice:1.00 coins:1.00 series:1.00 path:1.00 mc:1.00 arith:1.00"
+}

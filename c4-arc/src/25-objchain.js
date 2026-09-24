@@ -129,6 +129,13 @@
       }
       if (!nxt.length || nowMs() > deadline || found.size >= 4) break;
       nxt.sort(function (a, b) { return b[0] - a[0]; });
+      /* the closest chains that do not yet reproduce the demonstrations are
+         structured near-misses (55a-candidate.js); their training outputs
+         are already computed */
+      if (CANDIDATES.active(ctx)) for (i = 0; i < Math.min(3, nxt.length); i++)
+        CANDIDATES.offer(ctx, { family: "objects", module: "objchain", fn: _chain(nxt[i][1][1]),
+          name: "chain~:" + nxt[i][1][2], preds: nxt[i][1][0].slice(0, nTr), representation: "objects",
+          depth: depth, complexity: 2.6 + nxt[i][1][3], why: "chain_incomplete" });
       frontier = [];
       for (i = 0; i < Math.min(_BEAM, nxt.length); i++) frontier.push(nxt[i][1]);
     }

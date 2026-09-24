@@ -139,6 +139,7 @@ var GROWTREE = null;
     return Math.min(120, Math.max(4 * depth + 4, G.gh(g) + G.gw(g)));
   }
 
+  var nearCtx = null;
   function fitPairs(pairs, bg, deadline, heldOut) {
     var out = [], di, bi, i, b;
     var all = CELLTREE.banks(), useBanks = [];
@@ -177,7 +178,12 @@ var GROWTREE = null;
           var got = runTo(tree, pairs[i][0], bg, capFor(pairs[i][0], depth));
           if (got === null || !G.gEq(got, pairs[i][1])) { good = false; break; }
         }
-        if (!good) continue;
+        if (!good) {
+          if (nearCtx) CANDIDATES.offer(nearCtx, { family: "cellwise", module: "growtree", name: "grow~[" + label + "]",
+            representation: "process", fn: (function (t, b2, d) { return function (g) { return runTo(t, g, b2, capFor(g, d)); }; })(tree, bg, depth),
+            depth: Math.min(6, state.splits + 1), complexity: 1.0 + CELLTREE.treeBits(tree) / 12.0, why: "process_mismatch" });
+          continue;
+        }
         var held = true;
         if (folds) {
           for (i = 0; i < folds.length; i++) {
@@ -208,7 +214,8 @@ var GROWTREE = null;
       var bg = backgrounds[bi];
       if (ctx.timed_out()) break;
       var fits;
-      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; }
+      nearCtx = ctx;
+      try { fits = fitPairs(pairs, bg, ctx.deadline); } catch (e) { continue; } finally { nearCtx = null; }
       var tag = bg === null ? "~" : "";
       for (i = 0; i < fits.length; i++) {
         var label = fits[i][0], tree = fits[i][1], bits = fits[i][2];

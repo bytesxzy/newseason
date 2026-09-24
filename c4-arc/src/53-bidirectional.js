@@ -201,10 +201,22 @@ var BIDI = (function () {
       stats.leaf_calls++;
       var hs;try{hs=mod.generate(job.sub);}catch(e){stats.errors++;continue;}
       hs=hs.slice().sort(function(a,b){return a.cost-b.cost;});
-      var accepted=0;
+      var accepted=0,nearJob=0;
       for(var hi=0;hi<hs.length;hi++){
         if(nowMs()>=end)break outer;
         if(hs[hi].fits(job.sub.train)){keep(job,hs[hi]);if(++accepted>=3)break;}
+        else if(nearJob<1&&CANDIDATES.active(ctx)){
+          /* a leaf rule that almost explains the latent task, decoded back
+             through the inverse construction: a near-miss in that representation */
+          nearJob++;
+          (function(jb,h){
+            CANDIDATES.offer(ctx,{family:'bidirectional',module:'bidirectional',
+              name:'bidi~['+render(jb.rep.node)+']('+h.solver+':'+h.name+'('+jb.pr.p.name+'))',
+              representation:'latent:'+render(jb.rep.node),depth:1+jb.rep.depth,complexity:2.0+jb.rep.cost+jb.pr.p.cost+h.cost,
+              fn:function(g){var x=safe(jb.pr.p.run,g);if(!x)return null;var z=h.apply(x);return z?safe(jb.rep.decode,z,g):null;},
+              why:'latent_mismatch'});
+          })(job,hs[hi]);
+        }
       }
     }
     behaviors.forEach(function(h){found.push(h);});

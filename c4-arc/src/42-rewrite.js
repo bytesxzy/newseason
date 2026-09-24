@@ -184,11 +184,19 @@
       for (m = 0; m < mods.length; m++) {
         if (nowMs() > deadline) break;
         try { hyps = hypcacheGenerate(mods[m], sub); } catch (e) { continue; }
+        var nearHere = 0;
         for (j = 0; j < hyps.length; j++) {
           hp = hyps[j];
           if (hp.fits(sub.train)) {
             res.push(new Hyp(inR[i][0] + "|" + hp.name, _chainIn(T, hp), 3.0 + hp.cost, "compose"));
             if (res.length > 60) break;
+          } else if (nearHere < 2 && CANDIDATES.active(ctx)) {
+            /* a specialist that almost explains the re-posed task: a near-miss
+               in the rewritten representation */
+            nearHere++;
+            CANDIDATES.offer(ctx, { family: "compose", module: "rewrite", fn: _chainIn(T, hp),
+              name: inR[i][0] + "|~" + hp.name, representation: "rewrite:" + inR[i][0], depth: 2,
+              complexity: 3.0 + hp.cost, why: "rewritten_task_mismatch" });
           }
         }
         if (res.length > 60) break;

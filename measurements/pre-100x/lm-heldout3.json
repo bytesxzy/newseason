@@ -1,0 +1,355 @@
+{
+  "root": "/home/user/newseason",
+  "total": 36,
+  "pass": 34,
+  "accuracy_pct": 94.4,
+  "by_category": {
+    "quantity": {
+      "total": 15,
+      "pass": 15
+    },
+    "underdetermined": {
+      "total": 7,
+      "pass": 7
+    },
+    "knowledge": {
+      "total": 10,
+      "pass": 8
+    },
+    "abstain": {
+      "total": 4,
+      "pass": 4
+    }
+  },
+  "latency": {
+    "p50": 54,
+    "p90": 77,
+    "max": 109
+  },
+  "rows": [
+    {
+      "cat": "quantity",
+      "q": "A train travels at 80 kilometers per hour for 3 hours. How far does it go?",
+      "pass": true,
+      "text": "It travels 240 kilometers.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 109
+    },
+    {
+      "cat": "quantity",
+      "q": "How long does it take to drive 150 miles at 50 miles an hour?",
+      "pass": true,
+      "text": "3 hours — 150 miles ÷ 50 miles an hour.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 58
+    },
+    {
+      "cat": "quantity",
+      "q": "A cyclist covers 45 kilometers in 3 hours. How fast is she going?",
+      "pass": true,
+      "text": "15 kilometers per hour — 45 kilometers ÷ 3 hours.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 57
+    },
+    {
+      "cat": "quantity",
+      "q": "A tap fills 12 liters every minute. How much water does it give in 5 minutes?",
+      "pass": true,
+      "text": "60 liters — 12 liters every minute × 5 minutes.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 55
+    },
+    {
+      "cat": "quantity",
+      "q": "A car gets 30 miles per gallon. How many gallons does it need for 240 miles?",
+      "pass": true,
+      "text": "8 gallons — 240 miles ÷ 30 miles per gallon.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 51
+    },
+    {
+      "cat": "quantity",
+      "q": "If apples cost 2 dollars per kilogram, how much do 5 kilograms cost?",
+      "pass": true,
+      "text": "10 dollars — 2 dollars per kilogram × 5 kilograms.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 54
+    },
+    {
+      "cat": "quantity",
+      "q": "A printer prints 20 pages per minute. How long does it take to print 300 pages?",
+      "pass": true,
+      "text": "15 minutes — 300 pages ÷ 20 pages per minute.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 55
+    },
+    {
+      "cat": "quantity",
+      "q": "A runner keeps a pace of 6 miles per hour for 30 minutes. How far does she run?",
+      "pass": true,
+      "text": "It travels 3 miles.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 47
+    },
+    {
+      "cat": "quantity",
+      "q": "Water flows at 4 liters per second. How many liters flow in one hour?",
+      "pass": true,
+      "text": "14400 liters — 4 liters per second × 1 hour.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 34
+    },
+    {
+      "cat": "quantity",
+      "q": "A plane flies 900 kilometers in 2 hours. What is its speed?",
+      "pass": true,
+      "text": "450 kilometers per hour — 900 kilometers ÷ 2 hours.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 40
+    },
+    {
+      "cat": "quantity",
+      "q": "A worker earns 15 dollars an hour. How much does she earn in 8 hours?",
+      "pass": true,
+      "text": "120 dollars — 15 dollars an hour × 8 hours.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 52
+    },
+    {
+      "cat": "quantity",
+      "q": "A pump moves 30 gallons per minute. How long does it take to move 600 gallons?",
+      "pass": true,
+      "text": "20 minutes — 600 gallons ÷ 30 gallons per minute.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 48
+    },
+    {
+      "cat": "quantity",
+      "q": "A snail moves 2 meters per hour. How long does it take to cross 10 meters?",
+      "pass": true,
+      "text": "5 hours — 10 meters ÷ 2 meters per hour.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 54
+    },
+    {
+      "cat": "quantity",
+      "q": "How far does light travel in 2 seconds?",
+      "pass": true,
+      "text": "599,584,916 metres — 2 seconds × 299,792,458 metres per second. That is using the speed of light, 299,792,458 metres per second, from the knowledge base.",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 68
+    },
+    {
+      "cat": "quantity",
+      "q": "A heart beats 70 times per minute. How many beats happen in an hour?",
+      "pass": true,
+      "text": "4200 beats — 70 times per minute × an hour.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 80
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A car is traveling 60 miles an hour, how much gas does it use?",
+      "pass": true,
+      "text": "That depends on how long it goes on for, which the question doesn't say: amount of gas = 60 miles an hour × time ÷ about 30 miles per gallon. At that rate it's about 2 gallons per hour — 60 miles an hour ÷ about 30 miles",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 60
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A truck drives at 50 miles per hour. How far does it go?",
+      "pass": true,
+      "text": "That depends on how long it goes on for, which the question doesn't say: distance = 50 miles per hour × time.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 49
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A pump moves 10 liters per minute. How much water does it move?",
+      "pass": true,
+      "text": "That depends on how long it goes on for, which the question doesn't say: amount of water = 10 liters per minute × time.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 58
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A plane flies 800 kilometers. How long does it take?",
+      "pass": true,
+      "text": "That depends on a speed, which the question doesn't say: time = 800 kilometers ÷ speed. Give me a speed and I can work it out.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 50
+    },
+    {
+      "cat": "underdetermined",
+      "q": "Apples cost 3 dollars per kilogram. How much do the apples cost?",
+      "pass": true,
+      "text": "That depends on how much (by weight) is involved, which the question doesn't say: cost = 3 dollars per kilogram × mass.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 71
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A faucet drips 5 milliliters per minute. How much water is wasted?",
+      "pass": true,
+      "text": "That depends on how long it goes on for, which the question doesn't say: amount of water = 5 milliliters per minute × time.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 58
+    },
+    {
+      "cat": "underdetermined",
+      "q": "A bus travels at 40 kilometers per hour. How long does the trip take?",
+      "pass": true,
+      "text": "That depends on how far it goes, which the question doesn't say: time = distance ÷ 40 kilometers per hour.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 51
+    },
+    {
+      "cat": "knowledge",
+      "q": "What does a thermometer measure?",
+      "pass": false,
+      "text": "Measure has more than one sense: a way of assessing size, amount or degree; as a verb, to determine the size or amount of; as a verb, to ascertain the size or amount.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 56
+    },
+    {
+      "cat": "knowledge",
+      "q": "Why do we need to sleep?",
+      "pass": false,
+      "text": "I don't have anything reliable on Why do we need to sleep. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 34
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is the boiling point of water in Fahrenheit?",
+      "pass": true,
+      "text": "Water boils at 100 °C at sea-level pressure. That is 212 °F.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 53
+    },
+    {
+      "cat": "knowledge",
+      "q": "How many continents are there?",
+      "pass": true,
+      "text": "There are seven continents. It is made up of Africa, Antarctica, Asia, Australia, Europe, North America and South America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 22
+    },
+    {
+      "cat": "knowledge",
+      "q": "What planet is closest to the Sun?",
+      "pass": true,
+      "text": "Mercury is the smallest planet in the Solar System and the closest to the Sun.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 62
+    },
+    {
+      "cat": "knowledge",
+      "q": "What gas do plants absorb from the air?",
+      "pass": true,
+      "text": "Carbon dioxide — Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen. Carbon dioxide is a gas made of one carbon atom ",
+      "route": "knowledge",
+      "conf": 0.72,
+      "ms": 77
+    },
+    {
+      "cat": "knowledge",
+      "q": "How many legs does an insect have?",
+      "pass": true,
+      "text": "The insect has six legs.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 25
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is the main language of Japan?",
+      "pass": true,
+      "text": "The language of Japan is Japanese. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 60
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is H2O?",
+      "pass": true,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It consists of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 6
+    },
+    {
+      "cat": "knowledge",
+      "q": "What is the speed of light?",
+      "pass": true,
+      "text": "The speed of speed of light is 299,792,458 m/s.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 8
+    },
+    {
+      "cat": "abstain",
+      "q": "How much fuel does a Glimmerwing 9 use per hour?",
+      "pass": true,
+      "text": "I don't have anything reliable on glimmerwing 9. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 82
+    },
+    {
+      "cat": "abstain",
+      "q": "How far is Planet Vorn from its star?",
+      "pass": true,
+      "text": "I don't have anything reliable on Planet Vorn from its star. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "abstain",
+      "q": "How much does a quellium bar weigh?",
+      "pass": true,
+      "text": "I don't have anything reliable on quellium bar weigh. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 70
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the top speed of the Trelloway X2 car?",
+      "pass": true,
+      "text": "I don't have anything reliable on Trelloway X2 car. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 46
+    }
+  ]
+}

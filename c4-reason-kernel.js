@@ -44,15 +44,42 @@
                   UNSUPPORTED_ASSUMPTION: "unsupported_assumption",
                   CONTRADICTION: "contradiction", AMBIGUITY: "ambiguity" };
 
-  /* Reasoning operations the meta-controller chooses between. */
+  /* Reasoning operations the meta-controller chooses between.
+   *
+   * The last five do work the first eight cannot:
+   *   PROPOSE_REPRESENTATION  re-express a hypothesis in a different semantic
+   *                           substrate (colour roles, a geometric frame, an
+   *                           object or change-mask encoding) through the
+   *                           adapter's migrateRepresentation hook -- the
+   *                           program is carried over, the thing it is ABOUT
+   *                           changes. CHANGE_REPRESENTATION only edits the
+   *                           program inside its current substrate.
+   *   GENERATE_DISCRIMINATOR  several exact explanations predict different
+   *                           things: build inputs on which they disagree and
+   *                           record fragility / disagreement. It never picks
+   *                           a winner by label (there is none).
+   *   INVENT_ABSTRACTION      anti-unify near-solutions from different
+   *                           clusters into a parameterised template and refit
+   *                           it on all evidence (adapter.inventAbstraction).
+   *   VERIFY_DEEPLY           leave-one-out re-derivation of an exact
+   *                           explanation; one that only fits when it has seen
+   *                           every example stops counting as "solved" and the
+   *                           search continues.
+   *   RESTART_DIVERSE         a long stall: jump to the least-explored region
+   *                           (seeds and clusters never expanded) instead of
+   *                           the stalled branch's ancestor (BACKTRACK). */
   var ACTIONS = ["REFINE_BEST", "REFINE_DIVERSE", "ABSTRACT_RESIDUAL",
                  "CHANGE_REPRESENTATION", "EXPAND_PROGRAM", "SIMPLIFY_PROGRAM",
-                 "BACKTRACK", "STOP"];
+                 "BACKTRACK", "STOP",
+                 "PROPOSE_REPRESENTATION", "GENERATE_DISCRIMINATOR", "INVENT_ABSTRACTION",
+                 "VERIFY_DEEPLY", "RESTART_DIVERSE"];
   /* Which adapter repair mode each operation invokes. */
   var MODE_OF = { REFINE_BEST: "targeted", REFINE_DIVERSE: "targeted",
                   ABSTRACT_RESIDUAL: "abstract", CHANGE_REPRESENTATION: "represent",
                   EXPAND_PROGRAM: "expand", SIMPLIFY_PROGRAM: "simplify",
-                  BACKTRACK: "targeted" };
+                  BACKTRACK: "targeted", PROPOSE_REPRESENTATION: "migrate",
+                  INVENT_ABSTRACTION: "invent", RESTART_DIVERSE: "restart",
+                  GENERATE_DISCRIMINATOR: "discriminate", VERIFY_DEEPLY: "verify" };
 
   /* ------------------------------------------------------------ hypothesis */
 
@@ -83,6 +110,21 @@
     this.lineage = o.lineage || { parent: null, mutation: null, depth: 0, why: null,
                                   residualBefore: null, residualAfter: null,
                                   assumptionAdded: null, assumptionRemoved: null };
+    /* Representation and provenance. All optional: an adapter that never sets
+       them gets the defaults and the old behaviour. */
+    this.representationId = o.representationId || this.representation || "";
+    this.representationState = o.representationState || null;  /* adapter data for the substrate */
+    this.semanticKey = o.semanticKey || null;       /* equal = same function on a probe set */
+    this.structuralKey = o.structuralKey || null;   /* equal = same canonical program text */
+    this.sourceFamily = o.sourceFamily || "";
+    this.episodeId = o.episodeId || null;
+    this.traceId = o.traceId || null;
+    this.novelty = o.novelty || 0;                  /* 0..1: how far from what the frontier holds */
+    this.utility = o.utility || 0;
+    this.verification = o.verification || null;     /* {deep, fragility, disagreement, ...} */
+    this.counterexamples = o.counterexamples || [];
+    this.localAdaptation = o.localAdaptation || null;
+    this.abstractionsUsed = o.abstractionsUsed || [];
   }
 
   /* Child of ``parent`` produced by ``mutation``: lineage is filled in here so
@@ -90,6 +132,11 @@
   function derive(parent, fields, mutation) {
     var h = new Hypothesis(fields);
     h.domain = h.domain || parent.domain;
+    if (!fields || !fields.representationId) h.representationId = parent.representationId || h.representationId;
+    if (!fields || fields.representationState === undefined) h.representationState = parent.representationState || null;
+    h.sourceFamily = h.sourceFamily || parent.sourceFamily || "";
+    h.episodeId = h.episodeId || parent.episodeId || null;
+    if (!fields || !fields.abstractionsUsed) h.abstractionsUsed = (parent.abstractionsUsed || []).slice();
     h.lineage = {
       parent: parent.id, parentRef: parent, mutation: mutation || null,
       depth: (parent.lineage ? parent.lineage.depth : 0) + 1,
@@ -262,6 +309,12 @@
   function MetaController(opts) {
     opts = opts || {};
     this.weights = opts.weights || {};       /* learned: feature -> action -> w */
+    /* a trained C4ReasonMeta model (c4-reason-meta.js): expected progress per
+       unit of compute for each operation given the state features */
+    this.model = opts.model || null;
+    this.modelScale = opts.modelScale === undefined ? 1.0 : opts.modelScale;
+    this.priors = opts.priors === undefined ? true : !!opts.priors;
+    this.explore = opts.explore === undefined ? 0.5 : opts.explore;
     this.stats = {};
     this.trace = [];
     this.stallLimit = opts.stallLimit || 3;
@@ -277,33 +330,71 @@
     f.push("left:" + (st.budgetFrac > 0.66 ? "hi" : st.budgetFrac > 0.33 ? "mid" : "lo"));
     if (st.topDiag) f.push("diag:" + st.topDiag);
     if (st.repeatedDiag) f.push("repeat:1");
+    /* extended state (the legacy weight table carries none of these, so old
+       policies are unaffected; a trained C4ReasonMeta model reads them) */
+    if (st.domain) f.push("dom:" + st.domain);
+    if (st.representation) f.push("rep:" + st.representation);
+    if (st.dupRate !== undefined) f.push("dup:" + (st.dupRate > 0.5 ? "hi" : st.dupRate > 0.2 ? "mid" : "lo"));
+    if (st.depth !== undefined) f.push("depth:" + Math.min(st.depth, 4));
+    if (st.disagree) f.push("amb:1");
+    if (st.verifyFail) f.push("vfail:1");
+    if (st.repChanges) f.push("repchg:" + Math.min(st.repChanges, 2));
+    if (st.lastAction) f.push("last:" + st.lastAction + (st.lastGain > 0 ? ":+" : ":0"));
+    if (st.knowledge !== undefined && st.knowledge < 1) f.push("know:partial");
+    if (st.exactVerified) f.push("verified:1");
     return f;
   };
-  MetaController.prototype.choose = function (st, available) {
-    if (!available.length) return "STOP";
-    var feats = this.features(st), util = {}, i, a, total = 0;
+  MetaController.prototype.utilities = function (st, available, feats) {
+    feats = feats || this.features(st);
+    var util = {}, i, a, total = 0, learned = null;
     for (i = 0; i < ACTIONS.length; i++) total += this.stats[ACTIONS[i]].n;
+    if (this.model && typeof this.model.utilities === "function") {
+      try { learned = this.model.utilities(feats, available); } catch (e) { learned = null; }
+    }
     for (i = 0; i < available.length; i++) {
       a = available[i];
       var u = 0.0, s = this.stats[a];
       /* priors */
-      if (a === "REFINE_BEST") u += 1.0;                                   /* default: exploit the best near-miss */
-      if (a === "ABSTRACT_RESIDUAL" && st.topDiagStrong) u += 1.2;         /* a consistent semantic diagnosis names its own repair */
-      if (a === "REFINE_DIVERSE" && st.clusters > 1) u += 0.3 + 0.3 * Math.min(st.stall, 3); /* stalled on one idea: try another */
-      if (a === "EXPAND_PROGRAM" && st.bestResidual !== null && st.bestResidual > 0.3) u += 0.6; /* far from target: a missing step */
-      if (a === "SIMPLIFY_PROGRAM" && st.topDiag === "excessive_change") u += 0.8; /* doing too much: delete a step */
-      if (a === "CHANGE_REPRESENTATION" && (st.stall >= 2 || st.repeatedDiag)) u += 0.9; /* same failure again: change the frame */
-      if (a === "BACKTRACK" && st.stall >= 2) u += 0.7;                    /* branch stopped improving */
+      if (this.priors) {
+        if (a === "REFINE_BEST") u += 1.0;                                   /* default: exploit the best near-miss */
+        if (a === "ABSTRACT_RESIDUAL" && st.topDiagStrong) u += 1.2;         /* a consistent semantic diagnosis names its own repair */
+        if (a === "REFINE_DIVERSE" && st.clusters > 1) u += 0.3 + 0.3 * Math.min(st.stall, 3); /* stalled on one idea: try another */
+        if (a === "EXPAND_PROGRAM" && st.bestResidual !== null && st.bestResidual > 0.3) u += 0.6; /* far from target: a missing step */
+        if (a === "SIMPLIFY_PROGRAM" && st.topDiag === "excessive_change") u += 0.8; /* doing too much: delete a step */
+        if (a === "CHANGE_REPRESENTATION" && (st.stall >= 2 || st.repeatedDiag)) u += 0.9; /* same failure again: change the frame */
+        if (a === "BACKTRACK" && st.stall >= 2) u += 0.7;                    /* branch stopped improving */
+        /* the substrate itself may be wrong: repeated failure, or a failure
+           the residual attributes to the representation */
+        if (a === "PROPOSE_REPRESENTATION") u += (st.repFailure ? 1.2 : 0) + (st.stall >= 3 ? 0.4 : 0);
+        /* competing exact explanations that disagree: information, not search */
+        if (a === "GENERATE_DISCRIMINATOR" && st.disagree) u += 1.4;
+        /* two different near-solutions share structure: generalise them */
+        if (a === "INVENT_ABSTRACTION" && st.clusters > 1 && st.stall >= 1) u += 0.5;
+        /* an exact explanation nobody has cross-validated */
+        if (a === "VERIFY_DEEPLY" && st.exact > 0 && !st.exactVerified) u += 1.3;
+        /* a long stall: the region is exhausted */
+        if (a === "RESTART_DIVERSE" && st.stall >= 2 * this.stallLimit) u += 0.6;
+        /* nothing left to gain: one verified explanation, no rival */
+        if (a === "STOP" && st.exact > 0 && st.exactVerified && !st.disagree) u += 0.8 + 0.3 * Math.min(st.stall, 3);
+      }
       /* learned */
       for (var j = 0; j < feats.length; j++) {
         var row = this.weights[feats[j]];
         if (row && row[a]) u += row[a];
       }
-      /* observed payoff per operation this solve, and exploration */
+      if (learned && learned[a] !== undefined && isFinite(learned[a])) u += this.modelScale * learned[a];
+      /* observed payoff per operation this solve, and exploration: an
+         operation that has never been tried keeps a floor of utility so a
+         learned policy cannot lock the search into one path */
       if (s.n) u += Math.min(2.0, s.gain / s.n * 4.0);
-      u += 0.5 * Math.sqrt(Math.log(total + 2) / (s.n + 1));
+      u += this.explore * Math.sqrt(Math.log(total + 2) / (s.n + 1));
       util[a] = u;
     }
+    return util;
+  };
+  MetaController.prototype.choose = function (st, available) {
+    if (!available.length) return "STOP";
+    var feats = this.features(st), util = this.utilities(st, available, feats), i;
     var best = available[0];
     for (i = 1; i < available.length; i++) if (util[available[i]] > util[best]) best = available[i];
     this.trace.push({ action: best, utility: Math.round(util[best] * 100) / 100, feats: feats.slice(1) });
@@ -348,12 +439,37 @@
    *     not much worse (the diversity case: a different wrong answer is worth
    *     keeping, the same wrong answer is not). */
   var IMPROVE_EPS = 1e-9, SIMPLER_BITS = 2.0, DIVERSE_SLACK = 0.10;
+  /* A representation change is allowed to look worse at first: the program
+     was written for the old substrate and has not been refitted to the new
+     one yet. Bounded, so a migration cannot flood the frontier. */
+  var REP_SLACK = 0.25;
+  /* bits charged to an exact explanation that breaks on discriminating
+     probes (scaled by its fragility), or that fails leave-one-out
+     re-derivation -- enough to reorder near-ties, never to overturn an
+     exact fit into a non-fit */
+  var FRAGILITY_BITS = 4.0, DEEP_FAIL_BITS = 3.0;
   function survives(child, parent, frontier) {
     var rc = child.residual ? child.residual.norm : 1, rp = parent.residual ? parent.residual.norm : 1;
     if (rc < rp - IMPROVE_EPS) return "improved";
     if (rc <= rp + IMPROVE_EPS && child.complexity <= parent.complexity - SIMPLER_BITS) return "simpler";
     if (!frontier.byCluster.has(child.cluster) && rc <= rp + DIVERSE_SLACK) return "diverse";
+    if (child.representationId !== parent.representationId && rc <= rp + REP_SLACK) return "represented";
     return null;
+  }
+
+  var _episodes = 0;
+
+  /* Is the best hypothesis failing because of its SUBSTRATE rather than its
+     program? Adapters tag diagnoses with level "representation" or
+     "program"; a strong representation-level diagnosis, or more
+     representation-level than program-level weight, says so. */
+  function repFailureOf(h) {
+    var ds = h && h.diagnosis ? h.diagnosis : [], rep = 0, prog = 0, i;
+    for (i = 0; i < ds.length; i++) {
+      var w = (ds[i].strong ? 2 : 1) * (ds[i].weight || 0.1);
+      if (ds[i].level === "representation") { if (ds[i].strong) return true; rep += w; } else prog += w;
+    }
+    return rep > prog;
   }
 
   /* adapter: {
@@ -362,9 +478,23 @@
    *   diagnose(h)            -> [{kind, weight, strong?, ...}] semantic diagnoses
    *   repair(h, mode, diag)  -> [child hypotheses] (use kernel.derive)
    *   verifyExact(h)         -> bool, final guard before the exact pool
+   *   -- optional hooks; the kernel degrades gracefully without them --
+   *   structuralKey(h)       canonical program key computed BEFORE execution;
+   *                          equal keys are the same program, so the second
+   *                          is never executed
+   *   semanticKey(h)         behaviour on a probe set (after evaluation)
+   *   estimateNovelty(h, F)  0..1 distance from what frontier F holds
+   *   proposeRepresentations(h, diags)  -> children in other substrates
+   *   inventAbstraction(hs, exact)      -> generalised children
+   *   generateDiscriminator(exact)      -> {probes, fragility[], disagreement}
+   *   verifyDeep(h)          -> {pass, wins, trials} | null
+   *   restart(sample, F)     -> fresh hypotheses from unexplored regions
    * }
    * opts: deadline | maxMs, maxSteps, frontierCap, clusterCap, childCap,
-   *       maxDepth, stallLimit, exactCap, stopOnExact, weights, stats, log */
+   *       maxDepth, stallLimit, exactCap, stopOnExact, weights, stats, log,
+   *       metaModel (C4ReasonMeta), actions (allowed subset), domain,
+   *       episodeId, trajectory (array to append step records to),
+   *       checkGeneralization(h) -> bool (synthetic curricula only) */
   function refine(adapter, seeds, opts) {
     opts = opts || {};
     var t0 = nowMs();
@@ -373,28 +503,62 @@
     var maxDepth = opts.maxDepth || 4, exactCap = opts.exactCap || 16;
     var stallLimit = opts.stallLimit || 3, maxStall = opts.maxStall || stallLimit * 4;
     var frontier = new Frontier(opts.frontierCap || 48, opts.clusterCap);
-    var meta = new MetaController({ weights: opts.weights, stallLimit: stallLimit });
+    var meta = new MetaController({ weights: opts.weights, stallLimit: stallLimit, model: opts.metaModel || null,
+                                    modelScale: opts.metaScale, priors: opts.metaPriors, explore: opts.explore });
     var repairStats = opts.stats || new RepairStats();
-    var seen = new Set(), exact = [], exactKeys = new Set();
+    var seen = new Set(), structSeen = new Set(), exact = [], exactKeys = new Set();
+    var episodeId = opts.episodeId || ("ep" + (++_episodes));
+    var domain = opts.domain || (seeds.length && seeds[0].domain) || "";
+    var Mem = root.C4ReasonMemory || null;
+    var wm = Mem && Mem.WorkingMemory ? new Mem.WorkingMemory({ episodeId: episodeId, domain: domain }) : null;
+    var trajectory = [], trajCap = opts.trajectoryCap || 400;
+    var hooks = {
+      structural: typeof adapter.structuralKey === "function",
+      semantic: typeof adapter.semanticKey === "function",
+      novelty: typeof adapter.estimateNovelty === "function",
+      migrate: typeof adapter.proposeRepresentations === "function",
+      invent: typeof adapter.inventAbstraction === "function",
+      discriminate: typeof adapter.generateDiscriminator === "function",
+      verify: typeof adapter.verifyDeep === "function",
+      restart: typeof adapter.restart === "function"
+    };
+    var allow = opts.actions ? new Set(opts.actions) : null;
     var stats = { seeds: 0, evaluated: 0, kept: 0, duplicates: 0, wasted: 0, exact: 0,
                   steps: 0, backtracks: 0, repsSwitched: 0, depthSum: 0, madeExact: 0,
-                  bestStart: null, bestEnd: null, byMutation: {}, byDiag: {}, survival: {} };
+                  bestStart: null, bestEnd: null, byMutation: {}, byDiag: {}, survival: {},
+                  structDuplicates: 0, migrations: 0, migrationKept: 0, migrationExact: 0,
+                  discriminations: 0, inventions: 0, deepVerified: 0, deepFailed: 0, restarts: 0,
+                  maxDepthReached: 0, byAction: {} };
 
     function budgetLeft() { return Math.max(0, deadline - nowMs()) / Math.max(1, deadline - t0); }
     function mutStat(k) { return stats.byMutation[k] || (stats.byMutation[k] = { tried: 0, kept: 0, exact: 0, improved: 0 }); }
+    function actStat(a) { return stats.byAction[a] || (stats.byAction[a] = { n: 0, gain: 0, exact: 0, children: 0 }); }
 
     function admitExact(h) {
       if (exactKeys.has(h.key)) return;
       if (!adapter.verifyExact(h)) { h.status = "near"; return; }     /* the guarantee */
       exactKeys.add(h.key);
+      if (hooks.semantic) { try { h.semanticKey = adapter.semanticKey(h) || null; } catch (e) { h.semanticKey = null; } }
       mdlScore(h);
       exact.push(h);
       exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
       if (exact.length > exactCap) exact.pop();
       stats.exact++;
+      discriminated = false;
+      if (wm) wm.confirm(h.key, { id: h.id, repr: h.representationId, score: h.score });
     }
 
     function consider(h, parent, mutKind) {
+      if (!h.episodeId) h.episodeId = episodeId;
+      if (hooks.structural) {
+        var sk = null;
+        try { sk = adapter.structuralKey(h); } catch (e) { sk = null; }
+        if (sk !== null && sk !== undefined) {
+          h.structuralKey = sk;
+          if (structSeen.has(sk)) { stats.duplicates++; stats.structDuplicates++; return null; }
+          structSeen.add(sk);
+        }
+      }
       if (h.key !== null && h.key !== undefined && seen.has(h.key)) { stats.duplicates++; return null; }
       try { adapter.evaluate(h); } catch (e) { h.status = "invalid"; }
       stats.evaluated++;
@@ -404,7 +568,10 @@
       }
       if (h.status === "invalid") { stats.wasted++; return null; }
       mdlScore(h);
+      if (hooks.novelty) { try { h.novelty = +adapter.estimateNovelty(h, frontier) || 0; } catch (e) { h.novelty = 0; } }
+      else h.novelty = frontier.byCluster.has(h.cluster) ? 0 : 1;
       if (parent) h.lineage.residualAfter = h.residual ? h.residual.norm : null;
+      if (h.lineage && h.lineage.depth > stats.maxDepthReached) stats.maxDepthReached = h.lineage.depth;
       if (h.status === "exact") {
         admitExact(h);
         if (h.status === "exact") {
@@ -437,21 +604,45 @@
     stats.bestStart = bestNorm();
 
     /* afterExact: how many further operations to spend once an exact
-       explanation exists (alternatives for ranking); 0 = stop at the first */
+       explanation exists (alternatives for ranking); 0 = stop at the first.
+       An exact explanation that fails deep verification does not count. */
     var afterExact = opts.stopOnExact ? 0 : (opts.afterExact === undefined ? Infinity : opts.afterExact);
     var stall = 0, lastBest = stats.bestStart, lastDiags = [], stalledParent = null, firstExactStep = null;
+    var discriminated = false, lastAction = null, lastGain = 0, repChanges = 0;
+    function trusted() { return exact.filter(function (e) { return !(e.verification && e.verification.deep === false); }); }
+    function unverified() {
+      for (var q = 0; q < exact.length; q++) if (!exact[q].verification || exact[q].verification.deep === undefined) return exact[q];
+      return null;
+    }
+    function restartSample() {
+      /* members never expanded, least-deep first, from the least-expanded clusters */
+      var items = frontier.items.filter(function (h) { return !Object.keys(h.expanded).length; });
+      items.sort(function (a, b) {
+        return ((a.lineage ? a.lineage.depth : 0) - (b.lineage ? b.lineage.depth : 0)) || (a.score - b.score) || (a.id < b.id ? -1 : 1);
+      });
+      return items.slice(0, 6);
+    }
     while (stats.steps < maxSteps && nowMs() < deadline) {
-      if (exact.length && firstExactStep === null) firstExactStep = stats.steps;
+      var good = trusted();
+      if (good.length && firstExactStep === null) firstExactStep = stats.steps;
+      if (!good.length) firstExactStep = null;
       if (firstExactStep !== null && stats.steps - firstExactStep >= afterExact) break;
-      if (!frontier.size()) break;
-      var best = frontier.sorted()[0];
+      if (!frontier.size() && !exact.length) break;
+      var best = frontier.size() ? frontier.sorted()[0] : null;
       if (best && !best.diagnosis) { try { best.diagnosis = adapter.diagnose(best) || []; } catch (e) { best.diagnosis = []; } }
       var top = best && best.diagnosis && best.diagnosis.length ? best.diagnosis[0] : null;
       var st = {
         bestResidual: bestNorm(), stall: stall, exact: exact.length, clusters: frontier.clusters(),
         budgetFrac: budgetLeft(), topDiag: top ? top.kind : null, topDiagStrong: !!(top && top.strong),
         repeatedDiag: lastDiags.length >= 2 && top && lastDiags[lastDiags.length - 1] === top.kind &&
-                      lastDiags[lastDiags.length - 2] === top.kind
+                      lastDiags[lastDiags.length - 2] === top.kind,
+        domain: domain, representation: best ? best.representationId : null,
+        dupRate: stats.evaluated + stats.duplicates ? stats.duplicates / (stats.evaluated + stats.duplicates) : 0,
+        depth: best && best.lineage ? best.lineage.depth : 0,
+        disagree: exact.length >= 2 && !discriminated,
+        verifyFail: stats.deepFailed > 0, repChanges: repChanges,
+        repFailure: repFailureOf(best), exactVerified: good.some(function (e) { return e.verification && e.verification.deep === true; }),
+        lastAction: lastAction, lastGain: lastGain
       };
       var avail = [], modeOpen = function (m) { return frontier.best(m) !== null; };
       if (modeOpen("targeted")) avail.push("REFINE_BEST");
@@ -461,53 +652,185 @@
       if (modeOpen("expand")) avail.push("EXPAND_PROGRAM");
       if (modeOpen("simplify")) avail.push("SIMPLIFY_PROGRAM");
       if (stall >= 2 && stalledParent && stalledParent.lineage.parentRef) avail.push("BACKTRACK");
+      if (hooks.migrate && modeOpen("migrate")) avail.push("PROPOSE_REPRESENTATION");
+      if (hooks.invent && frontier.size() >= 2 && modeOpen("invent")) avail.push("INVENT_ABSTRACTION");
+      if (hooks.discriminate && exact.length >= 2 && !discriminated) avail.push("GENERATE_DISCRIMINATOR");
+      if (hooks.verify && unverified()) avail.push("VERIFY_DEEPLY");
+      if (stall >= stallLimit * 2 && (hooks.restart || restartSample().length)) avail.push("RESTART_DIVERSE");
+      if (good.length) avail.push("STOP");
+      if (allow) avail = avail.filter(function (a) { return allow.has(a) || a === "STOP"; });
       /* give up only after a long run of non-improving operations: the
          controller has by then been pushed through diversity, representation
          change and backtracking by the stall features */
       if (stall >= maxStall || !avail.length) break;
+      if (avail.length === 1 && avail[0] === "STOP") break;
       var action = meta.choose(st, avail);
-      if (action === "STOP") break;
-      var mode = MODE_OF[action], parent;
-      if (action === "REFINE_DIVERSE") parent = frontier.diverse(mode);
-      else if (action === "BACKTRACK") {
-        /* the stalled branch's ancestor gets its untried modes re-opened */
-        parent = stalledParent.lineage.parentRef;
-        stats.backtracks++;
-        var untried = ["represent", "expand", "simplify", "abstract", "targeted"].filter(function (m) { return !parent.expanded[m]; });
-        mode = untried.length ? untried[0] : "represent";
-        if (frontier.keys.has(parent.key) === false) frontier.add(parent);
-      } else parent = frontier.best(mode);
-      if (!parent) { meta.observe(action, 0, 0); stats.steps++; stall++; continue; }
-      parent.expanded[mode] = true;
-      if (!parent.diagnosis) { try { parent.diagnosis = adapter.diagnose(parent) || []; } catch (e) { parent.diagnosis = []; } }
-      if (mode === "represent") stats.repsSwitched++;
-      var started = nowMs(), children;
-      try { children = adapter.repair(parent, mode, parent.diagnosis, repairStats) || []; }
-      catch (e) { children = []; }
-      if (children.length > childCap) children = children.slice(0, childCap);
-      var gain = 0, before = parent.residual ? parent.residual.norm : 1, pdiag = parent.diagnosis[0] ? parent.diagnosis[0].kind : "none";
-      for (var c = 0; c < children.length; c++) {
-        if (nowMs() > deadline) break;
-        var ch = children[c], mk = ch.lineage.mutation ? ch.lineage.mutation.kind : "?";
-        mutStat(mk).tried++;
-        var outcome = consider(ch, parent, mk);
-        var ok = outcome === "exact" || outcome === "improved";
-        repairStats.observe(pdiag, mk, ok);
-        stats.byDiag[pdiag] = (stats.byDiag[pdiag] || 0) + 1;
-        if (opts.log) opts.log.push({ diag: pdiag, diagDetail: parent.diagnosis[0] || null,
-          repr: parent.representation, mutation: ch.lineage.mutation, before: before,
-          after: ch.residual ? ch.residual.norm : null, outcome: outcome || "rejected",
-          depth: ch.lineage.depth });
-        if (outcome === "exact") gain = Math.max(gain, before);
-        else if (ch.residual && outcome) gain = Math.max(gain, before - ch.residual.norm);
+      if (action === "STOP") { stats.stopped = true; break; }
+      var mode = MODE_OF[action], parent = null, started = nowMs(), children = [];
+      var dup0 = stats.duplicates, kept0 = stats.kept, exact0 = stats.exact;
+      var gain = 0, before = null, pdiag = "none", newClusters = 0, bestChildRes = null, bestChildCx = null;
+      var clusterSet = new Set(frontier.byCluster.keys());
+
+      if (action === "GENERATE_DISCRIMINATOR") {
+        /* information about competing explanations, not search */
+        var dres = null;
+        try { dres = adapter.generateDiscriminator(exact.slice()); } catch (e) { dres = null; }
+        discriminated = true;
+        stats.discriminations++;
+        if (dres && dres.fragility) {
+          for (var di = 0; di < exact.length && di < dres.fragility.length; di++) {
+            var fr = Math.max(0, Math.min(1, +dres.fragility[di] || 0));
+            exact[di].verification = exact[di].verification || {};
+            exact[di].verification.fragility = fr;
+            exact[di].verification.disagreement = dres.disagreement === undefined ? null : dres.disagreement;
+            exact[di].score += FRAGILITY_BITS * fr;
+            if (fr > 0 && wm) wm.counterexample(exact[di].key, { kind: "fragile_probe", fragility: fr });
+          }
+          exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
+          gain = dres.disagreement ? Math.min(1, +dres.disagreement) : 0;
+        }
+        if (wm && dres && dres.disagreement) wm.question("which exact explanation generalises", { disagreement: dres.disagreement });
+      } else if (action === "VERIFY_DEEPLY") {
+        var ev = unverified(), vr = null;
+        try { vr = adapter.verifyDeep(ev); } catch (e) { vr = null; }
+        ev.verification = ev.verification || {};
+        ev.verification.deep = vr ? !!vr.pass : null;
+        if (vr) { ev.verification.wins = vr.wins; ev.verification.trials = vr.trials; }
+        parent = ev; before = 0;
+        if (vr && !vr.pass) {
+          ev.score += DEEP_FAIL_BITS; stats.deepFailed++;
+          ev.counterexamples.push({ kind: "leave_one_out", wins: vr.wins, trials: vr.trials });
+          exact.sort(function (a, b) { return (a.score - b.score) || (a.id < b.id ? -1 : 1); });
+          if (wm) wm.refute(ev.key, "fails leave-one-out re-derivation");
+          gain = 0.5;
+        } else if (vr && vr.pass) { stats.deepVerified++; gain = 0.25; }
+      } else {
+        if (action === "REFINE_DIVERSE") parent = frontier.diverse(mode);
+        else if (action === "BACKTRACK") {
+          /* the stalled branch's ancestor gets its untried modes re-opened */
+          parent = stalledParent.lineage.parentRef;
+          stats.backtracks++;
+          var untried = ["represent", "expand", "simplify", "abstract", "targeted"].filter(function (m) { return !parent.expanded[m]; });
+          mode = untried.length ? untried[0] : "represent";
+          if (frontier.keys.has(parent.key) === false) frontier.add(parent);
+        } else if (action === "RESTART_DIVERSE") {
+          stats.restarts++;
+          var sample = restartSample();
+          if (hooks.restart) {
+            try { children = adapter.restart(sample, frontier) || []; } catch (e) { children = []; }
+            parent = null;
+          } else parent = sample.length ? sample[0] : frontier.diverse("expand");
+          if (!hooks.restart && parent) mode = !parent.expanded.expand ? "expand" : !parent.expanded.represent ? "represent" : "targeted";
+          stall = Math.floor(stall / 2);
+        } else parent = frontier.best(mode);
+        if (!parent && !(action === "RESTART_DIVERSE" && hooks.restart)) {
+          meta.observe(action, 0, 0); stats.steps++; stall++; lastAction = action; lastGain = 0; continue;
+        }
+        if (parent) {
+          parent.expanded[mode] = true;
+          if (!parent.diagnosis) { try { parent.diagnosis = adapter.diagnose(parent) || []; } catch (e) { parent.diagnosis = []; } }
+          pdiag = parent.diagnosis[0] ? parent.diagnosis[0].kind : "none";
+          before = parent.residual ? parent.residual.norm : 1;
+        } else before = bestNorm() === null ? 1 : bestNorm();
+        if (mode === "represent") stats.repsSwitched++;
+        if (action === "PROPOSE_REPRESENTATION") {
+          stats.migrations++;
+          try { children = adapter.proposeRepresentations(parent, parent.diagnosis) || []; } catch (e) { children = []; }
+        } else if (action === "INVENT_ABSTRACTION") {
+          stats.inventions++;
+          /* the best member of each of up to four clusters */
+          var picks = [], usedCl = new Set(), srt = frontier.sorted();
+          for (var pi = 0; pi < srt.length && picks.length < 4; pi++) {
+            if (usedCl.has(srt[pi].cluster)) continue;
+            usedCl.add(srt[pi].cluster); picks.push(srt[pi]);
+          }
+          if (picks.indexOf(parent) < 0) picks.unshift(parent);
+          try { children = adapter.inventAbstraction(picks, exact.slice()) || []; } catch (e) { children = []; }
+        } else if (action !== "RESTART_DIVERSE" || !hooks.restart) {
+          try { children = adapter.repair(parent, mode, parent.diagnosis, repairStats) || []; }
+          catch (e) { children = []; }
+        }
+        if (children.length > childCap) children = children.slice(0, childCap);
+        for (var c = 0; c < children.length; c++) {
+          if (nowMs() > deadline) break;
+          var ch = children[c], mk = ch.lineage && ch.lineage.mutation ? ch.lineage.mutation.kind : (action === "RESTART_DIVERSE" ? "restart" : "?");
+          mutStat(mk).tried++;
+          var outcome = consider(ch, parent, mk);
+          var ok = outcome === "exact" || outcome === "improved";
+          repairStats.observe(pdiag, mk, ok);
+          stats.byDiag[pdiag] = (stats.byDiag[pdiag] || 0) + 1;
+          if (parent && ch.representationId !== parent.representationId) {
+            repChanges++;
+            if (outcome) stats.migrationKept++;
+            if (outcome === "exact") stats.migrationExact++;
+          }
+          if (outcome && ch.cluster !== null && !clusterSet.has(ch.cluster)) { newClusters++; clusterSet.add(ch.cluster); }
+          if (outcome && ch.residual && (bestChildRes === null || ch.residual.norm < bestChildRes)) { bestChildRes = ch.residual.norm; bestChildCx = ch.complexity; }
+          if (opts.log) opts.log.push({ diag: pdiag, diagDetail: parent && parent.diagnosis ? parent.diagnosis[0] || null : null,
+            repr: parent ? parent.representation : null, mutation: ch.lineage ? ch.lineage.mutation : null, before: before,
+            after: ch.residual ? ch.residual.norm : null, outcome: outcome || "rejected",
+            depth: ch.lineage ? ch.lineage.depth : 0, action: action });
+          if (outcome === "exact") gain = Math.max(gain, before);
+          else if (ch.residual && outcome) gain = Math.max(gain, before - ch.residual.norm);
+        }
       }
-      meta.observe(action, gain, nowMs() - started);
+      var ms = nowMs() - started;
+      meta.observe(action, gain, ms);
+      var as = actStat(action); as.n++; as.gain += Math.max(0, gain); as.exact += stats.exact - exact0; as.children += children.length;
       stats.steps++;
-      lastDiags.push(pdiag);
+      if (wm) wm.step({ action: action, parent: parent ? parent.id : null, gain: gain, repr: parent ? parent.representationId : null,
+                        residual: bestNorm() });
+      if (trajectory.length < trajCap) trajectory.push({
+        ep: episodeId, step: stats.steps - 1, domain: domain, feats: meta.features(st).slice(1), action: action,
+        parent: parent ? parent.id : null, parentDepth: parent && parent.lineage ? parent.lineage.depth : 0,
+        repr: parent ? parent.representationId : null, resBefore: before, resAfter: bestChildRes,
+        cxBefore: parent ? parent.complexity : null, cxAfter: bestChildCx, novelty: newClusters,
+        ms: ms, children: children.length, dedup: stats.duplicates - dup0, kept: stats.kept - kept0,
+        exactFound: stats.exact - exact0, gain: gain, reachedExact: false, depthFromSolution: null, generalized: null });
+      lastAction = action; lastGain = gain;
+      if (pdiag !== "none") lastDiags.push(pdiag);
       var nb = bestNorm();
       if (lastBest === null || (nb !== null && nb < lastBest - IMPROVE_EPS) || gain > 0.5) { stall = 0; lastBest = nb; }
-      else { stall++; stalledParent = parent; }
+      else { stall++; if (parent) stalledParent = parent; }
     }
+    /* Which steps lay on a path to an exact explanation, and how far from it:
+       the supervision signal for a learned controller. Failures stay in the
+       log with reachedExact false -- they are half of what it learns from. */
+    var onPath = new Map();
+    exact.forEach(function (h) {
+      var gen = null;
+      if (opts.checkGeneralization) { try { gen = !!opts.checkGeneralization(h); } catch (e) { gen = null; } }
+      h.verification = h.verification || {};
+      if (gen !== null) h.verification.generalized = gen;
+      var cur = h, d = h.lineage ? h.lineage.depth : 0;
+      while (cur) {
+        var prev = onPath.get(cur.id);
+        var dist = d - (cur.lineage ? cur.lineage.depth : 0);
+        if (!prev || dist < prev.dist) onPath.set(cur.id, { dist: dist, gen: gen });
+        cur = cur.lineage ? cur.lineage.parentRef : null;
+      }
+    });
+    trajectory.forEach(function (t) {
+      var p = t.parent ? onPath.get(t.parent) : null;
+      if (p) { t.reachedExact = true; t.depthFromSolution = p.dist; t.generalized = p.gen; }
+    });
+    /* Off-policy samples for STOP (only when a caller collects training
+       trajectories): at every step taken while an exact explanation already
+       existed, stopping would have been right exactly when no later step
+       found another exact explanation -- the compute it would have saved. */
+    if (opts.trajectory && opts.pseudoStop !== false) {
+      var extra = [];
+      for (var ti = 0; ti < trajectory.length; ti++) {
+        var tt = trajectory[ti];
+        if (!tt.feats || tt.feats.indexOf("exact:0") >= 0 || tt.action === "STOP") continue;
+        var later = 0;
+        for (var tj = ti; tj < trajectory.length; tj++) later += trajectory[tj].exactFound || 0;
+        extra.push({ ep: tt.ep, step: tt.step, domain: tt.domain, feats: tt.feats, action: "STOP", pseudo: true,
+                     gain: later ? 0 : 0.5, children: 0, ms: 0, reachedExact: false, depthFromSolution: null, generalized: null });
+      }
+      for (ti = 0; ti < extra.length; ti++) trajectory.push(extra[ti]);
+    }
+    if (opts.trajectory && Array.isArray(opts.trajectory)) for (i = 0; i < trajectory.length; i++) opts.trajectory.push(trajectory[i]);
     stats.bestEnd = bestNorm();
     stats.frontier = frontier.size();
     stats.clusters = frontier.clusters();
@@ -515,7 +838,34 @@
     stats.ms = nowMs() - t0;
     stats.plan = meta.trace.map(function (t) { return t.action; });
     stats.trace = meta.trace;
-    return { exact: exact, frontier: frontier, stats: stats, meta: meta, repairStats: repairStats };
+    stats.trajectory = trajectory;
+    stats.episodeId = episodeId;
+    if (wm) {
+      exact.forEach(function (h) { if (h.verification && h.verification.deep === false) wm.refute(h.key, "leave-one-out"); });
+      stats.memory = wm.compact();
+    }
+    if (opts.episodic && typeof opts.episodic.record === "function") {
+      try {
+        opts.episodic.record({ id: episodeId, domain: domain, signature: opts.signature || null,
+          representations: trajectory.map(function (t) { return t.repr; }).filter(function (r, k, a) { return r && a.indexOf(r) === k; }),
+          operations: stats.plan.slice(), outcome: exact.length ? "exact" : "none", cost: { ms: stats.ms, evaluated: stats.evaluated },
+          failedBranches: trajectory.filter(function (t) { return !t.reachedExact && t.gain <= 0; }).length,
+          successfulBranch: exact.length ? lineagePath(exact[0]) : null,
+          counterexamples: exact.reduce(function (acc, h) { return acc.concat(h.counterexamples || []); }, []).slice(0, 8),
+          memory: stats.memory || null });
+      } catch (e) { /* memory is advisory */ }
+    }
+    return { exact: exact, frontier: frontier, stats: stats, meta: meta, repairStats: repairStats, trajectory: trajectory };
+  }
+
+  /* The mutation path from a seed to h, oldest first. */
+  function lineagePath(h) {
+    var out = [], cur = h;
+    while (cur && cur.lineage && cur.lineage.mutation) {
+      out.push({ mutation: cur.lineage.mutation.kind, detail: cur.lineage.mutation.detail || "", why: cur.lineage.why });
+      cur = cur.lineage.parentRef;
+    }
+    return out.reverse();
   }
 
   /* ---------------------------------------------------- compress / discriminate
@@ -723,11 +1073,12 @@
   }
 
   var K = {
-    VERSION: "1.0.0",
+    VERSION: "2.0.0",
     STATUS: STATUS, FAILURE: FAILURE, ACTIONS: ACTIONS, MODE_OF: MODE_OF,
     Hypothesis: Hypothesis, derive: derive, mdlScore: mdlScore,
     ASSUMPTION_BITS: ASSUMPTION_BITS, INVARIANT_BITS: INVARIANT_BITS,
-    Frontier: Frontier, MetaController: MetaController, RepairStats: RepairStats,
+    REP_SLACK: REP_SLACK, FRAGILITY_BITS: FRAGILITY_BITS, DEEP_FAIL_BITS: DEEP_FAIL_BITS,
+    Frontier: Frontier, MetaController: MetaController, RepairStats: RepairStats, lineagePath: lineagePath,
     survives: survives, refine: refine, compress: compress, discriminate: discriminate, learnWeights: learnWeights,
     calibrate: calibrate, ReasoningGraph: ReasoningGraph,
     STAGES: STAGES, stageOf: stageOf, ruleConfidence: ruleConfidence, log2: log2

@@ -352,7 +352,15 @@ var PANELTREE = null;
         var budget = Math.max(3, Math.min(48, Math.floor(rws.length / 2)));
         var fit = CELLTREE.growWith(rws, FEATURE_BITS.map(function (_v, k) { return k; }),
                                     FEATURE_BITS, budget);
-        if (!fit) continue;
+        if (!fit) {
+          if (CANDIDATES.active(ctx) && !ctx.timed_out()) {
+            var lf = CELLTREE.growWithLoose(rws, FEATURE_BITS.map(function (_v, k) { return k; }), FEATURE_BITS, budget);
+            if (lf) CANDIDATES.offer(ctx, { family: "partition", module: "paneltree", name: "panels~[" + lf[1] + "]",
+              representation: "panels", fn: (function (t, b) { return function (g) { return applyTree(t, g, b); }; })(lf[0], resolved),
+              depth: Math.min(6, lf[1]), complexity: 1.0 + CELLTREE.bitsWith(lf[0], FEATURE_BITS) / 12.0, why: "impure_leaves" });
+          }
+          continue;
+        }
         var held = true, q;
         if (pairs.length >= 3) {
           for (q = 0; q < pairs.length && held; q++) {

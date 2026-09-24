@@ -97,21 +97,71 @@ var VSPACE = null;
     return den ? num / den : 0.0;
   };
 
+  /* Canonical structure of a program: macros expanded, then the sound
+     rewrites of 09c-canonical.js applied. Two programs with the same
+     canonical structure are ONE structure here, however they were written. */
+  function canonicalStruct(p) {
+    if (typeof CANON === "undefined" || !CANON || !CANON.enabled()) return p.struct;
+    try {
+      var t = PROG.toTree(p.struct, p.theta);
+      if (PROG.expandTree) t = PROG.expandTree(t);
+      var f = PROG.fromTree(CANON.normalizeTree(t));
+      return f.struct;
+    } catch (e) { return p.struct; }
+  }
+
   function structuralSupport(progs, ctx, mode, space) {
     mode = mode || "version_space_predictive";
     space = space || new Space(ctx);
     var byStruct = new Map(), i;
     for (i = 0; i < progs.length; i++) {
-      var k = PROG.render(progs[i].struct);
-      if (!byStruct.has(k)) byStruct.set(k, [progs[i].struct, []]);
+      var cs = canonicalStruct(progs[i]);
+      var k = PROG.render(cs);
+      if (!byStruct.has(k)) byStruct.set(k, [cs, []]);
       byStruct.get(k)[1].push(progs[i]);
     }
     space.stats.structures = byStruct.size;
+    space.stats.raw_structures = progs.length ? new Set(progs.map(function (p) { return PROG.render(p.struct); })).size : 0;
     var full = [];
     for (i = 0; i < ctx.train.length; i++) full.push(i);
     var out = ctx.test_inputs.map(function () { return new Map(); });
     var detail = [];
-    byStruct.forEach(function (rec) {
+    /* Semantic classes: structures that behave identically on the task's
+       grids AND on the canonical probe set are one explanation. Only the
+       heaviest structure of each class contributes support; five spellings
+       of one idea do not get five votes. */
+    var semBest = new Map(), semOf = new Map(), env0 = PROG.makeEnv(ctx);
+    if (typeof CANON !== "undefined" && CANON && CANON.enabled()) {
+      byStruct.forEach(function (rec, k) {
+        var best = rec[1].slice().sort(function (a, b) { return a.thetaBits() - b.thetaBits(); })[0];
+        var sk = null;
+        try { sk = CANON.semanticRun(function (g) { return best.run(g); }, ctx); } catch (e) { sk = null; }
+        semOf.set(k, sk);
+        if (sk === null) return;
+        var bits = PROG.structBits(rec[0]) + best.thetaBits();
+        var cur = semBest.get(sk);
+        if (!cur || bits < cur.bits || (bits === cur.bits && k < cur.key)) semBest.set(sk, { key: k, bits: bits });
+      });
+      space.stats.semantic_classes = semBest.size;
+    }
+    function tta(struct) {
+      /* task-local operator priors (57b-testtime.js): bounded, positive
+         evidence only, read from this task's own demonstrations */
+      var pr = ctx._tta && ctx._tta.opPrior, s2 = 0;
+      if (!pr) return 0;
+      (function walk(n) {
+        if (!n || PROG.isVar(n)) return;
+        if (typeof n[0] === "string" && pr[n[0]] > 0) s2 += pr[n[0]];
+        for (var q = 1; q < n.length; q++) if (Array.isArray(n[q]) && !PROG.isHole(n[q])) walk(n[q]);
+      })(struct);
+      return Math.min(2.0, 0.25 * s2);
+    }
+    byStruct.forEach(function (rec, skey) {
+      var sk0 = semOf.get(skey);
+      if (sk0 !== undefined && sk0 !== null && semBest.get(sk0).key !== skey) {
+        detail.push({ struct: PROG.render(rec[0]), bits: PROG.structBits(rec[0]), regret: null, fits: 0, duplicate_of: semBest.get(sk0).key });
+        return;
+      }
       var struct = rec[0], members = rec[1];
       var sbits = PROG.structBits(struct), j;
       if (mode === "canonical_mdl") {
@@ -130,7 +180,7 @@ var VSPACE = null;
       var thetas = space.thetas(struct, full);
       if (!thetas.length) thetas = members.map(function (p) { return p.theta; });
       var regret = mode === "version_space_predictive" ? space.regret(struct) : 0.0;
-      var w2 = Math.pow(2.0, -sbits - LAMBDA * regret);
+      var w2 = Math.pow(2.0, -sbits - LAMBDA * regret + tta(struct));
       for (j = 0; j < ctx.test_inputs.length; j++) {
         space.predictive(struct, thetas, ctx.test_inputs[j]).forEach(function (r2, kk) {
           var cur = out[j].get(kk);

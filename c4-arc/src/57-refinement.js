@@ -34,70 +34,33 @@ var REFINEMENT = null;
   function setPolicy(p) { POLICY = p || { weights: {}, table: null }; }
 
   var LOG = null;                     /* repair-policy training log, when enabled */
+  /* stage switches (ablations): population search, the learned meta
+     controller, allowed kernel actions, repair depth */
+  var OPTS = { pop: true, meta: true, actions: null, maxDepth: 4, tta: true };
+  function setOptions(o) { for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) OPTS[k] = o[k]; return OPTS; }
   function enableLog(on) { LOG = on ? [] : null; return LOG; }
   function takeLog() { var l = LOG; LOG = LOG ? [] : null; return l; }
 
-  /* Called by _candidates for a hypothesis that failed on training pair t
-     with prediction p. Records only a score, so a non-fit costs O(area). */
+  /* Near-misses are CandidateTraces in a CandidateSink (55a-candidate.js).
+     These three entry points are kept for callers written against the
+     original record lists; they route there. */
   function noteNear(ctx, mod, hyp, t, p) {
     var sink = ctx._nearSink;
     if (!sink || p === null) return;
-    var target = ctx.train[t][1], agree = 0, ph = p.length, pw = p[0].length, th = target.length, tw = target[0].length;
-    if (ph === th && pw === tw) {
-      var n = 0, m = 0, r, c;
-      for (r = 0; r < th; r++) for (c = 0; c < tw; c++) { n++; if (p[r][c] === target[r][c]) m++; }
-      agree = m / n;
-    } else if ((ph === tw && pw === th) || (!(th % ph) && !(tw % pw)) || (!(ph % th) && !(pw % tw))) {
-      /* wrong size, but in a relation a dims repair (transpose, scale,
-         crop) can close: partial credit */
-      agree = 0.35;
-    }
-    var score = (t + agree) / ctx.train.length;
-    if (score <= 0.1) return;
-    var key = mod.__name__, lst = sink.byModule.get(key);
-    if (!lst) { lst = []; sink.byModule.set(key, lst); }
-    if (lst.length < PER_MODULE) lst.push({ hyp: hyp, score: score, solver: hyp.solver, module: key });
-    else {
-      var worst = 0, i;
-      for (i = 1; i < lst.length; i++) if (lst[i].score < lst[worst].score) worst = i;
-      if (score > lst[worst].score) lst[worst] = { hyp: hyp, score: score, solver: hyp.solver, module: key };
-    }
+    if (typeof sink.noteNear === "function") { sink.noteNear(ctx, mod, hyp, t, p); return; }
   }
 
-  /* Called by the typed synthesiser with its closest non-exact states. */
-  function noteTyped(ctx, struct, theta, dist) {
+  function noteTyped(ctx, struct, theta, dist, meta) {
     var sink = ctx._nearSink;
     if (!sink) return;
-    sink.typed.push({ struct: struct, theta: theta, score: 1 - Math.min(1, dist) });
+    if (typeof sink.noteTyped === "function") sink.noteTyped(ctx, struct, theta, dist, meta);
   }
 
-  function newSink() { return { byModule: new Map(), typed: [] }; }
+  function newSink(ctx, opts) { return CANDIDATES.newSink(ctx || null, opts); }
 
   function seedsFrom(adapter, sink) {
-    var all = [];
-    sink.byModule.forEach(function (lst) { all = all.concat(lst); });
-    sink.typed.sort(function (a, b) { return b.score - a.score; });
-    sink.typed.slice(0, TYPED_NEAR).forEach(function (t) { all.push({ typed: t, score: t.score, solver: "typed" }); });
-    all.sort(function (a, b) { return b.score - a.score; });
-    var perFam = {}, seen = new Set(), out = [], i;
-    for (i = 0; i < all.length && out.length < MAX_SEEDS; i++) {
-      var s = all[i], fam = s.solver || "?";
-      if ((perFam[fam] || 0) >= PER_FAMILY) continue;
-      var h;
-      if (s.typed) {
-        var tree = REPAIR.toTree(s.typed.struct, s.typed.theta);
-        var nm = "typed:" + REPAIR.render(tree);
-        if (seen.has(nm)) continue; seen.add(nm);
-        h = adapter.seed(null, tree, { seedScore: s.score, family: "typed" });
-      } else {
-        var nm2 = s.hyp.solver + ":" + s.hyp.name;
-        if (seen.has(nm2)) continue; seen.add(nm2);
-        h = adapter.seed(s.hyp, null, { seedScore: s.score, family: fam });
-      }
-      perFam[fam] = (perFam[fam] || 0) + 1;
-      out.push(h);
-    }
-    return { seeds: out, families: perFam };
+    if (!sink.ctx) sink.ctx = adapter.ctx;
+    return sink.seeds(adapter, { max: MAX_SEEDS, perFamily: PER_FAMILY, typed: TYPED_NEAR });
   }
 
   /* Leave-one-out for a repaired program: refit the parameters the repair
@@ -180,6 +143,10 @@ var REFINEMENT = null;
 
   var REPAIR_MODULE = { __name__: "repair", SOLVER: "repair", PHASE: 3, NO_LOO: true,
                         generate: function () { return []; } };
+  /* programs found by the adapted synthesis pass are ordinary typed
+     programs; their module is typed synthesis (so leave-one-out applies) */
+  var TTA_MODULE = { __name__: "typed_adapted", SOLVER: "typed", PHASE: 3,
+                     generate: function (c) { return typeof moduleByName === "function" && moduleByName("typed") ? moduleByName("typed").generate(c) : []; } };
 
   function hasExecutable(ctx, reservoir) {
     return reservoir.a.some(function (item) {
@@ -194,6 +161,7 @@ var REFINEMENT = null;
     var diag = { ran: false };
     res.diagnostics.refinement = diag;
     if (!sink || !K) return order;
+    if (OPTS.off) { diag.skipped = "disabled"; return order; }
     var now = nowMs(), exec = hasExecutable(ctx, reservoir);
     /* time: what the schedule left unused; plus the evaluation reserve when
        nothing executable exists, keeping a small margin for voting */
@@ -201,32 +169,86 @@ var REFINEMENT = null;
     diag.has_exact = exec;
     if (end - now < 40) { diag.skipped = "no_budget"; return order; }
     var adapter = new REPAIR.ArcAdapter(ctx);
+    adapter.sink = sink;
+    /* Nothing executable yet: adapt to THIS task before searching deeper
+       (57b-testtime.js) -- temporary priors from its own demonstrations,
+       then one synthesis pass under them. Exact programs found go straight
+       to the reservoir; near states join the sink before seeding. */
+    if (!exec && OPTS.tta && typeof TESTTIME !== "undefined" && end - now > 80) {
+      try {
+        var tta = TESTTIME.adapt(ctx, sink, { budgetMs: Math.min(150, (end - now) * 0.18) });
+        diag.tta = tta.report;
+        var synEnd = nowMs() + (end - nowMs()) * 0.3;
+        ctx._nearSink = sink; ctx.deadline = synEnd;
+        var progs = TESTTIME.adaptedSearch(ctx, synEnd, 200);
+        ctx._nearSink = null;
+        diag.tta.adapted_found = progs.length;
+        progs.forEach(function (p) {
+          var hy = new Hyp(p.name(), (function (q) { return function (g) { return q.run(g); }; })(p), 2.0 + p.codeLength() / 8.0, "typed");
+          hy.prog = p;
+          if (!ctx.test_inputs.every(function (g) { return _prediction(hy, g) !== null; })) return;
+          var sc = hy.cost + Number(SOLVER_PRIOR.typed) + Number(bias.typed || 0);
+          var it = [-sc, -order, hy, TTA_MODULE];
+          order += 1;
+          if (reservoir.a.length < 600) reservoir.push(it); else if (_itemCmp(it, reservoir.a[0]) > 0) reservoir.replaceRoot(it);
+        });
+        if (progs.length) exec = hasExecutable(ctx, reservoir);
+      } catch (e) { ctx._nearSink = null; diag.tta_error = String(e && e.message).slice(0, 120); }
+    }
     var sd = seedsFrom(adapter, sink);
+    adapter.usedSeeds = sd.seeds.slice();
     diag.seed_families = sd.families;
+    try { diag.candidates = sink.report(); } catch (e) { diag.candidates = null; }
     if (!sd.seeds.length) { diag.skipped = "no_near_misses"; return order; }
     diag.ran = true;
     ctx.deadline = end;
     var stats = new K.RepairStats(POLICY.table ? { table: POLICY.table } : null);
+    var M = root.C4ReasonMeta, metaModel = OPTS.meta && M && M.hub.active() ? M.hub.active() : null;
     /* With an exact explanation in hand, refinement is a short search for
        alternatives. Without one it is the only remaining search, so a stall
-       is tolerated for longer before giving up (the deadline still binds). */
+       is tolerated for longer before giving up (the deadline still binds).
+       Without one, it also shares the stage with population search
+       (56a-popsearch.js): the kernel's best-first repair first, on half the
+       time, then a population seeded from its frontier. */
+    var refineEnd = (exec || !OPTS.pop) ? end : now + (end - now) * 0.5;
+    var traj = [];
     var out = K.refine(adapter, sd.seeds, {
-      deadline: end, maxSteps: exec ? 40 : 200, frontierCap: 48, clusterCap: 6, childCap: 12,
-      maxDepth: 3, stallLimit: 3, maxStall: exec ? 12 : 40, exactCap: 12, afterExact: exec ? 0 : 4,
-      weights: POLICY.weights, stats: stats, log: LOG
+      deadline: refineEnd, maxSteps: exec ? 40 : 200, frontierCap: 48, clusterCap: 6, childCap: 12,
+      maxDepth: OPTS.maxDepth, stallLimit: 3, maxStall: exec ? 12 : 40, exactCap: 12, afterExact: exec ? 0 : 4,
+      weights: POLICY.weights, stats: stats, log: LOG, metaModel: metaModel, domain: "arc",
+      actions: OPTS.actions || null, trajectory: traj, episodic: M && root.C4ReasonMemory ? root.C4ReasonMemory.shared.episodic : null
     });
+    if (M && M.hub) M.hub.log(traj);
+    var pop = null;
+    if (OPTS.pop && !exec && !out.exact.length && end - nowMs() > 60 && typeof POPSEARCH !== "undefined") {
+      var popSeeds = out.frontier.sorted().slice(0, 16);
+      if (!popSeeds.length) popSeeds = sd.seeds;
+      try { pop = POPSEARCH.search(adapter, popSeeds, { deadline: end, afterExact: 40 }); } catch (e) { pop = null; diag.popsearch_error = String(e && e.message).slice(0, 120); }
+      if (pop) {
+        var ps = pop.stats;
+        diag.popsearch = { seeds: ps.seeds, generated: ps.generated, evaluated: ps.evaluated, struct_dup: ps.struct_dup,
+          behavior_dup: ps.behavior_dup, exact: ps.exact, niches: ps.niches, archive: ps.archive, max_depth: ps.maxDepth,
+          exact_depths: ps.exactDepths, best_start: ps.bestStart, best_end: ps.bestEnd, ms: ps.ms, by_class: ps.byClass,
+          multi_edits: ps.multiEdits };
+      }
+    }
     var st = out.stats;
     diag.stats = { seeds: st.seeds, evaluated: st.evaluated, kept: st.kept, duplicates: st.duplicates,
       wasted: st.wasted, steps: st.steps, exact: st.exact, made_exact: st.madeExact,
       mean_depth: st.madeExact ? st.depthSum / st.madeExact : null, backtracks: st.backtracks,
       representation_switches: st.repsSwitched, best_start: st.bestStart, best_end: st.bestEnd,
       frontier: st.frontier, clusters: st.clusters, evicted: st.evicted, ms: st.ms,
-      by_mutation: st.byMutation, by_diag: st.byDiag, survival: st.survival, plan: st.plan };
+      by_mutation: st.byMutation, by_diag: st.byDiag, survival: st.survival, plan: st.plan,
+      struct_duplicates: st.structDuplicates, migrations: st.migrations, migration_kept: st.migrationKept,
+      migration_exact: st.migrationExact, discriminations: st.discriminations, inventions: st.inventions,
+      deep_verified: st.deepVerified, deep_failed: st.deepFailed, restarts: st.restarts, max_depth: st.maxDepthReached,
+      by_action: st.byAction, memory: st.memory || null };
     diag.base_runs = adapter.stats.baseRuns;
     diag.exact = [];
     var i, looEnd = Math.min(deadline - Math.max(60, budgetMs * 0.03), nowMs() + budgetMs * 0.05);
-    for (i = 0; i < out.exact.length; i++) {
-      var h = out.exact[i], base = h.program.base;
+    var exacts = out.exact.concat(pop ? pop.exact : []);
+    for (i = 0; i < exacts.length; i++) {
+      var h = exacts[i], base = h.program.base, fromPop = pop && pop.exact.indexOf(h) >= 0;
       var tb = REPAIR.treeBits(h.program.tree);
       var cost = base ? Number(base.cost) + (tb + h.repairBits) / 8 : 2.0 + (tb + h.repairBits) / 8;
       var fam = base ? base.solver : "typed";
@@ -236,10 +258,12 @@ var REFINEMENT = null;
       var adj = loo && loo.trials ? (1.5 - 4.5 * loo.wins / loo.trials) * loo.trials / ctx.train.length : 0;
       var score = cost + prior + adj;
       if (!isFinite(score)) continue;
-      var name = "repair:" + (base ? base.solver + ":" + base.name + " >> " : "") + REPAIR.render(h.program.tree);
-      var hyp = new Hyp(name, adapter.closure(h.program), cost, "repair");
+      var name = (fromPop ? "pop:" : "repair:") + (base ? base.solver + ":" + base.name + " >> " : "") + REPAIR.render(h.program.tree) +
+                 (h.program.rep ? "@" + h.program.rep : "");
+      var hyp = new Hyp(name, adapter.closure(h.program), cost, fromPop ? "popsearch" : "repair");
       hyp.lineage = lineageOf(h);
-      if (!base && !REPAIR.usesInput(h.program.tree)) {
+      hyp.representation = h.program.rep || "raw";
+      if (!base && !h.program.rep && !REPAIR.usesInput(h.program.tree)) {
         var f = REPAIR.fromTree(h.program.tree);
         hyp.prog = new PROG.Prog(f.struct, f.theta, PROG.makeEnv(ctx));
       }
@@ -265,5 +289,6 @@ var REFINEMENT = null;
   REFINEMENT = { noteNear: noteNear, noteTyped: noteTyped, newSink: newSink, stage: stage,
                  seedsFrom: seedsFrom, repairLOO: repairLOO, setPolicy: setPolicy,
                  policy: function () { return POLICY; }, enableLog: enableLog, takeLog: takeLog,
+                 options: setOptions,
                  MODULE: REPAIR_MODULE };
 })();

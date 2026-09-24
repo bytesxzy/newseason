@@ -843,6 +843,54 @@ var CELLTREE = null;
     return { leaf: false, fi: FI, value: VAL, op: OP, yes: a, no: b };
   }
 
+  /* The same induction, but a node that would fail (depth or leaf budget
+     exhausted, no informative split) becomes a majority leaf instead of
+     failing the whole tree. The result reproduces most cells, not all: it is
+     never a hypothesis, only a structured near-miss for repair
+     (55a-candidate.js). */
+  function growLoose(rows, allowed, depth, budget, state) {
+    var ys = {}, i, n = rows.length, distinct = 0, maj = null, mn = -1;
+    for (i = 0; i < n; i++) ys[rows[i][1]] = (ys[rows[i][1]] || 0) + 1;
+    for (var k in ys) if (ys.hasOwnProperty(k)) { distinct++; if (ys[k] > mn) { mn = ys[k]; maj = k; } }
+    var majLeaf = { leaf: true, value: n ? rows.filter(function (r) { return String(r[1]) === maj; })[0][1] : null, copy: null };
+    if (distinct <= 1) return n ? { leaf: true, value: rows[0][1], copy: null } : majLeaf;
+    var fiCopy = copyLeaf(rows, allowed);
+    if (fiCopy !== null) return { leaf: true, value: null, copy: fiCopy };
+    if (depth >= MAX_DEPTH || state.leaves >= budget || n < 2) return majLeaf;
+    /* reuse the exact grower's split choice by asking it for one level */
+    var probe = { leaves: 0, splits: 0 }, best = null;
+    var base = entropyOf(ys, n);
+    for (var ai = 0; ai < allowed.length; ai++) {
+      var fi = allowed[ai], groups = new Map();
+      for (i = 0; i < n; i++) {
+        var v = rows[i][0][fi], gm = groups.get(v);
+        if (!gm) { gm = {}; groups.set(v, gm); }
+        gm[rows[i][1]] = (gm[rows[i][1]] || 0) + 1;
+      }
+      if (groups.size < 2) continue;
+      groups.forEach(function (gm, v) {
+        var kk = 0, y; for (y in gm) if (gm.hasOwnProperty(y)) kk += gm[y];
+        if (kk === 0 || kk === n) return;
+        var rest = {}; for (y in ys) if (ys.hasOwnProperty(y)) { var left = ys[y] - (gm[y] || 0); if (left) rest[y] = left; }
+        var gain = base - (kk / n) * entropyOf(gm, kk) - ((n - kk) / n) * entropyOf(rest, n - kk);
+        if (best === null || gain > best[0] + 1e-12 || (Math.abs(gain - best[0]) <= 1e-12 && (fi < best[1] || (fi === best[1] && v < best[2]))))
+          best = [gain, fi, v];
+      });
+    }
+    probe = null;
+    if (best === null || best[0] <= 1e-9) return majLeaf;
+    var yes = [], no = [];
+    for (i = 0; i < n; i++) (rows[i][0][best[1]] === best[2] ? yes : no).push(rows[i]);
+    state.leaves++; state.splits++;
+    return { leaf: false, fi: best[1], value: best[2], op: "eq",
+             yes: growLoose(yes, allowed, depth + 1, budget, state), no: growLoose(no, allowed, depth + 1, budget, state) };
+  }
+  function entropyOf(counts, n) {
+    var e = 0, k;
+    for (k in counts) if (counts.hasOwnProperty(k) && counts[k]) { var p = counts[k] / n; e -= p * Math.log(p); }
+    return e / Math.LN2;
+  }
+
   function predict(node, f) {
     while (!node.leaf)
       node = (node.op === "eq" ? f[node.fi] === node.value : f[node.fi] <= node.value)
@@ -992,6 +1040,24 @@ var CELLTREE = null;
     return out;
   }
 
+  /* Near-miss trees for the candidate sink: only when the family found no
+     exact tree at all, on three broad feature banks, bounded. */
+  function offerLoose(ctx, pairs, bg, delta) {
+    if (!CANDIDATES.active(ctx) || ctx.timed_out()) return;
+    var rows = rowsFor(pairs, bg, delta);
+    if (!rows || !rows.length) return;
+    var list = banks().filter(function (b) { return b[0] === "all" || b[0] === "local+pos" || b[0] === "obj+field"; });
+    var ceiling = Math.max(4, Math.min(64, Math.floor(rows.length / 12)));
+    list.forEach(function (bk) {
+      if (ctx.timed_out()) return;
+      var state = { leaves: 0, splits: 0 }, tree = growLoose(rows, bk[1], 0, ceiling, state);
+      if (!tree) return;
+      CANDIDATES.offer(ctx, { family: "cellwise", module: "celltree", name: "tree~" + (delta ? "D" : "") + "[" + bk[0] + "," + state.splits + "]",
+        fn: (function (t, b, d) { return function (g) { return applyTree(t, g, b, d); }; })(tree, bg, delta),
+        representation: "cells:" + bk[0], depth: Math.min(6, state.splits), complexity: 1.0 + treeBits(tree) / 12.0, why: "impure_leaves" });
+    });
+  }
+
   function generate(ctx) {
     if (!ctx.same_shape()) return [];
     var res = [], di, i, bi;
@@ -1008,6 +1074,7 @@ var CELLTREE = null;
         if (ctx.timed_out()) break;
         var fits;
         try { fits = fitPairs(pairs, bg, null, delta, ctx.deadline); } catch (e) { continue; }
+        if (!fits.length) { try { offerLoose(ctx, pairs, bg, delta); } catch (e) { /* advisory */ } }
         var tag = bg === null ? "~" : "";
         for (i = 0; i < fits.length; i++) {
           var label = fits[i][0], tree = fits[i][1], bits = fits[i][2];
@@ -1048,6 +1115,14 @@ var CELLTREE = null;
     }
   }
 
+  function growWithLoose(rows, allowed, bitsTable, budget) {
+    return withBits(bitsTable, function () {
+      var state = { leaves: 0, splits: 0 };
+      var tree = growLoose(rows, allowed, 0, budget, state);
+      return tree === null ? null : [tree, state.splits];
+    });
+  }
+
   function growWith(rows, allowed, bitsTable, budget) {
     return withBits(bitsTable, function () {
       var ceiling = budget, ladder = [3, 6, 12, 24, 48, 96].filter(function (b) {
@@ -1070,7 +1145,7 @@ var CELLTREE = null;
 
   CELLTREE = { features: features, fitPairs: fitPairs, applyTree: applyTree,
                banks: banks, KEEP: KEEP, predict: predict,
-               growWith: growWith, bitsWith: bitsWith,
+               growWith: growWith, bitsWith: bitsWith, growLoose: growLoose, growWithLoose: growWithLoose,
                /* the iterated-rule family reuses the induction verbatim over
                   rows it builds itself, so it needs these unwrapped */
                grow: grow, treeBits: treeBits, N8D: N8D,

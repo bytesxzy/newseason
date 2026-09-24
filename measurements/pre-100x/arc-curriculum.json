@@ -1,0 +1,68 @@
+{
+  "note": "synthetic curriculum; programs, inputs and corruptions are generated, no ARC benchmark data",
+  "train": {
+    "n": 1500,
+    "recovery_rate": 0.8406666666666667,
+    "general_rate": 0.8046666666666666,
+    "log_entries": 113337
+  },
+  "eval_without_policy": {
+    "n": 800,
+    "recovery_rate": 0.66,
+    "general_rate": 0.62875,
+    "mean_steps": 2.22375,
+    "byKind": {
+      "operator": {
+        "n": 215,
+        "recovered": 110,
+        "general": 101
+      },
+      "insertion": {
+        "n": 245,
+        "recovered": 164,
+        "general": 152
+      },
+      "param": {
+        "n": 244,
+        "recovered": 193,
+        "general": 189
+      },
+      "deletion": {
+        "n": 96,
+        "recovered": 61,
+        "general": 61
+      }
+    }
+  },
+  "eval_with_policy": {
+    "n": 800,
+    "recovery_rate": 0.72375,
+    "general_rate": 0.6925,
+    "mean_steps": 2.15875,
+    "byKind": {
+      "operator": {
+        "n": 215,
+        "recovered": 149,
+        "general": 142
+      },
+      "insertion": {
+        "n": 245,
+        "recovered": 173,
+        "general": 159
+      },
+      "param": {
+        "n": 244,
+        "recovered": 196,
+        "general": 192
+      },
+      "deletion": {
+        "n": 96,
+        "recovered": 61,
+        "general": 61
+      }
+    }
+  },
+  "policy_rows": 338,
+  "weight_features": 35,
+  "seconds": 35.112
+}

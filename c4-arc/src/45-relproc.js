@@ -431,7 +431,12 @@
               covered.set(ak, n);
             }
           }
-          if (!opts.size) { failed = true; break; }
+          if (!opts.size) {
+            /* the action vocabulary cannot explain this object under this
+               segmentation: a representation failure, not a program one */
+            CANDIDATES.note(ctx, "no_action_explains_object", { seg: seg, family: "relproc", pair: t });
+            failed = true; break;
+          }
           rows.push([scene.features.get(obj), opts, covered]);
         }
       }
@@ -490,7 +495,13 @@
             p = rule(ctx.train[t][0]);
             if (p === null || !G.gEq(p, ctx.train[t][1])) { okAll = false; break; }
           }
-          if (!okAll) continue;
+          if (!okAll) {
+            CANDIDATES.offer(ctx, { family: "objects", module: "relproc", fn: rule,
+              name: "relproc~[" + seg + "/" + (keyset.join("+") || "all") + "|" + table.size + "]",
+              representation: "relations:" + seg, depth: 2 + keyset.length,
+              complexity: 3.2 + 0.7 * keyset.length + 0.3 * table.size, why: "relation_table_mismatch" });
+            continue;
+          }
           var sigParts = [], anyNull = false;
           for (i = 0; i < ctx.test_inputs.length; i++) {
             p = rule(ctx.test_inputs[i]);

@@ -250,15 +250,18 @@ var _SEG_CAP = 512;
    recomputing connected components each time dominated the runtime. */
 function segment(grid, mode, bg) {
   if (bg === null || bg === undefined) bg = G.background(grid);
-  var key = G.gkey(grid) + "#" + mode + "#" + bg;
-  var hit = _SEG_CACHE.get(key);
-  if (hit !== undefined) return hit;
+  /* keyed by the grid's numeric hash; a bucket entry is only returned after
+     an exact comparison, so a hash collision can never hand back another
+     grid's objects */
+  var key = G.ghash(grid) + "#" + mode + "#" + bg;
+  var bucket = _SEG_CACHE.get(key), j;
+  if (bucket !== undefined) for (j = 0; j < bucket.length; j++) if (G.gEq(bucket[j][0], grid)) return bucket[j][1];
   var i, res = null;
   for (i = 0; i < SEGMENTATIONS.length; i++)
     if (SEGMENTATIONS[i][0] === mode) { res = SEGMENTATIONS[i][1](grid, bg); break; }
   if (res === null) throw new Error("unknown segmentation " + mode);
-  if (_SEG_CACHE.size > _SEG_CAP) _SEG_CACHE.clear();
-  _SEG_CACHE.set(key, res);
+  if (_SEG_CACHE.size > _SEG_CAP) { _SEG_CACHE.clear(); bucket = undefined; }
+  if (bucket !== undefined) bucket.push([grid, res]); else _SEG_CACHE.set(key, [[grid, res]]);
   return res;
 }
 
