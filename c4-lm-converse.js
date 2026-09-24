@@ -537,7 +537,11 @@
      said out loud: size suggests mass but does not fix it */
   var PROXY = { heavier: ["size", "size alone doesn't settle mass"], lighter: ["size", "size alone doesn't settle mass"] };
   function possessive(n) { return /s$/.test(n) ? n + "'" : n + "'s"; }
+  /* the measures behind the last comparison, so "by how much?" can be
+     answered from them (c4-lm-dialogue.js) */
+  var lastM = null;
   function magnitude(I) {
+    lastM = null;
     var a = I.options[0], b = I.options[1], ka = knowledgeOf(a), kb = knowledgeOf(b);
     var said0 = I.said || I.options, nva = numValue(said0[0]), nvb = numValue(said0[1]);
     if (nva && nvb) return numericMagnitude(I, nva, nvb);
@@ -583,6 +587,8 @@
     if (ma.value === mb.value) return cap(ka.name) + " and " + kb.name + " are the same on that measure (" + ka.rel[key] + ").";
     var win = aWins ? ka : kb, lose = aWins ? kb : ka, big = Math.max(ma.value, mb.value), small = Math.min(ma.value, mb.value);
     var said = I.said || I.options, winSaid = aWins ? said[0] : said[1], loseSaid = aWins ? said[1] : said[0];
+    lastM = { win: winSaid, lose: loseSaid, key: key, a: { value: aWins ? ma.value : mb.value, unit: ma.unit, text: win.rel[key] },
+              b: { value: aWins ? mb.value : ma.value, unit: ma.unit, text: lose.rel[key] } };
     var ratio = small > 0 ? big / small : null, bigSaid = ma.value >= mb.value ? said[0] : said[1];
     var across = /diameter/i.test(win.rel[key]) ? "as wide" : "as " + baseAdj(wantSmall ? oppositeAdj(I.adj) : I.adj);
     var rtxt = ratio && ratio >= 1.5 ? " — " + (wantSmall ? bigSaid + " is " : "") + "about " + (ratio >= 10 ? Math.round(ratio) : Math.round(ratio * 10) / 10) + " times " + across : "";
@@ -598,7 +604,7 @@
   }
   function baseAdj(adj) {
     return { bigger: "big", larger: "large", heavier: "heavy", older: "old", faster: "fast", taller: "tall", longer: "long",
-             hotter: "hot", farther: "far", further: "far", higher: "high", deeper: "deep", wider: "wide", greater: "great" }[adj] || adj;
+             hotter: "hot", farther: "far", further: "far", higher: "high", deeper: "deep", wider: "wide", greater: "great" }[adj] || String(adj).replace(/^more\s+/, "");
   }
 
   /* --- creative: built from what is known about the topic --- */
@@ -1052,7 +1058,7 @@
     return false;
   }
 
-  var CV = { analyze: analyze, respond: respond, accepts: accepts, knowledgeOf: knowledgeOf, measure: measure, syllables: syllables,
+  var CV = { analyze: analyze, respond: respond, accepts: accepts, knowledgeOf: knowledgeOf, measure: measure, syllables: syllables, lastMeasure: function () { return lastM; },
              capability: capability, AFFECT: AFFECT };
   root.C4LMConverse = CV;
   if (typeof module !== "undefined" && module.exports) module.exports = CV;

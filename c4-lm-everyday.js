@@ -500,6 +500,38 @@
   /* things that leave or arrive on their own: "5 fly away", "3 more came" */
   var DEPART = /^(?:fly|flies|flew|run|runs|ran|walk|walks|walked|swim|swims|swam|leave|leaves|left|go|goes|went|hop|hops|hopped|escape|escapes|escaped|die|dies|died|melt|melts|melted|pop|pops|popped|fall|falls|fell|jump|jumps|jumped|get|gets|got|drive|drives|drove|sail|sails|sailed)$/i;
   var ARRIVE = /^(?:come|comes|came|arrive|arrives|arrived|join|joins|joined|land|lands|landed|hatch|hatches|hatched|appear|appears|appeared|get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i;
+  /* The changes told after a starting amount, in order: "ate 3", "gave 10
+     to her brother", "5 flew away", "3 more came". A number joined to a
+     change by "and" ("spent 12 on a book and 8 on lunch") shares its verb. */
+  function events(rest) {
+    var mm, ev = [];
+    var re = /\b([a-z]+)\s+(away\s+|up\s+)?(?:another\s+)?(\d+(?:\.\d+)?)(\s+(?:more|of them|of these|more\s+[a-z]+))?/gi;
+    while ((mm = re.exec(rest))) {
+      var verb = mm[1], n = +mm[3];
+      if (GAIN.test(verb)) ev.push([mm.index, n, verb + " " + (mm[2] || "") + mm[3] + (mm[4] || ""), verb]);
+      /* any verb that sends things "away" loses them: "traded away 9" */
+      else if (LOSS.test(verb) || (/^away/i.test(mm[2] || "") && /(?:ed|s)$/i.test(verb) && !/^(?:was|is|has|does)$/i.test(verb))) ev.push([mm.index, -n, verb + " " + (mm[2] || "") + mm[3], verb]);
+      else if (/^and$/i.test(verb) && ev.length) {
+        var prev = ev[ev.length - 1], between = rest.slice(prev[0], mm.index);
+        /* same clause: no sentence break and no other verb of change between */
+        if (!/[.!?;]/.test(between) && !between.split(/\s+/).slice(2).some(function (w) { return GAIN.test(w) || LOSS.test(w); }))
+          ev.push([mm.index, prev[1] < 0 ? -n : n, prev[3] + " " + mm[3], prev[3]]);
+      }
+    }
+    /* given TO the one counting: "his sister gave him 14" is a gain */
+    var re3 = /\b(?:gave|gives|give|handed|hands|sent|sends|lent|lends|passed|passes|brought|brings|paid|pays)\s+(him|her|them|me|us)\s+(?:another\s+)?(\d+(?:\.\d+)?)/gi;
+    while ((mm = re3.exec(rest))) ev.push([mm.index, +mm[2], "got " + mm[2] + " more", "got"]);
+    /* a number as the subject: "5 fly away", "6 got off", "3 more came" */
+    var re2 = /\b(\d+(?:\.\d+)?)\s+(more\s+)?(?:of (?:them|the [a-z]+)\s+|[a-z]+\s+)??([a-z]+)(?:\s+(away|off|out|down|on|in|over|back))?\b/gi;
+    while ((mm = re2.exec(rest))) {
+      var v2 = mm[3], p2 = (mm[4] || "").toLowerCase(), n2 = +mm[1];
+      if (/^(?:get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i.test(v2) && !p2) continue;
+      var arrive = ARRIVE.test(v2) && (!/^(?:get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i.test(v2) || /^(?:on|in|back)$/.test(p2)) && p2 !== "away" && p2 !== "off" && p2 !== "out",
+          depart = !arrive && DEPART.test(v2) && (!/^(?:fly|flies|flew|run|runs|ran|walk|walks|walked|swim|swims|swam|hop|hops|hopped|jump|jumps|jumped|get|gets|got|drive|drives|drove|sail|sails|sailed)$/i.test(v2) || /^(?:away|off|out|down)$/.test(p2));
+      if (arrive || depart) ev.push([mm.index, arrive ? n2 : -n2, mm[0].trim()]);
+    }
+    return ev.sort(function (a, b) { return a[0] - b[0]; });
+  }
   function changes(text) {
     if (RATE.test(text)) return null;
     var t = numbersIn(text).replace(/\$\s*(\d)/g, "$1");
@@ -517,23 +549,7 @@
     var said = how === "there" ? "there " + (/\bwere\b/i.test(m[0]) ? "were " : "are ") + m[2] + " " + item :
                who + " " + (how === "had" ? (/\bhas\b/.test(m[0]) ? "has" : /\bhave\b/.test(m[0]) ? (who === "you" ? "have" : "have") : "had") : how.toLowerCase()) + " " + m[2] + " " + item;
     var steps = [said], expr = [m[2]];
-    var rest = t.slice(m.index + m[0].length), mm, changed = false, ev = [];
-    var re = /\b([a-z]+)\s+(away\s+|up\s+)?(?:another\s+)?(\d+(?:\.\d+)?)(\s+(?:more|of them|of these|more\s+[a-z]+))?/gi;
-    while ((mm = re.exec(rest))) {
-      var verb = mm[1], n = +mm[3];
-      if (GAIN.test(verb)) ev.push([mm.index, n, verb + " " + (mm[2] || "") + mm[3] + (mm[4] || "")]);
-      else if (LOSS.test(verb)) ev.push([mm.index, -n, verb + " " + (mm[2] || "") + mm[3]]);
-    }
-    /* a number as the subject: "5 fly away", "6 got off", "3 more came" */
-    var re2 = /\b(\d+(?:\.\d+)?)\s+(more\s+)?(?:of (?:them|the [a-z]+)\s+|[a-z]+\s+)??([a-z]+)(?:\s+(away|off|out|down|on|in|over|back))?\b/gi;
-    while ((mm = re2.exec(rest))) {
-      var v2 = mm[3], p2 = (mm[4] || "").toLowerCase(), n2 = +mm[1];
-      if (/^(?:get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i.test(v2) && !p2) continue;
-      var arrive = ARRIVE.test(v2) && (!/^(?:get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i.test(v2) || /^(?:on|in|back)$/.test(p2)) && p2 !== "away" && p2 !== "off" && p2 !== "out",
-          depart = !arrive && DEPART.test(v2) && (!/^(?:fly|flies|flew|run|runs|ran|walk|walks|walked|swim|swims|swam|hop|hops|hopped|jump|jumps|jumped|get|gets|got|drive|drives|drove|sail|sails|sailed)$/i.test(v2) || /^(?:away|off|out|down)$/.test(p2));
-      if (arrive || depart) ev.push([mm.index, arrive ? n2 : -n2, mm[0].trim()]);
-    }
-    ev.sort(function (a, b) { return a[0] - b[0]; });
+    var rest = t.slice(m.index + m[0].length), changed = false, ev = events(rest);
     ev.forEach(function (e) { count += e[1]; steps.push(flip(e[2])); expr.push((e[1] < 0 ? "− " : "+ ") + Math.abs(e[1])); changed = true; });
     if (!changed) return null;
     var ask = text.split(/[.!]/).pop() + text.slice(-60);
@@ -561,6 +577,17 @@
     var q = t.match(/\bhow\s+many\s+([a-z]+)/i);
     if (!q || base(singular(q[1])) !== base(singular(m[4]))) return null;
     var n = +m[1], k = +m[3], total = n * k, item = m[4].toLowerCase();
+    /* what happens to the whole afterwards: "gave 10 to her brother" */
+    var later = events(t.slice(m.index + m[0].length).replace(/\bhow\s+many[\s\S]*$/i, ""));
+    if (later.length) {
+      var count = total, expr = [n + " × " + k];
+      later.forEach(function (e) { count += e[1]; expr.push((e[1] < 0 ? "− " : "+ ") + Math.abs(e[1])); });
+      if (count < 0) return null;
+      var left = /\b(?:left|remain)/i.test(t);
+      return { answer: count + " " + item, value: count, kind: "groups", certain: true, steps: [n + " × " + k + " = " + total].concat(later.map(function (e) { return flip(e[2]); })),
+               text: count + " " + (count === 1 ? singular(item) : item) + (left ? " left" : "") + ". " + n + " " + m[2] + " × " + k + " " + item + " each = " + total + " " + item + ", then " +
+                     later.map(function (e) { return flip(e[2]); }).join(", then ") + ": " + expr.join(" ") + " = " + count + "." };
+    }
     return { answer: total + " " + item, value: total, kind: "groups", certain: true, steps: [n + " × " + k + " = " + total],
              text: total + " " + (total === 1 ? singular(item) : item) + ". " + n + " " + m[2] + " × " + k + " " + item + " each = " + total + " " + item + "." };
   }

@@ -1,0 +1,168 @@
+{
+  "n": 26,
+  "good": 23,
+  "honest": 1,
+  "wrong": 2,
+  "items": [
+    {
+      "q": "What is a pupil?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Pupil has several meanings: (1) an enrollee — a learner who is enrolled in an educational institution; (2) an aperture — the contractile aperture in the center of the iris of the eye; (3) a young person — a young person attending school (up through senior high school). Which one do you mean?"
+    },
+    {
+      "q": "I mean the one in the eye",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Pupil, the aperture: the contractile aperture in the center of the iris of the eye. A aperture is a kind of hole."
+    },
+    {
+      "q": "What is 40% of 250?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 100. 40% means 40 out of every 100, so 0.4 × 250 = 100."
+    },
+    {
+      "q": "Take away 35",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "65. 100 − 35 = 65 (from the previous result, 100)."
+    },
+    {
+      "q": "Triple that",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "195. 65 × 3 = 195 (from the previous result, 65)."
+    },
+    {
+      "q": "Is it an odd number?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "Yes — 195 is odd (the previous result was 195)."
+    },
+    {
+      "q": "What is the capital of Canada?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Canada's capital is Ottawa. It has a population of about 40 million. Its currency is the Canadian dollar."
+    },
+    {
+      "q": "What currency do they use there?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Canada's currency is the Canadian dollar."
+    },
+    {
+      "q": "And Mexico?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The currency of Mexico is the peso. It has a population of about 129 million. People there speak Spanish."
+    },
+    {
+      "q": "Which one has more people?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "Mexico is more populous: about 129 million versus about 40 million for Canada — about 3.2 times as populous."
+    },
+    {
+      "q": "By how much?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "By about 89 million: Mexico about 129 million versus about 40 million for Canada — about 3.2 times as much."
+    },
+    {
+      "q": "Omar had 45 cards.",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Got it: Omar has 45 cards. Tell me what happens next, or ask me how many there are."
+    },
+    {
+      "q": "He traded away 9 of them.",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "Noted: He traded away 9 of them. Go on, or ask me the question."
+    },
+    {
+      "q": "Then his sister gave him 14.",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "Noted: Then his sister gave him 14. Go on, or ask me the question."
+    },
+    {
+      "q": "How many cards does Omar have now?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Omar. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Who wrote Pride and Prejudice?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Pride and Prejudice was written by Jane Austen. It dates to 1813."
+    },
+    {
+      "q": "When was she born?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Jane Austen was born on 16 December 1775."
+    },
+    {
+      "q": "What is a trunk?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Trunk has several meanings: (1) a stalk — the main stem of a tree; (2) a baggage — luggage consisting of a large strong case used when traveling or for storage; (3) a body part — the body excluding the head and neck and limbs. Which one do you mean?"
+    },
+    {
+      "q": "the elephant one",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Trunk, the snout: a long flexible snout as of an elephant. A snout is a kind of nose. Also called proboscis."
+    },
+    {
+      "q": "What is 18 divided by 3?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "18 / 3 = 6."
+    },
+    {
+      "q": "Square it",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "36. 6² = 36 (from the previous result, 6)."
+    },
+    {
+      "q": "Is that less than 40?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "Yes — 36 < 40 (the previous result was 36)."
+    },
+    {
+      "q": "Which is farther from the Sun, Mars or Venus?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "Mars is farther from the Sun: it's the fourth planet from the Sun, while Venus is the second."
+    },
+    {
+      "q": "What was the first thing we talked about?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "We started with pupil — you asked “What is a pupil?”."
+    },
+    {
+      "q": "What was the last number you gave me?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "The last number was 36 — from “Square it”."
+    },
+    {
+      "q": "Recap our conversation",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Here's what we've covered: 1) pupil — its 3 meanings; you meant the aperture 2) the running calculation — 100 − 35 = 65; 65 × 3 = 195; 195 is odd 3) Canada — Canada's capital is Ottawa; Canada's currency is the Canadian dollar 4) Mexico — The currency of Mexico is the peso 5) the running calculation"
+    }
+  ],
+  "words": 591,
+  "good_rate": 0.885,
+  "wrong_rate": 0.077,
+  "mean_words": 22.7
+}

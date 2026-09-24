@@ -1,0 +1,192 @@
+{
+  "n": 30,
+  "good": 10,
+  "honest": 7,
+  "wrong": 13,
+  "items": [
+    {
+      "q": "What is a crane?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on crane. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "the machine",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Machine means a device with moving parts that does work."
+    },
+    {
+      "q": "What is 25% of 60?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 15. 25% means 25 out of every 100, so 0.25 × 60 = 15."
+    },
+    {
+      "q": "Multiply that by 4",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "Now subtract 10",
+      "verdict": "wrong",
+      "route": "compute",
+      "answer": "- 10 comes to -10."
+    },
+    {
+      "q": "Divide it by 5",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "What's the square of that?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "2.4 Compositional object programs finds programs like ``` cmap( recolour-largest-5( delete-squares( outline-majority-shape( input ) ) ) ) ``` which is four object-level steps and unreachable anywhere else in the engine."
+    },
+    {
+      "q": "What is the capital of Japan?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Tokyo is the capital of Japan. Japan has a population of about 124 million. Its currency is the yen."
+    },
+    {
+      "q": "How many people live there?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on people. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What language do they speak?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The language of Japan is Japanese."
+    },
+    {
+      "q": "What about Italy?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "People in Italy speak Italian. It has a population of about 59 million. Its currency is the euro."
+    },
+    {
+      "q": "Which of the two has more people?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "People means human beings in general or considered collectively."
+    },
+    {
+      "q": "Tell me more about Italy",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "You asked this just now — same answer, put another way: Italy is a country in Southern Europe. It has a population of about 59 million. Its currency is the euro. If that isn't what you were after, tell me which part to go into."
+    },
+    {
+      "q": "Sara has 20 stickers.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Got it. What would you like me to work out?"
+    },
+    {
+      "q": "She gives away 8.",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Italy is a country in Southern Europe. It has a population of about 59 million. Its currency is the euro."
+    },
+    {
+      "q": "Then she buys 5 more.",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Italy is a country in Southern Europe. It has a population of about 59 million. Its currency is the euro."
+    },
+    {
+      "q": "How many stickers does she have now?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Italy is a country in Southern Europe. It has a population of about 59 million. Its currency is the euro."
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa was created by Leonardo da Vinci. It is in the Louvre in Paris."
+    },
+    {
+      "q": "Where is it now?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Mona Lisa now. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What is a bat?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on bat. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "I meant the animal",
+      "verdict": "wrong",
+      "route": "memory",
+      "answer": "Noted: you meant the animal."
+    },
+    {
+      "q": "What is 12 times 12?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "12 * 12 works out to 144."
+    },
+    {
+      "q": "Add 6 to it",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "What's half of that?",
+      "verdict": "wrong",
+      "route": "compute",
+      "answer": "1/2 comes to 0.5."
+    },
+    {
+      "q": "Is that more than 70?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Is that more than 70. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Which is older, the Earth or the Sun?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "The Sun is older: about 4.6 billion years old versus about 4.54 billion years old for the Earth."
+    },
+    {
+      "q": "By how much?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on By how much. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What did we talk about first?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on we talk about first. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What was the last number you gave me?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "The features that came out of that inspection are general (position relative to the centre; the last mark in a quadrant in scan order; ordinal rank among a row's marks), and none of them names a task."
+    },
+    {
+      "q": "Summarize our conversation",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Conversation means a talk or exchange of messages between people."
+    }
+  ],
+  "words": 611,
+  "good_rate": 0.333,
+  "wrong_rate": 0.433,
+  "mean_words": 20.4
+}

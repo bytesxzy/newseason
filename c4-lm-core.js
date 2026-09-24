@@ -686,6 +686,10 @@
       if (rel2) return { subject: cleanEntity(m[1]), relation: rel2, relationPhrase: m[2].trim(), shape: "subj-poss-rel" };
     }
 
+    /* "how many people live in X": the number of people in a place is its
+       population, whatever verb says it */
+    m = s.match(/^how\s+many\s+(?:people|persons|inhabitants|residents|citizens)\s+(?:live|lives|are there|reside|dwell|are living|are)\s+(?:in|on)\s+(?:the\s+)?(.{2,60}?)\s*\??$/i);
+    if (m) return { subject: cleanEntity(m[1]), relation: "population", relationPhrase: "how many people", shape: "how-many-people" };
     /* SHAPE 3: verb-headed relation.  "who wrote Hamlet", "when was X born",
        "who invented the telephone", "what is X used for" */
     m = s.match(/^(?:who|what|which)\s+(?:is|are|was|were)\s+(.{2,70}?)\s+(used for|for|made of|made from|known for)\s*\??$/i);
@@ -760,6 +764,8 @@
       .replace(/\s+(?:and|or|but)\s+(?:why|how|what|when|where|which|who|is|are|does|do|did|can)\b[\s\S]*$/i, "")
       .replace(/\s*[,;]\s+(?:why|how|what|when|where|which|who)\b[\s\S]*$/i, "")
       .replace(/[?!.,;:]+\s*$/, "")
+      /* when a thing is asked about ("now", "today") is not part of it */
+      .replace(/\s+(?:now|today|currently|nowadays|these days|at the moment|at present|still)\s*$/i, "")
       .replace(/^(?:the|a|an)\s+/i, "")
       .replace(/\s+(?:is|are|was|were|do|does|did)\s*$/i, "")
       .trim();

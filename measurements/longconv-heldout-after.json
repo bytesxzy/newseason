@@ -1,0 +1,192 @@
+{
+  "n": 30,
+  "good": 29,
+  "honest": 0,
+  "wrong": 1,
+  "items": [
+    {
+      "q": "What is a crane?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Crane has several meanings: (1) a lifting device — lifts and moves heavy objects; (2) a wading bird — large long-necked wading bird of marshes and plains in many parts of the world; (3) as a verb — stretch (the neck) so as to see better. Which one do you mean?"
+    },
+    {
+      "q": "the machine",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Crane, the lifting device: lifts and moves heavy objects. A lifting device is a kind of device."
+    },
+    {
+      "q": "What is 25% of 60?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 15. 25% means 25 out of every 100, so 0.25 × 60 = 15."
+    },
+    {
+      "q": "Multiply that by 4",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "60. 15 × 4 = 60 (from the previous result, 15)."
+    },
+    {
+      "q": "Now subtract 10",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "50. 60 − 10 = 50 (from the previous result, 60)."
+    },
+    {
+      "q": "Divide it by 5",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "10. 50 ÷ 5 = 10 (from the previous result, 50)."
+    },
+    {
+      "q": "What's the square of that?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "100. 10² = 100 (from the previous result, 10)."
+    },
+    {
+      "q": "What is the capital of Japan?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The capital of Japan is Tokyo. It has a population of about 124 million. Its currency is the yen."
+    },
+    {
+      "q": "How many people live there?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Japan has a population of about 124 million. Its currency is the yen. People there speak Japanese."
+    },
+    {
+      "q": "What language do they speak?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The language of Japan is Japanese."
+    },
+    {
+      "q": "What about Italy?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "People in Italy speak Italian. It has a population of about 59 million. Its currency is the euro."
+    },
+    {
+      "q": "Which of the two has more people?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "Japan is more populous: about 124 million versus about 59 million for Italy — about 2.1 times as populous."
+    },
+    {
+      "q": "Tell me more about Italy",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Italy is a country in Southern Europe. Its capital is Rome."
+    },
+    {
+      "q": "Sara has 20 stickers.",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Got it: Sara has 20 stickers. Tell me what happens next, or ask me how many there are."
+    },
+    {
+      "q": "She gives away 8.",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Okay — that makes 12 stickers now. Sara has 20 stickers, then gives away 8: 20 − 8 = 12."
+    },
+    {
+      "q": "Then she buys 5 more.",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Okay — that makes 17 stickers now. Sara has 20 stickers, then gives away 8, then buys 5 more: 20 − 8 + 5 = 17."
+    },
+    {
+      "q": "How many stickers does she have now?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "17 stickers. Sara has 20 stickers, then gives away 8, then buys 5 more: 20 − 8 + 5 = 17."
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa was created by Leonardo da Vinci. It is in the Louvre in Paris."
+    },
+    {
+      "q": "Where is it now?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa is located in the Louvre in Paris."
+    },
+    {
+      "q": "What is a bat?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Bat has several meanings: (1) a placental — nocturnal mouselike mammal with forelimbs modified to form membranous wings and anatomical adaptations for echolocation by which they navigate; (2) a turn — (baseball) a turn trying to get a hit; (3) a racket — a small racket with a long handle used for pl"
+    },
+    {
+      "q": "I meant the animal",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Bat, the placental: nocturnal mouselike mammal with forelimbs modified to form membranous wings and anatomical adaptations for echolocation by which they navigate. A placental is a kind of mammal. Its parts include wing. Also called chiropteran."
+    },
+    {
+      "q": "What is 12 times 12?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "12 * 12 equals 144."
+    },
+    {
+      "q": "Add 6 to it",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "150. 144 + 6 = 150 (from the previous result, 144)."
+    },
+    {
+      "q": "What's half of that?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "75. 150 ÷ 2 = 75 (from the previous result, 150)."
+    },
+    {
+      "q": "Is that more than 70?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "Yes — 75 > 70 (the previous result was 75)."
+    },
+    {
+      "q": "Which is older, the Earth or the Sun?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "The Sun is older: about 4.6 billion years old versus about 4.54 billion years old for the Earth."
+    },
+    {
+      "q": "By how much?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "By about 60 million years: the Sun about 4.6 billion years old versus about 4.54 billion years old for the Earth — a difference of about 1.3%."
+    },
+    {
+      "q": "What did we talk about first?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "We started with crane — you asked “What is a crane?”."
+    },
+    {
+      "q": "What was the last number you gave me?",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "The last number was 60000000 — from “By how much?”."
+    },
+    {
+      "q": "Summarize our conversation",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Here's what we've covered: 1) crane — its 3 meanings; you meant the lifting device 2) the running calculation — 60 − 10 = 50; 50 ÷ 5 = 10; 10² = 100 3) Japan — The capital of Japan is Tokyo; Japan has a population of about 124 million; The language of Japan is Japanese 4) Italy — People in Italy spe"
+    }
+  ],
+  "words": 680,
+  "good_rate": 0.967,
+  "wrong_rate": 0.033,
+  "mean_words": 22.7
+}

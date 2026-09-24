@@ -61,6 +61,11 @@
        and whether that answer was a real one. Repetition is judged against
        this record, not against surface strings. */
     this.history = [];
+    /* The conversation as data, one entry per turn: what was asked, what was
+       answered, what it was about, a numeric result, the meanings a
+       definition listed, the statements of a word problem. Follow-ups are
+       read against it (c4-lm-dialogue.js). */
+    this.log = [];
   }
   Discourse.prototype.snapshot = function () {
     return {
@@ -70,8 +75,9 @@
       turn: this.turns, candidates: this.lastCandidates.slice()
     };
   };
-  Discourse.prototype.commit = function (frame, result) {
+  Discourse.prototype.commit = function (frame, result, user) {
     this.turns++;
+    if (result && result.text && user) this.record(user, result);
     if (frame.topicShift) {
       this.activeEntity = ""; this.activeTopic = ""; this.currentRelation = "";
       this.answerFacets = [];
@@ -103,6 +109,41 @@
     if (result && result.candidates) this.lastCandidates = result.candidates.slice(0, 6);
     if (result && result.comparison) this.lastComparison = result.comparison;
     if (result && result.pendingSenses) this.pendingSenses = result.pendingSenses;
+  };
+
+  Discourse.prototype.record = function (user, result) {
+    var DLr = root.C4LMDialogue, ent = result.entity || result.subject || "", word = result.word || "";
+    var e = { user: String(user), answer: result.text, route: result.route || "", entity: ent, kind: result.kind || "",
+              topic: result.topic || ent || word, note: result.note || "", problem: !!result.problem, word: word };
+    /* a number the answer gave: the value it carried, else the one it leads
+       with when the answer is a calculation */
+    if (result.shown) e.shown = String(result.shown);
+    if (typeof result.value === "number" && isFinite(result.value)) e.value = result.value;
+    else if (typeof result.computed === "number" && isFinite(result.computed)) e.value = result.computed;
+    else if (/^(?:compute|math|tool|calculation|reason)$/.test(e.route)) {
+      /* the result a calculation states: the number after "=", "is",
+         "to", "equals", or the number it opens with when that is all */
+      var s1 = String(result.text).replace(/,(?=\d{3})/g, "").split(/(?<=[^\d]\.)\s/)[0], mv = null, re = /(?:=|\bis|\bto|\bequals|\bmakes|\bgives|\bthat's)\s+(?:about\s+|approximately\s+)?(-?\d+(?:\.\d+)?)(?![\d:\/])/gi, mm;
+      while ((mm = re.exec(s1))) mv = mm;
+      if (!mv) mv = s1.match(/^(?:about\s+)?(-?\d+(?:\.\d+)?)(?![\d:\/*×+−-])(?!\s*[*×+\/−-]\s*\d)/);
+      if (mv) e.value = +mv[1];
+    }
+    function clip(t, n) { t = String(t).replace(/\s+/g, " ").split(/(?<=[.!?])\s/)[0]; return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, "") + "…"; }
+    if (!e.note && e.route !== "conversation" && !result.conversational && (e.topic || typeof e.value === "number")) e.note = clip(result.text, 90);
+    if (ent && KB) { try { var pk = KB.resolve(ent, { strict: true })[0]; if (pk && pk.entity.type === "person") e.person = pk.entity.name; } catch (x) {} }
+    /* the meanings a definition listed, so "the flower" can choose one */
+    if (DLr) {
+      try {
+        var ss = result.senses && result.senses.length > 1 ? result.senses : null;
+        if (!ss && /has (?:more than one sense|several meanings)/i.test(result.text)) {
+          word = word || (String(result.text).match(/^(\S+)\s+has/) || [])[1] || "";
+          ss = DLr.sensesFromText(word, result.text);
+        }
+        if (ss && word) { e.senses = DLr.enrich(word, ss); e.word = String(word).toLowerCase(); e.topic = e.topic || e.word; e.note = "its " + ss.length + " meanings"; }
+      } catch (x) {}
+    }
+    this.log.push(e);
+    if (this.log.length > 200) this.log.splice(0, this.log.length - 200);
   };
 
   /* Selective forgetting: whatever the predicate names leaves the discourse,
@@ -178,6 +219,12 @@
     var dummy = nonReferring(frame.body);
     var hasPronoun = frame.pronouns.some(function (p) { return THIRD_PERSON.test(p) && !dummy[p.toLowerCase()]; });
     if (hasPronoun && !frame.entities.length) { needsCarry = true; reason = "pronoun"; }
+    /* "there" after a place is that place ("how many people live there?"),
+       unless it is the existential "there is / are there" */
+    var locative = !hasPronoun && !frame.entities.length && /\bthere\b/i.test(frame.body) &&
+      !/\bthere\s+(?:is|are|was|were|will|would|must|might|may|can|could|has|have|had|seems?|exists?)\b|\b(?:is|are|was|were)\s+there\b/i.test(frame.body) &&
+      isPlace(disc.activeEntity);
+    if (locative) { needsCarry = true; reason = "place"; }
     /* 2. an elliptical fragment: a bare noun phrase, a bare relation, or a
           bare "why"/"how" with nothing to attach to */
     /* A bare entity after a relational question repeats that question about
@@ -226,10 +273,22 @@
        once. Downstream never sees a fragment. */
     var subject = disc.activeEntity;
     var rebuilt = "";
+    /* "he"/"she" is a person: the most recent one discussed, never a thing
+       or a word ("where was he born?" after "what is a seal?") */
+    var personal = hasPronoun && frame.pronouns.filter(function (p) { return /^(?:he|she|him|his|hers|her)$/i.test(p); })[0];
+    if (personal && !mayBePerson(subject)) {
+      /* after a work, "he" is the one who made it */
+      var hs = KB ? KB.resolve(subject, { strict: true })[0] : null, maker = hs && ["author", "creator", "artist", "painter", "composer", "inventor", "founder", "director", "person"]
+        .map(function (k) { return (hs.entity.rel || {})[k]; }).filter(function (v) { return typeof v === "string"; })[0];
+      var who = [maker].concat(disc.recentEntities).filter(function (e) { return isPerson(e) || (e === maker && mayBePerson(e)); })[0];
+      if (!who) return { frame: frame, carried: false, unresolved: personal.toLowerCase(), last: subject };
+      subject = who;
+    }
     /* A pronoun is resolved in place: the rest of the message keeps its own
        syntax, so "when was he born" stays a birth-date question rather than
        being rebuilt from the relation label. */
-    if (hasPronoun) {
+    if (locative) rebuilt = frame.body.replace(/\bthere\b/i, "in " + subject);
+    else if (hasPronoun) {
       rebuilt = frame.body.replace(/\b(?:he|she|it|they|them|him|her|his|hers|its|their|theirs)\b/gi, function (m0) {
         return /^(?:his|her|its|their)$/i.test(m0) ? subject + "'s" : subject;
       });
@@ -257,6 +316,21 @@
     carriedFrame.onlyValue = frame.onlyValue;
     carriedFrame.rawText = frame.rawText;
     return { frame: carriedFrame, carried: true, reason: reason };
+  }
+  function isPerson(name) {
+    if (!KB || !name) return false;
+    var h = KB.resolve(name, { strict: true })[0];
+    return !!h && /^(?:person|people|artist|writer|scientist|author|painter|composer|inventor)$/i.test(h.entity.type || "");
+  }
+  /* a person, or a name the knowledge base does not hold ("Priya") */
+  function mayBePerson(name) {
+    if (isPerson(name)) return true;
+    return /^[A-Z]/.test(String(name || "")) && !(KB && KB.resolve(name, { strict: true }).length);
+  }
+  function isPlace(name) {
+    if (!KB || !name) return false;
+    var h = KB.resolve(name, { strict: true })[0];
+    return !!h && /^(?:country|city|town|capital|continent|state|province|region|island|place|location|nation|village|landmark|park|mountain|lake|sea|ocean|river)$/i.test(h.entity.type || "");
   }
   function questionFor(family, relation, subject) {
     if (relation) return "what is the " + relation + " of " + subject;
@@ -750,6 +824,26 @@
     return out.join(". ");
   }
 
+  /* "Tell me more": what the knowledge base holds on the entity that the
+     conversation has not said yet, in reading order. */
+  function elaborate(name, said) {
+    if (!KB) return null;
+    var hit = KB.resolve(name, { strict: true })[0];
+    if (!hit) return null;
+    var ent = hit.entity, heard = C.flatten((said || []).join(" "));
+    var facts = [ent.defn].concat(ent.rel && typeof ent.rel.capital === "string" ? ["Its capital is " + ent.rel.capital] : [])
+      .concat(shortElaboration(ent, "", 30).split(/\.\s+/));
+    var fresh = facts.filter(function (f) {
+      f = String(f || "").replace(/\.$/, "").trim();
+      if (!f) return false;
+      var words = C.flatten(f).split(" ").filter(function (w) { return w.length > 3 && C.flatten(ent.name).indexOf(w) < 0; });
+      var known = words.filter(function (w) { return (" " + heard + " ").indexOf(" " + w + " ") >= 0; }).length;
+      return words.length && known / words.length < 0.6;
+    }).map(function (f) { f = String(f).replace(/\.$/, "").trim(); return f.charAt(0).toUpperCase() + f.slice(1) + "."; });
+    if (!fresh.length) return "That's everything I hold on " + ent.name + " — " + String(ent.defn || "").replace(/\.$/, "") + ".";
+    return fresh.slice(0, 3).join(" ").replace(/^It\b/, ent.name).replace(/^Its\b/, titleOf(ent.name) + "'s");
+  }
+
   /* One hop through a relation the entity DOES have, to an entity that has
      the asked relation. Bounded to a single hop on purpose. */
   function multiHop(entity, relation) {
@@ -1186,9 +1280,13 @@
     if (single) {
       var sOut = RZ.realize({ kind: "statement", statement: single.text,
                               lengthLimit: frame.requestedLength, lengthUnit: frame.requestedUnit });
-      return { text: sOut.text || single.text, route: "lexicon", entity: single.word,
+      return { text: sOut.text || single.text, route: "lexicon", entity: single.word, word: single.word, senses: single.senses,
                confidence: single.confidence, defects: [], sources: single.sources, defined: true };
     }
+    /* a word no local source defines: the reference dataset's meanings */
+    var DLd = root.C4LMDialogue, wn = words.length === 1 && DLd ? DLd.define(words[0]) : null;
+    if (wn) return { text: wn.text, route: "lexicon", entity: wn.word, word: wn.word, senses: wn.senses,
+                     confidence: wn.confidence, defects: [], sources: wn.sources, defined: true };
     return null;
   }
 
@@ -1623,10 +1721,11 @@
         showWorking: !frame.onlyValue && (!!workingFor(r) || frame.requiresExplanation || frame.requestedTone === "steps"),
         format: frame.onlyValue ? "value" : "prose"
       };
-      if (frame.onlyValue) return { text: String(r.text), route: "compute", confidence: 0.99, sources: [], defects: [] };
+      var val = typeof r.value === "number" ? r.value : (/^-?\d+(?:\.\d+)?$/.test(String(r.text).replace(/,/g, "")) ? +String(r.text).replace(/,/g, "") : undefined);
+      if (frame.onlyValue) return { text: String(r.text), route: "compute", confidence: 0.99, sources: [], defects: [], value: val };
       var out = RZ.realize(plan);
       return { text: out.text, route: "compute", confidence: 0.99, defects: out.defects,
-               sources: [], computed: r.value };
+               sources: [], computed: r.value, value: val };
     }
     if (r.kind === "clock") {
       return { text: r.text, route: "compute", confidence: 0.95, sources: [], defects: [] };
@@ -1759,7 +1858,9 @@
       return answerConversation(frame, discourse);
     }
     var subject = frame.subject || frame.entities[0] || frame.topic || "";
-    /* Echoing a long question back is not informative; name the thing. */
+    /* the question words are not the thing: "Who discovered penicillin" is
+       about penicillin */
+    subject = String(subject).replace(/^(?:who|what|when|where|which|whom|whose)\s+(?:(?:is|are|was|were|did|does|do)\s+)?[a-z]+\s+(?=\S)/i, "");
     if (subject.split(/\s+/).length > 6) {
       subject = frame.entities[0] || frame.contentTokens.slice(0, 3).join(" ");
     }
@@ -1863,6 +1964,17 @@
 
   /* Entities the knowledge base holds, spotted anywhere in the words:
      longest spans first, never starting or ending on a function word. */
+  function linkedToNamed(cand, ents) {
+    var named = ents.filter(function (e) { return /^[A-Z]/.test(e.entity.name || "") && e.entity.type !== "concept"; });
+    if (!named.length || !cand.entity) return true;
+    var ce = KB.resolve(cand.entity, { strict: true })[0], mine = C.flatten([cand.text, cand.entity].concat(ce ? [ce.entity.defn].concat(relValues(ce.entity)) : []).join(" "));
+    return named.every(function (e) {
+      if (C.flatten(e.entity.name) === C.flatten(cand.entity)) return true;
+      var theirs = C.flatten([e.entity.defn].concat(relValues(e.entity)).join(" "));
+      return (" " + mine + " ").indexOf(" " + C.flatten(e.entity.name) + " ") >= 0 || (" " + theirs + " ").indexOf(" " + C.flatten(cand.entity) + " ") >= 0;
+    });
+  }
+  function relValues(e) { return Object.keys(e.rel || {}).map(function (k) { return typeof e.rel[k] === "string" ? e.rel[k] : ""; }); }
   function spotEntities(frame) {
     if (!KB || off("kb")) return [];
     var surf = String(frame.semanticText || frame.body || "").match(/[A-Za-z0-9][A-Za-z0-9'’.+#-]*[A-Za-z0-9+#]|[A-Za-z0-9]/g) || [];
@@ -2448,6 +2560,10 @@
       } catch (e) { cand = null; }
       considered++;
       if (!cand || !cand.text || cand.clarification) continue;
+      /* retrieval by the question's words must still be about the thing it
+         names: "what river flows through Egypt" is not answered by a river
+         that has nothing to do with Egypt */
+      if ((rd.resolver === "content" || rd.research) && !linkedToNamed(cand, ents)) continue;
       conformUnits(frame, cand);
       var sc = scoreCandidate(frame, cand, rd, type, ents);
       tried.push({ reading: rd.why, route: cand.route, score: Math.round(sc.score * 100) / 100,
@@ -2699,13 +2815,30 @@
     var M = state.memory, raw = String(text == null ? "" : text);
     /* cross-referencing reads the reference dataset: it is loaded (in
        verified chunks) before the message is answered, once per session */
-    var CR = root.C4LMCrossRef;
+    var CR = root.C4LMCrossRef, DSp = root.C4Dataset;
+    /* a word's meanings, and a choice among the meanings just listed, read
+       the reference dataset's taxonomy: load it first (once) */
+    var lastL = discourse.log[discourse.log.length - 1];
+    var askW = raw.match(/^\s*(?:what\s+(?:is|are)\s+(?:an?\s+)?([a-z-]+)|define\s+([a-z-]+)|what\s+does\s+([a-z-]+)\s+mean)\s*\??\s*$/i), LXp = root.C4LMLexicon;
+    var wordW = askW ? (askW[1] || askW[2] || askW[3]).toLowerCase() : "";
+    /* only for a word nothing local defines, or a short reply to a list of
+       meanings: the dataset is not loaded for questions answered without it */
+    var needW = (wordW && !(LXp && LXp.has && (LXp.has(wordW) || LXp.has(wordW.replace(/s$/, "")))) && !(KB && KB.resolve(wordW, { strict: true }).length)) ||
+                (lastL && lastL.senses && raw.split(/\s+/).length <= 8 && !/^\s*(?:what|who|when|where|why|how|which)\b/i.test(raw));
+    if (DSp && !DSp.available() && !DSp.error && !off("followups") && needW) {
+      return DSp.ready().then(function () { if (lastL && lastL.senses && root.C4LMDialogue) lastL.senses = root.C4LMDialogue.enrich(lastL.word, lastL.senses); return answer(text, opts); },
+                              function () { return answer(text, opts); });
+    }
     if (CR && !off("crossref") && CR.wants(raw, state.crossref)) {
       var DSx = root.C4Dataset;
       if (DSx && !DSx.available() && !DSx.error) return CR.ready().then(function () { return answerCore(raw, opts); }, function () { return answerCore(raw, opts); });
       return answerCore(raw, opts);
     }
     if (!M) return answerCore(raw, opts);
+    /* a follow-up on the conversation (a previous result, a listed meaning,
+       a word problem in progress) is not a memory instruction */
+    var DLw = root.C4LMDialogue;
+    if (DLw && !off("followups")) { try { if (DLw.wants(raw, discourse.log)) return answerCore(raw, opts); } catch (e) {} }
     var memo = null;
     try { memo = M.command(raw); } catch (e) { memo = null; }
     if (memo && memo.handled) {
@@ -2757,6 +2890,23 @@
       try { xr = timed("crossref", function () { return CRx.answer(state.userText, state.crossref); }); } catch (e) { xr = null; }
       if (xr) return Promise.resolve(finish(baseFrame, xr, t0));
     }
+    /* follow-ups read against the conversation itself: a meaning chosen,
+       a previous result used, a word problem told over several turns,
+       "which of the two", "by how much", "tell me more", a recap */
+    var DLx = root.C4LMDialogue;
+    if (DLx && !off("followups") && !opts.rewritten) {
+      var dl = null;
+      try { dl = timed("followups", function () { return DLx.answer(state.userText, { log: discourse.log, elaborate: elaborate }); }); } catch (e) { dl = null; }
+      if (dl && dl.rewrite) {
+        var o3 = {}, k3; for (k3 in opts) o3[k3] = opts[k3]; o3.rewritten = true;
+        var said3 = state.userText;
+        return answerCore(dl.rewrite, o3).then(function (r) { return r; }, function () { return null; }).then(function (r) {
+          if (r && discourse.log.length) discourse.log[discourse.log.length - 1].user = said3;
+          return r;
+        });
+      }
+      if (dl) { dl.followup = true; return Promise.resolve(finish(baseFrame, dl, t0)); }
+    }
     if (baseFrame.empty) {
       /* "hi!" parses to no content, but it still calls for a greeting back */
       var said0 = null, CVe = root.C4LMConverse;
@@ -2787,6 +2937,10 @@
     var ctx = state.turnInfo.rep.length ?
       { frame: C.parse(text, null), carried: false } :
       timed("dialogue", function () { return resolveContext(baseFrame, discourse); });
+    if (ctx.unresolved) {
+      return Promise.resolve(finish(baseFrame, { text: "Who do you mean by “" + ctx.unresolved + "”? The last thing we talked about was " + ctx.last +
+        ", which isn't a person — tell me the name and I'll answer.", route: "conversation", confidence: 0.7, clarification: true, sources: [] }, t0));
+    }
     var frame = applyDirectives(ctx.frame);
     /* Comprehension: every word and phrase defined, what is asked and given
        summarised; the summary's query drives research (local and remote). */
@@ -2918,7 +3072,7 @@
     /* The answer-type gate: an answer about a word the message merely
        contains does not do what the message asked (c4-lm-converse.js). */
     var CVg = root.C4LMConverse;
-    if (CVg && !off("converse") && !result.memoryTurn && state.userText && !CVg.accepts(state.userText, result)) {
+    if (CVg && !off("converse") && !result.memoryTurn && !result.followup && state.userText && !CVg.accepts(state.userText, result)) {
       var alt = null;
       try { alt = CVg.respond(state.userText, { turn: discourse.turns, federated: !!state.federation && !off("web"), looked: true }); } catch (e) { alt = null; }
       result = alt || fallback(frame, null);
@@ -2966,7 +3120,7 @@
       try { result.text = state.memory.conform(result.text, { route: result.route, code: !!result.code }) || result.text; } catch (e) {}
     }
     if (RZ.variation && state.varyKey && result.text) RZ.variation.commit(state.varyKey, result.text);
-    discourse.commit(frame, result);
+    discourse.commit(frame, result, state.userText);
     if (state.memory) { try { state.memory.observe(state.userText, result); } catch (e) {} }
     return result;
   }
@@ -3066,7 +3220,17 @@
       /* a message about the session's pairs belongs to cross-referencing */
       var CRc = root.C4LMCrossRef;
       if (CRc && !off("crossref")) { try { if (CRc.wants(String(t == null ? "" : t), state.crossref)) return null; } catch (e) {} }
+      var DLc = root.C4LMDialogue;
+      if (DLc && !off("followups")) { try { if (DLc.wants(String(t == null ? "" : t), discourse.log)) return null; } catch (e) {} }
       try { return state.memory.command(String(t == null ? "" : t)); } catch (e) { return null; }
+    },
+    /* would this message be read against the conversation (for the page's
+       router: such a message belongs to the language stack) */
+    conversation: function () { return discourse.log.slice(); },
+    followsUp: function (t) {
+      var DLf = root.C4LMDialogue;
+      if (!DLf || off("followups")) return false;
+      try { return !!DLf.wants(String(t == null ? "" : t), discourse.log); } catch (e) { return false; }
     },
     observe: function (t, a) { if (state.memory) { try { state.memory.observe(t, a); } catch (e) {} } },
     conform: function (t, info) {
