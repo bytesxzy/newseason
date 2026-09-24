@@ -1163,7 +1163,40 @@
     });
   }
 
+  /* Entries from the internal dataset file (c4-local-dataset.js). A new
+     entity is added and indexed like any built-in one; for an entity that
+     already exists only what it lacks is filled in -- a built-in value is
+     never overwritten, and a disagreement is reported, not applied. */
+  function addEntity(spec, source) {
+    var out = { added: false, merged: [], conflicts: [] };
+    if (!spec || !spec.name) return out;
+    buildIndex();
+    var hits = resolve(spec.name, { strict: true }).filter(function (h) { return key(h.entity.name) === key(spec.name); });
+    if (hits.length) {
+      var e = hits[0].entity;
+      Object.keys(spec.rel || {}).forEach(function (r) {
+        if (!e.rel[r]) { e.rel[r] = spec.rel[r]; out.merged.push(r); }
+        else if (key(String(e.rel[r])) !== key(String(spec.rel[r]))) out.conflicts.push(r + ": kept \u201c" + e.rel[r] + "\u201d, ignored \u201c" + spec.rel[r] + "\u201d");
+      });
+      (spec.aliases || []).forEach(function (a) { if (e.aliases.indexOf(a) < 0) { e.aliases.push(a); indexName(a, e, 0.9); out.merged.push("alias " + a); } });
+      if (!e.defn && spec.defn) { e.defn = spec.defn; out.merged.push("defn"); }
+      return out;
+    }
+    var ent = { name: spec.name, type: spec.type || "concept", defn: spec.defn || "", rel: spec.rel || {}, aliases: spec.aliases || [],
+                extra: { source: source || "internal dataset" } };
+    ent.id = key(ent.name);
+    ENTITIES.push(ent);
+    indexName(ent.name, ent, 1.0);
+    ent.aliases.forEach(function (a) { indexName(a, ent, 0.9); });
+    if (C && C.learnProper && /^[A-Z]/.test(ent.name)) C.words(ent.name).forEach(C.learnProper);
+    if (C && C.learnVocabulary) { try { C.learnVocabulary([ent.name, ent.aliases.join(" "), ent.defn]); } catch (e2) {} }
+    out.added = true;
+    out.entity = ent;
+    return out;
+  }
+
   root.C4LMKB = {
+    add: addEntity,
     entities: function () { buildIndex(); return ENTITIES; },
     byType: byType,
     resolve: resolve,

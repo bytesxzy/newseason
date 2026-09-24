@@ -54,6 +54,9 @@ function boot(opts) {
       }
     };
   }
+  /* the internal dataset file (or a test's own text in its place) */
+  if (typeof opts.localDataset === "string") win.C4LocalDatasetText = opts.localDataset;
+  else if (fs.existsSync(path.join(ROOT, "c4-dataset.txt"))) win.C4LocalDatasetText = fs.readFileSync(path.join(ROOT, "c4-dataset.txt"), "utf8");
   var ctx = vm.createContext(win);
 
   function run(code, name) {

@@ -1,0 +1,29 @@
+# CELL4 internal dataset
+#
+# This file is read by c4-local-dataset.js when the page (or the test runtime)
+# starts. Every record you add here is used by the whole language stack:
+# factual answers, definitions, relations (capital, currency, color ...),
+# comparisons, "what do X and Y have in common", analogies and example-pair
+# patterns ("France, Japan = Paris, Tokyo. Italy = ?"), attribute questions
+# ("what color is X", "is X red"), and document search.
+#
+# One record per line. Lines starting with # are comments. Fields are
+# "key: value" pairs separated by " | ".
+#
+#   entity: <name> | type: <kind> | defn: <one-sentence definition> | aliases: <a>, <b> | <attribute>: <value> | ...
+#   word: <headword> | pos: n|v|adj|adv | gloss: <meaning> | class: <CLASS>
+#
+# Any other key on an entity line is an attribute (capital, currency,
+# language, color, location, size, population, creator, time, purpose, part,
+# cause, ...). Class names for words: PERSON GROUP PLACE ARTIFACT SUBSTANCE
+# ORGANISM BODY ACTIVITY PROCESS EVENT STATE PROPERTY ABSTRACT FIELD
+# COMMUNICATION MEASURE TIME ACTION QUALITY MANNER.
+#
+# Safety: a malformed line, markup, or an oversized value is quarantined, not
+# used. An entry for something the system already knows only fills in what
+# is missing -- it never overwrites a built-in fact (disagreements are
+# reported). The file is capped at 5 MB / 20,000 records.
+#
+# Examples of the format (commented out -- this dataset starts empty):
+# entity: Zorbia | type: country | defn: Zorbia is a country used as an example. | capital: Zorb City | currency: the zorb | color: teal
+# word: glimmerous | pos: adj | gloss: shining faintly and unsteadily | class: QUALITY

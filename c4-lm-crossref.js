@@ -319,6 +319,30 @@
     var v = plain(val), t = plain(term), e = kbEntity(term);
     return v === t || (e && (plain(e.name) === v || (e.aliases || []).some(function (a) { return plain(a) === v; }))) || v.split(/\s*,\s*|\s+and\s+/).indexOf(t) >= 0;
   }
+  /* an attribute value stored on a knowledge-base entry (built in, or from
+     the internal dataset file): "color: red" */
+  function attrNames(w, cls) {
+    var names = [low(head(cls))];
+    if (w) w.above(cls, 6).forEach(function (a) { if (!isUnderAttribute(w, a.syn) || a.syn.offset === (attrRoot(w) || {}).offset) return; names.push(low(head(a.syn))); });
+    return uniq(names.concat(names.map(function (n) { return n.split(" ").pop(); })));
+  }
+  function kbAttr(term, names) {
+    var e = kbEntity(term);
+    if (!e) return null;
+    for (var i = 0; i < names.length; i++) {
+      var k = names[i].replace(/\s+/g, "_");
+      if (typeof (e.rel || {})[k] === "string") return { entity: e, key: k, value: plain(e.rel[k]), source: e.extra && e.extra.source ? e.extra.source : "knowledge base" };
+    }
+    return null;
+  }
+  function kbWith(names, value) {
+    var KB = get("C4LMKB"), v = plain(value);
+    if (!KB || !KB.entities) return [];
+    return KB.entities().filter(function (e) {
+      return names.some(function (n) { var x = (e.rel || {})[n.replace(/\s+/g, "_")]; return typeof x === "string" && plain(x).split(/\s*(?:,|\bor\b|\band\b)\s*/).indexOf(v) >= 0; });
+    });
+  }
+
   var FAMILIES = {
     kb: {
       label: function (r) { return (r.inverse ? "the thing whose " + r.key + " it is" : r.key); },
@@ -480,6 +504,9 @@
     return inCat.length ? inCat : all.slice(0, 3);
   }
   function holdsAttr(w, cls, value, thing, category, strict) {
+    var ka = kbAttr(thing, attrNames(w, cls));
+    if (ka && plain(ka.value).split(/\s*(?:,|\bor\b|\band\b)\s*/).indexOf(plain(value)) >= 0)
+      return { value: plain(value), depth: 0, stored: ka, chain: [] };
     var vals = Object.create(null), vw = valueWords(w, cls);
     lemmaOf(w, low(value)).forEach(function (v) { if (vw[v]) vals[v] = 1; });
     vals[low(value)] = 1;
@@ -608,6 +635,8 @@
     var exclude = examples.reduce(function (o, p) { return o.concat([low(p[0]), low(p[1])]); }, [low(c)]);
     if (R.family === "attribute") {
       if (R.valueSide === 0) {
+        var stored = kbWith(attrNames(w, R.cls), c).filter(function (e) { return exclude.indexOf(low(e.name)) < 0; });
+        if (stored.length) return stored.slice(0, 3).map(function (e) { return { answer: e.name, score: 9, why: (e.extra && e.extra.source === "internal dataset" ? "the internal dataset" : "my knowledge base") + " gives " + e.name + "'s " + head(R.cls).split(" ").pop() + " as " + low(c) }; });
         var cv = valueWords(w, R.cls), list = thingsWith(w, low(c), R.category, exclude, cv), up = R.category, tries = 0;
         while (!list.length && up && tries++ < 3) { up = (w.above(up, 1)[0] || {}).syn; list = up ? thingsWith(w, low(c), up, exclude, cv) : []; }
         if (!list.length) list = thingsWith(w, low(c), null, exclude, cv);
@@ -669,7 +698,8 @@
       else notes.push("I can't find a single relation in my data that links these pairs, so I'll treat them as your own mapping.");
       pairs.forEach(function (p, i) {
         var c = sess.pairs[sess.pairs.length - pairs.length + i].confirmed;
-        if (c && c.chain) notes.push("Checked " + cap(p[0]) + " → " + cap(p[1]) + ": " + chainText(c.chain, low(p[1])) + ".");
+        if (c && c.stored) notes.push("Checked " + cap(p[0]) + " → " + cap(p[1]) + ": " + (c.stored.source === "internal dataset" ? "the internal dataset" : "my knowledge base") + " gives " + low(p[1]) + "'s " + c.stored.key + " as " + c.stored.value + ".");
+        else if (c && c.chain && c.chain.length) notes.push("Checked " + cap(p[0]) + " → " + cap(p[1]) + ": " + chainText(c.chain, low(p[1])) + ".");
         else if (c && c.why) notes.push("Checked " + cap(p[0]) + " → " + cap(p[1]) + ": " + c.why + ".");
         else if (R && R.family === "attribute" && w) {
           var other = describedValue(w, R.cls, p[R.valueSide === 0 ? 1 : 0], R.category);
@@ -758,6 +788,9 @@
     return { text: lead + ", but my data doesn't show a link between them, so it's your association rather than something I can explain.", kind: "why", explanation: true };
   }
   function attrQuestion(w, sess, I) {
+    var st = kbAttr(I.subject, [low(I.attr)]);
+    if (st) return { text: cap(I.subject) + " is " + st.value + " — " + (st.source === "internal dataset" ? "from the internal dataset" : "from my knowledge base") + " (" + st.entity.name + ", " + st.key + ": " + st.value + ").", kind: "attr" };
+    if (!w) return null;
     var cls = nounSenses(w, I.attr, 1)[0];
     if (!cls || !isUnderAttribute(w, cls.syn)) return null;
     if (!nounSenses(w, I.subject, 3).length) return null;
@@ -770,6 +803,18 @@
                           "Read " + I.subject + "'s definition" + (d.depth ? ", then " + head(d.chain[1].syn) + "'s," : "") + " for the first word that names a " + I.attr + ": " + d.value + "."]), kind: "attr" };
   }
   function isAttr(w, I) {
+    var e = kbEntity(I.subject);
+    if (e && w) {
+      var vs0 = nounSenses(w, I.value, 3).filter(function (x) { return isUnderAttribute(w, x.syn); });
+      for (var q = 0; q < vs0.length; q++) {
+        var st = kbAttr(I.subject, attrNames(w, vs0[q].syn));
+        if (st) {
+          var yes = plain(st.value).split(/\s*(?:,|\bor\b|\band\b)\s*/).indexOf(plain(I.value)) >= 0;
+          return { text: (yes ? "Yes — " : "No — ") + (st.source === "internal dataset" ? "the internal dataset" : "my knowledge base") + " gives " + e.name + "'s " + st.key + " as " + st.value + ".", kind: "isattr" };
+        }
+      }
+    }
+    if (!w) return null;
     if (!w.lemmas(I.value, "adj").length || !nounSenses(w, I.subject, 3).length) return null;
     var vs = nounSenses(w, I.value, 3).filter(function (x) { return isUnderAttribute(w, x.syn); });
     for (var i = 0; i < vs.length; i++) {
@@ -840,7 +885,7 @@
       }
       case "list": r = sess.pairs.length ? { text: "So far: " + sess.pairs.map(function (p) { return p.left + " → " + p.right + (p.inferred ? " (inferred)" : ""); }).join(", ") + ".", kind: "list" } : null; break;
       case "why": r = whyPair(w, sess, I); break;
-      case "attr": r = w ? attrQuestion(w, sess, I) : null; break;
+      case "attr": r = attrQuestion(w, sess, I); break;
       case "isattr": r = w ? isAttr(w, I) : null; break;
       case "name": r = w ? nameSomething(w, I) : null; break;
       case "common": r = w ? common(w, I) : null; break;

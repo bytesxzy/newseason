@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-24T19:20:29.833Z",
+ "generated": "2026-09-24T20:37:54.588Z",
  "passed": 53,
  "total": 53,
  "results": [
@@ -141,7 +141,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: emoji only",
@@ -151,12 +151,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "France has Paris as its capital. It has "
+   "detail": "The capital of France is Paris. It has a"
   },
   {
    "name": "edge input: sql-ish input",
@@ -176,7 +176,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: non-latin script",
@@ -196,7 +196,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France's capital is Paris. It has a popu"
+   "detail": "France has Paris as its capital. It has "
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -206,17 +206,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "8 -> 8"
+   "detail": "8 -> 7"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 comes to 391."
+   "detail": "17 * 23 equals 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "Paris is the capital of France. France h"
+   "detail": "The capital of France is Paris. It has a"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -226,7 +226,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2543 ms"
+   "detail": "2546 ms"
   },
   {
    "name": "garbage source response handled",

@@ -48,6 +48,15 @@ Requirements
                                       before/after answers, limits
    CROSSREF-RESULTS.md                cross-referencing, pair memory, the
                                       chunked + poison-checked dataset
+   c4-dataset.txt                     YOUR internal dataset (ships empty):
+                                      one record per line, format inside;
+                                      read at start-up and used by every
+                                      part of the LM (facts, relations,
+                                      words, comparisons, analogies,
+                                      attribute questions, search).
+                                      Open c4-mini.html through a local web
+                                      server (e.g. `npx serve .`) so the
+                                      browser is allowed to read it.
    measurements/                      raw results (before: pre-100x/)
 
 Results (before -> after, same machine, same 3 s budget per task)

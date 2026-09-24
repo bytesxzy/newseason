@@ -2691,6 +2691,10 @@
      to forget, how to answer, and questions about the conversation itself.
      Whatever else the message asks is answered as usual, after it. */
   function answer(text, opts) {
+    /* the internal dataset (c4-dataset.txt) is ingested into the knowledge
+       base, lexicon and index before the first answer */
+    var LDx = root.C4LocalDataset;
+    if (LDx && !LDx.loaded()) return LDx.ready().then(function () { return answer(text, opts); }, function () { return answer(text, opts); });
     state.mode = opts && (opts.evaluationMode === "closed" || opts.evaluationMode === "tool") ? opts.evaluationMode : state.defaultMode;
     var M = state.memory, raw = String(text == null ? "" : text);
     /* cross-referencing reads the reference dataset: it is loaded (in
