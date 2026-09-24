@@ -293,6 +293,26 @@ strict good answers rose from 56 to 117. The 184-case battery stayed at
 184/184 with 0 hallucinations. The paraphrase suite went from 674 to 675/687.
 No external model or API is used.
 
+### 5b. Cross-referencing and contextual memory (follow-up work)
+
+The LM induces the relation shared by the user's example pairs ("Red, Yellow
+= Ketchup, Mustard") from a reference dataset. It applies the relation to new
+items, shows the reasoning chain, and remembers the pairs for the session.
+
+- **Dataset:** Princeton WordNet 3.1, fetched from the npm registry and
+  checked against its sha512.
+- **Reading:** a chunk-sized caller reads it, pinning a SHA-256 per file,
+  validating each record's self-address, and following only pointers whose
+  targets validate.
+- **Provenance:** user statements never enter the dataset.
+
+| Frozen set, scored once | Before | After |
+|---|---|---|
+| Cross-referencing v1 | 1/29 | 27/29 |
+| Cross-referencing v2 | 6/25 | 20/25 |
+
+See `CROSSREF-RESULTS.md`.
+
 ## 6. Runtime
 
 * **ARC:** task-seconds fell 7% (ARC-1) and 11% (ARC-2) at the same 3 s

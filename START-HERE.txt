@@ -46,6 +46,8 @@ Requirements
    100X-REASONING-UPGRADE-REPORT.md   what changed and every measurement
    LM-CHAT-RESULTS.md                 everyday-conversation upgrade: numbers,
                                       before/after answers, limits
+   CROSSREF-RESULTS.md                cross-referencing, pair memory, the
+                                      chunked + poison-checked dataset
    measurements/                      raw results (before: pre-100x/)
 
 Results (before -> after, same machine, same 3 s budget per task)
@@ -61,6 +63,10 @@ Results (before -> after, same machine, same 3 s budget per task)
       34.0% -> 100% (49/144 -> 144/144 on two fresh seeds)
   Language, everyday questions (156 held-out, each set frozen first):
       wrong answers 68 -> 12; strict good answers 56 -> 117
+  Cross-referencing + contextual memory (frozen sets, scored once):
+      v1 1/29 -> 27/29; v2 6/25 -> 20/25
+  The reference dataset (WordNet 3.1) is in data/wordnet; to refetch and
+  re-verify it: node tools/dataset-fetch.js --force
 
 Honest labels
   - ARC numbers are on PUBLIC data bundled here (ARC-AGI-1 training split,
