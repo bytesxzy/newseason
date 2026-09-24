@@ -577,6 +577,12 @@
     if (PRB && PRB.parse && /\d/.test(raw)) {
       try { var asProblem = PRB.parse(raw); if (asProblem && asProblem.kind !== "arithmetic") return null; } catch (e) {}
     }
+    /* the same for everyday reasoning: "I have 3 apples and eat one. How
+       many are left?" states premises of a question, not facts to keep */
+    var EVD = root.C4LMEveryday;
+    if (EVD && /\?/.test(raw)) {
+      try { if (EVD.solve(raw)) return null; } catch (e) {}
+    }
     var cl = clauses(raw), ops = [];
     for (var i = 0; i < cl.length; i++) {
       var c = cl[i];

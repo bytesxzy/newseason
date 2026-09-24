@@ -136,15 +136,47 @@
      entity only when the message cannot stand on its own; a topic shift or a
      self-sufficient question clears the carry instead of dragging it along. */
   var THIRD_PERSON = /^(?:he|she|it|they|them|him|her|his|hers|its|their|theirs|this|that|these|those|one)$/i;
+  /* words that carry no topic of their own in a follow-up ("how COME?",
+     "why EXACTLY?", "and THEN?") -- a closed class of discourse particles */
+  var DISCOURSE_PARTICLE = /^(?:come|so|exactly|then|else|more|really|again|now|though|anyway|instead)$/i;
+  /* Pronoun tokens that do not refer in this message (English syntax):
+       dummy "it"     it + be + adjective/that/to ("it is true that",
+                      "is it possible to"), it + seems/appears/looks/turns
+                      out/happens, weather and clock "it" ("it is raining",
+                      "what time is it")
+       clause "that"  that introducing a clause after a verb or adjective
+                      of saying/knowing/judging, or before a subject
+                      ("true that no birds fly", "think that he") */
+  function nonReferring(body) {
+    var t = " " + String(body || "").toLowerCase().replace(/[?!.,]+/g, " ") + " ", out = {};
+    if (/\b(?:is|was|isn't|wasn't|will|would|could|can)\s+it\s+(?:\w+\s+)?(?:true|false|possible|impossible|likely|unlikely|ok|okay|fine|safe|normal|wise|necessary|worth|hard|easy|better|best|good|bad|fair|legal|rude|important|common|raining|snowing|sunny|cold|hot|warm|windy|late|early)\b/.test(t) ||
+        /\bit(?:'s|\s+is|\s+was|\s+will be|\s+would be)\s+(?:\w+\s+)?(?:true|false|possible|impossible|likely|unlikely|ok|okay|fine|safe|normal|wise|necessary|worth|hard|easy|better|best|good|bad|fair|important|common|raining|snowing|sunny|cloudy|cold|hot|warm|windy|late|early|\d)/.test(t) ||
+        /\bit\s+(?:seems|seemed|appears|appeared|looks like|turns out|turned out|happens|happened that|rains|snows|rained|snowed)\b/.test(t) ||
+        /\bwhat\s+(?:time|day|date|year|month)\s+is\s+it\b/.test(t))
+      out.it = 1;
+    if (/\b(?:true|false|possible|likely|sure|clear|obvious|certain|think|thinks|thought|know|knows|knew|say|says|said|believe|believes|mean|means|hope|hopes|seems|fact|so|such|claim|claims|heard|read)\s+that\b/.test(t) ||
+        /\bthat\s+(?:no|all|some|every|each|most|the|a|an|i|you|we|they|he|she|there)\b/.test(t))
+      out.that = 1;
+    return out;
+  }
 
   function resolveContext(frame, disc) {
     if (off("dialogue")) return { frame: frame, carried: false };
     if (!disc || !disc.activeEntity) return { frame: frame, carried: false };
     if (frame.topicShift) return { frame: frame, carried: false };
+    /* A message that is a complete act of its own -- a feeling, a request
+       for a riddle, a decision, a greeting -- is not an ellipsis of the
+       previous question, however short it is. */
+    var CVc = root.C4LMConverse;
+    if (CVc && !off("converse")) { try { if (CVc.analyze(frame.rawText || frame.body)) return { frame: frame, carried: false }; } catch (e) {} }
 
     var needsCarry = false, reason = "";
-    /* 1. a third-person pronoun with no competing entity in the message */
-    var hasPronoun = frame.pronouns.some(function (p) { return THIRD_PERSON.test(p); });
+    /* 1. a third-person pronoun with no competing entity in the message.
+       Not every "it" or "that" refers: "is it true THAT no birds fly",
+       "it is raining", "what time is it" use a dummy subject and a clause
+       marker, and must not drag the previous topic in. */
+    var dummy = nonReferring(frame.body);
+    var hasPronoun = frame.pronouns.some(function (p) { return THIRD_PERSON.test(p) && !dummy[p.toLowerCase()]; });
     if (hasPronoun && !frame.entities.length) { needsCarry = true; reason = "pronoun"; }
     /* 2. an elliptical fragment: a bare noun phrase, a bare relation, or a
           bare "why"/"how" with nothing to attach to */
@@ -173,8 +205,13 @@
         ((KB && KB.resolve(frame.body.replace(/[?.!]+$/, "").trim(), { strict: true }).length > 0) ||
          (root.C4LMLexicon && frame.contentTokens.some(function (t) { return root.C4LMLexicon.has(t); })) ||
          (KB && frame.contentTokens.some(function (t) { return KB.resolve(t, { strict: true }).length > 0; })));
+      /* A wh-question is elliptical only when it has nothing of its own
+         to be about: "why?", "how come?", "when?" continue the previous
+         topic; "why is the sky blue?" names its own. */
+      var own = frame.contentTokens.filter(function (t) { return !DISCOURSE_PARTICLE.test(t); });
+      var bareWh = /^(?:why|how|when|where)\b/i.test(frame.body) && !own.length && !frame.subject;
       if (frame.leadMarker === "and" || frame.leadMarker === "but" ||
-          /^(?:and|what about|how about|why|how|when|where|what else|more|and what of)\b/i.test(frame.body) ||
+          /^(?:and|what about|how about|what else|more|and what of)\b/i.test(frame.body) || bareWh ||
           (frame.relation && !frame.subject) ||
           (!namesSomething && frame.queryForm === "statement" && !frame.entities.length &&
            frame.contentTokens.length <= 2)) {
@@ -1406,10 +1443,38 @@
                              calibration: d.calibration } };
   }
 
+  /* Everyday reasoning (c4-lm-everyday.js): rules and fallacies, categories
+     with all / some / no, relations between quantities, possessions that
+     change, clock and weekday arithmetic, equal stated amounts. The answer
+     carries its reasoning. */
+  function answerEveryday(frame) {
+    var EVD = root.C4LMEveryday;
+    if (!EVD || off("everyday")) return null;
+    var r = null;
+    try { r = EVD.solve(frame.rawText || frame.body || ""); } catch (e) { r = null; }
+    if (!r || !r.text) return null;
+    return { text: r.text, route: "reason", confidence: r.certain ? 0.93 : 0.6, sources: [], defects: [],
+             interpretation: "everyday " + r.kind, derivations: 1, verification: { steps: r.steps, reader: r.reader } };
+  }
+
+  function answerConverse(frame) {
+    var CV = root.C4LMConverse;
+    if (!CV || off("converse")) return null;
+    var r = null;
+    /* the user's own words: a carried or rebuilt frame is for lookup, not
+       for reading what the message calls for */
+    try { r = CV.respond(state.userText || frame.rawText || frame.body || "", { turn: discourse.turns, federated: !!state.federation && !off("web"),
+                                                                            lastTopic: discourse.activeEntity || "" }); }
+    catch (e) { r = null; }
+    return r;
+  }
+
   function answerReason(frame, decision) {
     if (off("reasoning") || !RS) return null;
     var hard = answerDeliberate(frame);
     if (hard) return hard;
+    var everyday = answerEveryday(frame);
+    if (everyday) return everyday;
     /* Interpretation check. When the text parses as a structured problem
        (an equation, a system, calculus, combinatorics ...), reading it as
        bare arithmetic over its digits is a MISINTERPRETATION -- "solve
@@ -2129,6 +2194,9 @@
     if (!result || result.memoryTurn || result.code) return "";
     if (result.route === "code" || result.route === "compute" || result.route === "reason" || result.route === "memory") return "";
     if (decision && decision.features && decision.features.social) return "";
+    /* a response built for what the message calls for (c4-lm-converse.js)
+       is not re-read as a lookup of its words */
+    if (result.intent) return "";
     if (frame.metaSelf || !isRequest(frame)) return "";
     /* a long message is not a phrasing puzzle; deliberation is bounded */
     if (frame.wordCount > 80) return "";
@@ -2612,6 +2680,11 @@
        is never small talk. */
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
+    /* What the message calls for when it is not a question about a thing:
+       a feeling, a decision, a comparison, a poem, a how-to, an open
+       question, or a social act (c4-lm-converse.js). */
+    var conversed = timed("converse", function () { return answerConverse(frame); });
+    if (conversed) return Promise.resolve(finish(frame, conversed, t0, decision));
     /* A bare noun phrase is a question, whatever its conversational shape:
        "bookmark social media" is not small talk. It only falls through to
        conversation if nothing can actually answer it. */
@@ -2712,6 +2785,15 @@
      low-confidence answer is softened rather than asserted. */
   function finish(frame, result, t0, decision) {
     result = result || { text: "", route: "none", confidence: 0 };
+    /* The answer-type gate: an answer about a word the message merely
+       contains does not do what the message asked (c4-lm-converse.js). */
+    var CVg = root.C4LMConverse;
+    if (CVg && !off("converse") && !result.memoryTurn && state.userText && !CVg.accepts(state.userText, result)) {
+      var alt = null;
+      try { alt = CVg.respond(state.userText, { turn: discourse.turns, federated: !!state.federation && !off("web"), looked: true }); } catch (e) { alt = null; }
+      result = alt || fallback(frame, null);
+      result.gated = true;
+    }
     /* A weak first answer gets a second, deliberate reading before it is
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;

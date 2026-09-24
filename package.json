@@ -6,7 +6,7 @@
   "scripts": {
     "lm:memory": "node tools/lm-memory.js",
     "build": "node c4-arc/build.js",
-    "test": "node c4-arc/test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-arc/generalize-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js && node tools/lm-tools-test.js && node tools/lm-deliberate-test.js && node tools/arc3-world-test.js",
+    "test": "node c4-arc/test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-arc/generalize-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js && node tools/lm-tools-test.js && node tools/lm-deliberate-test.js && node tools/lm-chat-test.js && node tools/arc3-world-test.js",
     "bench": "node c4-arc/bench.js",
     "lm:eval": "node tools/lm-eval.js --out measurements/lm-after.json --label after",
     "lm:baseline": "node tools/lm-eval.js --out measurements/lm-baseline.json --label baseline",
@@ -29,6 +29,8 @@
     "arc:generalize": "node c4-arc/generalize-test.js",
     "lm:tools": "node tools/lm-tools-test.js",
     "lm:deliberate": "node tools/lm-deliberate-test.js",
+    "lm:chat": "node tools/lm-chat-test.js",
+    "lm:chat:heldout": "node tools/lm-chat-eval.js --out measurements/lm-chat-heldout-after.json",
     "arc3:hard": "node tools/arc3-synth.js --suite hard --games 10 --out measurements/arc3-hard.json",
     "arc3:test": "node tools/arc3-world-test.js",
     "arc:ablate": "node tools/arc-ablate.js --n 100 --rep 40 --ms 500 --seed 31 --out measurements/arc-ablation.json",

@@ -358,10 +358,12 @@ document.addEventListener('keydown', function (event) {
 <script src="c4-lm-reason.js"></script>
 <script src="c4-lm-problem.js"></script>
 <script src="c4-lm-tools.js"></script>
+<script src="c4-lm-everyday.js"></script>
 <script src="c4-lm-comprehend.js"></script>
 <script src="c4-lm-retrieve.js"></script>
 <script src="c4-lm-evidence.js"></script>
 <script src="c4-lm-deliberate.js"></script>
+<script src="c4-lm-converse.js"></script>
 <script src="c4-lm-compose.js"></script>
 <script src="c4-lm-realize.js"></script>
 <script src="c4-lm-code.js"></script>
@@ -5023,6 +5025,15 @@ document.addEventListener('keydown', function (event) {
       if (typeof C4Reason === "undefined" || /cell4/i.test(text)) {
         return next();
       }
+      /* A message that calls for a conversational response (a feeling, a
+         social act, a decision, a comparison, a poem, a how-to, an open
+         question) or that the everyday reasoner can work out belongs to the
+         language stack: the reference library would only find a document
+         that shares a word with it ("lonely" -> "the lone marker"). */
+      try {
+        if ((typeof C4LMConverse !== "undefined" && C4LMConverse.analyze(text)) ||
+            (typeof C4LMEveryday !== "undefined" && C4LMEveryday.solve(text))) return next();
+      } catch (e) {}
       var decision;
       try {
         decision = C4Reason.plan(text);

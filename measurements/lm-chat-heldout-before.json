@@ -1,0 +1,228 @@
+{
+  "n": 36,
+  "good": 16,
+  "honest": 6,
+  "wrong": 14,
+  "items": [
+    {
+      "q": "hello there",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Hi — what would you like to know?"
+    },
+    {
+      "q": "how's it going?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Going means as a verb, to move from one place to another."
+    },
+    {
+      "q": "who made you?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information."
+    },
+    {
+      "q": "good morning!",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Hello. What can I look into for you?"
+    },
+    {
+      "q": "can you help me with something?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Help means as a verb, to make it easier for someone to do something."
+    },
+    {
+      "q": "bye for now",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Help means as a verb, to make it easier for someone to do something."
+    },
+    {
+      "q": "I'm bored",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Help means as a verb, to make it easier for someone to do something."
+    },
+    {
+      "q": "I feel sad today.",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "All cats are mammals. All mammals are animals. Are all cats animals?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Every cat is in a category that is itself contained in animals, so the containment carries through."
+    },
+    {
+      "q": "Some dogs are brown. Rex is a dog. Is Rex brown?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A dog is a domesticated descendant of the wolf, kept as a companion and working animal."
+    },
+    {
+      "q": "If I study, I pass. I didn't pass. Did I study?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Study has more than one sense: the act of learning about a subject in depth; a piece of research; as a verb, to learn about something in depth."
+    },
+    {
+      "q": "If the alarm rings, I wake up. The alarm rang. Did I wake up?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on The. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Anna is older than Ben. Ben is older than Cara. Who is the oldest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Anna. Ordering the statements gives Anna > Ben > Cara."
+    },
+    {
+      "q": "What comes next: 3, 6, 9, 12?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "15. In 3, 6, 9, 12, each term adds 3."
+    },
+    {
+      "q": "What comes next: 1, 1, 2, 3, 5, 8?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "13. In 1, 1, 2, 3, 5, 8, each term is the sum of the two before it."
+    },
+    {
+      "q": "Mary has twice as many books as John. John has 4 books. How many does Mary have?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Mars has two moons. It is in the Solar System."
+    },
+    {
+      "q": "A pencil and an eraser cost $1.50 in total. The pencil costs $1.00 more than the eraser. How much is the eraser?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on eraser. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "I had 10 dollars and spent 4. How much do I have left?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on I have left. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Sara has 5 candies and gets 3 more. How many candies does she have now?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I'm keeping 3 in context. I don't have anything reliable on Sara. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "A movie starts at 7:30 pm and lasts 2 hours. When does it end?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on When. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "If today is Monday, what day will it be in 3 days?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "There are seven days in a week."
+    },
+    {
+      "q": "What is 25% of 200?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 50."
+    },
+    {
+      "q": "How many seconds are in 5 minutes?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That's 300 seconds."
+    },
+    {
+      "q": "What is the capital of Japan?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The capital of Japan is Tokyo. It is in East Asia."
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa was created by Leonardo da Vinci."
+    },
+    {
+      "q": "Why do we have seasons?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "The Mona Lisa is Leonardo da Vinci's portrait, painted from about 1503, now in the Louvre. It was created by Leonardo da Vinci."
+    },
+    {
+      "q": "What is gravity?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Gravity is the attraction between objects with mass; in general relativity it is the curvature of spacetime caused by mass and energy. It results from mass and energy curving spacetime."
+    },
+    {
+      "q": "Is the earth flat?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Earth is the third planet from the Sun. It is the only planet known to support life. It is in the Solar System."
+    },
+    {
+      "q": "Which is heavier, a kilogram of feathers or a kilogram of steel?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on heavier kilogram feathers. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What's the difference between a virus and bacteria?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "Virus and bacteria differ in one respect. Virus is A virus is a tiny infectious agent that can only replicate inside the living cells of a host, whereas bacteria is single-celled microorganisms without a nucleus; some cause disease and many are harmless or useful."
+    },
+    {
+      "q": "Should I use tabs or spaces?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Spaces means a free or unoccupied area, or the expanse beyond Earth."
+    },
+    {
+      "q": "How do I boil an egg?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Spaces means a free or unoccupied area, or the expanse beyond Earth."
+    },
+    {
+      "q": "What's a good way to learn a new language?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "C is a compact, statically typed systems programming language that maps closely to machine operations. It was created by Dennis Ritchie."
+    },
+    {
+      "q": "Tell me something interesting.",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "An interest rate is the price of borrowing money, expressed as a percentage per period."
+    },
+    {
+      "q": "Write a haiku about autumn.",
+      "verdict": "good",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Write a haiku about autumn. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "What's the weather like on Mars?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mars is the fourth planet from the Sun. It is a cold desert world often called the Red Planet. It is in the Solar System. I could not reach a live source just now, so that is from local knowledge and may be out of date."
+    }
+  ],
+  "words": 745,
+  "good_rate": 0.444,
+  "wrong_rate": 0.389,
+  "mean_words": 20.7
+}

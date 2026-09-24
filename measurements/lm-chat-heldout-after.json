@@ -1,0 +1,228 @@
+{
+  "n": 36,
+  "good": 31,
+  "honest": 2,
+  "wrong": 3,
+  "items": [
+    {
+      "q": "hello there",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Hey. Ask me something."
+    },
+    {
+      "q": "how's it going?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Doing well, thank you — it's a good day for questions. How are you doing?"
+    },
+    {
+      "q": "who made you?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information."
+    },
+    {
+      "q": "good morning!",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Good morning! What can I help you with?"
+    },
+    {
+      "q": "can you help me with something?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Of course — let's work on something. What part would you like to start with?"
+    },
+    {
+      "q": "bye for now",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Goodbye! Come back any time."
+    },
+    {
+      "q": "I'm bored",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Being bored is no fun. Let's fix that — I could give you a logic puzzle, a riddle, or a surprising fact to explore. Which sounds good?"
+    },
+    {
+      "q": "I feel sad today.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling sad. That sounds hard. I'm here if you want to talk about what's going on, or I can keep you company with something lighter for a while."
+    },
+    {
+      "q": "All cats are mammals. All mammals are animals. Are all cats animals?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Every cat is a mammal, and every mammal is an animal, so every cat is an animal."
+    },
+    {
+      "q": "Some dogs are brown. Rex is a dog. Is Rex brown?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Not necessarily. Only SOME dogs are brown, and nothing says Rex is one of them — Rex may or may not be brown."
+    },
+    {
+      "q": "If I study, I pass. I didn't pass. Did I study?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "No. The rule says: If you study, you pass. “you pass” is false here, so “you study” must be false too — otherwise the rule would have made it true. (That's modus tollens: if the result didn't happen, the condition can't have either.)"
+    },
+    {
+      "q": "If the alarm rings, I wake up. The alarm rang. Did I wake up?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. The rule says: if the alarm rings, you wake up. “the alarm rings” is true here, so “you wake up” follows. (That's modus ponens: the condition held, so the result follows.)"
+    },
+    {
+      "q": "Anna is older than Ben. Ben is older than Cara. Who is the oldest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Anna. Putting the statements in order (older first): Anna > Ben > Cara."
+    },
+    {
+      "q": "What comes next: 3, 6, 9, 12?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "15. In 3, 6, 9, 12, each term adds 3."
+    },
+    {
+      "q": "What comes next: 1, 1, 2, 3, 5, 8?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "13. In 1, 1, 2, 3, 5, 8, each term is the sum of the two before it."
+    },
+    {
+      "q": "Mary has twice as many books as John. John has 4 books. How many does Mary have?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "8. Writing what's stated as equations: Mary = 2 × John; John = 4. Solving them together gives Mary = 8, John = 4."
+    },
+    {
+      "q": "A pencil and an eraser cost $1.50 in total. The pencil costs $1.00 more than the eraser. How much is the eraser?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "$0.25 (25 cents). Writing what's stated as equations: A pencil + an eraser = 1.50; The pencil = the eraser + 1.00. Solving them together gives pencil = 1.25, eraser = 0.25."
+    },
+    {
+      "q": "I had 10 dollars and spent 4. How much do I have left?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "6 dollars left. You start with 10 dollars, −4 (spent) → 6."
+    },
+    {
+      "q": "Sara has 5 candies and gets 3 more. How many candies does she have now?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "8 candies left. Sara starts with 5 candies, +3 (gets) → 8."
+    },
+    {
+      "q": "A movie starts at 7:30 pm and lasts 2 hours. When does it end?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "9:30 pm. 7:30 pm plus 2 hours is 9:30 pm."
+    },
+    {
+      "q": "If today is Monday, what day will it be in 3 days?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Thursday. Counting 3 days forward from Monday."
+    },
+    {
+      "q": "What is 25% of 200?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That comes to 50."
+    },
+    {
+      "q": "How many seconds are in 5 minutes?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That's 300 seconds."
+    },
+    {
+      "q": "What is the capital of Japan?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Japan's capital is Tokyo. It is in East Asia."
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa was created by Leonardo da Vinci."
+    },
+    {
+      "q": "Why do we have seasons?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I don't have a reliable explanation of why we have seasons in my local knowledge, and I'd rather not guess at a cause. In tool mode I can look for one in public sources."
+    },
+    {
+      "q": "What is gravity?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Gravity is the attraction between objects with mass; in general relativity it is the curvature of spacetime caused by mass and energy. It is caused by mass and energy curving spacetime."
+    },
+    {
+      "q": "Is the earth flat?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Earth is the third planet from the Sun. It is the only planet known to support life. It is in the Solar System."
+    },
+    {
+      "q": "Which is heavier, a kilogram of feathers or a kilogram of steel?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Neither — they're the same. 1 kilogram of feathers and 1 kilogram of steel are equal amounts; what the stuff is made of doesn't change a stated kilogram."
+    },
+    {
+      "q": "What's the difference between a virus and bacteria?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "Virus is a tiny infectious agent that can only replicate inside the living cells of a host, while bacteria is single-celled microorganisms without a nucleus; some cause disease and many are harmless or useful. Both are concepts."
+    },
+    {
+      "q": "Should I use tabs or spaces?",
+      "verdict": "wrong",
+      "route": "comparison",
+      "answer": "It depends on what you want to do with it — both are reasonable choices. Spaces is a free or unoccupied area, or the expanse beyond Earth. If you tell me what you're aiming for, I can give you a firmer recommendation."
+    },
+    {
+      "q": "How do I boil an egg?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable step-by-step instructions to boil an egg, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "What's a good way to learn a new language?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable tips on learn a new language, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "Tell me something interesting.",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Here's one: An atom is the smallest unit of an element, a nucleus of protons and neutrons surrounded by electrons. Atom is about 0.1 nanometres across."
+    },
+    {
+      "q": "Write a haiku about autumn.",
+      "verdict": "honest",
+      "route": "creative",
+      "answer": "I don't know enough about autumn to write about it well. Tell me a few things about it — what it looks like, sounds like, or means to you — and I'll shape them into a haiku."
+    },
+    {
+      "q": "What's the weather like on Mars?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mars is the fourth planet from the Sun. It is a cold desert world often called the Red Planet. It is in the Solar System. I could not reach a live source just now, so that is from local knowledge and may be out of date."
+    }
+  ],
+  "words": 789,
+  "good_rate": 0.861,
+  "wrong_rate": 0.083,
+  "mean_words": 21.9
+}
