@@ -1,7 +1,7 @@
 {
- "generated": "2026-09-23T21:52:52.346Z",
- "passed": 48,
- "total": 48,
+ "generated": "2026-09-24T17:10:44.450Z",
+ "passed": 52,
+ "total": 52,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -19,7 +19,22 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-converse.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-core.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-deliberate.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-everyday.js",
    "ok": true,
    "detail": ""
   },
@@ -60,6 +75,11 @@
   },
   {
    "name": "syntax: c4-lm-retrieve.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-tools.js",
    "ok": true,
    "detail": ""
   },
@@ -116,7 +136,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: emoji only",
@@ -126,12 +146,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "edge input: sql-ish input",
@@ -151,7 +171,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: non-latin script",
@@ -171,7 +191,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -181,7 +201,7 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "6 -> 7"
+   "detail": "7 -> 8"
   },
   {
    "name": "offline: local computation unaffected",
@@ -191,7 +211,7 @@
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -201,7 +221,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2528 ms"
+   "detail": "2533 ms"
   },
   {
    "name": "garbage source response handled",
@@ -216,12 +236,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hey. Ask me something."
+   "detail": "Hi — what would you like to know?"
   },
   {
    "name": "dialogue sequence",

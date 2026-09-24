@@ -170,6 +170,10 @@
       return { intent: "why", topic: m[1], passive: true };
     if ((m = bare.match(/^(?:is|are|was|were|can|does|do|will|should)\s+(.+?)\s+(good|bad|safe|dangerous|healthy|unhealthy|harmful|toxic|poisonous|true|real|possible|legal|necessary|better|worse|worth it|okay|ok)(?:\s+for\s+(.+))?$/)))
       return { intent: "yesno", subject: stripArt(m[1]), predicate: m[2], "for": m[3] || null, passive: true };
+    /* any yes/no about a subject and a predicate: "is the earth flat",
+       "can penguins fly" -- its answer must speak to the predicate */
+    if ((m = bare.match(/^(?:is|are|was|were)\s+((?:the |a |an )?[a-z]+(?: [a-z]+)?)\s+([a-z]+)$/)) || (m = bare.match(/^(?:can|could|do|does|did)\s+((?:the |a |an )?[a-z]+(?: [a-z]+)?)\s+([a-z]+)$/)))
+      return { intent: "yesno", subject: stripArt(m[1]), predicate: m[2], "for": null, passive: true, open: true };
     return null;
   }
 
@@ -241,7 +245,7 @@
       if (w) try { lx = L.lookup(w) || L.lookup(w.replace(/s$/, "")); } catch (e) { lx = null; }
       if (lx && lx.senses && lx.senses.length) {
         var s0 = lx.senses.filter(function (s) { return s.pos === "n"; })[0] || lx.senses[0];
-        return { name: t, defn: cap(t) + " is " + s0.gloss.replace(/^(?:to|the|a|an)\s+/, function (x) { return /^to /.test(x) ? "to " : x; }) + ".", gloss: s0.gloss, rel: {}, source: "lexicon" };
+        return { name: t, defn: cap(t) + " is " + s0.gloss.replace(/^(?:to|the|a|an)\s+/, function (x) { return /^to /.test(x) ? "to " : x; }) + ".", gloss: s0.gloss, cls: s0.cls, rel: {}, source: "lexicon" };
       }
     }
     return null;
@@ -322,6 +326,11 @@
     var a = I.options[0], b = I.options[1], ka = knowledgeOf(a), kb = knowledgeOf(b);
     var KB = get("C4LMKB"), cmp = null;
     try { cmp = KB && KB.contrast ? KB.contrast(a, b) : null; } catch (e) { cmp = null; }
+    /* weighing one known option against an unknown one, or two senses from
+       different domains ("spaces: the expanse beyond Earth" against tabs),
+       is not a comparison: both must be known, and alike */
+    if (!cmp && (!ka || !kb || ka.source !== kb.source || (ka.source === "kb" && ka.type !== kb.type) ||
+                 (ka.source === "lexicon" && ka.cls !== kb.cls))) { ka = null; kb = null; }
     var na = ka ? ka.name : a, nb = kb ? kb.name : b, sa = strengths(ka), sb = strengths(kb), out = [];
     out.push("It depends on what you want to do" + (I.verb ? " with it" : "") + " — both are reasonable choices.");
     if (ka) out.push(cap(na) + " is " + predicate(ka).replace(/\.$/, "") + ".");
@@ -501,10 +510,22 @@
     if (k) return lead + " What I can tell you: " + k.defn.replace(/\s+$/, "") + " Want to know more about it?";
     return lead + " If you tell me what you'd like to know about it, I'll dig into the facts.";
   }
+  /* "learn a new language" -> "learning a new language" (English -ing
+     spelling rules); a phrase that is not led by a verb is left alone */
+  function gerund(vp) {
+    var w = vp.split(/\s+/), v = w[0], L = get("C4LMLexicon"), isVerb = false;
+    if (/ing$/.test(v)) return vp;
+    try { var lx = L && L.lookup ? L.lookup(v) : null; isVerb = !!(lx && lx.senses && lx.senses.some(function (x) { return x.pos === "v"; })); } catch (e) { isVerb = false; }
+    if (!isVerb && !/^(?:learn|make|get|stay|keep|be|become|stop|start|sleep|eat|study|save|lose|build|write|read|cook|run|tie|boil|fix|improve|speak|use)$/.test(v)) return vp;
+    var g = v === "be" ? "being" : /ie$/.test(v) ? v.slice(0, -2) + "ying" : /[^aeiou]e$/.test(v) && v !== "be" ? v.slice(0, -1) + "ing" :
+            /^[^aeiou]*[aeiou][^aeiouwxy]$/.test(v) ? v + v.slice(-1) + "ing" : v + "ing";
+    return [g].concat(w.slice(1)).join(" ");
+  }
   function howto(I, federated, looked) {
     var topic = I.topic || "that";
     if (federated && !looked) return null;          /* the evidence layer may find real steps */
-    var kind = I.intent === "advice" ? "tips on " + topic.replace(/^(?:how to|to)\s+/, "") : "step-by-step instructions to " + topic.replace(/^(?:how to|to)\s+/, "");
+    var vp = topic.replace(/^(?:how to|to)\s+/, "");
+    var kind = I.intent === "advice" ? "tips on " + gerund(vp) : "step-by-step instructions to " + vp;
     return (looked ? "I looked, but couldn't find reliable " + kind + ", and I'd rather not make steps up. "
                    : "I don't have reliable " + kind + " in my local knowledge, and I'd rather not make steps up. In tool mode I can look it up from public sources. ") +
            "If you tell me what you've tried so far, I'll help you reason it through.";
@@ -559,7 +580,8 @@
       case "advice": case "procedure": out = howto(I, ctx.federated, ctx.looked); route = "knowledge"; break;
       case "claim": out = ctx.federated ? null : claim(I); route = "knowledge"; break;
       case "why": out = "I don't have a reliable explanation of why " + I.topic + " in my local knowledge, and I'd rather not guess at a cause. In tool mode I can look for one in public sources."; route = "knowledge"; break;
-      case "yesno": out = "I can't say reliably whether " + I.subject + " " + (/s$/.test(I.subject) ? "are" : "is") + " " + I.predicate + (I.for ? " for " + I.for : "") + " from my local knowledge — it's the kind of claim that needs evidence I don't have here."; route = "knowledge"; break;
+      case "yesno": out = I.open ? "I can't confirm from my local knowledge whether " + I.subject + " " + (/^(?:can|could|do|does|did)\b/i.test(text.trim()) ? text.trim().match(/^\w+/)[0].toLowerCase() + " " + I.predicate : (/s$/.test(I.subject) ? "are " : "is ") + I.predicate) + ", so I won't guess." + (ctx.lastKnown ? " What I do know: " + ctx.lastKnown : "") :
+          "I can't say reliably whether " + I.subject + " " + (/s$/.test(I.subject) ? "are" : "is") + " " + I.predicate + (I.for ? " for " + I.for : "") + " from my local knowledge — it's the kind of claim that needs evidence I don't have here."; route = "knowledge"; break;
     }
     if (!out) return null;
     return { text: out, route: route, intent: I.intent, confidence: /^I (?:don't|can't)\b/.test(out) ? 0.5 : 0.8,
@@ -586,6 +608,10 @@
       return /\b(?:first|then|next|step|until|minutes?|add|place|put|use|try|avoid|keep|make sure)\b/i.test(result.text || "");
     /* a "why" needs a cause; a yes/no needs a verdict on the subject */
     if (I.intent === "why") return result.route === "explanation" || /\b(?:because|due to|so that|therefore|causes?|caused|results? in|leads? to|which is why|since|as a result)\b/i.test(result.text || "");
+    if (I.intent === "yesno" && I.open) {
+      var tq = String(result.text || "");
+      return /^(?:yes|no)\b/i.test(tq) || new RegExp("\\b" + I.predicate.replace(/s$/, "") + "\\w*\\b", "i").test(tq.replace(/\bmeans\b.*$/i, ""));
+    }
     if (I.intent === "yesno") {
       var tx = String(result.text || "");
       return /^(?:yes|no)\b/i.test(tx) || (new RegExp("\\b" + String(I.subject).split(/\s+/)[0] + "\\b", "i").test(tx) && new RegExp("\\b" + I.predicate + "\\b", "i").test(tx) && !/\bmeans\b/i.test(tx));

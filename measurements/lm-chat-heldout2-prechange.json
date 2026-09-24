@@ -1,0 +1,252 @@
+{
+  "n": 40,
+  "good": 13,
+  "honest": 5,
+  "wrong": 22,
+  "items": [
+    {
+      "q": "hey!",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Ask me anything — a fact, a calculation, an explanation, or something to build."
+    },
+    {
+      "q": "how have you been?",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Hey. Ask me something."
+    },
+    {
+      "q": "what are you?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information."
+    },
+    {
+      "q": "do you get tired?",
+      "verdict": "good",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on do you get tired. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "that was really helpful, thanks",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Got it. What would you like me to work out?"
+    },
+    {
+      "q": "I'm nervous about my driving test tomorrow.",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "I'm so happy, I got the job!",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Job means paid work, or a task to be completed."
+    },
+    {
+      "q": "I feel overwhelmed with work.",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Work has more than one sense: activity involving effort done to achieve a result; as a verb, to do work."
+    },
+    {
+      "q": "If Sam is shorter than Tina and Tina is shorter than Uma, who is the tallest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Uma. Ordering the statements gives Uma > Tina > Sam."
+    },
+    {
+      "q": "If the light is red, cars stop. The cars did not stop. Was the light red?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A car is a road vehicle with an engine, typically four wheels, built to carry a few people. It is used for carrying people by road."
+    },
+    {
+      "q": "If you heat ice, it melts. The ice melted. Was it heated?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Lightning is a large electrical discharge between regions of opposite charge in a storm."
+    },
+    {
+      "q": "All squares are rectangles. All rectangles are shapes. Are all squares shapes?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Every square is in a category that is itself contained in shapes, so the containment carries through."
+    },
+    {
+      "q": "Some fruits are sweet. A lemon is a fruit. Is a lemon sweet?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "An apple is the edible fruit of the apple tree, Malus domestica."
+    },
+    {
+      "q": "What comes next: 10, 20, 30, 40?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "50. In 10, 20, 30, 40, each term adds 10."
+    },
+    {
+      "q": "What comes next: 1, 4, 9, 16?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "25. In 1, 4, 9, 16, the terms are consecutive squares."
+    },
+    {
+      "q": "A book and a bookmark cost $5.50 together. The book costs $5.00 more than the bookmark. How much does the bookmark cost?",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "That depends on how much money is involved, which the question doesn't say: cost = 5.50 dollars × amount of money ÷ 5.00 dollars."
+    },
+    {
+      "q": "Liam has 3 times as many cards as Noah. Noah has 7 cards. How many cards does Liam have?",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "3 cards — 3 times."
+    },
+    {
+      "q": "I baked 24 cookies and gave away 9. How many do I have left?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on I have left. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Emma had 8 balloons and bought 5 more. How many balloons does she have now?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Helium is a chemical element with the symbol He and atomic number 2. It is an inert gas used in balloons and cryogenics."
+    },
+    {
+      "q": "The bus leaves at 8:15 am and the trip takes 50 minutes. When does it arrive?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on When. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "If today is Saturday, what day will it be in 4 days?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "There are seven days in a week."
+    },
+    {
+      "q": "What is 10% of 350?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That comes to 35."
+    },
+    {
+      "q": "How many hours are in 2 days?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 48 hours."
+    },
+    {
+      "q": "What is the capital of Italy?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Rome is the capital of Italy. Italy is in Southern Europe."
+    },
+    {
+      "q": "Who wrote Romeo and Juliet?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Romeo and Juliet was written by William Shakespeare. It dates to around 1595."
+    },
+    {
+      "q": "What is the boiling point of water?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Water boils at 100 °C at sea-level pressure."
+    },
+    {
+      "q": "What is an atom?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "An atom is the smallest unit of an element. It is also a nucleus of protons and neutrons surrounded by electrons. It is made up of protons, neutrons and electrons."
+    },
+    {
+      "q": "Which is bigger, Mars or Earth?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Mars is the fourth planet from the Sun. It is a cold desert world often called the Red Planet. It is in the Solar System."
+    },
+    {
+      "q": "Which is closer to the Sun, Venus or Mars?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Mars is the fourth planet from the Sun. It is a cold desert world often called the Red Planet. It is in the Solar System."
+    },
+    {
+      "q": "What's the difference between a lake and a river?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "River means a large natural stream of water."
+    },
+    {
+      "q": "Should I learn Spanish or French?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Spanish. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "How do I tie a tie?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "River means a large natural stream of water."
+    },
+    {
+      "q": "Give me tips for staying focused.",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Focused has more than one sense: the centre of interest or activity; as a verb, to concentrate."
+    },
+    {
+      "q": "Tell me a joke.",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Focused has more than one sense: the centre of interest or activity; as a verb, to concentrate."
+    },
+    {
+      "q": "Write a short poem about the ocean.",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "An ocean is one of Earth's five great bodies of salt water."
+    },
+    {
+      "q": "What's the purpose of life?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Life means the condition that distinguishes living organisms from matter."
+    },
+    {
+      "q": "Do you like music?",
+      "verdict": "wrong",
+      "route": "compose",
+      "answer": "I think a do you like music would be a vocal or instrumental sounds combined for beauty of form, relating to a like. Tell me the context and I can be more exact. — though I'd check that one."
+    },
+    {
+      "q": "Is chocolate healthy?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Is chocolate healthy. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Why do leaves change color in autumn?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on leaves change color. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Can penguins fly?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Fly means as a verb, to move through the air."
+    }
+  ],
+  "words": 726,
+  "good_rate": 0.325,
+  "wrong_rate": 0.55,
+  "mean_words": 18.2
+}

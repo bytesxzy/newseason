@@ -1,0 +1,252 @@
+{
+  "n": 40,
+  "good": 31,
+  "honest": 4,
+  "wrong": 5,
+  "items": [
+    {
+      "q": "hey!",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Ask me anything — a fact, a calculation, an explanation, or something to build."
+    },
+    {
+      "q": "how have you been?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm doing well, thanks for asking! Ready for whatever you want to dig into — how about you?"
+    },
+    {
+      "q": "what are you?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information."
+    },
+    {
+      "q": "do you get tired?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "No — I don't sleep, eat or get tired, and I don't live anywhere except the page you're using. I just run while it's open."
+    },
+    {
+      "q": "that was really helpful, thanks",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Thank you — that's kind of you to say!"
+    },
+    {
+      "q": "I'm nervous about my driving test tomorrow.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling nervous about your driving test tomorrow. That's a really common feeling when something important is coming up. If it would help, I can explain something you're stuck on, quiz you on it, or help you break what's ahead into smaller, manageable steps."
+    },
+    {
+      "q": "I'm so happy, I got the job!",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Job means paid work, or a task to be completed."
+    },
+    {
+      "q": "I feel overwhelmed with work.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling overwhelmed about work. That's a really common feeling when something important is coming up. If it would help, I can explain something you're stuck on, quiz you on it, or help you break what's ahead into smaller, manageable steps."
+    },
+    {
+      "q": "If Sam is shorter than Tina and Tina is shorter than Uma, who is the tallest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Uma. Putting the statements in order (shorter first): Sam > Tina > Uma."
+    },
+    {
+      "q": "If the light is red, cars stop. The cars did not stop. Was the light red?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "No. The rule says: If the light is red, cars stop. “cars stop” is false here, so “the light is red” must be false too — otherwise the rule would have made it true. (That's modus tollens: if the result didn't happen, the condition can't have either.)"
+    },
+    {
+      "q": "If you heat ice, it melts. The ice melted. Was it heated?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Not necessarily. The rule (If you heat ice, it melts) says the first part guarantees the second — not the other way round. It melts could have other causes, so it doesn't prove that you heat ice. (Concluding it would be the fallacy of affirming the consequent.)"
+    },
+    {
+      "q": "All squares are rectangles. All rectangles are shapes. Are all squares shapes?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Every squar is a rectangl, and every rectangl is a shap, so every squar is a shap."
+    },
+    {
+      "q": "Some fruits are sweet. A lemon is a fruit. Is a lemon sweet?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "An apple is the edible fruit of the apple tree, Malus domestica."
+    },
+    {
+      "q": "What comes next: 10, 20, 30, 40?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "50. In 10, 20, 30, 40, each term adds 10."
+    },
+    {
+      "q": "What comes next: 1, 4, 9, 16?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "25. In 1, 4, 9, 16, the terms are consecutive squares."
+    },
+    {
+      "q": "A book and a bookmark cost $5.50 together. The book costs $5.00 more than the bookmark. How much does the bookmark cost?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "$0.25 (25 cents). Writing what's stated as equations: A book + a bookmark = 5.50; The book = the bookmark + 5.00. Solving them together gives book = 5.25, bookmark = 0.25."
+    },
+    {
+      "q": "Liam has 3 times as many cards as Noah. Noah has 7 cards. How many cards does Liam have?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "21. Writing what's stated as equations: Liam = 3 × Noah; Noah = 7. Solving them together gives Liam = 21, Noah = 7."
+    },
+    {
+      "q": "I baked 24 cookies and gave away 9. How many do I have left?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on I have left. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Emma had 8 balloons and bought 5 more. How many balloons does she have now?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "13 balloons left. Emma starts with 8 balloons, +5 (bought) → 13."
+    },
+    {
+      "q": "The bus leaves at 8:15 am and the trip takes 50 minutes. When does it arrive?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "9:05 am. 8:15 am plus 50 minutes is 9:05 am."
+    },
+    {
+      "q": "If today is Saturday, what day will it be in 4 days?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Wednesday. Counting 4 days forward from Saturday."
+    },
+    {
+      "q": "What is 10% of 350?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 35."
+    },
+    {
+      "q": "How many hours are in 2 days?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 48 hours."
+    },
+    {
+      "q": "What is the capital of Italy?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Italy has Rome as its capital. It is in Southern Europe. It has a population of about 59 million."
+    },
+    {
+      "q": "Who wrote Romeo and Juliet?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "William Shakespeare wrote Romeo and Juliet. It dates to around 1595."
+    },
+    {
+      "q": "What is the boiling point of water?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Water boils at 100 °C at sea-level pressure."
+    },
+    {
+      "q": "What is an atom?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "An atom is the smallest unit of an element. It is also a nucleus of protons and neutrons surrounded by electrons. It is made up of protons, neutrons and electrons. It is about 0.1 nanometres across."
+    },
+    {
+      "q": "Which is bigger, Mars or Earth?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Earth's size is 12,742 km in diameter. It is in the Solar System. It dates to about 4.54 billion years old."
+    },
+    {
+      "q": "Which is closer to the Sun, Venus or Mars?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Venus is the second planet from the Sun. It is the hottest planet, wrapped in a thick carbon-dioxide atmosphere. It is in the Solar System."
+    },
+    {
+      "q": "What's the difference between a lake and a river?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "River is a large natural stream of water. I don't have a reliable definition of lake to set against it."
+    },
+    {
+      "q": "Should I learn Spanish or French?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "I don't know enough about Spanish and French to compare them reliably, so I won't pretend to. If you tell me what matters most to you — price, what you'll use it for, how long it needs to last — I can help you weigh the options up."
+    },
+    {
+      "q": "How do I tie a tie?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable step-by-step instructions to tie a tie, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "Give me tips for staying focused.",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable tips on staying focused, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "Tell me a joke.",
+      "verdict": "good",
+      "route": "creative",
+      "answer": "Here's a riddle rather than a pun — I build them from what I know: I'm a chemical element with the symbol Ar and atomic number 18. What am I? … Argon!"
+    },
+    {
+      "q": "Write a short poem about the ocean.",
+      "verdict": "good",
+      "route": "creative",
+      "answer": "A short poem about the ocean, from what I know of it:\n\nOcean —\none of Earth's five great bodies of salt water,\nthe Pacific,\nSouthern and Arctic oceans."
+    },
+    {
+      "q": "What's the purpose of life?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Life means the condition that distinguishes living organisms from matter."
+    },
+    {
+      "q": "Do you like music?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I don't have personal tastes or feelings, so I can't honestly say I like or dislike music. What I can tell you: Music is vocal or instrumental sounds combined for beauty of form. Want to know more about it?"
+    },
+    {
+      "q": "Is chocolate healthy?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Is chocolate healthy. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Why do leaves change color in autumn?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on leaves change color. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Can penguins fly?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Fly means as a verb, to move through the air."
+    }
+  ],
+  "words": 937,
+  "good_rate": 0.775,
+  "wrong_rate": 0.125,
+  "mean_words": 23.4
+}

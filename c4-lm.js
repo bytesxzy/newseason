@@ -683,26 +683,47 @@
   function displayName(entity) { return String(entity.name).replace(/\s*\([^)]*\)\s*$/, ""); }
   function titleOf(s) { return RZ.capitalize(String(s)); }
 
-  function shortElaboration(entity, usedRelation) {
-    var order = ["purpose", "part", "cause", "creator", "location", "time", "count"];
-    for (var i = 0; i < order.length; i++) {
-      if (order[i] === usedRelation) continue;
-      var v = entity.rel && entity.rel[order[i]];
-      if (!v) continue;
-      switch (order[i]) {
-        case "purpose": return "It is used for " + v;
-        case "part": return "It is made up of " + v;
-        case "cause": return "It is caused by " + v;
-        case "creator": return "It was created by " + v;
-        case "location": return "It is in " + v;
-        case "time": return "It dates to " + String(v)
-          .replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "")
-          .replace(/^in\s+/i, "");
+  /* Up to two further facts the entity actually has, as short sentences,
+     in an order that reads well after a definition; never the relation
+     already answered, never a fact the answer already contains. A fuller
+     answer, still made only of stored knowledge. */
+  var ELAB_ORDER = ["purpose", "part", "cause", "creator", "author", "location", "continent", "time", "size", "distance",
+                    "population", "currency", "language", "count", "height", "length", "speed", "temperature"];
+  function shortElaboration(entity, usedRelation, max) {
+    max = max === undefined ? 2 : max;
+    var out = [], person = entity.type === "person";
+    for (var i = 0; i < ELAB_ORDER.length && out.length < max; i++) {
+      var k = ELAB_ORDER[i];
+      if (k === usedRelation) continue;
+      var v = entity.rel && entity.rel[k];
+      if (!v || typeof v !== "string") continue;
+      var subj = out.length ? (person ? "They" : "It") : (person ? (entity.name || "They") : "It"), s = "";
+      switch (k) {
+        case "purpose": s = subj + " is used for " + v; break;
+        case "part": s = subj + " is made up of " + v; break;
+        case "cause": s = subj + " is caused by " + v; break;
+        case "creator": s = subj + " was created by " + v; break;
+        case "author": s = subj + " was written by " + v; break;
+        case "location": case "continent": s = subj + " is in " + v.replace(/^in\s+/i, ""); break;
+        case "time": s = subj + " dates to " + String(v).replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "").replace(/^in\s+/i, ""); break;
+        case "size": s = subj + " is " + v; break;
+        case "distance": s = subj + " is " + v; break;
+        case "population": s = subj + " has a population of " + v; break;
+        case "currency": s = (out.length ? "Its" : "Its") + " currency is " + v; break;
+        case "language": s = "People there speak " + v; break;
         /* A bare number with no noun ("79") says nothing on its own. */
-        case "count": return /\s/.test(String(v)) ? "It has " + v : "";
+        case "count": s = /\s/.test(String(v)) ? subj + " has " + v : ""; break;
+        case "height": s = subj + " is " + v + (/\b(?:tall|high)\b/.test(v) ? "" : " tall"); break;
+        case "length": s = subj + " is " + v + (/\blong\b/.test(v) ? "" : " long"); break;
+        case "speed": s = subj + " moves at " + v; break;
+        case "temperature": s = subj + " has a temperature of " + v; break;
       }
+      if (!s) continue;
+      /* location and continent say the same thing: keep one */
+      if ((k === "continent" && out.some(function (x) { return / is in /.test(x); }))) continue;
+      out.push(s);
     }
-    return "";
+    return out.join(". ");
   }
 
   /* One hop through a relation the entity DOES have, to an entity that has
