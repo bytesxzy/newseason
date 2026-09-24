@@ -1,0 +1,30 @@
+{
+  "note": "Frozen held-out cross-referencing set v2, written after the engine was built and BEFORE this set was run; v1 (crossref-heldout.json) is a development set now. One session, in order.",
+  "items": [
+    { "q": "Black, White = Coal, Snow", "good": ["(coal|snow|got it|noted)"] },
+    { "q": "What did I pair with Black?", "good": ["coal"] },
+    { "q": "Which color went with Snow?", "good": ["white"] },
+    { "q": "Why is White Snow?", "good": ["(white crystal|frozen|snowflake|white)"], "bad": ["\\bmeans\\b"] },
+    { "q": "Green, Yellow = Lime, Lemon. Red = ?", "good": ["(tomato|cherry|strawberry|apple|radish|pepper|raspberry|cranberry|beet|pomegranate|chili|watermelon|currant|plum|grape)"] },
+    { "q": "What color is a lemon?", "good": ["yellow"] },
+    { "q": "What color is blood?", "good": ["\\bred\\b"] },
+    { "q": "What color is the sky?", "good": ["blue"] },
+    { "q": "Is a banana yellow?", "good": ["\\byes\\b"] },
+    { "q": "Is coal white?", "good": ["\\bno\\b"] },
+    { "q": "Name something that is red.", "good": ["(blood|tomato|cherry|ruby|apple|rose|strawberry|fire|brick|cardinal|lobster|robin|radish|wine)"] },
+    { "q": "Spain, Kenya = Madrid, Nairobi. Egypt = ?", "good": ["cairo"] },
+    { "q": "Rome, Oslo = Italy, Norway. Madrid = ?", "good": ["spain"] },
+    { "q": "China, Russia = yuan, ruble. Japan = ?", "good": ["yen"] },
+    { "q": "big : small :: heavy : ?", "good": ["\\blight\\b"] },
+    { "q": "early : late :: open : ?", "good": ["(shut|close|closed)"] },
+    { "q": "dark : light :: strong : ?", "good": ["weak"] },
+    { "q": "horse : foal :: dog : ?", "good": ["(puppy|pup|whelp)"] },
+    { "q": "hand : finger :: foot : ?", "good": ["\\btoe"] },
+    { "q": "tree : forest :: star : ?", "good": ["(galaxy|constellation|cluster)"] },
+    { "q": "What do a lemon and a lime have in common?", "good": ["(citrus|fruit)"] },
+    { "q": "What do a hammer and a saw have in common?", "good": ["(tool|implement)"] },
+    { "q": "What was the first pair?", "good": ["(black|coal)"] },
+    { "q": "Actually, Black = Night", "good": ["(night|updated)"] },
+    { "q": "What did I pair with Black?", "good": ["night"] }
+  ]
+}
