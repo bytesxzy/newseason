@@ -1,0 +1,252 @@
+{
+  "n": 40,
+  "good": 37,
+  "honest": 2,
+  "wrong": 1,
+  "items": [
+    {
+      "q": "hello there",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Hello! How can I help?"
+    },
+    {
+      "q": "what's your name?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system — you can just call me CELL4. I answer questions, work through math and logic step by step, and I'll tell you when I don't know something."
+    },
+    {
+      "q": "are you a robot?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm software — CELL4's local language system, running in your browser. Not a human, and not a physical robot: no body, just a reasoning engine, exact math tools and a local knowledge base."
+    },
+    {
+      "q": "you're awesome",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Glad you think so — thanks!"
+    },
+    {
+      "q": "I'm worried about my exam results.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling worried about your exam results. That's a really common feeling when something important is coming up. If it would help, I can explain something you're stuck on, quiz you on it, or help you break what's ahead into smaller, manageable steps."
+    },
+    {
+      "q": "I just got engaged!",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Congratulations — you just got engaged! That's wonderful news. You must be proud — what's next?"
+    },
+    {
+      "q": "I'm feeling kind of down today.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling down. That sounds hard. I'm here if you want to talk about what's going on, or I can keep you company with something lighter for a while."
+    },
+    {
+      "q": "I'm tired.",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm sorry you're feeling tired. That happens to everyone sometimes. A short break, some water, or a bit of rest can make a real difference — and if there's something you need to get done, I can help make it quicker."
+    },
+    {
+      "q": "If it is sunny, we go to the beach. It is sunny. Do we go to the beach?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. The rule says: if it is sunny, you go to the beach. “it is sunny” is true here, so “you go to the beach” follows. (That's modus ponens: the condition held, so the result follows.)"
+    },
+    {
+      "q": "If the store is open, the lights are on. The lights are off. Is the store open?",
+      "verdict": "wrong",
+      "route": "reason",
+      "answer": "Not necessarily. The rule (If the store is open, the lights are on) says the first part guarantees the second — not the other way round. The lights are on could have other causes, so it doesn't prove that the store is open. (Concluding it would be the fallacy of affirming the consequent.)"
+    },
+    {
+      "q": "All dogs are animals. Rex is a dog. Is Rex an animal?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Rex is a dog, and every dog is an animal."
+    },
+    {
+      "q": "No fish can walk. A salmon is a fish. Can a salmon walk?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "No. Every salmon is a fish, and no fish can walk, so a salmon can't walk."
+    },
+    {
+      "q": "Ben is older than Carl. Carl is older than Dan. Who is the youngest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Dan. Putting what's stated in order, from oldest to youngest: Ben, Carl, Dan."
+    },
+    {
+      "q": "Is 17 a prime number?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "yes. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor."
+    },
+    {
+      "q": "What comes next: 2, 4, 8, 16?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "32. In 2, 4, 8, 16, each term multiplies by 2."
+    },
+    {
+      "q": "What comes next: 5, 10, 15, 20?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "25. In 5, 10, 15, 20, each term adds 5."
+    },
+    {
+      "q": "What is 25% of 80?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That comes to 20. 25% means 25 out of every 100, so 0.25 × 80 = 20."
+    },
+    {
+      "q": "A pen and a notebook cost $3.40 together. The notebook costs $2.00 more than the pen. How much is the pen?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "$0.70 (70 cents). Writing what's stated as equations: A pen + a notebook = 3.40; The notebook = the pen + 2.00. Solving them together gives pen = 0.7, notebook = 2.7."
+    },
+    {
+      "q": "Ava has twice as many stickers as Ben. Ben has 9 stickers. How many stickers does Ava have?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "18. Writing what's stated as equations: Ava = 2 × Ben; Ben = 9. Solving them together gives Ava = 18, Ben = 9."
+    },
+    {
+      "q": "I had 20 dollars and spent 7. How much do I have left?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "13 dollars left. You had 20 dollars, then spent 7: 20 − 7 = 13."
+    },
+    {
+      "q": "There are 12 birds on a tree. 5 fly away. How many are left?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "7 birds left. There are 12 birds, then 5 fly away: 12 − 5 = 7."
+    },
+    {
+      "q": "The movie starts at 7:30 pm and runs for 2 hours. When does it end?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "9:30 pm. 7:30 pm plus 2 hours is 9:30 pm."
+    },
+    {
+      "q": "If today is Monday, what day was it yesterday?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Sunday. Counting 1 day back from Monday."
+    },
+    {
+      "q": "How many minutes are in 3 hours?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That is 180 minutes. There are 60 minutes in an hour, so 3 × 60 = 180."
+    },
+    {
+      "q": "What is the capital of Japan?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The capital of Japan is Tokyo. It has a population of about 124 million. Its currency is the yen."
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa was created by Leonardo da Vinci. It is in the Louvre in Paris."
+    },
+    {
+      "q": "What is the freezing point of water?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Water freezes at 0 °C."
+    },
+    {
+      "q": "that's not right",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Sorry about that — tell me what's off, or what you expected, and I'll take another look. If I made a mistake, I'd rather fix it than defend it."
+    },
+    {
+      "q": "What is gravity?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Gravity is the attraction between objects with mass; in general relativity it is the curvature of spacetime caused by mass and energy. It is caused by mass and energy curving spacetime."
+    },
+    {
+      "q": "Which is larger, the Moon or the Earth?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "The Earth is larger: 12,742 km in diameter versus 3,475 km in diameter for the Moon — about 3.7 times as wide."
+    },
+    {
+      "q": "What's the difference between weather and climate?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "Weather is the state of the atmosphere at a place and time, while climate is the typical weather conditions of an area."
+    },
+    {
+      "q": "Should I buy a laptop or a tablet?",
+      "verdict": "good",
+      "route": "comparison",
+      "answer": "I don't know enough about laptop and tablet to compare them reliably, so I won't pretend to. If you tell me what matters most to you — price, what you'll use it for, how long it needs to last — I can help you weigh the options up."
+    },
+    {
+      "q": "How do I boil an egg?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable step-by-step instructions to boil an egg, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "How can I sleep better?",
+      "verdict": "honest",
+      "route": "knowledge",
+      "answer": "I looked, but couldn't find reliable step-by-step instructions to sleep better, and I'd rather not make steps up. If you tell me what you've tried so far, I'll help you reason it through."
+    },
+    {
+      "q": "Tell me a fun fact.",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Here's one: React is a JavaScript library for building user interfaces from composable components. It is released in 2013."
+    },
+    {
+      "q": "Write a haiku about winter.",
+      "verdict": "honest",
+      "route": "creative",
+      "answer": "I don't know enough about winter to write about it well. Tell me a few things about it — what it looks like, sounds like, or means to you — and I'll shape them into a haiku."
+    },
+    {
+      "q": "Do you dream?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "No — I don't have feelings or experiences. I'm a program: I read what you write and reason over what I know, but nothing is felt on my side. I'm glad to talk about feelings, though, if something's on your mind."
+    },
+    {
+      "q": "Is coffee bad for you?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "I can't say reliably whether coffee is bad for you from my local knowledge — it's the kind of claim that needs evidence I don't have here."
+    },
+    {
+      "q": "Why is the ocean salty?",
+      "verdict": "good",
+      "route": "explanation",
+      "answer": "The ocean is salty because rivers carry dissolved minerals into it and evaporation leaves the salt behind. Rain is slightly acidic and slowly weathers rock, dissolving mineral ions. Rivers carry those ions to the sea. Water evaporates from the ocean but salt does not, so over hundreds of millions of"
+    },
+    {
+      "q": "Is the sun a star?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Sun is the star at the centre of the Solar System, a ball of hot plasma powered by nuclear fusion."
+    }
+  ],
+  "words": 971,
+  "good_rate": 0.925,
+  "wrong_rate": 0.025,
+  "mean_words": 24.3
+}

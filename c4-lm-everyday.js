@@ -85,17 +85,29 @@
 
   /* A clause as a proposition: its content lemmas (subject included, dummy
      "it" and auxiliaries excluded) and its polarity. */
+  /* Complementary states: "the lights are off" is "the lights are on" with
+     the polarity reversed, "closed" is not "open", "lost" is not "won". The
+     negative member maps onto the positive one and flips the polarity, so
+     a fact stated with either word meets a rule stated with the other. */
+  var STATE = { off: ["", 1], close: ["open", 1], closes: ["open", 1], closed: ["open", 1], closing: ["open", 1], shut: ["open", 1], shuts: ["open", 1],
+                open: ["open", 0], opens: ["open", 0], opened: ["open", 0], absent: ["present", 1], present: ["present", 0],
+                dead: ["alive", 1], alive: ["alive", 0], asleep: ["awake", 1], awake: ["awake", 0], dry: ["wet", 1], empty: ["full", 1], full: ["full", 0],
+                "false": ["true", 1], "true": ["true", 0], unlocked: ["locked", 1], locked: ["locked", 0],
+                fail: ["pass", 1], fails: ["pass", 1], failed: ["pass", 1], pass: ["pass", 0], passes: ["pass", 0], passed: ["pass", 0],
+                lose: ["win", 1], loses: ["win", 1], lost: ["win", 1], win: ["win", 0], wins: ["win", 0], won: ["win", 0],
+                cold: ["warm", 1], cool: ["warm", 1], warm: ["warm", 0], hot: ["warm", 0] };
   function proposition(clause) {
     var t = " " + clause.toLowerCase().replace(/n['’]t\b/g, " not").replace(/[^a-z0-9' ]+/g, " ") + " ";
-    var neg = /\s(?:not|never|no)\s/.test(t);
+    var neg = /\s(?:not|never|no)\s/.test(t), flipped = false;
     var words = t.split(/\s+/).filter(Boolean), content = [], subj = null;
     words.forEach(function (w, i) {
       if (w === "not" || w === "never" || w === "no") return;
       if (PERSON[w] && subj === null) { subj = PERSON[w]; return; }
+      if (STATE[w]) { if (STATE[w][1]) flipped = !flipped; if (STATE[w][0]) content.push(base(STATE[w][0])); return; }
       if (AUX[w] || FUNC[w]) return;
       content.push(base(w));
     });
-    return { text: clause.trim(), content: content, neg: neg, subj: subj };
+    return { text: clause.trim(), content: content, neg: neg !== flipped, subj: subj };
   }
   /* Two clauses state the same proposition (up to polarity) when their
      content lemmas agree -- the subject person too, when both name one. */
@@ -155,10 +167,11 @@
         }
       });
     }
+    /* lookup() already answers for p's own polarity ("the switch is off"
+       is known true); flipping again here would read it as false */
     function valueOf(p) {
       var k = lookup(p);
-      if (!k) return null;
-      return p.neg ? !k.value : k.value;
+      return k ? k.value : null;
     }
     var v = valueOf({ text: ask.text, content: ask.content, neg: false, subj: ask.subj });
     if (v !== null) {
@@ -177,8 +190,8 @@
                        capital(flip(r.q.text)) + " could have other causes, so it doesn't prove that " + flip(r.p.text) + ". (Concluding it would be the fallacy of affirming the consequent.)" };
       if (sameProp(r.q, ask) && valueOf(r.p) === false)
         return { answer: "Not necessarily", kind: "rules", certain: true, steps: ["the rule says nothing about what happens when “" + r.p.text + "” is false"],
-                 text: "Not necessarily. The rule (" + flip(r.text) + ") only says what happens when its condition holds. Since " + flip(r.p.text) +
-                       " didn't happen, the rule is silent — " + flip(r.q.text) + " may or may not be true. (Concluding it isn't would be the fallacy of denying the antecedent.)" };
+                 text: "Not necessarily. The rule (" + flip(r.text) + ") only says what happens when its condition holds. Since “" + flip(r.p.text) +
+                       "” is false here, the rule is silent — “" + flip(r.q.text) + "” may or may not be true. (Concluding it isn't would be the fallacy of denying the antecedent.)" };
     }
     return { answer: "Can't tell", kind: "rules", certain: false, steps: [],
              text: "I can't tell from what's given: none of the stated rules or facts settles “" + ask.text + "”." };
@@ -194,18 +207,79 @@
   /* ======================================================= categories */
 
   function cls(w) { return base(String(w).trim().replace(/^(?:a|an|the)\s+/i, "").split(/\s+/).pop()); }
+  /* "squares" -> "square", "berries" -> "berry": the word an answer shows
+     (the matching key is a stem, which is not a word) */
+  function singular(w) {
+    w = String(w).toLowerCase();
+    if (/ies$/.test(w) && w.length > 4) return w.slice(0, -3) + "y";
+    if (/(?:x|z|ch|sh|ss)es$/.test(w)) return w.slice(0, -2);
+    if (/s$/.test(w) && !/(?:is|us|ss)$/.test(w)) return w.slice(0, -1);
+    return w;
+  }
   function categories(text) {
-    var ss = splitSentences(text), subset = [], disjoint = [], some = [], member = [], nonmember = [], question = null;
-    ss.forEach(function (s) {
+    var ss = splitSentences(text), subset = [], disjoint = [], some = [], member = [], nonmember = [], question = null, shown = {};
+    /* A predicate is a kind ("are mammals", "is a fruit"), a property ("are
+       sweet") or an ability ("can walk", "have wings"). Each names a set of
+       things, so one containment calculus reasons over all of them. */
+    /* one transposed, missing or extra letter still names the same class
+       ("rectagnles" is "rectangles") */
+    function near(a, b) {
+      if (a === b) return true;
+      if (Math.min(a.length, b.length) < 5 || Math.abs(a.length - b.length) > 1) return false;
+      var i = 0; while (i < a.length && a[i] === b[i]) i++;
+      if (a.length === b.length) return a.slice(i + 2) === b.slice(i + 2) && a[i] === b[i + 1] && a[i + 1] === b[i] || a.slice(i + 1) === b.slice(i + 1);
+      return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+    }
+    function key(word, noun, pl) {
+      var k = cls(word), w = String(word).toLowerCase();
+      if (!shown[k]) {
+        var twin = Object.keys(shown).filter(function (x) { return !/:/.test(x) && near(x, k); })[0];
+        if (twin) {
+          /* show the spelling the lexicon knows */
+          var LX = get("C4LMLexicon"), CO = get("C4LMCore"), known = function (x) {
+            try { return !!((LX && LX.lookup && LX.lookup(x)) || (CO && CO.knownWord && (CO.knownWord(x) || CO.knownWord(x + "s")))); } catch (e) { return false; } };
+          if (noun && known(singular(w)) && !known(shown[twin].w)) { shown[twin].w = singular(w); if (pl) shown[twin].pl = w; }
+          k = twin;
+        }
+      }
+      if (!shown[k]) shown[k] = { w: noun ? singular(w) : w, noun: noun, pl: pl ? w : null };
+      else if (pl && !shown[k].pl) shown[k].pl = w;
+      return k;
+    }
+    function ability(v, rest) {
+      var k = v + ":" + String(rest).toLowerCase().split(/\s+/).map(base).join(" ");
+      if (!shown[k]) shown[k] = { w: String(rest).toLowerCase(), verb: v };
+      return k;
+    }
+    function pred(p) {
       var m;
+      p = String(p).trim().replace(/\s+/g, " ");
+      if ((m = p.match(/^(?:are|is|be)\s+(?:not\s+)?(a\s+|an\s+)?([a-z]+)$/i))) return key(m[2], !!m[1] || singular(m[2]) !== m[2].toLowerCase(), !m[1] && singular(m[2]) !== m[2].toLowerCase());
+      if ((m = p.match(/^(?:can|could)\s+(?:not\s+)?be\s+(a\s+|an\s+)?([a-z]+)$/i))) return key(m[2], !!m[1] || singular(m[2]) !== m[2].toLowerCase(), !m[1] && singular(m[2]) !== m[2].toLowerCase());
+      if ((m = p.match(/^(?:can|could|cannot|can't|can not)\s+([a-z]+(?:\s+[a-z]+)?)$/i))) return ability("can", m[1]);
+      if ((m = p.match(/^(?:have|has|do not have|does not have|don't have|doesn't have)\s+([a-z]+(?:\s+[a-z]+)?)$/i))) return ability("have", m[1]);
+      return null;
+    }
+    var NEG = /\bnot\b|n't\b|\bcannot\b/i;
+    ss.forEach(function (s) {
+      var m, p;
       if (/\?\s*$/.test(s)) { question = s.replace(/\?\s*$/, "").replace(/^(?:so|then|and)\s+/i, ""); return; }
       s = s.replace(/[.!]\s*$/, "").replace(/^(?:if|given that|suppose)\s+/i, "");
       s.split(/\s*,?\s+and\s+(?=(?:all|no|some|every|each)\b)/i).forEach(function (c) {
-        if ((m = c.match(/^(?:all|every|each)\s+(\w+)\s+(?:are|is)\s+(?:a\s+|an\s+)?(\w+)$/i))) subset.push([cls(m[1]), cls(m[2])]);
-        else if ((m = c.match(/^no\s+(\w+)\s+(?:are|is)\s+(?:a\s+|an\s+)?(\w+)$/i))) disjoint.push([cls(m[1]), cls(m[2])]);
-        else if ((m = c.match(/^some\s+(\w+)\s+(?:are|is)\s+(?:a\s+|an\s+)?(\w+)$/i))) some.push([cls(m[1]), cls(m[2])]);
-        else if ((m = c.match(/^([A-Z][a-z]+)\s+is\s+not\s+(?:a|an)?\s*(\w+)$/))) nonmember.push([m[1], cls(m[2])]);
-        else if ((m = c.match(/^([A-Z][a-z]+)\s+is\s+(?:a|an)?\s*(\w+)$/))) member.push([m[1], cls(m[2])]);
+        /* "hey, could you tell me no poets are robots": the statement is the
+           quantified clause, whatever request wording leads into it */
+        var lead = c.match(/^(.*?\s)((?:all|every|each|no|some)\s+[a-z]+\s+.+)$/i);
+        if (lead && !/^(?:all|every|each|no|some)\s/i.test(c) && /\b(?:me|help|question|wondering|puzzle|this|that|please|think)\b[:,]?\s*$/i.test(lead[1])) c = lead[2];
+        if ((m = c.match(/^(all|every|each|no|some)\s+([a-z]+)\s+(.+)$/i)) && (p = pred(m[3]))) {
+          var q = m[1].toLowerCase(), A = key(m[2], true, /^(?:all|no|some)$/.test(q));
+          if (q !== "no" && NEG.test(m[3])) disjoint.push([A, p]);
+          else (q === "no" ? disjoint : q === "some" ? some : subset).push([A, p]);
+        } else if ((m = c.match(/^(?:an?)\s+([a-z]+)\s+(.+)$/i)) && (p = pred(m[2]))) {
+          /* "a lemon is a fruit" is a statement about the kind */
+          (NEG.test(m[2]) ? disjoint : subset).push([key(m[1], true, false), p]);
+        } else if ((m = c.match(/^([Tt]he\s+[a-z]+|[A-Z][a-z]+)\s+(.+)$/)) && (p = pred(m[2]))) {
+          (NEG.test(m[2]) ? nonmember : member).push([m[1].toLowerCase(), p, m[1]]);
+        }
       });
     });
     if (!question || !(subset.length + disjoint.length + some.length)) return null;
@@ -214,44 +288,95 @@
       while (i < out.length) { var x = out[i++]; subset.forEach(function (p) { if (p[0] === x && out.indexOf(p[1]) < 0) out.push(p[1]); }); }
       return out;
     }
+    /* the stated exclusion that separates a from b, if any: [S, T] */
     function excluded(a, b) {
       var sa = supers(a), sb = supers(b);
-      return disjoint.some(function (d) { return (sa.indexOf(d[0]) >= 0 && sb.indexOf(d[1]) >= 0) || (sa.indexOf(d[1]) >= 0 && sb.indexOf(d[0]) >= 0); });
-    }
-    var m, chain;
-    /* "are all A B?" */
-    if ((m = question.match(/^(?:are|is)\s+(?:all|every|each)\s+(\w+)\s+(?:a\s+|an\s+)?(\w+)$/i))) {
-      var A = cls(m[1]), B = cls(m[2]);
-      if (supers(A).indexOf(B) >= 0) { chain = pathTo(A, B);
-        return { answer: "Yes", kind: "categories", certain: true, steps: chain, text: "Yes. " + capital(chain.join(", and ")) + ", so every " + A + " is " + article(B) + " " + B + "." }; }
-      if (excluded(A, B)) return { answer: "No", kind: "categories", certain: true, steps: [], text: "No — in fact no " + A + " is " + article(B) + " " + B + ", given what's stated." };
-      return { answer: "Can't tell", kind: "categories", certain: false, steps: [], text: "Not necessarily. Nothing stated puts every " + A + " inside " + B + "." };
-    }
-    /* "is x B?", "can x be B?" */
-    if ((m = question.match(/^(?:[Ii]s|[Cc]an)\s+([A-Z][a-z]+)\s+(?:be\s+)?(?:a\s+|an\s+)?(\w+)$/))) {
-      var x = m[1], Bc = cls(m[2]), mine = member.filter(function (p) { return p[0] === x; }).map(function (p) { return p[1]; });
-      if (!mine.length) return null;
-      for (var i = 0; i < mine.length; i++) {
-        if (supers(mine[i]).indexOf(Bc) >= 0) { chain = pathTo(mine[i], Bc);
-          return { answer: "Yes", kind: "categories", certain: true, steps: [x + " is " + article(mine[i]) + " " + mine[i]].concat(chain),
-                   text: "Yes. " + x + " is " + article(mine[i]) + " " + mine[i] + (chain.length ? ", and " + chain.join(", and ") : "") + "." }; }
-        if (excluded(mine[i], Bc)) return { answer: "No", kind: "categories", certain: true, steps: [],
-          text: "No. " + x + " is " + article(mine[i]) + " " + mine[i] + ", and no " + mine[i] + " is " + article(Bc) + " " + Bc + "." };
+      for (var i = 0; i < disjoint.length; i++) {
+        var d = disjoint[i];
+        if (sa.indexOf(d[0]) >= 0 && sb.indexOf(d[1]) >= 0) return d;
+        if (sa.indexOf(d[1]) >= 0 && sb.indexOf(d[0]) >= 0) return [d[1], d[0]];
       }
-      var sm = some.filter(function (p) { return mine.indexOf(p[0]) >= 0 && p[1] === Bc; })[0];
-      if (sm) return { answer: "Not necessarily", kind: "categories", certain: true, steps: ["only some " + plural(sm[0]) + " are " + Bc],
-        text: "Not necessarily. Only SOME " + plural(sm[0]) + " are " + Bc + ", and nothing says " + x + " is one of them — " + x + " may or may not be " + Bc + "." };
-      return { answer: "Can't tell", kind: "categories", certain: false, steps: [], text: "I can't tell: nothing stated links " + x + " to " + Bc + "." };
+      return null;
     }
-    return null;
+    function word(k) { return shown[k] ? shown[k].w : k; }
+    function many(k) { return shown[k] && shown[k].pl ? shown[k].pl : plural(word(k)); }
+    /* "Rex is a dog", "a lemon is sweet", "no fish can walk" */
+    function says(subj, k, neg) {
+      var s = shown[k] || { w: k, noun: true };
+      if (s.verb === "can") return subj + (neg ? " can't " : " can ") + s.w;
+      if (s.verb === "have") return subj + (neg ? " doesn't have " : " has ") + s.w;
+      return subj + (neg ? " isn't " : " is ") + (s.noun ? article(s.w) + " " : "") + s.w;
+    }
+    function areAll(k) {                     /* the predicate after a plural subject */
+      var s = shown[k] || { w: k, noun: true };
+      return s.verb ? s.verb + " " + s.w : "are " + (s.noun ? many(k) : s.w);
+    }
     function pathTo(a, b) {
       var prev = {}, q = [a], seen = {}; seen[a] = 1;
       while (q.length) { var x2 = q.shift(); if (x2 === b) break;
         subset.forEach(function (p) { if (p[0] === x2 && !seen[p[1]]) { seen[p[1]] = 1; prev[p[1]] = x2; q.push(p[1]); } }); }
       var out = [], cur = b;
-      while (prev[cur] !== undefined) { out.unshift("every " + prev[cur] + " is " + article(cur) + " " + cur); cur = prev[cur]; }
+      while (prev[cur] !== undefined) { out.unshift(says("every " + word(prev[cur]), cur)); cur = prev[cur]; }
       return out;
     }
+    /* the question: "are all A B", "is a lemon sweet", "is Rex an animal",
+       "can a salmon walk", "does Tom have fur" */
+    var qm = question.match(/^(is|are|can|could|does|do)\s+(?:(all|every|each)\s+)?((?:an?\s+|the\s+)?[A-Za-z]+)\s+(.+)$/i);
+    if (!qm) return null;
+    var aux = qm[1].toLowerCase(), B = pred(/^(?:is|are)$/.test(aux) ? "is " + qm[4] : /^(?:can|could)$/.test(aux) ? "can " + qm[4] : qm[4]);
+    if (!B) return null;
+    var subjRaw = qm[3], all = !!qm[2], named = !all && /^(?:the\s+[a-z]+|[A-Z][a-z]+)$/.test(subjRaw) && !/^(?:An?|The)\s/.test(subjRaw);
+    var who = subjRaw.toLowerCase(), mine = named ? member.filter(function (p) { return p[0] === who; }).map(function (p) { return p[1]; }) : [];
+    if (named && nonmember.some(function (p) { return p[0] === who && p[1] === B; }))
+      return { answer: "No", kind: "categories", certain: true, steps: [], text: "No — that's stated directly: " + says(subjRaw, B, true) + "." };
+    if (named && mine.indexOf(B) >= 0)
+      return { answer: "Yes", kind: "categories", certain: true, steps: [], text: "Yes — that's stated directly: " + says(subjRaw, B) + "." };
+    var starts, subj, lead, ex2 = null;
+    if (named && mine.length) { starts = mine; subj = subjRaw; }
+    else if (named) return null;
+    else {
+      var A0 = cls(subjRaw);
+      if (!shown[A0]) return null;
+      starts = [A0]; subj = all ? "every " + word(A0) : subjRaw.toLowerCase();
+    }
+    for (var i = 0; i < starts.length; i++) {
+      var S = starts[i];
+      lead = named ? [says(subj, S)] : [];
+      if (supers(S).indexOf(B) >= 0) {
+        var chain = lead.concat(pathTo(S, B));
+        return { answer: "Yes", kind: "categories", certain: true, steps: chain,
+                 text: "Yes. " + capital(chain.join(", and ")) + (named || chain.length < 2 ? "." : ", so " + says(subj, B) + ".") };
+      }
+      var ex = excluded(S, B);
+      if (ex) {
+        var via = lead.concat(pathTo(S, ex[0]));
+        return { answer: "No", kind: "categories", certain: true, steps: via.concat([says("no " + word(ex[0]), ex[1])]),
+                 text: "No. " + capital(via.concat([says("no " + word(ex[0]), ex[1])]).join(", and ")) +
+                       ", so " + says(subj, B, true) + "." };
+      }
+    }
+    /* "some artists are poets" and "no poet is a robot": those artists are
+       not robots, so not every artist is one */
+    if (all) {
+      for (var e = 0; e < some.length; e++) {
+        var pr = some[e];
+        [[pr[0], pr[1]], [pr[1], pr[0]]].forEach(function (o) { if (!ex2 && supers(o[0]).indexOf(starts[0]) >= 0 && excluded(o[1], B)) { ex2 = o; ex2.d = excluded(o[1], B); } });
+        if (ex2) break;
+      }
+      if (ex2) return { answer: "No", kind: "categories", certain: true, steps: ["some " + many(ex2[0]) + " are " + many(ex2[1]), says("no " + word(ex2.d[0]), ex2.d[1])],
+        text: "No. Some " + many(ex2[0]) + " are " + (shown[ex2[1]] && shown[ex2[1]].noun === false ? word(ex2[1]) : many(ex2[1])) + ", and " + says("no " + word(ex2.d[0]), ex2.d[1]) +
+              " — so those " + many(ex2[0]) + " " + (shown[B] && shown[B].verb ? (shown[B].verb === "can" ? "can't " : "don't have ") + shown[B].w : "aren't " + (shown[B] && shown[B].noun ? many(B) : word(B))) +
+              ", which means not " + says(subj, B).replace(/^every /, "every ") + "." };
+    }
+    for (var j = 0; j < starts.length; j++) {
+      var up = supers(starts[j]), sm = some.filter(function (p) { return up.indexOf(p[0]) >= 0 && p[1] === B; })[0];
+      if (sm && all) return { answer: "Not necessarily", kind: "categories", certain: true, steps: ["only some " + many(sm[0]) + " " + areAll(B)],
+        text: "Not necessarily. We're only told that some " + many(sm[0]) + " " + areAll(B) + " — that doesn't mean " + says(subj, B) + "." };
+      if (sm) return { answer: "Not necessarily", kind: "categories", certain: true, steps: ["only some " + many(sm[0]) + " " + areAll(B)],
+        text: "Not necessarily. Only some " + many(sm[0]) + " " + areAll(B) + ", and nothing stated says " + subj + " is one of them — " +
+              subj + " may or may not " + (shown[B] && shown[B].verb ? (shown[B].verb === "can" ? "be able to " : "have ") + shown[B].w : "be " + (shown[B] && shown[B].noun ? article(word(B)) + " " : "") + word(B)) + "." };
+    }
+    return { answer: "Can't tell", kind: "categories", certain: false, steps: [], text: "I can't tell: nothing stated settles whether " + says(subj, B) + "." };
   }
   function article(w) { return /^[aeiou]/i.test(w) ? "an" : "a"; }
   function plural(w) { return /(?:s|x|ch|sh)$/.test(w) ? w + "es" : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + "ies" : w + "s"; }
@@ -268,6 +393,12 @@
   function quantities(text) {
     if (RATE.test(text)) return null;
     var t = numbersIn(text).replace(/\$\s*(\d)/g, "$1").replace(/(\d),(\d{3})\b/g, "$1$2");
+    /* "twice his age" is twice as old as the person "his" points back to,
+       and "his sister" names one person, the same one in the question */
+    t = t.replace(/\b(twice|double|thrice|triple|half|\d+(?:\.\d+)?\s+times)\s+(?:his|her|their)\s+age\b/gi, function (all, k, off) {
+      var prior = (t.slice(0, off).match(/\b[A-Z][a-z]+\b/g) || []).filter(function (n) { return !/^(?:His|Her|Their|The|A|An|If|He|She|They|It|How|What|When|Who|My)$/.test(n); });
+      return prior.length ? k + " as old as " + prior[prior.length - 1] : all;
+    }).replace(/\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+(sister|brother|mother|father|mom|mum|dad|son|daughter|friend|cousin|aunt|uncle|grandma|grandpa|grandmother|grandfather|wife|husband|boss|teacher|dog|cat)\b/g, "the $1");
     var money = /\$|\bdollars?\b|\bcents?\b|\bcosts?\b|\bprice\b/i.test(text);
     var ss = splitSentences(t), eqs = [], question = null, names = [];
     function ent(phrase) {
@@ -349,25 +480,109 @@
 
   var GAIN = /^(?:get|gets|got|buy|bought|buys|find|found|finds|receive|received|receives|earn|earned|earns|win|won|wins|pick|picked|picks|collect|collected|collects|add|added|adds|make|made|makes|save|saved|saves|borrow|borrowed|catch|caught|bake|baked|gain|gained)$/i;
   var LOSS = /^(?:eat|eats|ate|spend|spent|spends|give|gives|gave|lose|lost|loses|sell|sold|sells|use|used|uses|drop|dropped|drops|break|broke|breaks|throw|threw|throws|pay|paid|pays|lend|lent|donate|donated|drink|drank|drinks|waste|wasted|remove|removed|take|took|takes|burn|burned|burnt)$/i;
+  /* things that leave or arrive on their own: "5 fly away", "3 more came" */
+  var DEPART = /^(?:fly|flies|flew|run|runs|ran|walk|walks|walked|swim|swims|swam|leave|leaves|left|go|goes|went|hop|hops|hopped|escape|escapes|escaped|die|dies|died|melt|melts|melted|pop|pops|popped|fall|falls|fell|jump|jumps|jumped|get|gets|got|drive|drives|drove|sail|sails|sailed)$/i;
+  var ARRIVE = /^(?:come|comes|came|arrive|arrives|arrived|join|joins|joined|land|lands|landed|hatch|hatches|hatched|appear|appears|appeared|get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i;
   function changes(text) {
     if (RATE.test(text)) return null;
     var t = numbersIn(text).replace(/\$\s*(\d)/g, "$1");
-    var m = t.match(/\b(I|we|you|[A-Z][a-z]+|he|she|they)\s+(?:has|have|had|owns?|owned|starts? with|started with)\s+(\d+(?:\.\d+)?)\s+([a-z]+)/i);
+    /* the starting amount: a possession ("Emma had 8 balloons"), what is
+       there ("there are 12 birds"), or a first acquisition ("Mia picked 15
+       apples") -- what was picked or baked did not exist for her before */
+    var m = t.match(/\b(I|we|you|[A-Z][a-z]+|he|she|they)\s+(?:has|have|had|owns?|owned|starts? with|started with)\s+(\d+(?:\.\d+)?)\s+([a-z]+)/i), how = "had";
+    if (!m && (m = t.match(/\b(there)\s+(?:are|were|is|was)\s+(\d+(?:\.\d+)?)\s+([a-z]+)/i))) how = "there";
+    if (!m) {
+      var re0 = /\b(I|we|you|[A-Z][a-z]+|he|she|they)\s+(?:just\s+|first\s+)?([a-z]+)\s+(\d+(?:\.\d+)?)\s+([a-z]+)/gi, m0;
+      while ((m0 = re0.exec(t))) if (GAIN.test(m0[2]) && !/^(?:borrow|borrowed|save|saved|saves|add|added|adds)$/i.test(m0[2])) { m = [m0[0], m0[1], m0[3], m0[4]]; m.index = m0.index; how = m0[2]; break; }
+    }
     if (!m) return null;
     var owner = m[1], count = +m[2], item = m[3], who = /^(?:I|we)$/i.test(owner) ? "you" : owner;
-    var steps = [who + " start" + (/^(?:you|they)$/i.test(who) ? "" : "s") + " with " + m[2] + " " + item];
-    var rest = t.slice(m.index + m[0].length), re = /\b([a-z]+)\s+(?:away\s+|up\s+)?(?:another\s+)?(\d+(?:\.\d+)?)(?:\s+(?:more|of them|of these|more\s+[a-z]+))?/gi, mm, changed = false;
+    var said = how === "there" ? "there " + (/\bwere\b/i.test(m[0]) ? "were " : "are ") + m[2] + " " + item :
+               who + " " + (how === "had" ? (/\bhas\b/.test(m[0]) ? "has" : /\bhave\b/.test(m[0]) ? (who === "you" ? "have" : "have") : "had") : how.toLowerCase()) + " " + m[2] + " " + item;
+    var steps = [said], expr = [m[2]];
+    var rest = t.slice(m.index + m[0].length), mm, changed = false, ev = [];
+    var re = /\b([a-z]+)\s+(away\s+|up\s+)?(?:another\s+)?(\d+(?:\.\d+)?)(\s+(?:more|of them|of these|more\s+[a-z]+))?/gi;
     while ((mm = re.exec(rest))) {
-      var verb = mm[1], n = +mm[2];
-      if (GAIN.test(verb)) { count += n; steps.push("+" + n + " (" + verb + ")"); changed = true; }
-      else if (LOSS.test(verb)) { count -= n; steps.push("−" + n + " (" + verb + ")"); changed = true; }
+      var verb = mm[1], n = +mm[3];
+      if (GAIN.test(verb)) ev.push([mm.index, n, verb + " " + (mm[2] || "") + mm[3] + (mm[4] || "")]);
+      else if (LOSS.test(verb)) ev.push([mm.index, -n, verb + " " + (mm[2] || "") + mm[3]]);
     }
+    /* a number as the subject: "5 fly away", "6 got off", "3 more came" */
+    var re2 = /\b(\d+(?:\.\d+)?)\s+(more\s+)?(?:of (?:them|the [a-z]+)\s+|[a-z]+\s+)??([a-z]+)(?:\s+(away|off|out|down|on|in|over|back))?\b/gi;
+    while ((mm = re2.exec(rest))) {
+      var v2 = mm[3], p2 = (mm[4] || "").toLowerCase(), n2 = +mm[1];
+      if (/^(?:get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i.test(v2) && !p2) continue;
+      var arrive = ARRIVE.test(v2) && (!/^(?:get|gets|got|hop|hops|hopped|climb|climbs|climbed)$/i.test(v2) || /^(?:on|in|back)$/.test(p2)) && p2 !== "away" && p2 !== "off" && p2 !== "out",
+          depart = !arrive && DEPART.test(v2) && (!/^(?:fly|flies|flew|run|runs|ran|walk|walks|walked|swim|swims|swam|hop|hops|hopped|jump|jumps|jumped|get|gets|got|drive|drives|drove|sail|sails|sailed)$/i.test(v2) || /^(?:away|off|out|down)$/.test(p2));
+      if (arrive || depart) ev.push([mm.index, arrive ? n2 : -n2, mm[0].trim()]);
+    }
+    ev.sort(function (a, b) { return a[0] - b[0]; });
+    ev.forEach(function (e) { count += e[1]; steps.push(flip(e[2])); expr.push((e[1] < 0 ? "− " : "+ ") + Math.abs(e[1])); changed = true; });
     if (!changed) return null;
-    if (!/\?/.test(text) || !/\b(?:how\s+(?:many|much)|what)\b/i.test(text) || !/\b(?:left|remain|remaining|now|have|has|end up|altogether|in total|total)\b/i.test(text.split(/[.!]/).pop() + text.slice(-60))) return null;
-    var money = /\$|\bdollars?\b/i.test(text);
-    var shown = (money && /\$/.test(text) ? "$" : "") + (Math.round(count * 100) / 100) + (money && !/\$/.test(text) ? " dollars" : " " + item.replace(/s?$/, count === 1 ? "" : "s"));
+    var ask = text.split(/[.!]/).pop() + text.slice(-60);
+    if (!/\?/.test(text) || !/\b(?:how\s+(?:many|much)|what)\b/i.test(text) || !/\b(?:left|remain|remaining|now|have|has|end up|altogether|in total|total|are there|were there)\b/i.test(ask)) return null;
+    if (count < 0) return null;
+    var money = /\$|\bdollars?\b/i.test(text), v = Math.round(count * 100) / 100;
+    /* the noun as the problem wrote it ("people", "fish"), singular for one */
+    var IRR = { people: "person", children: "child", men: "man", women: "woman", mice: "mouse", geese: "goose", teeth: "tooth", feet: "foot" };
+    var noun = count === 1 ? (IRR[item.toLowerCase()] || singular(item)) : +m[2] !== 1 ? item : plural(item);
+    var shown = (money && /\$/.test(text) ? "$" : "") + v + (money && !/\$/.test(text) ? (v === 1 ? " dollar" : " dollars") : " " + noun);
     return { answer: shown, value: count, kind: "changes", certain: true, steps: steps,
-             text: shown.replace(/^(\$?)(-?\d)/, "$1$2") + " left. " + capital(steps.join(", ")) + " → " + (Math.round(count * 100) / 100) + "." };
+             text: shown + (/\b(?:left|remain)/i.test(ask) ? " left" : "") + ". " + capital(steps[0]) + ", then " + steps.slice(1).join(", then ") + ": " + expr.join(" ") + " = " + v + "." };
+  }
+
+  /* ============================================================ totals */
+
+  /* counts of one kind added up: "3 red balls and 5 blue balls"; a kind
+     can also be the class the counted things belong to ("4 cats and 3
+     dogs" are animals, by the knowledge base) */
+  function isKind(word, kind) {
+    var w = base(singular(word)), k = base(singular(kind));
+    if (w === k) return true;
+    var KB = get("C4LMKB"), hits = [];
+    try { hits = KB && KB.resolve ? KB.resolve(singular(word), { strict: true }) : []; } catch (e) { hits = []; }
+    if (!hits.length) return false;
+    var e = hits[0].entity, first = String(e.defn || "").split(/(?<=\.)\s/)[0].toLowerCase();
+    return base(singular(String(e.type || ""))) === k || new RegExp("\\b" + singular(kind).toLowerCase() + "s?\\b").test(first.replace(/^.+?\s(?:is|are)\s/, ""));
+  }
+  function totals(text) {
+    if (RATE.test(text) || !/\?/.test(text)) return null;
+    var t = numbersIn(text), q = t.match(/\bhow\s+many\s+([a-z]+)\b[^?]*\?/i);
+    if (!q) return null;
+    var noun = q[1].toLowerCase();
+    if (/^(?:more|of|are|is|do|does|did|were|was|will|can|times|ways)$/.test(noun)) return null;
+    if (/\b(?:ate|eats?|eaten|gave|gives?|lost|loses?|sold|sells?|spent|spends?|bought|buys?|found|finds?|more|left|away|remain\w*)\b/i.test(t)) return null;
+    var body = t.slice(0, q.index), re = /\b(\d+(?:\.\d+)?)\s+([a-z]+(?:\s+[a-z]+){0,2})/gi, m, parts = [];
+    while ((m = re.exec(body))) {
+      var ws = m[2].toLowerCase().split(/\s+/);
+      for (var j = 0; j < ws.length && !/^(?:and|or|with|in|on|of)$/.test(ws[j]); j++) if (isKind(ws[j], noun)) { parts.push([+m[1], ws.slice(0, j + 1).join(" ")]); break; }
+    }
+    if (parts.length < 2) return null;
+    var total = parts.reduce(function (a, p) { return a + p[0]; }, 0), shown = total === 1 ? singular(noun) : noun;
+    return { answer: total + " " + shown, value: total, kind: "totals", certain: true, steps: parts.map(function (p) { return p[0] + " " + p[1]; }),
+             text: total + " " + shown + ". " + parts.map(function (p) { return p[0] + " " + p[1]; }).join(" + ") + " = " + total + " " + shown + "." };
+  }
+  /* a whole cut into equal parts, some of them taken: what is left, as a
+     count and as a fraction of the whole */
+  function portions(text) {
+    if (!/\?/.test(text)) return null;
+    var t = numbersIn(text);
+    var w = t.match(/\b(?:cut|divided|split|sliced|broken)\s+(?:up\s+)?into\s+(\d+)\s+(?:equal\s+|even\s+)?([a-z]+)/i) || t.match(/\b(?:has|had)\s+(\d+)\s+(slices|pieces|parts|segments|squares|sections)\b/i);
+    if (!w) return null;
+    var N = +w[1], unit = w[2].toLowerCase(), rest = t.slice(w.index + w[0].length), m, gone = 0, verb = null;
+    var re = /\b(eat|eats|ate|take|takes|took|give|gives|gave|use|uses|used|share|shares|shared)\s+(?:away\s+)?(\d+)/gi;
+    while ((m = re.exec(rest))) { gone += +m[2]; verb = verb || m[1].toLowerCase(); }
+    if (!gone || gone > N) return null;
+    var asksFrac = /\bwhat\s+(?:fraction|part|portion|share)\b|\bhow\s+much\s+of\b/i.test(t), asksPct = /\bwhat\s+percent(?:age)?\b/i.test(t), asksCount = /\bhow\s+many\b/i.test(t);
+    if (!asksFrac && !asksPct && !asksCount) return null;
+    var left = N - gone, g = (function gcd(a, b) { return b ? gcd(b, a % b) : a; })(left, N), frac = (left / g) + "/" + (N / g), pct = Math.round(left / N * 1000) / 10;
+    var PART = { eat: "eaten", eats: "eaten", ate: "eaten", take: "taken", takes: "taken", took: "taken", give: "given away", gives: "given away", gave: "given away",
+                 use: "used", uses: "used", used: "used", share: "shared", shares: "shared", shared: "shared" };
+    var wm = t.match(/\b(?:a|an|the)\s+([a-z]+)\s+(?:is|was|gets|got)\s+(?:cut|divided|split|sliced|broken)/i), whole = wm ? "the " + wm[1].toLowerCase() : "it";
+    var head = asksCount && !asksFrac && !asksPct ? left + " " + (left === 1 ? singular(unit) : unit) + " left" : (asksPct ? pct + "%" : frac) + " of " + whole + " is left";
+    return { answer: asksPct ? pct + "%" : asksFrac ? frac : String(left), value: left / N, kind: "portions", certain: true, steps: [N + " − " + gone + " = " + left],
+             text: capital(head) + ". " + capital(whole) + " was cut into " + N + " " + unit + " and " + gone + " " + (gone === 1 ? "was " : "were ") + (PART[verb] || "taken") +
+                   ", so " + left + " of the " + N + " remain" + (left === 1 ? "s" : "") + " — " + (g > 1 ? left + "/" + N + " = " : "") + frac + ", or " + pct + "%." };
   }
 
   /* ============================================================ clock */
@@ -424,6 +639,15 @@
       var w0 = DAYS.indexOf(wm[3].toLowerCase()), wo = (/before/i.test(wm[2]) ? -1 : 1) * +wm[1], w1 = DAYS[((w0 + wo) % 7 + 7) % 7];
       return { answer: capital(w1), kind: "clock", certain: true, steps: [capital(wm[3]) + (wo > 0 ? " + " : " − ") + Math.abs(wo) + " days"],
                text: capital(w1) + ". Counting " + Math.abs(wo) + " day" + (Math.abs(wo) === 1 ? "" : "s") + (wo > 0 ? " forward" : " back") + " from " + capital(wm[3]) + "." };
+    }
+    /* the next or previous day or month: "what day comes after Friday" */
+    var MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    var nx = t.match(/\b(after|before)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday|january|february|march|april|june|july|august|september|october|november|december)\b/i);
+    if (nx && /\b(?:what|which)\b/i.test(t) && /\b(?:day|month|comes?|came)\b/i.test(t) && !/\d/.test(t) && !/\b(?:today|tomorrow|yesterday)\b/i.test(t)) {
+      var nm0 = nx[2].toLowerCase(), cyc = DAYS.indexOf(nm0) >= 0 ? DAYS : MONTHS, st0 = /before/i.test(nx[1]) ? -1 : 1;
+      var res0 = cyc[((cyc.indexOf(nm0) + st0) % cyc.length + cyc.length) % cyc.length];
+      return { answer: capital(res0), kind: "clock", certain: true, steps: [capital(nm0) + (st0 > 0 ? " + 1" : " − 1")],
+               text: capital(res0) + " comes " + nx[1].toLowerCase() + " " + capital(nm0) + (cyc === DAYS && ((nm0 === "saturday" && st0 > 0) || (nm0 === "sunday" && st0 < 0)) ? " — the week wraps around." : cyc === MONTHS && ((nm0 === "december" && st0 > 0) || (nm0 === "january" && st0 < 0)) ? " — the year wraps around." : ".") };
     }
     var st = parseTime(t);
     if (!st) return null;
@@ -493,19 +717,21 @@
         for (var i = 0; i < pairs.length; i++) if (pairs[i][0] === x2) { if (pairs[i][1] === b) return true; q.push(pairs[i][1]); } }
       return false;
     }
+    /* "From tallest to shortest: Jack, Kim, Lee" */
     function chain() {
       var order = names.slice().sort(function (p, q2) { return above(p, q2) ? -1 : above(q2, p) ? 1 : 0; });
-      return order.join(" > ");
+      function most(c) { return c.replace(/([^aeiou])\1er$/, "$1$1er").replace(/er$/, "est"); }
+      return "from " + most(adj) + " to " + most(OPPOSITE[adj]) + ": " + order.join(", ");
     }
     var question = t.slice(t.lastIndexOf(".", qm) + 1, qm + 1).replace(/^\s*(?:so|then|and)\s+/i, "").trim();
-    var qq = question.match(/\b(?:is|was|are|were)\s+([A-Z][a-z]+)\s+([a-z]+er)\s+than\s+([A-Z][a-z]+)/);
+    var qq = question.match(/\b(?:[Ii]s|[Ww]as|[Aa]re|[Ww]ere)\s+([A-Z][a-z]+)\s+([a-z]+er)\s+than\s+([A-Z][a-z]+)/);
     if (qq) {
       var qa = qq[2].toLowerCase(), X = qq[1], Y = qq[3];
       if (qa !== adj && OPPOSITE[qa] !== adj) return null;
       var yes = qa === adj ? above(X, Y) : above(Y, X), no = qa === adj ? above(Y, X) : above(X, Y);
       if (!yes && !no) return { answer: "Can't tell", kind: "ordering", certain: false, steps: [], text: "I can't tell: nothing stated connects " + X + " and " + Y + " in that order." };
       return { answer: yes ? "Yes" : "No", kind: "ordering", certain: true, steps: [chain()],
-               text: (yes ? "Yes" : "No") + ". Putting the statements in order (" + adj + " first): " + chain() + ", so " + X + " is " + (yes ? "" : "not ") + qa + " than " + Y + "." };
+               text: (yes ? "Yes" : "No") + ". " + capital(chain()) + " — so " + X + " is " + (yes ? "" : "not ") + qa + " than " + Y + "." };
     }
     var sm = question.match(/\bwho(?:'s| is| was)?\s+(?:the\s+)?([a-z]+est)\b/i);
     if (sm && SUPER[sm[1].toLowerCase()]) {
@@ -513,7 +739,7 @@
         return names.every(function (o) { return o === n || (sa === adj ? above(n, o) : above(o, n)); });
       });
       if (top.length !== 1) return { answer: "Can't tell", kind: "ordering", certain: false, steps: [], text: "I can't tell who is " + sm[1] + " from what's stated — the comparisons don't connect everyone." };
-      return { answer: top[0], kind: "ordering", certain: true, steps: [chain()], text: top[0] + ". Putting the statements in order (" + adj + " first): " + chain() + "." };
+      return { answer: top[0], kind: "ordering", certain: true, steps: [chain()], text: top[0] + ". Putting what's stated in order, " + chain() + "." };
     }
     return null;
   }
@@ -570,7 +796,7 @@
   }
 
   var READERS = [["rules", rules], ["categories", categories], ["universals", universals], ["ordering", ordering], ["equal", equal],
-                 ["clock", clock], ["ages", ages], ["changes", changes], ["quantities", quantities]];
+                 ["clock", clock], ["ages", ages], ["changes", changes], ["portions", portions], ["totals", totals], ["quantities", quantities]];
   function solve(text) {
     var t = String(text || "").trim();
     if (!t || t.length > 600) return null;
@@ -582,7 +808,7 @@
     return null;
   }
 
-  var E = { solve: solve, rules: rules, categories: categories, quantities: quantities, changes: changes, clock: clock, equal: equal,
+  var E = { solve: solve, rules: rules, categories: categories, quantities: quantities, changes: changes, clock: clock, equal: equal, OPPOSITE: OPPOSITE,
             proposition: proposition, sameProp: sameProp, base: base };
   root.C4LMEveryday = E;
   if (typeof module !== "undefined" && module.exports) module.exports = E;

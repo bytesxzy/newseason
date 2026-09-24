@@ -619,7 +619,11 @@
     });
     var body;
     if (parts.length === 1) {
-      body = RZcap(word) + " means " + parts[0] + ".";
+      /* one sense reads as plain English: "To fly means to move through the
+         air", not "Fly means as a verb, to move ..." */
+      var s0 = real[0];
+      body = s0.pos === "v" && /^to\s/i.test(s0.gloss) ? "To " + String(word).toLowerCase() + " means " + s0.gloss + "." :
+             RZcap(word) + " means " + (/^(?:v|adj|adv)$/.test(s0.pos) ? s0.gloss : parts[0]) + ".";
     } else {
       body = RZcap(word) + " has more than one sense: " + parts.join("; ") + ".";
     }

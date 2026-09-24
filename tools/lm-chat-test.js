@@ -14,6 +14,14 @@
  *               honest how-to declines
  *   gate        a definition of a word the message merely contains is never
  *               the answer (bit, mean, cat for "why do cats purr")
+ *   round 3     kinds, properties and abilities in one containment calculus
+ *               (articles, "can", "have", typos, some+no -> not all);
+ *               acquisitions and departures as changes; totals of a kind;
+ *               portions of a whole; next day / month; "twice his age";
+ *               life events and feelings with their cause; greetings back;
+ *               comparisons by place in a series, by exact number, by a
+ *               stand-in measure with its limit; opposites and rhymes from
+ *               the lexicon; working shown for means and percentages
  */
 "use strict";
 var RT = require("./lm-runtime.js");
@@ -50,6 +58,19 @@ ok(/^Saturday/.test(solve("If today is Wednesday, what day will it be in 3 days?
 ok(/^Tuesday/.test(solve("What day was it 3 days before Friday?")), "weekday back from a named day");
 ok(/31/.test(solve("How old will I be in 6 years if I'm 25 now?")), "age in N years");
 ok(/^Neither/.test(solve("Which is heavier, a ton of bricks or a ton of feathers?")), "equal stated amounts");
+ok(/^Not necessarily/.test(solve("Some dogs are big. A poodle is a dog. Is a poodle big?")), "a kind stated with an article");
+ok(/^No\b/.test(solve("No birds have gills. A robin is a bird. Does a robin have gills?")), "a property ('have') excluded from a kind");
+ok(/^No\b/.test(solve("No poets are robots. Some artists are poets. Can all artists be robots?")), "some A are S, no S is B: not all A are B");
+ok(/every square is a rectangle/i.test(solve("All squares are rectangles. All rectangles are shapes. Are all squares shapes?")) &&
+   !/\bsquar\b|rectangl\b/.test(solve("All squares are rectangles. All rectangles are shapes. Are all squares shapes?")), "answers show words, not stems");
+ok(/^Yes\b/.test(solve("All squares are rectagnles. All rectangles are shapes. Are all squares shapes?")), "a transposed letter still names the class");
+ok(/^11\b/.test(solve("Mia picked 15 apples and ate 4. How many apples does she have?")), "a first acquisition is the starting amount");
+ok(/^18 people/.test(solve("There were 20 people on the bus. 6 got off and 4 got on. How many people are on the bus now?")), "departures and arrivals");
+ok(/^12 pens/.test(solve("A box has 6 red pens, 4 blue pens and 2 black pens. How many pens are in the box?")), "counts of one kind added up");
+ok(/^1\/2 of the cake/.test(solve("A cake is cut into 12 pieces. Tom eats 2 and Ann eats 4. What fraction is left?")), "portion of a whole, simplified");
+ok(/^February/.test(solve("What month comes before March?")), "previous month");
+ok(/^24\b/.test(solve("Tom is 12. His sister is twice his age. How old is his sister?")), "'twice his age' points back to Tom");
+ok(/from tallest to shortest: Jack, Kim, Lee/.test(solve("Jack is taller than Kim. Kim is taller than Lee. Who is the shortest?")), "order stated in words");
 
 /* ------------------------------------------------ dialogue and intents */
 (async function () {
@@ -90,6 +111,50 @@ ok(/^Neither/.test(solve("Which is heavier, a ton of bricks or a ton of feathers
   ok(!/small domesticated/.test(cats.text), "a definition does not answer a why-question");
   var bit = await ask("I'm feeling a bit overwhelmed.");
   ok(!/unit of information/.test(bit.text), "'a bit' in a feeling is not the unit of information");
+
+  /* round 3: conversation and knowledge */
+  var hi = await ask("hi!");
+  ok(/^Hi!/.test(hi.text), "a bare greeting is greeted back");
+  var bye = await ask("thanks, bye!");
+  ok(/welcome|any time|happy to help/i.test(bye.text) && /bye/i.test(bye.text), "thanks with a goodbye");
+  var cat = await ask("I'm so sad, my cat died.");
+  ok(/sorry to hear that your cat died/.test(cat.text) && !/small domesticated/.test(cat.text), "a feeling with its cause: the event is answered");
+  var promo = await ask("I got promoted today!");
+  ok(/^Congratulations/.test(promo.text), "good news is congratulated");
+  var fail1 = await ask("I failed my math test.");
+  ok(/sorry to hear that you failed your math test/.test(fail1.text), "a setback is met with sympathy");
+  var far = await ask("Which is farther from the Sun, Jupiter or Saturn?");
+  ok(/^Saturn is farther/.test(far.text) && /sixth/.test(far.text), "place in an ordered series");
+  var heavy = await ask("Which is heavier, the Sun or the Earth?");
+  ok(/very likely heavier/.test(heavy.text) && /doesn't settle mass/.test(heavy.text), "a stand-in measure, with its limit said");
+  var frac = await ask("Which is bigger, 3/4 or 2/3?");
+  ok(/^3\/4 is bigger/.test(frac.text) && /9\/12/.test(frac.text), "numbers compared exactly");
+  var opp = await ask("What's the opposite of hot?");
+  ok(/\bcold\b/.test(opp.text), "an opposite from gloss alignment");
+  var rhyme = await ask("What rhymes with cat?");
+  ok(/\b(?:that|chat|flat)\b/.test(rhyme.text) && !/\bwhat\b/.test(rhyme.text), "rhymes by spelling, without w+a");
+  var me = await ask("tell me about yourself");
+  ok(/CELL4/.test(me.text), "self-introduction");
+  var avg = await ask("What's the average of 4, 8 and 12?");
+  ok(/mean is 8/.test(avg.text) && /24 ÷ 3/.test(avg.text), "a list ending in 'and' is read whole, with the working");
+  var mia = await ask("Mia picked 15 apples and ate 4. How many apples does she have?");
+  ok(/^11 apples/.test(mia.text) && !/1365/.test(mia.text), "'picked' in a possession problem is not a combination");
+  var pct = await ask("What is 15% of 200?");
+  ok(/0\.15 × 200 = 30/.test(pct.text), "a percentage shows what it means");
+  var whale = await ask("Is a whale a fish or a mammal?");
+  ok(/^A whale is a mammal, not a fish/.test(whale.text), "which of two kinds, from the definition");
+  var sleep = await ask("Why do we sleep?");
+  ok(/why we sleep/.test(sleep.text), "an honest why-decline says what it could not explain");
+  var purpose = await ask("What's the purpose of existence?");
+  ok(/open question/i.test(purpose.text), "the purpose of existence is an open question");
+  var everest = await ask("What's the tallest mountain in the world?");
+  ok(/Everest/.test(everest.text), "a superlative stated in a definition");
+  var age = await ask("How old is the Earth?");
+  ok(/^Earth is about 4\.54 billion years old/.test(age.text), "an age answers 'how old' first");
+  var dinner = await ask("What should I eat for dinner?");
+  ok(/don't know your taste/.test(dinner.text), "a recommendation asks for taste instead of guessing");
+  var brk = await ask("Is it bad to skip breakfast?");
+  ok(/whether it's bad to skip breakfast/.test(brk.text), "a value judgement about an action is declined honestly");
 
   console.log("lm-chat-test: " + pass + " passed, " + fail + " failed");
   process.exit(fail ? 1 : 0);

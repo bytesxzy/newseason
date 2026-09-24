@@ -1,0 +1,252 @@
+{
+  "n": 40,
+  "good": 19,
+  "honest": 6,
+  "wrong": 15,
+  "items": [
+    {
+      "q": "hello there",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "Hello. What can I look into for you?"
+    },
+    {
+      "q": "what's your name?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information."
+    },
+    {
+      "q": "are you a robot?",
+      "verdict": "good",
+      "route": "conversation",
+      "answer": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information."
+    },
+    {
+      "q": "you're awesome",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on you're awesome. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "I'm worried about my exam results.",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Results means a consequence or outcome."
+    },
+    {
+      "q": "I just got engaged!",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Results means a consequence or outcome."
+    },
+    {
+      "q": "I'm feeling kind of down today.",
+      "verdict": "wrong",
+      "route": "conversation",
+      "answer": "Understood — say more and I'll dig in."
+    },
+    {
+      "q": "I'm tired.",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Results means a consequence or outcome."
+    },
+    {
+      "q": "If it is sunny, we go to the beach. It is sunny. Do we go to the beach?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Go is a statically typed language from Google designed for simple syntax, fast builds and easy concurrency. It was created by Google."
+    },
+    {
+      "q": "If the store is open, the lights are on. The lights are off. Is the store open?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Open-source software is released under a licence that lets anyone read, modify and redistribute the source."
+    },
+    {
+      "q": "All dogs are animals. Rex is a dog. Is Rex an animal?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A dog is a domesticated descendant of the wolf, kept as a companion and working animal."
+    },
+    {
+      "q": "No fish can walk. A salmon is a fish. Can a salmon walk?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Can. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Ben is older than Carl. Carl is older than Dan. Who is the youngest?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Dan. Ordering the statements gives Ben > Carl > Dan."
+    },
+    {
+      "q": "Is 17 a prime number?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "yes. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor."
+    },
+    {
+      "q": "What comes next: 2, 4, 8, 16?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "32. In 2, 4, 8, 16, each term multiplies by 2."
+    },
+    {
+      "q": "What comes next: 5, 10, 15, 20?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "25. In 5, 10, 15, 20, each term adds 5."
+    },
+    {
+      "q": "What is 25% of 80?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That comes to 20."
+    },
+    {
+      "q": "A pen and a notebook cost $3.40 together. The notebook costs $2.00 more than the pen. How much is the pen?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Pen has more than one sense: an instrument for writing or drawing with ink; a writer or author, the person who wrote something; as a verb, to write or compose."
+    },
+    {
+      "q": "Ava has twice as many stickers as Ben. Ben has 9 stickers. How many stickers does Ava have?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Ava. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "I had 20 dollars and spent 7. How much do I have left?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on I have left. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "There are 12 birds on a tree. 5 fly away. How many are left?",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "A bird is a warm-blooded vertebrate with feathers, wings and a beak."
+    },
+    {
+      "q": "The movie starts at 7:30 pm and runs for 2 hours. When does it end?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on When. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "If today is Monday, what day was it yesterday?",
+      "verdict": "honest",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Monday. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "How many minutes are in 3 hours?",
+      "verdict": "good",
+      "route": "compute",
+      "answer": "That's 180 minutes."
+    },
+    {
+      "q": "What is the capital of Japan?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Japan has Tokyo as its capital. It is in East Asia."
+    },
+    {
+      "q": "Who painted the Mona Lisa?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Mona Lisa is the work of Leonardo da Vinci. It was created by Leonardo da Vinci."
+    },
+    {
+      "q": "What is the freezing point of water?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Water freezes at 0 °C."
+    },
+    {
+      "q": "that's not right",
+      "verdict": "wrong",
+      "route": "knowledge",
+      "answer": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen."
+    },
+    {
+      "q": "What is gravity?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "Gravity is the attraction between objects with mass; in general relativity it is the curvature of spacetime caused by mass and energy. It results from mass and energy curving spacetime."
+    },
+    {
+      "q": "Which is larger, the Moon or the Earth?",
+      "verdict": "good",
+      "route": "knowledge",
+      "answer": "The Moon is Earth's only natural satellite."
+    },
+    {
+      "q": "What's the difference between weather and climate?",
+      "verdict": "good",
+      "route": "lexicon",
+      "answer": "Climate means the typical weather conditions of an area. I could not reach a live source just now, so that is from local knowledge and may be out of date."
+    },
+    {
+      "q": "Should I buy a laptop or a tablet?",
+      "verdict": "good",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on buy laptop tablet. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "How do I boil an egg?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Climate means the typical weather conditions of an area."
+    },
+    {
+      "q": "How can I sleep better?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Climate means the typical weather conditions of an area."
+    },
+    {
+      "q": "Tell me a fun fact.",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Fact means a thing known or proved to be true."
+    },
+    {
+      "q": "Write a haiku about winter.",
+      "verdict": "good",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Write a haiku about winter. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Do you dream?",
+      "verdict": "good",
+      "route": "insufficient",
+      "answer": "I don't have anything reliable on Do you dream. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that."
+    },
+    {
+      "q": "Is coffee bad for you?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Bad means as an adjective, of poor quality, or harmful."
+    },
+    {
+      "q": "Why is the ocean salty?",
+      "verdict": "wrong",
+      "route": "lexicon",
+      "answer": "Bad means as an adjective, of poor quality, or harmful."
+    },
+    {
+      "q": "Is the sun a star?",
+      "verdict": "good",
+      "route": "reason",
+      "answer": "Yes. Sun is the star at the centre of the Solar System, a ball of hot plasma powered by nuclear fusion."
+    }
+  ],
+  "words": 776,
+  "good_rate": 0.475,
+  "wrong_rate": 0.375,
+  "mean_words": 19.4
+}

@@ -547,11 +547,24 @@
       if (!val && frame.relation === "author") val = KB.attribute(entity, "creator");
       if (!val && frame.relation === "artist") val = KB.attribute(entity, "creator");
       if (!val && frame.relation === "time") val = KB.attribute(entity, "birth");
+      /* "how old is the Earth": an age stored as a time ("4.54 billion years
+         old") answers it directly */
+      if (!val && frame.relation === "birth") {
+        var age = KB.attribute(entity, "time");
+        if (age && /\bold$/i.test(String(age))) {
+          var aOut = RZ.realize({ kind: "statement", statement: displayName(entity) + " is " + age + ".", lengthLimit: frame.requestedLength, lengthUnit: frame.requestedUnit });
+          var aEl = frame.requestedTone === "brief" ? "" : shortElaboration(entity, "time");
+          return { text: aOut.text + (aEl ? " " + RZ.terminate(aEl) : ""), route: "knowledge", entity: entity.name, relation: "time",
+                   confidence: 0.88, defects: aOut.defects, sources: ["local knowledge base"], facets: Object.keys(entity.rel || {}) };
+        }
+      }
       if (val) {
         var plan = {
           kind: "relation", subject: displayName(entity), relation: frame.relation, extras: factPool(entity, frame.relation),
           relationLabel: RELATION_LABEL[frame.relation] || frame.relation, value: val,
-          elaboration: frame.requestedTone === "brief" ? "" : shortElaboration(entity, frame.relation),
+          /* "how many continents": what follows is about them, plural */
+          elaboration: frame.requestedTone === "brief" ? "" : shortElaboration(entity, frame.relation, undefined,
+                                          frame.relation === "count" && String(entity.name).toLowerCase() === singularize(((frame.lower || "").match(/\bhow many ([a-z]+)/) || ["", ""])[1])),
           format: frame.requestedFormat, tone: frame.requestedTone,
           lengthLimit: frame.requestedLength, lengthUnit: frame.requestedUnit,
           onlyValue: frame.onlyValue, value2: val
@@ -680,7 +693,11 @@
     return null;
   }
 
-  function displayName(entity) { return String(entity.name).replace(/\s*\([^)]*\)\s*$/, ""); }
+  /* a name that is always said with "the" (the Moon, the Sun) keeps it */
+  function displayName(entity) {
+    var n = String(entity.name).replace(/\s*\([^)]*\)\s*$/, "");
+    return !/^the\s/i.test(n) && (entity.aliases || []).some(function (a) { return String(a).toLowerCase() === "the " + n.toLowerCase(); }) ? "the " + n : n;
+  }
   function titleOf(s) { return RZ.capitalize(String(s)); }
 
   /* Up to two further facts the entity actually has, as short sentences,
@@ -689,7 +706,7 @@
      answer, still made only of stored knowledge. */
   var ELAB_ORDER = ["purpose", "part", "cause", "creator", "author", "location", "continent", "time", "size", "distance",
                     "population", "currency", "language", "count", "height", "length", "speed", "temperature"];
-  function shortElaboration(entity, usedRelation, max) {
+  function shortElaboration(entity, usedRelation, max, plural) {
     max = max === undefined ? 2 : max;
     var out = [], person = entity.type === "person";
     for (var i = 0; i < ELAB_ORDER.length && out.length < max; i++) {
@@ -697,6 +714,9 @@
       if (k === usedRelation) continue;
       var v = entity.rel && entity.rel[k];
       if (!v || typeof v !== "string") continue;
+      /* a fact the definition already states is not an elaboration */
+      var core = String(v).toLowerCase().replace(/^(?:in|about|around|roughly|on|founded|published|released|created|written|completed|first released)\s+/g, "").trim();
+      if (core.length >= 4 && String(entity.defn || "").toLowerCase().indexOf(core) >= 0) continue;
       var subj = out.length ? (person ? "They" : "It") : (person ? (entity.name || "They") : "It"), s = "";
       switch (k) {
         case "purpose": s = subj + " is used for " + v; break;
@@ -705,7 +725,7 @@
         case "creator": s = subj + " was created by " + v; break;
         case "author": s = subj + " was written by " + v; break;
         case "location": case "continent": s = subj + " is in " + v.replace(/^in\s+/i, ""); break;
-        case "time": s = subj + " dates to " + String(v).replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "").replace(/^in\s+/i, ""); break;
+        case "time": s = /\bold$/i.test(String(v)) ? subj + " is " + v : /^from\b/i.test(String(v)) ? subj + " dates " + v : subj + " dates to " + String(v).replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "").replace(/^in\s+/i, ""); break;
         case "size": s = subj + " is " + v; break;
         case "distance": s = subj + " is " + v; break;
         case "population": s = subj + " has a population of " + v; break;
@@ -719,6 +739,10 @@
         case "temperature": s = subj + " has a temperature of " + v; break;
       }
       if (!s) continue;
+      /* a plural class ("continents") is "they", with verbs to match */
+      if (!person && subj === "It" && plural && k === "part") s = "They are " + v;
+      else if (!person && subj === "It" && (plural || /^[a-z].*[^s]s$/.test(String(entity.name)) && !/(?:ics|ss|us|is|ous)$/.test(String(entity.name))))
+        s = s.replace(/^It is\b/, "They are").replace(/^It has\b/, "They have").replace(/^It was\b/, "They were").replace(/^It dates\b/, "They date").replace(/^It moves\b/, "They move").replace(/^It\b/, "They");
       /* location and continent say the same thing: keep one */
       if ((k === "continent" && out.some(function (x) { return / is in /.test(x); }))) continue;
       out.push(s);
@@ -779,6 +803,22 @@
     "most populous": ["population", 1]
   };
 
+  /* A superlative a definition states outright: "Mount Everest is the
+     highest mountain above sea level" answers "the tallest mountain in the
+     world" even though no mountain pool with heights exists to rank. */
+  var SUPER_SAME = { tallest: ["tallest", "highest"], highest: ["highest", "tallest"], biggest: ["biggest", "largest"], largest: ["largest", "biggest"],
+                     nearest: ["nearest", "closest"], closest: ["closest", "nearest"], farthest: ["farthest", "furthest", "outermost"], furthest: ["furthest", "farthest", "outermost"] };
+  function statedSuperlative(adj, category, frame) {
+    var cat = singularize(String(category || "").replace(/\s+(?:in|on|of)\b.*$/, "").trim());
+    if (!cat || !KB.entities) return null;
+    var syn = SUPER_SAME[adj] || [adj];
+    var re = new RegExp("\\bthe (?:" + syn.join("|") + ")(?: and \\w+)?(?: [a-z-]+){0,2}? " + cat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "s?\\b", "i");
+    var hits = KB.entities().filter(function (e) { return re.test(String(e.defn || "").split(/(?<=\.)\s/)[0]); });
+    if (hits.length !== 1) return null;
+    var e = hits[0], first = String(e.defn).split(/(?<=\.)\s/)[0];
+    var out = RZ.realize({ kind: "statement", statement: first, lengthLimit: frame.requestedLength, lengthUnit: frame.requestedUnit });
+    return { text: out.text, route: "knowledge", entity: e.name, confidence: 0.8, defects: out.defects, sources: ["local knowledge base"] };
+  }
   function leadingNumber(v) {
     var m = String(v).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
     if (!m) return null;
@@ -813,7 +853,7 @@
         if (pool.length >= 2) category = shorter;
       }
     }
-    if (pool.length < 2) return null;
+    if (pool.length < 2) return statedSuperlative(adj, category, frame);
     var attr = spec[0], dir = spec[1], best = null;
     for (var i = 0; i < pool.length; i++) {
       var raw = KB.attribute(pool[i], attr);
@@ -934,7 +974,16 @@
         if (dims.length >= 4) break;
       }
       if (!dims.length) {
-        dims = [["what it is", "is " + stripLead(ea.defn, ea.name), "is " + stripLead(eb.defn, eb.name)]];
+        var la = leadOf(ea), lb = leadOf(eb);
+        dims = [["what it is", la.be + " " + la.rest, lb.be + " " + lb.rest]];
+        /* only the definitions differ: say so plainly, in their own words */
+        if (frame.requestedFormat !== "bullets") {
+          var mid = lb.np.replace(/^(A|An|The)\b/, function (x) { return x.toLowerCase(); });
+          if (lb.common) mid = mid.charAt(0).toLowerCase() + mid.slice(1);
+          var dText = RZ.capitalize(la.np) + " " + la.be + " " + la.rest + ", while " + mid + " " + lb.be + " " + lb.rest + ".";
+          return { text: dText, route: "comparison", entity: nameA + " / " + nameB, confidence: 0.7, defects: RZ.inspect ? RZ.inspect(dText) : [],
+                   sources: ["local knowledge base"], facets: ["what it is"], comparison: { a: nameA, b: nameB, dims: dims } };
+        }
       }
     }
     if (!dims || !dims.length) return null;
@@ -971,7 +1020,8 @@
       case "location": return "is in " + value;
       case "creator": return "was created by " + value;
       case "author": return "was written by " + value;
-      case "time": return "dates to " + String(value).replace(/^in\s+/i, "");
+      /* "first released in 1991" already carries its verb; an age is a state */
+      case "time": return PARTICIPLE_LEAD.test(String(value)) ? "was " + value : /\bold$/i.test(String(value)) ? "is " + value : /^from\b/i.test(String(value)) ? "dates " + value : "dates to " + String(value).replace(/^in\s+/i, "");
       case "count": return "has " + value;
       case "capital": return "has the capital " + value;
       case "currency": return "uses " + value;
@@ -981,10 +1031,20 @@
     }
   }
 
+  var PARTICIPLE_LEAD = /^(?:first |originally |officially )?(?:released|created|founded|built|written|published|launched|invented|discovered|established|introduced|completed|opened|born|formed|designed|developed|signed|ratified|painted|composed)\b/i;
   function stripLead(defn, name) {
-    var s = String(defn).replace(new RegExp("^(?:the\\s+)?" + String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
-      "\\s+(?:is|are|was|were)\\s+", "i"), "");
+    var s = String(defn).replace(new RegExp("^(?:(?:the|a|an)\\s+)?" + String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+      "(?:s|es)?\\s+(?:is|are|was|were)\\s+", "i"), "");
     return s.replace(/\.$/, "");
+  }
+  /* A definition's own subject, verb and predicate: "Bacteria are ...",
+     "A virus is ..." -- so a sentence built from it agrees in number. */
+  function leadOf(e) {
+    var first = String(e.defn || "").split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+    var m = first.match(/^(.+?)\s+(is|are|was|were)\s+(.+)$/i), names = [e.name].concat(e.aliases || []).map(function (x) { return String(x).toLowerCase(); });
+    if (m && m[1].split(/\s+/).length <= 5 && names.some(function (n) { return m[1].toLowerCase().indexOf(n.split(" ")[0]) >= 0; }))
+      return { np: m[1], be: m[2].toLowerCase(), rest: m[3], common: /^[a-z]/.test(e.name) };
+    return { np: displayName(e), be: "is", rest: stripLead(e.defn, e.name), common: /^[a-z]/.test(e.name) };
   }
 
   /* Content retrieval into the knowledge base: used when the question does
@@ -1485,9 +1545,12 @@
     /* the user's own words: a carried or rebuilt frame is for lookup, not
        for reading what the message calls for */
     try { r = CV.respond(state.userText || frame.rawText || frame.body || "", { turn: discourse.turns, federated: !!state.federation && !off("web"),
-                                                                            lastTopic: discourse.activeEntity || "" }); }
+                                                                            lastTopic: discourse.activeEntity || "", who: addressName() }); }
     catch (e) { r = null; }
     return r;
+  }
+  function addressName() {
+    try { return state.memory ? state.memory.nameForAddress() || "" : ""; } catch (e) { return ""; }
   }
 
   function answerReason(frame, decision) {
@@ -1556,8 +1619,8 @@
       var plan = {
         kind: "calculation", value: r.text, unit: r.unit || "",
         lead: r.kind === "arithmetic" ? lead : leadFor(r.kind, frame),
-        onlyValue: frame.onlyValue, steps: r.steps,
-        showWorking: !frame.onlyValue && (frame.requiresExplanation || frame.requestedTone === "steps"),
+        onlyValue: frame.onlyValue, steps: workingFor(r) ? [workingFor(r)] : r.steps,
+        showWorking: !frame.onlyValue && (!!workingFor(r) || frame.requiresExplanation || frame.requestedTone === "steps"),
         format: frame.onlyValue ? "value" : "prose"
       };
       if (frame.onlyValue) return { text: String(r.text), route: "compute", confidence: 0.99, sources: [], defects: [] };
@@ -1573,6 +1636,28 @@
     var pol = RZ.polish(body);
     return { text: pol, route: "reason", confidence: 0.92, defects: RZ.inspect(pol),
              sources: [], derivation: (r.nodes || []).length };
+  }
+  /* The reasoning behind a one-step calculation, derived from its own
+     trace: what a percentage means, which conversion factor was used. A
+     restatement ("15% of 200 = 30") is not working; this is. */
+  function workingFor(r) {
+    var st = String((r.steps || [])[0] || ""), m;
+    if (r.kind === "percent" && (m = st.match(/^(-?[\d.]+)% of (-?[\d.,]+) = (-?[\d.,]+)$/))) {
+      var frac = Math.round(+m[1] * 1e6) / 1e8;
+      return m[1] + "% means " + m[1] + " out of every 100, so " + frac + " × " + m[2] + " = " + m[3];
+    }
+    /* a conversion by formula (temperature) shows the formula applied */
+    if (r.kind === "convert" && /[×÷−]/.test(st)) return st.replace(/(\d+\.\d{3,})/g, function (x) { return String(Math.round(+x * 100) / 100); });
+    if (r.kind === "convert" && (m = st.match(/^(-?[\d.,]+)\s+([a-z ]+?)\s+=\s+(-?[\d.,]+)\s+([a-z ]+)$/i))) {
+      var a = +m[1].replace(/,/g, ""), b = +m[3].replace(/,/g, "");
+      if (!a || !b) return "";
+      var f = b / a, one = function (u) { return u.replace(/ies$/, "y").replace(/(?:ches|shes|sses)$/, function (x) { return x.slice(0, -2); }).replace(/([^s])s$/, "$1"); };
+      var art = function (u) { return /^(?:hour|honest)/.test(u) ? "an" : /^[aeiou]/.test(u) ? "an" : "a"; };
+      function nice(x) { return Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : String(Math.round(x * 1e6) / 1e6); }
+      if (f >= 1 && Math.abs(f - Math.round(f)) < 1e-9) return "There are " + nice(f) + " " + m[4] + " in " + art(one(m[2])) + " " + one(m[2]) + ", so " + nice(a) + " × " + nice(f) + " = " + nice(b);
+      if (f < 1 && Math.abs(1 / f - Math.round(1 / f)) < 1e-9) return "There are " + nice(1 / f) + " " + m[2] + " in " + art(one(m[4])) + " " + one(m[4]) + ", so " + nice(a) + " ÷ " + nice(1 / f) + " = " + nice(b);
+    }
+    return "";
   }
   function leadFor(kind, frame) {
     switch (kind) {
@@ -2652,7 +2737,10 @@
 
     var baseFrame = timed("parse", function () { return C.parse(text, discourse.snapshot()); });
     if (baseFrame.empty) {
-      var empty = { text: "Ask me anything — a fact, a calculation, an explanation, or something to build.",
+      /* "hi!" parses to no content, but it still calls for a greeting back */
+      var said0 = null, CVe = root.C4LMConverse;
+      if (CVe && !off("converse")) { try { said0 = CVe.respond(state.userText, { turn: discourse.turns, who: addressName() }); } catch (e) { said0 = null; } }
+      var empty = said0 || { text: "Ask me anything — a fact, a calculation, an explanation, or something to build.",
                     route: "conversation", confidence: 0.6, conversational: true, sources: [] };
       return Promise.resolve(finish(baseFrame, empty, t0));
     }

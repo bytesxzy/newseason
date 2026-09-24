@@ -881,6 +881,12 @@
     }
     var nums = ints.map(function (x) { return x.v; }).filter(function (v) { return v !== undefined; });
     if (intent === "choose" || intent === "permute") {
+      /* the ASKED quantity decides the reading: "picked 15 apples ... how
+         many apples does she have" counts things someone holds, not the
+         ways of choosing them */
+      var asked = t.match(/\bhow\s+many\s+(?:different\s+|distinct\s+|possible\s+|unique\s+)?([a-z]+)/i);
+      if (asked && !/^(?:ways?|combinations?|permutations?|groups?|teams?|committees?|selections?|subsets?|hands?|pairs?|orders?|orderings?|arrangements?|choices|outcomes?|possibilities|sequences?|codes?|passwords?|lineups?|handshakes?|outfits?|sets?|options?)$/i.test(asked[1]) &&
+          /\b(?:have|has|had|left|remain|remaining|now|altogether)\b/i.test(t.slice(asked.index))) return null;
       var digits = ints.filter(function (x) { return /\d/.test(x.w); }).map(function (x) { return x.v; });
       if (intent === "permute" && digits.length === 1 && digits[0] <= 200) {
         /* arranging all n items: n! */
@@ -1795,12 +1801,17 @@
     if (P.reading && P.kind === "equation" && Array.isArray(r.value) && r.value.length) {
       r.answer = "The number is " + r.value.map(function (v) { return v instanceof Frac ? v.toString() : fmt(v); }).join(" or ");
     }
-    if (P.reading && P.kind === "arithmetic") r.answer = r.answer + " (" + P.reading.replace(/\*/g, " × ") + ")";
+    if (P.reading && P.kind === "arithmetic") {
+      /* a root is checked the way a person checks it: by multiplying back */
+      var rt = String(P.reading).match(/^sqrt\((\d+(?:\.\d+)?)\)$/), av = parseFloat(r.answer);
+      r.answer = rt && isFinite(av) && Math.abs(av * av - +rt[1]) < 1e-9 ? r.answer + ", because " + av + " × " + av + " = " + rt[1] :
+                 r.answer + " (" + P.reading.replace(/\*/g, " × ") + ")";
+    }
     var how = r.agreeing.length > 1 ? " Checked by " + r.agreeing.length + " independent methods (" + r.agreeing.join(", ") + ")" : " Derived by " + r.agreeing[0];
     var checks = [];
     r.derivations.forEach(function (d) { d.checks.forEach(function (c) { if (c.pass && checks.indexOf(c.name) < 0) checks.push(c.name); }); });
     if (checks.length) how += "; verified by " + checks.join(", ");
-    var body = lead + r.answer + "." + how + ".";
+    var body = (lead + r.answer).replace(/^(yes|no|true|false)\b/, function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }) + "." + how + ".";
     if (r.assumptions.length) body += " Assuming " + r.assumptions.join("; ") + ".";
     if (!r.ok) body = "I could not verify an answer: every derivation failed a check (" + r.eliminated.join(", ") + ").";
     r.text = body;

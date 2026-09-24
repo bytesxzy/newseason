@@ -68,8 +68,9 @@
       try { var A = JSON.parse(m[0]); return Array.isArray(A) && A.length && A.every(function (r) { return Array.isArray(r) && r.length === A[0].length; }) ? { A: A } : null; } catch (e) { return null; }
     },
     numbers: function (t) {
-      var m = t.match(/(?:of|:)\s*((?:-?\d+(?:\.\d+)?\s*,\s*)+-?\d+(?:\.\d+)?)/);
-      return m ? { values: m[1].split(/\s*,\s*/).map(Number) } : null;
+      /* "4, 8 and 12", "4, 8, and 12", "4 and 8": the last item joins with "and" */
+      var m = t.match(/(?:of|:)\s*((?:-?\d+(?:\.\d+)?(?:\s*,\s*(?:and\s+)?|\s+and\s+))+-?\d+(?:\.\d+)?)/);
+      return m ? { values: m[1].split(/\s*,\s*(?:and\s+)?|\s+and\s+/).map(Number) } : null;
     },
     convert: function (t) {
       var m = t.match(/(-?\d+(?:\.\d+)?)\s*([a-zA-Z/^0-9*]+?)\s+(?:to|in|into)\s+([a-zA-Z/^0-9*]+)/);
@@ -574,9 +575,26 @@
     else lead = ans;
     var passed = c.checks.filter(function (x) { return x.pass; }).map(function (x) { return x.name; });
     var others = best.verifiedN - 1;
-    var how = c.source === "tool" ? "Computed exactly (" + c.method + ")" : "Derived by " + c.method;
-    return lead.replace(/[.\s]+$/, "") + ". " + how + (passed.length ? "; verified by " + passed.slice(0, 3).join(", ") : "") +
-           (others > 0 ? "; confirmed by " + others + " independent reading" + (others > 1 ? "s" : "") : "") + ".";
+    /* the working a person would write down, from the same numbers the tool
+       read: a mean is the total over the count, a median the middle value */
+    var work = "";
+    if (c.method === "stats.describe" && (c.part === "mean" || c.part === "median")) {
+      var inp = null;
+      try { inp = READ.numbers(text); } catch (e) { inp = null; }
+      var xs = inp && inp.values ? inp.values.filter(function (x) { return isFinite(x); }) : [];
+      if (xs.length >= 2 && xs.length <= 12) {
+        var sum = xs.reduce(function (a, b) { return a + b; }, 0), r2 = function (x) { return String(Math.round(x * 1e6) / 1e6); };
+        if (c.part === "mean") work = "(" + xs.map(r2).join(" + ") + ") ÷ " + xs.length + " = " + r2(sum) + " ÷ " + xs.length + " = " + r2(sum / xs.length);
+        else {
+          var so = xs.slice().sort(function (a, b) { return a - b; });
+          work = "in order, " + so.map(r2).join(", ") + (so.length % 2 ? " — the middle value is " + r2(so[(so.length - 1) / 2]) :
+                 " — the two middle values are " + r2(so[so.length / 2 - 1]) + " and " + r2(so[so.length / 2]) + ", and halfway between them is " + r2((so[so.length / 2 - 1] + so[so.length / 2]) / 2));
+        }
+      }
+    }
+    var how = c.source === "tool" ? "Computed exactly" : "Derived by " + c.method;
+    return lead.replace(/[.\s]+$/, "") + (work ? ": " + work : "") + ". " + how + (passed.length ? " and checked " + passed.length + " way" + (passed.length > 1 ? "s" : "") + " (" + passed.slice(0, 3).join("; ") + (passed.length > 3 ? "; …" : "") + ")" : "") +
+           (others > 0 ? "; " + others + " independent reading" + (others > 1 ? "s agree" : " agrees") : "") + ".";
   }
 
   var D = { solve: solve, solveAsync: solveAsync, difficulty: difficulty, answerKey: answerKey, applicable: applicable, sentence: sentence,

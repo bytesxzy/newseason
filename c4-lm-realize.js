@@ -230,7 +230,7 @@
      noun phrase ("the amount of matter"). A noun phrase needs a copula, in
      agreement with its subject; a predicate already has its verb. */
   var AUX_HEAD = /^(?:is|are|was|were|has|have|had|does|do|did|can|may|might|must|will|would|should|only|never|always|usually|often)\b/i;
-  var KNOWN_VERB = /^(?:keeps?|loses?|uses?|sends?|sets?|delivers?|makes?|produces?|retransmits?|guarantees?|supports?|provides?|requires?|allows?|runs?|works?|stores?|holds?|handles?|changes?|finds?|learns?|maps?|measures?|needs?|takes?|gives?|comes?|goes?|sits?|reads?|writes?|adds?|removes?|creates?|returns?|shows?|starts?|stops?|grows?|falls?|rises?|moves?|covers?|carries?|wraps?|sorts?|counts?|filters?|splits?|joins?|descends?|presents?|says?|means?|drops?|tracks?|records?|applies)\b/i;
+  var KNOWN_VERB = /^(?:keeps?|loses?|uses?|sends?|sets?|delivers?|makes?|produces?|retransmits?|guarantees?|supports?|provides?|requires?|allows?|runs?|works?|stores?|holds?|handles?|changes?|finds?|learns?|maps?|measures?|needs?|takes?|gives?|comes?|goes?|sits?|reads?|writes?|adds?|removes?|creates?|returns?|shows?|starts?|stops?|grows?|falls?|rises?|moves?|covers?|carries?|wraps?|sorts?|counts?|filters?|splits?|joins?|descends?|presents?|says?|means?|drops?|tracks?|records?|applies|dates?|speaks?|lies|lives?|orbits?)\b/i;
   function verbFor(subject, phrase) {
     var p = String(phrase || "").trim();
     if (!p || p === "—") return "";

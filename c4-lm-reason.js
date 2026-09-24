@@ -840,8 +840,20 @@
       var claimed = m[2].trim().toLowerCase().replace(/s$/, "");
       var known = (ent.type + " " + (ent.rel && ent.rel.type ? ent.rel.type : "") + " " + ent.defn).toLowerCase();
       var isIt = known.indexOf(claimed) >= 0;
+      /* "no" needs a reason: the claimed class is another category of the
+         knowledge base (the Sun is a star, so not a planet). A class the
+         definition merely does not mention ("is a dog a mammal") is not a
+         "no" -- that is left to the layers that can say they don't know. */
+      var sibling = !isIt && KB.entities && String(ent.type).toLowerCase() !== claimed &&
+                    KB.entities().some(function (e) { return String(e.type).toLowerCase() === claimed; });
+      if (!isIt && !sibling) return null;
+      var first = String(ent.defn).split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+      var own = new RegExp("^(?:the |a |an )?" + String(ent.name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i").test(first);
+      var said = own ? first : ent.name.charAt(0).toUpperCase() + ent.name.slice(1) + " is " + firstClause(ent.defn);
+      var np = (first.match(/^(.+?)\s+(?:is|are|was|were)\s/) || ["", ent.name])[1].replace(/^(The|A|An)\b/, function (x) { return x.toLowerCase(); });
+      var art = function (w) { return /^[aeiou]/i.test(w) ? "an " : "a "; };
       return { ok: true, kind: "verify", verdict: isIt ? "yes" : "no",
-        text: (isIt ? "Yes. " : "No. ") + ent.name.charAt(0).toUpperCase() + ent.name.slice(1) + " is " + firstClause(ent.defn) + ".",
+        text: isIt ? "Yes. " + said + "." : "No — " + np + " is " + art(ent.type) + ent.type + ", not " + art(claimed) + claimed + ". " + said + ".",
         nodes: [node("CLAIM", { a: ent.name, b: claimed, value: isIt })] };
     }
     m = text.match(/^(?:do|does)\s+(.{2,40}?)\s+have\s+(\w+)\s+([\w\s-]{2,25})\s*\??$/i);

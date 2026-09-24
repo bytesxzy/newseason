@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-24T17:10:44.450Z",
+ "generated": "2026-09-24T18:08:45.295Z",
  "passed": 52,
  "total": 52,
  "results": [
@@ -136,7 +136,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: emoji only",
@@ -146,12 +146,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "The capital of France is Paris. It has a"
   },
   {
    "name": "edge input: sql-ish input",
@@ -171,7 +171,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: non-latin script",
@@ -191,7 +191,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It has a popu"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -201,17 +201,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "7 -> 8"
+   "detail": "8 -> 9"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 = 391."
+   "detail": "17 * 23 equals 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "Paris is the capital of France. France i"
+   "detail": "Paris is the capital of France. France h"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -221,7 +221,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2533 ms"
+   "detail": "2532 ms"
   },
   {
    "name": "garbage source response handled",
@@ -236,12 +236,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "France's capital is Paris. It has a popu"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hi — what would you like to know?"
+   "detail": "Hey! How can I help?"
   },
   {
    "name": "dialogue sequence",
