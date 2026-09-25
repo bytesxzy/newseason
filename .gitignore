@@ -3,4 +3,5 @@ bench-results/
 data/
 *.zip
 c4-dataset/
-books/
+books/*
+!books/README.md
