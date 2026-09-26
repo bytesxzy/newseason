@@ -23,7 +23,8 @@
  * pay for literal thresholds the same way.
  */
 var EMDL = (function () {
-  var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
+  var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0,
+                    rmove: 2.2, rcopy: 2.6 };
   /* representation choice: -log2 of a prior that prefers readings with
      fewer, larger entities (objectness); single cells are the last resort */
   var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, panel: 3.0, rects: 4.5, cell: 5.0 };

@@ -24702,6 +24702,43 @@ var EXPR = (function () {
       VEC_EXPRS.push({ k: "mirror(" + R[0] + ")", rel: R[0], b: 3.0 + R[1], f: function (sc, e) { return mirrorAbout(sc, e, rel(sc, R[0], e)); } });
     });
   })();
+  /* REFLECTIONS. The mirror image of e across an axis of a related entity o:
+     the flip is fixed by the geometry (up-down when they are separated
+     vertically, left-right when horizontally) and the box moves by
+     A - (e.r0 + e.r1) with A twice the axis coordinate. Axes: o's centre,
+     its near edge, half a cell before it, its far edge, half a cell beyond. */
+  var REFL_EXPRS = [];
+  (function () {
+    var MODES = [["ctr", 3.0], ["near", 3.0], ["near-", 3.5], ["far", 3.5], ["far+", 3.5]];
+    RELS.forEach(function (R) {
+      MODES.forEach(function (M) {
+        REFL_EXPRS.push({ k: "refl:" + M[0] + "(" + R[0] + ")", rel: R[0], b: M[1] + R[1], f: function (sc, e) {
+          var o = rel(sc, R[0], e); if (!o) return null;
+          var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o), A, before;
+          if (cov && !rov) {
+            before = e.r1 < o.r0;
+            A = axis(M[0], before, o.r0, o.r1);
+            return { dr: A - e.r0 - e.r1, dc: 0, t: 5 };
+          }
+          if (rov && !cov) {
+            before = e.c1 < o.c0;
+            A = axis(M[0], before, o.c0, o.c1);
+            return { dr: 0, dc: A - e.c0 - e.c1, t: 4 };
+          }
+          return null;
+        } });
+      });
+    });
+    function axis(mode, before, lo, hi) {
+      switch (mode) {
+        case "ctr": return lo + hi;
+        case "near": return before ? 2 * lo : 2 * hi;
+        case "near-": return before ? 2 * lo - 1 : 2 * hi + 1;
+        case "far": return before ? 2 * hi : 2 * lo;
+        default: return before ? 2 * hi + 1 : 2 * lo - 1;
+      }
+    }
+  })();
   function litVec(v) {
     return { k: "(" + v[0] + "," + v[1] + ")", b: 2 + litBits(v[0]) + litBits(v[1]), lit: true,
              f: function () { return v; } };
@@ -24807,7 +24844,7 @@ var EXPR = (function () {
   }
 
   return { DIRS: DIRS, DNAME: DNAME, LOG2_10: LOG2_10, RELS: RELS, REL_BY: REL_BY, rel: rel,
-           COLOR_EXPRS: COLOR_EXPRS, INT_EXPRS: INT_EXPRS, VEC_EXPRS: VEC_EXPRS, litVec: litVec, litBits: litBits,
+           COLOR_EXPRS: COLOR_EXPRS, INT_EXPRS: INT_EXPRS, VEC_EXPRS: VEC_EXPRS, REFL_EXPRS: REFL_EXPRS, litVec: litVec, litBits: litBits,
            slide: slide, toward: toward, onto: onto, mirrorAbout: mirrorAbout, predCatalog: predCatalog,
            fitTables: fitTables };
 })();
@@ -25439,7 +25476,7 @@ var SKETCH = (function () {
     /* phase 1: erasures */
     for (i = 0; i < ents.length; i++) {
       var k = acts[i] ? acts[i].kind : prog.def;
-      if (k === "del" || k === "move" || k === "moverc" || k === "fall")
+      if (k === "del" || k === "move" || k === "moverc" || k === "fall" || k === "rmove")
         for (j = 0; j < ents[i].n; j++) out[ents[i].cells[j] >> 6][ents[i].cells[j] & 63] = sc.bg;
     }
     /* sequential falls: nearest to the destination first, each sliding on
@@ -25475,6 +25512,15 @@ var SKETCH = (function () {
       if (A.kind === "recolor") paintPatch(out, e, 0, 0, col);
       else if (A.kind === "move" || A.kind === "copy") paintPatch(out, e, v[0], v[1], null);
       else if (A.kind === "moverc" || A.kind === "copyrc") paintPatch(out, e, v[0], v[1], col);
+      else if (A.kind === "rmove" || A.kind === "rcopy") {
+        /* mirror image: the flipped patch at the shifted box */
+        var P = CORR.tpatch(e, v.t);
+        for (var pr2 = 0; pr2 < P.length; pr2++) for (var pc2 = 0; pc2 < P[0].length; pc2++) {
+          if (P[pr2][pc2] < 0) continue;
+          var R2 = e.r0 + v.dr + pr2, C2 = e.c0 + v.dc + pc2;
+          if (R2 >= 0 && R2 < out.length && C2 >= 0 && C2 < out[0].length) out[R2][C2] = P[pr2][pc2];
+        }
+      }
     }
     /* phase 3: growth, relative to the input's entities, on the canvas the
        object rules left (so a halo may cover what a rule deleted) */
@@ -25532,6 +25578,24 @@ var SKETCH = (function () {
         if (pr) pr.forEach(function (p) { obs.push({ kind: "moverc", v: [p.dr, p.dc], c: p.c }); });
       }
     }
+    /* reflections: expression-first -- the image each reflection expression
+       puts down must appear in the output on cells the output changed */
+    if ((f.kind === "vacated" || f.kind === "mixed" || f.kind === "same") && e.n <= 60) {
+      var sc0 = item.sc, rset = new Map();
+      EXPR.REFL_EXPRS.forEach(function (R) {
+        var im = R.f(sc0, e);
+        if (!im || (!im.dr && !im.dc)) return;
+        var P = CORR.tpatch(e, im.t), ok = true, changed = false, i2, j2;
+        for (i2 = 0; i2 < P.length && ok; i2++) for (j2 = 0; j2 < P[0].length; j2++) {
+          if (P[i2][j2] < 0) continue;
+          var rr = e.r0 + im.dr + i2, cc = e.c0 + im.dc + j2;
+          if (rr < 0 || rr >= y.length || cc < 0 || cc >= y[0].length || y[rr][cc] !== P[i2][j2]) { ok = false; break; }
+          if (x[rr][cc] !== y[rr][cc]) changed = true;
+        }
+        if (ok && changed) rset.set(R.k, R);
+      });
+      if (rset.size) obs.push({ kind: f.kind === "same" ? "rcopy" : "rmove", refl: rset });
+    }
     return obs;
   }
 
@@ -25542,6 +25606,11 @@ var SKETCH = (function () {
     var sc = item.sc, e = item.e, res = { v: new Map(), c: new Map(), vc: [] }, i, j;
     var want = item.obs.filter(function (o) { return o.kind === kind; });
     if (!want.length) { memo[kind] = null; return null; }
+    if (kind === "rmove" || kind === "rcopy") {
+      want.forEach(function (o) { o.refl.forEach(function (R, k) { res.v.set(k, R); }); });
+      memo[kind] = res;
+      return res;
+    }
     if (kind === "recolor") {
       for (i = 0; i < COLOR_EXPRS.length; i++) {
         var cv = COLOR_EXPRS[i].f(sc, e);
@@ -25685,7 +25754,7 @@ var SKETCH = (function () {
   /* Enumerate decision lists (<= 2 rules + default) whose rule version
      spaces are non-empty. Returns skeletons {rules:[{p, kind, vs}], def}. */
   function decisionLists(items, preds, cap) {
-    var kinds = ["recolor", "del", "move", "moverc", "copy"], out = [];
+    var kinds = ["recolor", "del", "move", "moverc", "copy", "rmove", "rcopy"], out = [];
     var needs = items.filter(function (it) { return !allows(it, "keep"); });
     if (!needs.length) return out;
     ["keep", "del"].forEach(function (def) {
@@ -26550,7 +26619,8 @@ var ENCODE = (function () {
  * pay for literal thresholds the same way.
  */
 var EMDL = (function () {
-  var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
+  var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0,
+                    rmove: 2.2, rcopy: 2.6 };
   /* representation choice: -log2 of a prior that prefers readings with
      fewer, larger entities (objectness); single cells are the last resort */
   var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, panel: 3.0, rects: 4.5, cell: 5.0 };
@@ -26888,11 +26958,42 @@ var SEARCH = (function () {
     return p;
   }
 
+  /* Schema evidence per segmentation (correspondence fates, no search):
+     which KINDS of candidate the demonstrations can support. */
+  function segEvidence(ctx, seg) {
+    return ctx.memo("segev:" + seg, function () {
+      var bg = ctx.bg(), ev = { vacated: 0, recolor: 0, mixed: 0, same: 0, created: 0 }, t;
+      for (t = 0; t < ctx.train.length; t++) {
+        var x = ctx.train[t][0], y = ctx.train[t][1], sc = SCN.of(x, seg, bg);
+        if (!sc) return null;
+        (CORR.fates(sc, y) || []).forEach(function (f) {
+          if (f.kind === "vacated") ev.vacated++;
+          else if (f.kind === "recolor" || f.kind === "cmap") ev.recolor++;
+          else if (f.kind === "mixed") ev.mixed++;
+          else ev.same++;
+        });
+      }
+      ev.created = ctx.memo("creates", function () { return true; }) ? 1 : 0;
+      return ev;
+    });
+  }
+  function schemaBonus(ctx, arm) {
+    var ev = segEvidence(ctx, arm.seg);
+    if (!ev) return 0;
+    switch (arm.type) {
+      case "rules": return ev.recolor + ev.vacated + ev.mixed > 0 ? 0.3 : -0.5;
+      case "relaxed": return (ev.recolor + ev.mixed > 0) && ev.created ? 0.2 : -0.5;
+      case "fall": return ev.vacated > 0 ? 0.3 : -0.8;
+      case "grow": return ev.created ? 0.1 : -0.8;
+      default: return 0;
+    }
+  }
+
   function run(ctx, arms, S, opts) {
     var mode = opts.mode || "sls", maxExec = opts.maxExec || Infinity;
     var bonus = null;
     if (CONTROLLER && opts.controller !== false) { try { bonus = CONTROLLER(ctx); } catch (e) { bonus = null; } }
-    arms.forEach(function (a) { a.prior = staticPrior(a, bonus); a.value = a.prior; });
+    arms.forEach(function (a) { a.prior = staticPrior(a, bonus) + (opts.schema === false ? 0 : schemaBonus(ctx, a)); a.value = a.prior; });
     var comp = { seg: {}, type: {}, fam: {} }, spawned = new Set();
     S.wantReward = mode === "sls";
     /* pureref: the control for the ablation -- the same rounds and the same

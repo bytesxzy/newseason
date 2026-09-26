@@ -263,6 +263,43 @@ var EXPR = (function () {
       VEC_EXPRS.push({ k: "mirror(" + R[0] + ")", rel: R[0], b: 3.0 + R[1], f: function (sc, e) { return mirrorAbout(sc, e, rel(sc, R[0], e)); } });
     });
   })();
+  /* REFLECTIONS. The mirror image of e across an axis of a related entity o:
+     the flip is fixed by the geometry (up-down when they are separated
+     vertically, left-right when horizontally) and the box moves by
+     A - (e.r0 + e.r1) with A twice the axis coordinate. Axes: o's centre,
+     its near edge, half a cell before it, its far edge, half a cell beyond. */
+  var REFL_EXPRS = [];
+  (function () {
+    var MODES = [["ctr", 3.0], ["near", 3.0], ["near-", 3.5], ["far", 3.5], ["far+", 3.5]];
+    RELS.forEach(function (R) {
+      MODES.forEach(function (M) {
+        REFL_EXPRS.push({ k: "refl:" + M[0] + "(" + R[0] + ")", rel: R[0], b: M[1] + R[1], f: function (sc, e) {
+          var o = rel(sc, R[0], e); if (!o) return null;
+          var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o), A, before;
+          if (cov && !rov) {
+            before = e.r1 < o.r0;
+            A = axis(M[0], before, o.r0, o.r1);
+            return { dr: A - e.r0 - e.r1, dc: 0, t: 5 };
+          }
+          if (rov && !cov) {
+            before = e.c1 < o.c0;
+            A = axis(M[0], before, o.c0, o.c1);
+            return { dr: 0, dc: A - e.c0 - e.c1, t: 4 };
+          }
+          return null;
+        } });
+      });
+    });
+    function axis(mode, before, lo, hi) {
+      switch (mode) {
+        case "ctr": return lo + hi;
+        case "near": return before ? 2 * lo : 2 * hi;
+        case "near-": return before ? 2 * lo - 1 : 2 * hi + 1;
+        case "far": return before ? 2 * hi : 2 * lo;
+        default: return before ? 2 * hi + 1 : 2 * lo - 1;
+      }
+    }
+  })();
   function litVec(v) {
     return { k: "(" + v[0] + "," + v[1] + ")", b: 2 + litBits(v[0]) + litBits(v[1]), lit: true,
              f: function () { return v; } };
@@ -368,7 +405,7 @@ var EXPR = (function () {
   }
 
   return { DIRS: DIRS, DNAME: DNAME, LOG2_10: LOG2_10, RELS: RELS, REL_BY: REL_BY, rel: rel,
-           COLOR_EXPRS: COLOR_EXPRS, INT_EXPRS: INT_EXPRS, VEC_EXPRS: VEC_EXPRS, litVec: litVec, litBits: litBits,
+           COLOR_EXPRS: COLOR_EXPRS, INT_EXPRS: INT_EXPRS, VEC_EXPRS: VEC_EXPRS, REFL_EXPRS: REFL_EXPRS, litVec: litVec, litBits: litBits,
            slide: slide, toward: toward, onto: onto, mirrorAbout: mirrorAbout, predCatalog: predCatalog,
            fitTables: fitTables };
 })();

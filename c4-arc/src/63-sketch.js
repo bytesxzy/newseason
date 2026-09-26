@@ -96,7 +96,7 @@ var SKETCH = (function () {
     /* phase 1: erasures */
     for (i = 0; i < ents.length; i++) {
       var k = acts[i] ? acts[i].kind : prog.def;
-      if (k === "del" || k === "move" || k === "moverc" || k === "fall")
+      if (k === "del" || k === "move" || k === "moverc" || k === "fall" || k === "rmove")
         for (j = 0; j < ents[i].n; j++) out[ents[i].cells[j] >> 6][ents[i].cells[j] & 63] = sc.bg;
     }
     /* sequential falls: nearest to the destination first, each sliding on
@@ -132,6 +132,15 @@ var SKETCH = (function () {
       if (A.kind === "recolor") paintPatch(out, e, 0, 0, col);
       else if (A.kind === "move" || A.kind === "copy") paintPatch(out, e, v[0], v[1], null);
       else if (A.kind === "moverc" || A.kind === "copyrc") paintPatch(out, e, v[0], v[1], col);
+      else if (A.kind === "rmove" || A.kind === "rcopy") {
+        /* mirror image: the flipped patch at the shifted box */
+        var P = CORR.tpatch(e, v.t);
+        for (var pr2 = 0; pr2 < P.length; pr2++) for (var pc2 = 0; pc2 < P[0].length; pc2++) {
+          if (P[pr2][pc2] < 0) continue;
+          var R2 = e.r0 + v.dr + pr2, C2 = e.c0 + v.dc + pc2;
+          if (R2 >= 0 && R2 < out.length && C2 >= 0 && C2 < out[0].length) out[R2][C2] = P[pr2][pc2];
+        }
+      }
     }
     /* phase 3: growth, relative to the input's entities, on the canvas the
        object rules left (so a halo may cover what a rule deleted) */
@@ -189,6 +198,24 @@ var SKETCH = (function () {
         if (pr) pr.forEach(function (p) { obs.push({ kind: "moverc", v: [p.dr, p.dc], c: p.c }); });
       }
     }
+    /* reflections: expression-first -- the image each reflection expression
+       puts down must appear in the output on cells the output changed */
+    if ((f.kind === "vacated" || f.kind === "mixed" || f.kind === "same") && e.n <= 60) {
+      var sc0 = item.sc, rset = new Map();
+      EXPR.REFL_EXPRS.forEach(function (R) {
+        var im = R.f(sc0, e);
+        if (!im || (!im.dr && !im.dc)) return;
+        var P = CORR.tpatch(e, im.t), ok = true, changed = false, i2, j2;
+        for (i2 = 0; i2 < P.length && ok; i2++) for (j2 = 0; j2 < P[0].length; j2++) {
+          if (P[i2][j2] < 0) continue;
+          var rr = e.r0 + im.dr + i2, cc = e.c0 + im.dc + j2;
+          if (rr < 0 || rr >= y.length || cc < 0 || cc >= y[0].length || y[rr][cc] !== P[i2][j2]) { ok = false; break; }
+          if (x[rr][cc] !== y[rr][cc]) changed = true;
+        }
+        if (ok && changed) rset.set(R.k, R);
+      });
+      if (rset.size) obs.push({ kind: f.kind === "same" ? "rcopy" : "rmove", refl: rset });
+    }
     return obs;
   }
 
@@ -199,6 +226,11 @@ var SKETCH = (function () {
     var sc = item.sc, e = item.e, res = { v: new Map(), c: new Map(), vc: [] }, i, j;
     var want = item.obs.filter(function (o) { return o.kind === kind; });
     if (!want.length) { memo[kind] = null; return null; }
+    if (kind === "rmove" || kind === "rcopy") {
+      want.forEach(function (o) { o.refl.forEach(function (R, k) { res.v.set(k, R); }); });
+      memo[kind] = res;
+      return res;
+    }
     if (kind === "recolor") {
       for (i = 0; i < COLOR_EXPRS.length; i++) {
         var cv = COLOR_EXPRS[i].f(sc, e);
@@ -342,7 +374,7 @@ var SKETCH = (function () {
   /* Enumerate decision lists (<= 2 rules + default) whose rule version
      spaces are non-empty. Returns skeletons {rules:[{p, kind, vs}], def}. */
   function decisionLists(items, preds, cap) {
-    var kinds = ["recolor", "del", "move", "moverc", "copy"], out = [];
+    var kinds = ["recolor", "del", "move", "moverc", "copy", "rmove", "rcopy"], out = [];
     var needs = items.filter(function (it) { return !allows(it, "keep"); });
     if (!needs.length) return out;
     ["keep", "del"].forEach(function (def) {
