@@ -6,7 +6,7 @@
   "scripts": {
     "lm:memory": "node tools/lm-memory.js",
     "build": "node c4-arc/build.js",
-    "test": "node tools/dataset-fetch.js && node c4-arc/test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-arc/generalize-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js && node tools/lm-tools-test.js && node tools/lm-deliberate-test.js && node tools/lm-chat-test.js && node tools/dataset-test.js && node tools/lm-crossref-test.js && node tools/local-dataset-test.js && node tools/lm-dialogue-test.js && node tools/dataset-shard-test.js && node tools/arc3-world-test.js",
+    "test": "node tools/dataset-fetch.js && node c4-arc/test.js && node c4-arc/concept-test.js && node c4-arc/kernel-test.js && node c4-arc/integration-test.js && node c4-arc/generalize-test.js && node c4-gates-test.js && node tools/reason-kernel-test.js && node tools/lm-phrasing-test.js && node tools/lm-comprehend-test.js && node tools/lm-awareness-test.js && node tools/lm-tools-test.js && node tools/lm-deliberate-test.js && node tools/lm-chat-test.js && node tools/dataset-test.js && node tools/lm-crossref-test.js && node tools/local-dataset-test.js && node tools/lm-dialogue-test.js && node tools/dataset-shard-test.js && node tools/arc3-world-test.js",
     "bench": "node c4-arc/bench.js",
     "lm:eval": "node tools/lm-eval.js --out measurements/lm-after.json --label after",
     "lm:baseline": "node tools/lm-eval.js --out measurements/lm-baseline.json --label baseline",
