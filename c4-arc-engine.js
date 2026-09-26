@@ -17165,7 +17165,9 @@ var SOLVER_PRIOR = {
   compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0,
   /* a typed program in another substrate: the substrate is an extra
      assumption, charged a quarter unit over the same program in raw cells */
-  represent: 1.25
+  represent: 1.25,
+  /* entity programs (63-sketch.js) pay their own description length */
+  sketch: 1.0
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -17174,7 +17176,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "tiling", "blocks", "selfstamp", "extend", "select", "locate", "regions",
   "counting", "cellwise", "objects_map", "objproc", "relproc", "tally", "motion",
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
-  "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
+  "sketch", "extract", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
   "enumerate_dsl", "represent", "typed"];
 
@@ -17195,6 +17197,8 @@ function Result() {
   this.n_hyps = 0;
   this.n_fit = 0;
   this.solver = null;
+  this.provenance = [];
+  this.gen_keys = [];
   this.diagnostics = { modules: [], loo: [], predictions: [] };
 }
 
@@ -17808,11 +17812,31 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     }
   }
   res.diagnostics.voting_hypotheses = pool.length;
+  /* generation oracle (measurement only): every distinct test output any
+     demonstration-fitting hypothesis produced, including those past the
+     voting-pool cap. Keys, not grids; the harness compares them to answers
+     after the prediction is committed. Nothing downstream reads them. */
+  res.gen_keys = [];
+  for (j = 0; j < ctx.test_inputs.length; j++) {
+    var gks = new Set();
+    for (i = 0; i < fitted.length; i++) {
+      var sgj = sigsByIdx.get(fitted[i][1]);
+      if (sgj && sgj[j]) gks.add(G.gkey(sgj[j]));
+    }
+    res.gen_keys.push(Array.from(gks).slice(0, 400));
+  }
+  res.provenance = [];
   var v2 = _versionSpaceSupport(ctx, pool, res);
 
   var preservesColors = true;
   for (i = 0; i < ctx.train.length; i++)
     if (!G.csSubset(G.palette(ctx.train[i][1]), G.palette(ctx.train[i][0]))) { preservesColors = false; break; }
+  /* removed-colour law: a colour present in every demonstration input and
+     absent from every demonstration output is one the rule eliminates; a
+     prediction that keeps it contradicts every demonstration */
+  var removedColors = 0x3ff;
+  for (i = 0; i < ctx.train.length; i++)
+    removedColors &= G.palette(ctx.train[i][0]) & ~G.palette(ctx.train[i][1]);
 
   var ti;
   for (ti = 0; ti < ctx.test_inputs.length; ti++) {
@@ -17859,6 +17883,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       var violations = 0;
       if (shapes.size && !shapes.has(gg2.length + "," + gg2[0].length)) violations += 1;
       if (allowed !== null && !G.csSubset(G.palette(gg2), allowed)) violations += 1;
+      if (removedColors && (G.palette(gg2) & removedColors & G.palette(tg))) violations += 1;
       weight += violations * Math.log(0.25);
       var cfKey = null;
       if (ctx._cfBehaviour) {
@@ -17871,9 +17896,13 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     scored.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
     var p2info = { promoted: false };
     scored = PASS2.select(scored, p2info);
-    var predictions = [];
-    for (i = 0; i < scored.length; i++) predictions.push(scored[i][2]);
+    var predictions = [], prov = [];
+    for (i = 0; i < scored.length; i++) {
+      predictions.push(scored[i][2]);
+      prov.push(Array.from(scored[i][5].keys()));
+    }
     res.predictions.push(collectAll ? predictions : predictions.slice(0, k));
+    res.provenance.push(collectAll ? prov : prov.slice(0, k));
     res.chosen.push(predictions.length ? author.get(G.gkey(predictions[0])) : null);
     res.diagnostics.predictions.push({
       distinct: scored.length,
@@ -17887,6 +17916,11 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   for (i = 0; i < res.chosen.length; i++) if (res.chosen[i]) { res.solver = res.chosen[i][0]; break; }
   res.elapsed = (nowMs() - t0) / 1000;
   res.diagnostics.timed_out = res.elapsed > timeBudget;
+  /* why nothing fits, from the demonstrations alone (65-schema.js) */
+  if (!res.n_fit) {
+    if (ctx._sketchNear) res.diagnostics.sketch_near = ctx._sketchNear;
+    try { res.diagnostics.failure_reason = TAXON.reason(ctx, res); } catch (e) { res.diagnostics.failure_reason = "UNKNOWN"; }
+  }
   var ranNames = new Set(res.diagnostics.modules.map(function (m) { return m.module; }));
   res.diagnostics.unrun_modules = mods.filter(function (m) { return !ranNames.has(_moduleKey(m)); }).length;
   /* search-quality counters of the typed synthesis (last search run in
@@ -23805,10 +23839,17 @@ var REFRAME = (function () {
       tried.push(fr.name);
       if (!hasCandidate(r2)) continue;
       /* back to the task's own frame */
+      var framedProv = [];
       var preds = r2.predictions.map(function (list, ti) {
-        var inv = fr.invFor ? fr.invFor(testInputs[ti]) : fr.inv;
-        return (list || []).map(function (gr) { try { return gridOk(gr) ? inv(gr) : gr; } catch (e) { return gr; } })
-          .filter(function (gr) { return gridOk(gr); });
+        var inv = fr.invFor ? fr.invFor(testInputs[ti]) : fr.inv, byKey = new Map();
+        var fp = (r2.provenance && r2.provenance[ti]) || [];
+        var back = (list || []).map(function (gr, j) {
+          var b; try { b = gridOk(gr) ? inv(gr) : gr; } catch (e) { b = gr; }
+          if (gridOk(b) && !byKey.has(G.gkey(b))) byKey.set(G.gkey(b), (fp[j] || []).map(function (f) { return f + "@" + fr.name; }));
+          return b;
+        }).filter(function (gr) { return gridOk(gr); });
+        framedProv.push(byKey);
+        return back;
       });
       if (weak) {
         /* the raw answer broke a demonstrated law; the frame's answers go
@@ -23820,6 +23861,22 @@ var REFRAME = (function () {
           return list.concat((res.predictions[ti] || []).filter(function (gr) { return !seenK.has(G.gkey(gr)); }));
         });
       }
+      /* provenance and generation keys follow the predictions back into the
+         task's own frame (measurement only) */
+      var rawKeys = res.gen_keys || [], rawProv = res.provenance || [];
+      res.gen_keys = preds.map(function (list, ti) {
+        var s = new Set(rawKeys[ti] || []);
+        list.forEach(function (gr) { s.add(G.gkey(gr)); });
+        return Array.from(s).slice(0, 400);
+      });
+      res.provenance = preds.map(function (list, ti) {
+        var rawByKey = new Map();
+        (res.predictions[ti] || []).forEach(function (gr, j) { rawByKey.set(G.gkey(gr), rawProv[ti] ? rawProv[ti][j] : null); });
+        return list.map(function (gr) {
+          var k = G.gkey(gr);
+          return framedProv[ti].get(k) || rawByKey.get(k) || [];
+        });
+      });
       res.predictions = preds;
       res.chosen = (r2.chosen || []).map(function (c) { return c ? [c[0] + "@" + fr.name, c[1]] : c; });
       res.solver = r2.solver ? r2.solver + "@" + fr.name : null;
@@ -23838,6 +23895,2293 @@ var REFRAME = (function () {
   }
 
   return { solveReframed: solveReframed, colourFrame: colourFrame, GEOMETRIC: GEOMETRIC, evidenceFrames: evidenceFrames };
+})();
+/* ===== src/60-scene.js ===== */
+/* Executable scenes: entities with attributes and relations, over a small
+ * BEAM of segmentations.
+ *
+ * Perception in ARC is ambiguous: a two-coloured shape is one thing under
+ * multicolour connectivity and two things under single-colour connectivity;
+ * a hole is nothing to a foreground segmenter and an object to a
+ * negative-space one. Committing to one reading hides the rule whenever the
+ * task was written in another, so a scene is always built for a named
+ * segmentation, and synthesis (63-sketch.js) searches over the beam.
+ *
+ * An entity is a first-class value, not a feature row: it has cells, a mask,
+ * a patch, D4-canonical shape keys, colour roles, symmetry, holes, border
+ * contact, and it takes part in relations (distance, contact, containment,
+ * alignment, nearest-of-a-kind) that programs can NAME. Relations are
+ * computed lazily and cached per scene, scenes are cached per (grid,
+ * segmentation, background) for one top-level solve.
+ *
+ *   seg   meaning
+ *   c4/c8 same-colour 4/8-connected foreground components
+ *   m4/m8 multicolour 4/8-connected foreground components
+ *   col   every cell of one colour, as one entity
+ *   bgin  enclosed background regions (negative space not touching the edge)
+ *   bg4   every 4-connected background region
+ *   cell  single foreground cells (small grids only)
+ */
+var SCN = (function () {
+  var SEGS = ["c8", "c4", "m8", "m4", "col", "bgin", "bg4", "cell"];
+  var MAX_ENTS = 64;
+
+  /* ---------------------------------------------------------- masks / D4 */
+  function maskKey(m) {
+    var parts = [], r;
+    for (r = 0; r < m.length; r++) parts.push(m[r].join(""));
+    return parts.join("|");
+  }
+  function tf(m, k) {
+    /* 0 id, 1 rot90, 2 rot180, 3 rot270, 4 flipH, 5 flipV, 6 transpose, 7 anti */
+    switch (k) {
+      case 0: return m;
+      case 1: return G.rot90(m);
+      case 2: return G.rot180(m);
+      case 3: return G.rot270(m);
+      case 4: return G.flipH(m);
+      case 5: return G.flipV(m);
+      case 6: return G.transpose(m);
+      default: return G.antiTranspose(m);
+    }
+  }
+  var TF_INV = [0, 3, 2, 1, 4, 5, 6, 7];
+  function d4Key(m) {
+    var best = null, k, s;
+    for (k = 0; k < 8; k++) { s = maskKey(tf(m, k)); if (best === null || s < best) best = s; }
+    return best;
+  }
+
+  /* ------------------------------------------------------------ entities */
+  function Ent(cells, grid, bg, seg, id) {
+    var H = grid.length, W = grid[0].length, i, p, r, c, v;
+    this.id = id;
+    this.seg = seg;
+    this.cells = cells;                       /* packed r*64+c, reading order */
+    this.n = cells.length;
+    var r0 = 99, c0 = 99, r1 = -1, c1 = -1, cnt = new Int32Array(10), sr = 0, sc = 0;
+    for (i = 0; i < cells.length; i++) {
+      p = cells[i]; r = p >> 6; c = p & 63;
+      if (r < r0) r0 = r; if (r > r1) r1 = r; if (c < c0) c0 = c; if (c > c1) c1 = c;
+      cnt[grid[r][c]]++; sr += r; sc += c;
+    }
+    this.r0 = r0; this.c0 = c0; this.r1 = r1; this.c1 = c1;
+    this.h = r1 - r0 + 1; this.w = c1 - c0 + 1;
+    this.cr2 = r0 + r1; this.cc2 = c0 + c1;          /* doubled bbox centre */
+    this.mr = sr / cells.length; this.mc = sc / cells.length;
+    var best = -1, bn = -1, colors = 0, minor = -1, mn = 1e9;
+    for (v = 0; v < 10; v++) if (cnt[v]) {
+      colors |= 1 << v;
+      if (cnt[v] > bn) { bn = cnt[v]; best = v; }
+      if (cnt[v] < mn) { mn = cnt[v]; minor = v; }
+    }
+    this.color = best;
+    this.colors = colors;
+    this.ncol = G.csSize(colors);
+    this.minor = this.ncol > 1 ? minor : -1;
+    this.counts = cnt;
+    var patch = [], mask = [], row, mrow;
+    for (r = 0; r < this.h; r++) {
+      row = new Array(this.w); mrow = new Array(this.w);
+      for (c = 0; c < this.w; c++) { row[c] = -1; mrow[c] = 0; }
+      patch.push(row); mask.push(mrow);
+    }
+    for (i = 0; i < cells.length; i++) {
+      p = cells[i]; r = (p >> 6) - r0; c = (p & 63) - c0;
+      patch[r][c] = grid[p >> 6][p & 63]; mask[r][c] = 1;
+    }
+    this.patch = patch;
+    this.mask = mask;
+    this.shape = maskKey(mask);
+    this.pkey = maskKey(patch);
+    this.border = r0 === 0 || c0 === 0 || r1 === H - 1 || c1 === W - 1;
+    this.rect = this.n === this.h * this.w;
+    this.line = this.h === 1 || this.w === 1;
+    this.square = this.h === this.w;
+    this._d4 = null; this._d4p = null; this._holes = -1; this._sym = null;
+    this._holeCells = null;
+  }
+  Ent.prototype.d4 = function () { if (this._d4 === null) this._d4 = d4Key(this.mask); return this._d4; };
+  Ent.prototype.d4p = function () { if (this._d4p === null) this._d4p = d4Key(this.patch); return this._d4p; };
+  /* enclosed background inside the entity's own bbox (4-connectivity) */
+  Ent.prototype.holeCells = function () {
+    if (this._holeCells !== null) return this._holeCells;
+    var h = this.h, w = this.w, m = this.mask, seen = new Uint8Array(h * w), q = [], qi = 0, r, c, i, d;
+    for (r = 0; r < h; r++) for (c = 0; c < w; c++)
+      if ((r === 0 || c === 0 || r === h - 1 || c === w - 1) && !m[r][c] && !seen[r * w + c]) { seen[r * w + c] = 1; q.push(r * w + c); }
+    var D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    while (qi < q.length) {
+      var p = q[qi++], pr = (p / w) | 0, pc = p % w;
+      for (d = 0; d < 4; d++) {
+        var nr = pr + D[d][0], nc = pc + D[d][1];
+        if (nr >= 0 && nr < h && nc >= 0 && nc < w && !m[nr][nc] && !seen[nr * w + nc]) { seen[nr * w + nc] = 1; q.push(nr * w + nc); }
+      }
+    }
+    var out = [];
+    for (i = 0; i < h * w; i++) if (!seen[i] && !m[(i / w) | 0][i % w]) out.push(((this.r0 + ((i / w) | 0)) << 6) | (this.c0 + i % w));
+    this._holeCells = out;
+    return out;
+  };
+  Ent.prototype.holes = function () {
+    if (this._holes >= 0) return this._holes;
+    var hc = this.holeCells(), set = new Set(hc), seen = new Set(), n = 0, i;
+    for (i = 0; i < hc.length; i++) {
+      if (seen.has(hc[i])) continue;
+      n++;
+      var st = [hc[i]]; seen.add(hc[i]);
+      while (st.length) {
+        var p = st.pop(), nb = [p - 64, p + 64, p - 1, p + 1], j;
+        for (j = 0; j < 4; j++) if (set.has(nb[j]) && !seen.has(nb[j])) { seen.add(nb[j]); st.push(nb[j]); }
+      }
+    }
+    this._holes = n;
+    return n;
+  };
+  /* symmetry of the patch: lr, ud, rot180, transpose */
+  Ent.prototype.sym = function () {
+    if (this._sym) return this._sym;
+    var k = this.pkey;
+    this._sym = {
+      lr: maskKey(G.flipH(this.patch)) === k,
+      ud: maskKey(G.flipV(this.patch)) === k,
+      r2: maskKey(G.rot180(this.patch)) === k,
+      tr: this.square && maskKey(G.transpose(this.patch)) === k
+    };
+    return this._sym;
+  };
+  Ent.prototype.has = function (p) {
+    var lo = 0, hi = this.cells.length - 1, cs = this.cells;
+    while (lo <= hi) { var m = (lo + hi) >> 1; if (cs[m] === p) return true; if (cs[m] < p) lo = m + 1; else hi = m - 1; }
+    return false;
+  };
+
+  /* ------------------------------------------------------- segmentations */
+  function bgRegions(g, bg, enclosedOnly) {
+    var H = g.length, W = g[0].length, seen = new Uint8Array(H * W), out = [], r, c;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) {
+      if (seen[r * W + c] || g[r][c] !== bg) continue;
+      var q = [r * 64 + c], qi = 0, edge = false;
+      seen[r * W + c] = 1;
+      while (qi < q.length) {
+        var p = q[qi++], pr = p >> 6, pc = p & 63;
+        if (pr === 0 || pc === 0 || pr === H - 1 || pc === W - 1) edge = true;
+        if (pr > 0 && !seen[(pr - 1) * W + pc] && g[pr - 1][pc] === bg) { seen[(pr - 1) * W + pc] = 1; q.push(p - 64); }
+        if (pr < H - 1 && !seen[(pr + 1) * W + pc] && g[pr + 1][pc] === bg) { seen[(pr + 1) * W + pc] = 1; q.push(p + 64); }
+        if (pc > 0 && !seen[pr * W + pc - 1] && g[pr][pc - 1] === bg) { seen[pr * W + pc - 1] = 1; q.push(p - 1); }
+        if (pc < W - 1 && !seen[pr * W + pc + 1] && g[pr][pc + 1] === bg) { seen[pr * W + pc + 1] = 1; q.push(p + 1); }
+      }
+      if (enclosedOnly && edge) continue;
+      q.sort(function (a, b) { return a - b; });
+      out.push(q);
+    }
+    return out;
+  }
+
+  function cellLists(g, seg, bg) {
+    var i, objs, out = [];
+    if (seg === "bgin") return bgRegions(g, bg, true);
+    if (seg === "bg4") return bgRegions(g, bg, false);
+    var mode = seg === "col" ? "color" : seg === "cell" ? "cells" : seg;
+    if (seg === "cell" && g.length * g[0].length > 400) return null;
+    try { objs = O.segment(g, mode, bg); } catch (e) { return null; }
+    for (i = 0; i < objs.length; i++) {
+      var arr = Array.from(objs[i].cells);
+      arr.sort(function (a, b) { return a - b; });
+      out.push(arr);
+    }
+    return out;
+  }
+
+  /* --------------------------------------------------------------- scenes */
+  function Scene(g, seg, bg, lists) {
+    var i;
+    this.grid = g; this.seg = seg; this.bg = bg;
+    this.H = g.length; this.W = g[0].length;
+    this.hist = G.histogram(g);
+    this.ents = [];
+    for (i = 0; i < lists.length; i++) this.ents.push(new Ent(lists[i], g, bg, seg, i));
+    /* reading order: top-left corner, then row-major */
+    this.ents.sort(function (a, b) { return (a.r0 - b.r0) || (a.c0 - b.c0) || (a.cells[0] - b.cells[0]); });
+    for (i = 0; i < this.ents.length; i++) this.ents[i].id = i;
+    var n = this.ents.length;
+    this._dist = new Int16Array(n * n).fill(-1);
+    this._cache = {};
+    this.owner = null;                       /* cell -> entity id, lazily */
+  }
+  Scene.prototype.memo = function (k, fn) {
+    if (!(k in this._cache)) this._cache[k] = fn.call(this);
+    return this._cache[k];
+  };
+  Scene.prototype.ownerMap = function () {
+    if (this.owner) return this.owner;
+    var m = new Int16Array(this.H * 64).fill(-1), i, j, e;
+    for (i = 0; i < this.ents.length; i++) { e = this.ents[i]; for (j = 0; j < e.n; j++) m[e.cells[j]] = i; }
+    this.owner = m;
+    return m;
+  };
+  /* exact Chebyshev distance between cell sets (0 = overlap, 1 = touching) */
+  Scene.prototype.dist = function (a, b) {
+    if (a === b) return 0;
+    var n = this.ents.length, k = a.id * n + b.id, v = this._dist[k];
+    if (v >= 0) return v;
+    var dr = Math.max(0, b.r0 - a.r1, a.r0 - b.r1), dc = Math.max(0, b.c0 - a.c1, a.c0 - b.c1);
+    var lo = Math.max(dr, dc), best = 1000, i, j;
+    if (a.n * b.n > 4000) best = lo;
+    else {
+      for (i = 0; i < a.n && best > lo; i++) {
+        var ar = a.cells[i] >> 6, ac = a.cells[i] & 63;
+        for (j = 0; j < b.n; j++) {
+          var d = Math.max(Math.abs(ar - (b.cells[j] >> 6)), Math.abs(ac - (b.cells[j] & 63)));
+          if (d < best) { best = d; if (best <= lo) break; }
+        }
+      }
+    }
+    this._dist[k] = best; this._dist[b.id * n + a.id] = best;
+    return best;
+  };
+  Scene.prototype.touch = function (a, b) { return a !== b && this.dist(a, b) === 1; };
+  /* bbox containment, strict */
+  Scene.prototype.inside = function (a, b) {
+    return a !== b && b.r0 <= a.r0 && b.c0 <= a.c0 && b.r1 >= a.r1 && b.c1 >= a.c1 &&
+      (b.h > a.h || b.w > a.w);
+  };
+  Scene.prototype.rowOverlap = function (a, b) { return a.r0 <= b.r1 && b.r0 <= a.r1; };
+  Scene.prototype.colOverlap = function (a, b) { return a.c0 <= b.c1 && b.c0 <= a.c1; };
+
+  /* counts of equal keys across entities */
+  Scene.prototype.countOf = function (key) {
+    return this.memo("cnt:" + key, function () {
+      var m = new Map(), i, k;
+      for (i = 0; i < this.ents.length; i++) {
+        k = attr(this.ents[i], key, this);
+        m.set(k, (m.get(k) || 0) + 1);
+      }
+      return m;
+    });
+  };
+  /* unique extreme of a numeric attribute: the entity id, or -1 */
+  Scene.prototype.extreme = function (key, wantMax) {
+    return this.memo("ext:" + key + ":" + (wantMax ? 1 : 0), function () {
+      var best = null, id = -1, tie = false, i, v;
+      for (i = 0; i < this.ents.length; i++) {
+        v = attr(this.ents[i], key, this);
+        if (best === null || (wantMax ? v > best : v < best)) { best = v; id = i; tie = false; }
+        else if (v === best) tie = true;
+      }
+      return tie ? -1 : id;
+    });
+  };
+  Scene.prototype.fgColors = function () {
+    return this.memo("fg", function () {
+      var out = [], v;
+      for (v = 0; v < 10; v++) if (v !== this.bg && this.hist[v]) out.push(v);
+      return out;
+    });
+  };
+  /* most / least frequent non-background colour of the grid (unique only) */
+  Scene.prototype.colorRank = function (most) {
+    return this.memo("crank:" + (most ? 1 : 0), function () {
+      var fg = this.fgColors(), best = -1, bv = null, tie = false, i;
+      for (i = 0; i < fg.length; i++) {
+        var n = this.hist[fg[i]];
+        if (bv === null || (most ? n > bv : n < bv)) { bv = n; best = fg[i]; tie = false; }
+        else if (n === bv) tie = true;
+      }
+      return tie ? -1 : best;
+    });
+  };
+
+  /* attributes by name (selection predicates and expressions use these) */
+  function attr(e, key, sc) {
+    switch (key) {
+      case "color": return e.color;
+      case "n": return e.n;
+      case "h": return e.h;
+      case "w": return e.w;
+      case "area": return e.h * e.w;
+      case "shape": return e.shape;
+      case "d4": return e.d4();
+      case "pkey": return e.pkey;
+      case "holes": return e.holes();
+      case "ncol": return e.ncol;
+      case "r0": return e.r0;
+      case "c0": return e.c0;
+      case "r1": return e.r1;
+      case "c1": return e.c1;
+      case "border": return e.border ? 1 : 0;
+      case "rect": return e.rect ? 1 : 0;
+      case "line": return e.line ? 1 : 0;
+      case "square": return e.square ? 1 : 0;
+      case "density": return e.n / (e.h * e.w);
+      default: return null;
+    }
+  }
+
+  /* ---------------------------------------------------------------- cache */
+  var CACHE = new Map(), CACHE_CAP = 600;
+  function reset() { CACHE.clear(); }
+  function of(g, seg, bg) {
+    if (bg === undefined || bg === null) bg = G.background(g);
+    var key = G.ghash(g) + "#" + seg + "#" + bg, bucket = CACHE.get(key), j;
+    if (bucket) for (j = 0; j < bucket.length; j++) if (G.gEq(bucket[j][0], g)) return bucket[j][1];
+    var lists = cellLists(g, seg, bg), sc = null;
+    if (lists && lists.length && lists.length <= MAX_ENTS) sc = new Scene(g, seg, bg, lists);
+    if (CACHE.size > CACHE_CAP) CACHE.clear();
+    bucket = CACHE.get(key);
+    if (bucket) bucket.push([g, sc]); else CACHE.set(key, [[g, sc]]);
+    return sc;
+  }
+
+  return { SEGS: SEGS, MAX_ENTS: MAX_ENTS, Ent: Ent, Scene: Scene, of: of, reset: reset, attr: attr,
+           maskKey: maskKey, tf: tf, TF_INV: TF_INV, d4Key: d4Key, bgRegions: bgRegions };
+})();
+/* ===== src/61-correspondence.js ===== */
+/* Object correspondence: what became of each input entity in the output.
+ *
+ * Synthesis over entities needs, for every demonstration, a statement of the
+ * form "input entity A went to output region A' by transformation T" before
+ * it can ask which RULE produced T. This module states it, per segmentation,
+ * without committing: an entity can have several candidate fates (two equal
+ * shapes that both moved each have both destinations as candidates) and the
+ * rule inducer (63-sketch.js) resolves the ambiguity by intersecting what
+ * every entity of every demonstration allows.
+ *
+ * In place, the output over an entity's cells is one of
+ *   same     untouched
+ *   vacated  all background (deleted, or moved away)
+ *   recolor  one uniform colour c (a recolour, or overwritten by one colour)
+ *   cmap     a consistent colour-to-colour map (multicolour recolour)
+ *   mixed    anything else (partly overwritten, partly grown over)
+ * Elsewhere, placements: offsets (and D4 transforms) where the entity's
+ * patch appears in the output on cells the output CHANGED -- a move when the
+ * source was vacated, a copy when it stayed. Placements are exact (same
+ * colours) or uniform-recoloured (the shape in one colour). One-to-many
+ * (copies), many-to-one (merges show as several sources with overlapping
+ * placements), deletion and creation (changed cells no entity explains) all
+ * fall out of the same record.
+ */
+var CORR = (function () {
+  var MAX_PLACE = 16;
+
+  function inPlace(e, x, y, bg) {
+    var same = true, allBg = true, single = -1, map = {}, mapOk = true, i, p, xv, yv;
+    for (i = 0; i < e.n; i++) {
+      p = e.cells[i]; xv = x[p >> 6][p & 63]; yv = y[p >> 6][p & 63];
+      if (yv !== xv) same = false;
+      if (yv !== bg) allBg = false;
+      if (single === -1) single = yv; else if (single !== yv) single = -2;
+      if (map[xv] === undefined) map[xv] = yv; else if (map[xv] !== yv) mapOk = false;
+    }
+    if (same) return { kind: "same" };
+    if (allBg) return { kind: "vacated" };
+    if (single >= 0) return { kind: "recolor", c: single };
+    if (mapOk) return { kind: "cmap", map: map };
+    return { kind: "mixed" };
+  }
+
+  /* patch of the entity under D4 transform t (-1 = not a cell) */
+  function tpatch(e, t) {
+    if (!e._tp) e._tp = [];
+    if (!e._tp[t]) e._tp[t] = t === 0 ? e.patch : SCN.tf(e.patch, t);
+    return e._tp[t];
+  }
+
+  /* Placements of the entity's (transformed) patch in y on changed cells.
+     mode "exact": colours equal; "recolor": one uniform non-background colour.
+     Returns [{dr, dc, t, c}] with dr/dc the shift of the bbox corner. */
+  function placements(e, x, y, bg, mode, t) {
+    var key = mode + t, cache = e._pl || (e._pl = new Map());
+    var ck = G.ghash(y) + "#" + key;
+    if (cache.has(ck)) return cache.get(ck);
+    var P = tpatch(e, t), ph = P.length, pw = P[0].length, H = y.length, W = y[0].length;
+    var out = [], ar = -1, ac = -1, av = -1, r, c, i, j;
+    /* anchor: first cell of the (transformed) patch in reading order */
+    for (i = 0; i < ph && ar < 0; i++) for (j = 0; j < pw; j++) if (P[i][j] >= 0) { ar = i; ac = j; av = P[i][j]; break; }
+    var over = false;
+    for (r = 0; r + ph <= H && !over; r++) for (c = 0; c + pw <= W; c++) {
+      var a = y[r + ar][c + ac];
+      if (mode === "exact" ? a !== av : a === bg) continue;
+      if (t === 0 && r === e.r0 && c === e.c0) continue;
+      var ok = true, changed = false, col = a;
+      for (i = 0; i < ph && ok; i++) for (j = 0; j < pw; j++) {
+        var pv = P[i][j];
+        if (pv < 0) continue;
+        var yv = y[r + i][c + j];
+        if (mode === "exact" ? yv !== pv : yv !== col) { ok = false; break; }
+        if (yv !== x[r + i][c + j]) changed = true;
+      }
+      if (!ok || !changed) continue;
+      if (mode === "recolor" && e.ncol === 1 && col === e.color && t === 0) continue;
+      out.push({ dr: r - e.r0, dc: c - e.c0, t: t, c: mode === "exact" ? -1 : col });
+      if (out.length > MAX_PLACE) { over = true; break; }
+    }
+    var res = over ? null : out;           /* null = too ambiguous to use */
+    cache.set(ck, res);
+    return res;
+  }
+
+  /* Fate summary of every entity of scene sc against output y. */
+  function fates(sc, y) {
+    var key = "fates#" + G.ghash(y);
+    return sc.memo(key, function () {
+      var x = sc.grid, bg = sc.bg, out = [], i;
+      if (x.length !== y.length || x[0].length !== y[0].length) return null;
+      for (i = 0; i < sc.ents.length; i++) out.push(inPlace(sc.ents[i], x, y, bg));
+      return out;
+    });
+  }
+
+  /* Cells the output changed. */
+  function diff(x, y) {
+    var out = [], r, c;
+    for (r = 0; r < x.length; r++) for (c = 0; c < x[0].length; c++) if (x[r][c] !== y[r][c]) out.push((r << 6) | c);
+    return out;
+  }
+
+  /* Coverage statistic for Stage-B measurement: the fraction of changed
+     cells lying on entities whose in-place fate is determined (same,
+     vacated, recolor, cmap) or on a placement of some entity. */
+  function coverage(sc, y) {
+    var f = fates(sc, y);
+    if (!f) return null;
+    var x = sc.grid, d = diff(x, y);
+    if (!d.length) return 1;
+    var covered = new Set(), i, j;
+    for (i = 0; i < sc.ents.length; i++) {
+      var e = sc.ents[i];
+      if (f[i].kind !== "mixed" && f[i].kind !== "same") for (j = 0; j < e.n; j++) covered.add(e.cells[j]);
+      if (e.n > 60) continue;
+      var pl = placements(e, x, y, sc.bg, "exact", 0) || [];
+      for (var k = 0; k < pl.length; k++) for (j = 0; j < e.n; j++) {
+        var p = e.cells[j];
+        covered.add((((p >> 6) + pl[k].dr) << 6) | ((p & 63) + pl[k].dc));
+      }
+    }
+    var n = 0;
+    for (i = 0; i < d.length; i++) if (covered.has(d[i])) n++;
+    return n / d.length;
+  }
+
+  return { inPlace: inPlace, fates: fates, placements: placements, tpatch: tpatch, diff: diff, coverage: coverage };
+})();
+/* ===== src/62-expr.js ===== */
+/* The typed expression language of entity programs.
+ *
+ * Holes of an entity program are filled by EXPRESSIONS over a scene and an
+ * entity, never by bare literals alone:
+ *
+ *   REL    entity -> entity   nearest (of a kind), touching, container,
+ *                             contained, largest, smallest, unique-colour,
+ *                             unique-shape, nearest in the same rows/columns
+ *   COLOR  entity -> colour   literal, own colour, minority colour, background,
+ *                             grid colour ranks, colour of REL(e)
+ *   INT    entity -> int > 0  literal, height, width, size (+/-1), entity and
+ *                             colour counts, holes, gap to REL(e), size of REL(e)
+ *   VEC    entity -> offset   literal, direction x INT, slide until blocked,
+ *                             to the border, toward / onto / mirrored about REL(e)
+ *   PRED   entity -> bool     colour tests, extremes, uniqueness, topology,
+ *                             contact, containment, symmetry, size thresholds
+ *
+ * Every expression carries its code length in bits (64-mdl.js sums them);
+ * relations are memoised per scene.
+ */
+var EXPR = (function () {
+  var DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+  var DNAME = ["u", "d", "l", "r", "ul", "ur", "dl", "dr"];
+  var LOG2_10 = Math.log(10) / Math.LN2;
+
+  /* ------------------------------------------------------- relations */
+  /* Each relation maps an entity to one other entity of the same scene (or
+     none); results are memoised per scene as an Int16Array of ids. */
+  function uniqueMin(sc, e, ok) {
+    var best = 1e9, id = -1, tie = false, i, o, d;
+    for (i = 0; i < sc.ents.length; i++) {
+      o = sc.ents[i];
+      if (o === e || !ok(o)) continue;
+      d = sc.dist(e, o);
+      if (d < best) { best = d; id = i; tie = false; } else if (d === best) tie = true;
+    }
+    return tie ? -1 : id;
+  }
+  var RELS = [
+    ["near", 2.0, function (sc, e) { return uniqueMin(sc, e, function () { return true; }); }],
+    ["nearD", 2.5, function (sc, e) { return uniqueMin(sc, e, function (o) { return o.color !== e.color; }); }],
+    ["nearS", 2.5, function (sc, e) { return uniqueMin(sc, e, function (o) { return o.color === e.color; }); }],
+    ["nearP", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return o.n === 1; }); }],
+    ["nearB", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return o.n > 1; }); }],
+    ["nearSh", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return o.d4() === e.d4(); }); }],
+    ["touch", 2.5, function (sc, e) {
+      var id = -1, i;
+      for (i = 0; i < sc.ents.length; i++) if (sc.touch(e, sc.ents[i])) { if (id >= 0) return -1; id = i; }
+      return id;
+    }],
+    ["cont", 2.5, function (sc, e) {
+      var id = -1, ba = 1e9, i, o;
+      for (i = 0; i < sc.ents.length; i++) {
+        o = sc.ents[i];
+        if (sc.inside(e, o) && o.h * o.w < ba) { ba = o.h * o.w; id = i; }
+      }
+      return id;
+    }],
+    ["inner", 2.5, function (sc, e) {
+      var id = -1, i;
+      for (i = 0; i < sc.ents.length; i++) if (sc.inside(sc.ents[i], e)) { if (id >= 0) return -1; id = i; }
+      return id;
+    }],
+    ["big", 2.5, function (sc, e) { var id = sc.extreme("n", true); return id === e.id ? -1 : id; }],
+    ["small", 2.5, function (sc, e) { var id = sc.extreme("n", false); return id === e.id ? -1 : id; }],
+    ["uniqC", 3.0, function (sc, e) {
+      var m = sc.countOf("color"), id = -1, i;
+      for (i = 0; i < sc.ents.length; i++) if (m.get(sc.ents[i].color) === 1) { if (id >= 0) return -1; id = i; }
+      return id === e.id ? -1 : id;
+    }],
+    ["uniqS", 3.0, function (sc, e) {
+      var m = sc.countOf("d4"), id = -1, i;
+      for (i = 0; i < sc.ents.length; i++) if (m.get(sc.ents[i].d4()) === 1) { if (id >= 0) return -1; id = i; }
+      return id === e.id ? -1 : id;
+    }],
+    ["rowN", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return sc.rowOverlap(e, o); }); }],
+    ["colN", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return sc.colOverlap(e, o); }); }]
+  ];
+  var REL_BY = {};
+  RELS.forEach(function (r) { REL_BY[r[0]] = r; });
+  function rel(sc, key, e) {
+    var arr = sc.memo("rel:" + key, function () {
+      var a = new Int16Array(this.ents.length), i, f = REL_BY[key][2];
+      for (i = 0; i < this.ents.length; i++) a[i] = f(this, this.ents[i]);
+      return a;
+    });
+    var id = arr[e.id];
+    return id < 0 ? null : sc.ents[id];
+  }
+
+  /* ------------------------------------------------------ expressions */
+  /* An expression is {k: canonical key, b: bits, f: (sc, e) -> value|null}. */
+  var COLOR_EXPRS = [];
+  (function () {
+    var c;
+    for (c = 0; c < 10; c++) COLOR_EXPRS.push({ k: "c" + c, b: LOG2_10, lit: true,
+      f: (function (v) { return function () { return v; }; })(c) });
+    COLOR_EXPRS.push({ k: "self", b: 1.0, f: function (sc, e) { return e.color; } });
+    COLOR_EXPRS.push({ k: "minor", b: 2.5, f: function (sc, e) { return e.minor >= 0 ? e.minor : null; } });
+    COLOR_EXPRS.push({ k: "bg", b: 2.0, f: function (sc) { return sc.bg; } });
+    COLOR_EXPRS.push({ k: "gmaj", b: 3.0, f: function (sc) { var v = sc.colorRank(true); return v < 0 ? null : v; } });
+    COLOR_EXPRS.push({ k: "gmin", b: 3.0, f: function (sc) { var v = sc.colorRank(false); return v < 0 ? null : v; } });
+    RELS.forEach(function (R) {
+      COLOR_EXPRS.push({ k: "col(" + R[0] + ")", rel: R[0], b: 1.5 + R[1], f: function (sc, e) { var o = rel(sc, R[0], e); return o ? o.color : null; } });
+    });
+    RELS.slice(0, 3).forEach(function (R) {
+      COLOR_EXPRS.push({ k: "minor(" + R[0] + ")", rel: R[0], b: 3.0 + R[1], f: function (sc, e) { var o = rel(sc, R[0], e); return o && o.minor >= 0 ? o.minor : null; } });
+    });
+  })();
+
+  function countColor(sc, c) { return sc.hist[c]; }
+  function countEntsColor(sc, c) {
+    var m = sc.countOf("color"); return m.get(c) || 0;
+  }
+  /* positive integers for scaling a direction */
+  var INT_EXPRS = [];
+  (function () {
+    var k;
+    for (k = 1; k <= 9; k++) INT_EXPRS.push({ k: "" + k, b: 1 + 2 * Math.log(k + 1) / Math.LN2, lit: true,
+      f: (function (v) { return function () { return v; }; })(k) });
+    INT_EXPRS.push({ k: "h", b: 2.0, f: function (sc, e) { return e.h; } });
+    INT_EXPRS.push({ k: "w", b: 2.0, f: function (sc, e) { return e.w; } });
+    INT_EXPRS.push({ k: "n", b: 2.5, f: function (sc, e) { return e.n; } });
+    INT_EXPRS.push({ k: "h+1", b: 3.0, f: function (sc, e) { return e.h + 1; } });
+    INT_EXPRS.push({ k: "w+1", b: 3.0, f: function (sc, e) { return e.w + 1; } });
+    INT_EXPRS.push({ k: "h-1", b: 3.0, f: function (sc, e) { return e.h - 1; } });
+    INT_EXPRS.push({ k: "w-1", b: 3.0, f: function (sc, e) { return e.w - 1; } });
+    INT_EXPRS.push({ k: "#ents", b: 3.0, f: function (sc) { return sc.ents.length; } });
+    INT_EXPRS.push({ k: "#same", b: 3.5, f: function (sc, e) { return countEntsColor(sc, e.color); } });
+    INT_EXPRS.push({ k: "holes", b: 3.0, f: function (sc, e) { return e.holes(); } });
+    for (k = 0; k < 10; k++) INT_EXPRS.push({ k: "#c" + k, b: 2.0 + LOG2_10, cref: k,
+      f: (function (v) { return function (sc) { return countColor(sc, v); }; })(k) });
+    RELS.slice(0, 5).forEach(function (R) {
+      INT_EXPRS.push({ k: "gap(" + R[0] + ")", rel: R[0], b: 2.0 + R[1], f: function (sc, e) { var o = rel(sc, R[0], e); return o ? sc.dist(e, o) - 1 : null; } });
+      INT_EXPRS.push({ k: "n(" + R[0] + ")", rel: R[0], b: 2.5 + R[1], f: function (sc, e) { var o = rel(sc, R[0], e); return o ? o.n : null; } });
+    });
+  })();
+
+  function litBits(v) { return 1 + 2 * Math.log(Math.abs(v) + 1) / Math.LN2; }
+
+  /* Learned lookup COLOR expressions: colour = T[attr(e)], where the table
+     T is FITTED to the observations (never enumerated). Accepted only when
+     it compresses: fewer entries than observations and at least two keys.
+     Its code length pays for every entry, so a table never beats a single
+     relation that explains the same data. */
+  var TAB_ATTRS = ["n", "h", "w", "holes", "ncol", "color", "d4", "shape", "odd:n", "odd:h", "border", "rect"];
+  function tabKey(e, a, sc) {
+    if (a === "odd:n") return e.n & 1;
+    if (a === "odd:h") return e.h & 1;
+    if (a === "d4") return e.d4();
+    if (a === "shape") return e.shape;
+    if (a === "holes") return e.holes();
+    if (a === "border") return e.border ? 1 : 0;
+    if (a === "rect") return e.rect ? 1 : 0;
+    return e[a];
+  }
+  /* obs: [{sc, e, c}] -> list of fitted table expressions */
+  function fitTables(obs) {
+    var out = [], i, j;
+    if (obs.length < 3) return out;
+    for (i = 0; i < TAB_ATTRS.length; i++) {
+      var a = TAB_ATTRS[i], T = new Map(), N = new Map(), ok = true;
+      for (j = 0; j < obs.length && ok; j++) {
+        var k = tabKey(obs[j].e, a, obs[j].sc);
+        if (T.has(k)) { if (T.get(k) !== obs[j].c) ok = false; } else T.set(k, obs[j].c);
+        N.set(k, (N.get(k) || 0) + 1);
+      }
+      if (!ok || T.size < 2 || T.size >= obs.length) continue;
+      /* every entry seen at least twice: one row per observation is a
+         transcript, not a rule */
+      var thin = false;
+      N.forEach(function (n) { if (n < 2) thin = true; });
+      if (thin) continue;
+      (function (attrName, table) {
+        var keyStr = "tab(" + attrName + ":" + Array.from(table.entries()).map(function (x) { return String(x[0]).length > 12 ? "#" + x[1] : x[0] + ">" + x[1]; }).join(",") + ")";
+        out.push({ k: keyStr, b: 2 + table.size * (LOG2_10 + 2), tab: true,
+                   f: function (sc, e) { var v = table.get(tabKey(e, attrName, sc)); return v === undefined ? null : v; } });
+      })(a, T);
+    }
+    return out;
+  }
+  /* slide in direction d until the next step would hit a foreground cell
+     that is not the entity itself, or leave the grid */
+  function slide(sc, e, d, toBorderOnly) {
+    var g = sc.grid, bg = sc.bg, H = sc.H, W = sc.W, dr = DIRS[d][0], dc = DIRS[d][1], k = 0, i;
+    for (;;) {
+      var nk = k + 1, ok = true;
+      for (i = 0; i < e.n; i++) {
+        var r = (e.cells[i] >> 6) + dr * nk, c = (e.cells[i] & 63) + dc * nk;
+        if (r < 0 || r >= H || c < 0 || c >= W) { ok = false; break; }
+        if (!toBorderOnly && g[r][c] !== bg && !e.has((r << 6) | c)) { ok = false; break; }
+      }
+      if (!ok) break;
+      k = nk;
+      if (k > 60) return null;
+    }
+    return [dr * k, dc * k];
+  }
+  /* move toward R until the bboxes touch (4-adjacent along one axis) */
+  function toward(sc, e, o) {
+    if (!o) return null;
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o);
+    if (cov && !rov) return e.r1 < o.r0 ? [o.r0 - e.r1 - 1, 0] : [o.r1 - e.r0 + 1, 0];
+    if (rov && !cov) return e.c1 < o.c0 ? [0, o.c0 - e.c1 - 1] : [0, o.c1 - e.c0 + 1];
+    return null;
+  }
+  function onto(e, o) {
+    if (!o) return null;
+    var dr2 = o.cr2 - e.cr2, dc2 = o.cc2 - e.cc2;
+    if (dr2 & 1 || dc2 & 1) return null;
+    return [dr2 / 2, dc2 / 2];
+  }
+  /* reflect e's bbox to the other side of o (the axis on which they are
+     separated) */
+  function mirrorAbout(sc, e, o) {
+    if (!o) return null;
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o);
+    if (cov && !rov) return [o.cr2 - e.cr2, 0];
+    if (rov && !cov) return [0, o.cc2 - e.cc2];
+    return null;
+  }
+  var VEC_EXPRS = [];
+  (function () {
+    var d, i;
+    for (d = 0; d < 8; d++) for (i = 0; i < INT_EXPRS.length; i++) (function (dd, I) {
+      VEC_EXPRS.push({ k: DNAME[dd] + "*" + I.k, b: 3.0 + I.b, lit: !!I.lit, cref: I.cref, rel: I.rel,
+        f: function (sc, e) { var v = I.f(sc, e); return (v === null || v === undefined || v <= 0) ? null : [DIRS[dd][0] * v, DIRS[dd][1] * v]; } });
+    })(d, INT_EXPRS[i]);
+    for (d = 0; d < 8; d++) (function (dd) {
+      VEC_EXPRS.push({ k: "slide:" + DNAME[dd], b: 3.5, f: function (sc, e) { return slide(sc, e, dd, false); } });
+      VEC_EXPRS.push({ k: "edge:" + DNAME[dd], b: 4.0, f: function (sc, e) { return slide(sc, e, dd, true); } });
+    })(d);
+    RELS.forEach(function (R) {
+      VEC_EXPRS.push({ k: "to(" + R[0] + ")", rel: R[0], b: 2.0 + R[1], f: function (sc, e) { return toward(sc, e, rel(sc, R[0], e)); } });
+      VEC_EXPRS.push({ k: "onto(" + R[0] + ")", rel: R[0], b: 2.5 + R[1], f: function (sc, e) { return onto(e, rel(sc, R[0], e)); } });
+      VEC_EXPRS.push({ k: "mirror(" + R[0] + ")", rel: R[0], b: 3.0 + R[1], f: function (sc, e) { return mirrorAbout(sc, e, rel(sc, R[0], e)); } });
+    });
+  })();
+  function litVec(v) {
+    return { k: "(" + v[0] + "," + v[1] + ")", b: 2 + litBits(v[0]) + litBits(v[1]), lit: true,
+             f: function () { return v; } };
+  }
+
+  /* ------------------------------------------------------- predicates */
+  /* A predicate is {k, b, f: (sc, e) -> bool}. The catalogue is built per
+     task from the colours and values that occur. */
+  function predCatalog(allEnts, palette) {
+    var P = [], c, seen = {};
+    function add(k, b, f) { if (!seen[k]) { seen[k] = 1; P.push({ k: k, b: b, f: f }); } }
+    add("all", 0.5, function () { return true; });
+    for (var i = 0; i < palette.length; i++) (function (cc) {
+      add("col=" + cc, 1 + LOG2_10, function (sc, e) { return e.color === cc; });
+      add("col!=" + cc, 2 + LOG2_10, function (sc, e) { return e.color !== cc; });
+      add("has:" + cc, 2 + LOG2_10, function (sc, e) { return (e.colors & (1 << cc)) !== 0; });
+      add("!has:" + cc, 3 + LOG2_10, function (sc, e) { return (e.colors & (1 << cc)) === 0; });
+      add("touchC:" + cc, 3 + LOG2_10, function (sc, e) {
+        for (var j = 0; j < sc.ents.length; j++) if (sc.ents[j].color === cc && sc.touch(e, sc.ents[j])) return true;
+        return false;
+      });
+    })(palette[i]);
+    [["n", "size"], ["h", "height"], ["w", "width"], ["area", "area"]].forEach(function (a) {
+      add("max:" + a[0], 2.5, function (sc, e) { return sc.extreme(a[0], true) === e.id; });
+      add("min:" + a[0], 2.5, function (sc, e) { return sc.extreme(a[0], false) === e.id; });
+    });
+    add("uShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) === 1; });
+    add("rShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) > 1; });
+    add("uColor", 2.5, function (sc, e) { return sc.countOf("color").get(e.color) === 1; });
+    add("rColor", 2.5, function (sc, e) { return sc.countOf("color").get(e.color) > 1; });
+    add("border", 2.0, function (sc, e) { return e.border; });
+    add("!border", 2.0, function (sc, e) { return !e.border; });
+    add("holes", 2.0, function (sc, e) { return e.holes() > 0; });
+    add("!holes", 2.0, function (sc, e) { return e.holes() === 0; });
+    add("rect", 2.0, function (sc, e) { return e.rect; });
+    add("!rect", 2.0, function (sc, e) { return !e.rect; });
+    add("line", 2.5, function (sc, e) { return e.line && e.n > 1; });
+    add("square", 2.5, function (sc, e) { return e.square; });
+    add("pix", 2.0, function (sc, e) { return e.n === 1; });
+    add("!pix", 2.0, function (sc, e) { return e.n > 1; });
+    add("multi", 2.0, function (sc, e) { return e.ncol > 1; });
+    add("mono", 2.0, function (sc, e) { return e.ncol === 1; });
+    add("inside", 2.5, function (sc, e) { return !!rel(sc, "cont", e); });
+    add("!inside", 2.5, function (sc, e) { return !rel(sc, "cont", e); });
+    add("contains", 2.5, function (sc, e) {
+      for (var j = 0; j < sc.ents.length; j++) if (sc.inside(sc.ents[j], e)) return true;
+      return false;
+    });
+    add("touches", 2.5, function (sc, e) { return !!(function () { for (var j = 0; j < sc.ents.length; j++) if (sc.touch(e, sc.ents[j])) return true; return false; })(); });
+    add("alone", 2.5, function (sc, e) { for (var j = 0; j < sc.ents.length; j++) if (sc.touch(e, sc.ents[j])) return false; return true; });
+    add("first", 3.0, function (sc, e) { return e.id === 0; });
+    add("last", 3.0, function (sc, e) { return e.id === sc.ents.length - 1; });
+    add("mid", 3.5, function (sc, e) {
+      var r2 = sc.H - 1, c2 = sc.W - 1;
+      return e.r0 * 2 <= r2 && e.r1 * 2 >= r2 && e.c0 * 2 <= c2 && e.c1 * 2 >= c2;
+    });
+    add("odd:h", 3.0, function (sc, e) { return (e.h & 1) === 1; });
+    add("odd:w", 3.0, function (sc, e) { return (e.w & 1) === 1; });
+    add("symLR", 3.0, function (sc, e) { return e.sym().lr; });
+    add("symUD", 3.0, function (sc, e) { return e.sym().ud; });
+    add("!sym", 3.0, function (sc, e) { var s = e.sym(); return !s.lr && !s.ud && !s.r2; });
+    /* thresholds at observed sizes (literal integers cost bits) */
+    var sizes = {};
+    allEnts.forEach(function (x) { sizes[x.e.n] = 1; });
+    Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; }).slice(0, 12).forEach(function (v) {
+      add("n=" + v, 2 + litBits(v), function (sc, e) { return e.n === v; });
+      add("n>=" + v, 2.5 + litBits(v), function (sc, e) { return e.n >= v; });
+      add("n<=" + v, 2.5 + litBits(v), function (sc, e) { return e.n <= v; });
+    });
+    return P;
+  }
+
+  return { DIRS: DIRS, DNAME: DNAME, LOG2_10: LOG2_10, RELS: RELS, REL_BY: REL_BY, rel: rel,
+           COLOR_EXPRS: COLOR_EXPRS, INT_EXPRS: INT_EXPRS, VEC_EXPRS: VEC_EXPRS, litVec: litVec, litBits: litBits,
+           slide: slide, toward: toward, onto: onto, mirrorAbout: mirrorAbout, predCatalog: predCatalog,
+           fitTables: fitTables };
+})();
+/* ===== src/62a-genops.js ===== */
+/* Generative operators: how an entity CREATES cells.
+ *
+ * Most unsolved same-shape tasks do not recolour or move what is there; they
+ * add structure relative to it -- a ray until something is hit, a line to a
+ * partner, a completed symmetry, a copy of a template on every marker, a
+ * motif repeated to the edge. Each operator here is one such mechanism with
+ * typed parameters, and the parameter grid is enumerated so the inducer
+ * (63-sketch.js) can keep, per entity, exactly the instances whose paint
+ * agrees with the demonstration (a version space), then intersect over the
+ * entities a rule selects.
+ *
+ * An operator paints a list of cells. Single-colour operators (halo, fills,
+ * rays, links) are coloured by the rule's COLOR expression; patch operators
+ * (symmetry, stamp, repeat) carry the colours of the entity or template they
+ * copy. Paint is computed relative to the INPUT's entities on the canvas the
+ * object rules left, so a ray stops at what is actually there.
+ *
+ *   op        parameters
+ *   halo      4 | 8 neighbourhood
+ *   bbox      fill background inside the bounding box
+ *   holes     fill enclosed holes
+ *   ray       anchor (edge cells | minority-colour cells | bbox corner)
+ *             x direction set (8 single, orth, diag, all, pairs; outward from
+ *             the minority colour; away from / toward REL(e)) x stop (hit |
+ *             through), and diagonal rays that bounce off the side walls
+ *   link      straight or diagonal segment to REL(e)
+ *   symm      mirror / rotate the entity about its own centre or REL(e)'s
+ *   stamp     REL(e)'s patch (any D4 image) placed on e by centre or by
+ *             pattern match
+ *   repeat    the entity's patch copied every VEC until it leaves the grid
+ */
+var GEN = (function () {
+  var DIRS = EXPR.DIRS, rel = EXPR.rel;
+  var RAYSETS = { u: [0], d: [1], l: [2], r: [3], ul: [4], ur: [5], dl: [6], dr: [7],
+                  orth: [0, 1, 2, 3], diag: [4, 5, 6, 7], all8: [0, 1, 2, 3, 4, 5, 6, 7], ud: [0, 1], lr: [2, 3] };
+
+  function inb(sc, r, c) { return r >= 0 && r < sc.H && c >= 0 && c < sc.W; }
+  function snapDir(dr, dc) {
+    if (!dr && !dc) return -1;
+    var a = Math.atan2(dr, dc), best = -1, bd = 9, i;
+    for (i = 0; i < 8; i++) {
+      var d = Math.abs(Math.atan2(DIRS[i][0], DIRS[i][1]) - a);
+      if (d > Math.PI) d = 2 * Math.PI - d;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return bd < 0.4 ? best : -1;
+  }
+  function uniqPush(set, list, p) { if (!set.has(p)) { set.add(p); list.push(p); } }
+
+  /* cast a ray from (r,c) (exclusive) in direction d on canvas */
+  function cast(sc, canvas, r, c, d, stop, seen, out, bounce) {
+    var dr = DIRS[d][0], dc = DIRS[d][1], steps = 0;
+    r += dr; c += dc;
+    for (;;) {
+      if (!inb(sc, r, c)) {
+        if (!bounce || steps > 200) break;
+        /* reflect the component that left the grid (side walls only for
+           "bh", top/bottom only for "bv") */
+        var rr = r, cc = c;
+        if (bounce === "bh" && (c < 0 || c >= sc.W) && r >= 0 && r < sc.H) { dc = -dc; cc = c + 2 * dc; }
+        else if (bounce === "bv" && (r < 0 || r >= sc.H) && c >= 0 && c < sc.W) { dr = -dr; rr = r + 2 * dr; }
+        else break;
+        r = rr; c = cc;
+        if (!inb(sc, r, c)) break;
+      }
+      if (canvas[r][c] !== sc.bg) { if (stop === "hit") break; }
+      else uniqPush(seen, out, (r << 6) | c);
+      r += dr; c += dc; steps++;
+    }
+  }
+
+  function rayCells(sc, e, canvas, op) {
+    var out = [], seen = new Set(), i, j, p, r, c, dirs;
+    if (op.dir === "out") {
+      if (e.ncol < 2) return out;
+      var sr = 0, scc = 0, n = 0, mr = 0, mc = 0, m = 0;
+      for (i = 0; i < e.n; i++) {
+        p = e.cells[i]; r = p >> 6; c = p & 63;
+        if (sc.grid[r][c] === e.minor) { mr += r; mc += c; m++; } else { sr += r; scc += c; n++; }
+      }
+      if (!m || !n) return out;
+      var d0 = snapDir(mr / m - sr / n, mc / m - scc / n);
+      if (d0 < 0) return out;
+      dirs = [d0];
+    } else if (op.dir === "away" || op.dir === "toward") {
+      var o = rel(sc, op.r, e);
+      if (!o) return out;
+      var dd = snapDir((e.cr2 - o.cr2) * (op.dir === "away" ? 1 : -1), (e.cc2 - o.cc2) * (op.dir === "away" ? 1 : -1));
+      if (dd < 0) return out;
+      dirs = [dd];
+    } else dirs = RAYSETS[op.dir];
+    for (j = 0; j < dirs.length; j++) {
+      var d = dirs[j], dr = DIRS[d][0], dc = DIRS[d][1];
+      if (op.anchor === "corner") {
+        r = dr < 0 ? e.r0 : dr > 0 ? e.r1 : -1; c = dc < 0 ? e.c0 : dc > 0 ? e.c1 : -1;
+        if (r < 0 || c < 0) continue;
+        cast(sc, canvas, r, c, d, op.stop, seen, out, op.bounce);
+        continue;
+      }
+      for (i = 0; i < e.n; i++) {
+        p = e.cells[i]; r = p >> 6; c = p & 63;
+        if (op.anchor === "minor" && sc.grid[r][c] !== e.minor) continue;
+        if (inb(sc, r + dr, c + dc) && e.has(((r + dr) << 6) | (c + dc))) continue;
+        cast(sc, canvas, r, c, d, op.stop, seen, out, op.bounce);
+      }
+    }
+    return out;
+  }
+
+  function linkCells(sc, e, canvas, op) {
+    var out = [], o, r, c;
+    if (op.r === "allS" || op.r === "all") {
+      /* every aligned partner (same colour for allS): the union of segments */
+      var seen = new Set(), i, k;
+      for (i = 0; i < sc.ents.length; i++) {
+        var q = sc.ents[i];
+        if (q === e || (op.r === "allS" && q.color !== e.color)) continue;
+        var seg = linkCells(sc, e, canvas, { r: q, geo: op.geo });
+        for (k = 0; k < seg.length; k++) uniqPush(seen, out, seg[k]);
+      }
+      return out;
+    }
+    o = typeof op.r === "object" ? op.r : rel(sc, op.r, e);
+    if (!o) return out;
+    if (op.geo === "orth") {
+      if (sc.rowOverlap(e, o) && !sc.colOverlap(e, o)) {
+        var ra = Math.max(e.r0, o.r0), rb = Math.min(e.r1, o.r1), ca = Math.min(e.c1, o.c1) + 1, cb = Math.max(e.c0, o.c0) - 1;
+        for (r = ra; r <= rb; r++) for (c = ca; c <= cb; c++) if (canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      } else if (sc.colOverlap(e, o) && !sc.rowOverlap(e, o)) {
+        var cA = Math.max(e.c0, o.c0), cB = Math.min(e.c1, o.c1), rA = Math.min(e.r1, o.r1) + 1, rB = Math.max(e.r0, o.r0) - 1;
+        for (r = rA; r <= rB; r++) for (c = cA; c <= cB; c++) if (canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      }
+      return out;
+    }
+    /* diagonal: between single cells (or bbox centres) on a 45 degree line */
+    if (e.cr2 & 1 || e.cc2 & 1 || o.cr2 & 1 || o.cc2 & 1) return out;
+    var r0 = e.cr2 / 2, c0 = e.cc2 / 2, r1 = o.cr2 / 2, c1 = o.cc2 / 2;
+    if (Math.abs(r1 - r0) !== Math.abs(c1 - c0) || r0 === r1) return out;
+    var sr = r1 > r0 ? 1 : -1, sc2 = c1 > c0 ? 1 : -1;
+    for (r = r0 + sr, c = c0 + sc2; r !== r1; r += sr, c += sc2) if (canvas[r][c] === sc.bg && !e.has((r << 6) | c) && !o.has((r << 6) | c)) out.push((r << 6) | c);
+    return out;
+  }
+
+  /* mirror images of e about a centre (doubled coordinates) */
+  function symmCells(sc, e, canvas, op) {
+    var cr2, cc2, o;
+    if (op.about === "self") { cr2 = e.cr2; cc2 = e.cc2; }
+    else { o = rel(sc, op.about, e); if (!o) return null; cr2 = o.cr2; cc2 = o.cc2; }
+    var cells = [], cols = [], seen = new Set(), i, k;
+    var maps = op.kind === "lr" ? [[1, -1]] : op.kind === "ud" ? [[-1, 1]] : op.kind === "rot2" ? [[-1, -1]] :
+      op.kind === "both" ? [[1, -1], [-1, 1], [-1, -1]] : null;
+    for (i = 0; i < e.n; i++) {
+      var p = e.cells[i], r = p >> 6, c = p & 63, v = sc.grid[r][c];
+      var imgs = [];
+      if (maps) for (k = 0; k < maps.length; k++) {
+        var rr = maps[k][0] === 1 ? r : cr2 - r, cc = maps[k][1] === 1 ? c : cc2 - c;
+        imgs.push([rr, cc]);
+      } else {
+        /* rot4: quarter turns about the centre (needs cr2, cc2 of equal parity) */
+        if ((cr2 & 1) !== (cc2 & 1)) return null;
+        var y = 2 * r - cr2, x = 2 * c - cc2;
+        imgs.push([(cr2 + x) / 2, (cc2 - y) / 2], [(cr2 - y) / 2, (cc2 - x) / 2], [(cr2 - x) / 2, (cc2 + y) / 2]);
+      }
+      for (k = 0; k < imgs.length; k++) {
+        var R = imgs[k][0], C = imgs[k][1];
+        if (!inb(sc, R, C)) continue;
+        var q = (R << 6) | C;
+        if (e.has(q) || (o && o.has(q)) || seen.has(q)) continue;
+        seen.add(q); cells.push(q); cols.push(v);
+      }
+    }
+    return { cells: cells, cols: cols };
+  }
+
+  /* template T = REL(e) painted onto e: by centre, or so that e's cells
+     coincide with T's cells of the same colours (any D4 image of T) */
+  function stampCells(sc, e, canvas, op) {
+    var T = rel(sc, op.tpl, e);
+    if (!T || T === e || T.n <= e.n) return null;
+    var best = null, t, cnt = 0;
+    for (t = 0; t < (op.d4 ? 8 : 1); t++) {
+      var P = CORR.tpatch(T, t), ph = P.length, pw = P[0].length, offs = [];
+      if (op.align === "center") {
+        var dr2 = e.cr2 - (ph - 1), dc2 = e.cc2 - (pw - 1);
+        if (dr2 & 1 || dc2 & 1) continue;
+        offs.push([dr2 / 2, dc2 / 2]);
+      } else {
+        /* anchor e's first cell on each same-coloured template cell */
+        var p0 = e.cells[0], v0 = sc.grid[p0 >> 6][p0 & 63], i, j;
+        for (i = 0; i < ph; i++) for (j = 0; j < pw; j++) if (P[i][j] === v0) offs.push([(p0 >> 6) - i, (p0 & 63) - j]);
+      }
+      for (var k = 0; k < offs.length; k++) {
+        var R0 = offs[k][0], C0 = offs[k][1], ok = true, q;
+        if (op.align !== "center") {
+          for (q = 0; q < e.n && ok; q++) {
+            var pr = (e.cells[q] >> 6) - R0, pc = (e.cells[q] & 63) - C0;
+            if (pr < 0 || pr >= ph || pc < 0 || pc >= pw || P[pr][pc] !== sc.grid[e.cells[q] >> 6][e.cells[q] & 63]) ok = false;
+          }
+          /* the template's cells of e's colours must be exactly e's cells */
+          if (ok) for (var a = 0; a < ph && ok; a++) for (var b = 0; b < pw; b++) {
+            if (P[a][b] < 0 || !(e.colors & (1 << P[a][b]))) continue;
+            var rr = R0 + a, cc = C0 + b;
+            if (!inb(sc, rr, cc) || !e.has((rr << 6) | cc)) { ok = false; break; }
+          }
+        }
+        if (!ok) continue;
+        cnt++;
+        if (!best) best = { R0: R0, C0: C0, P: P };
+      }
+    }
+    if (!best || cnt !== 1 && op.align !== "center") return null;
+    var cells = [], cols = [], P2 = best.P;
+    for (var i2 = 0; i2 < P2.length; i2++) for (var j2 = 0; j2 < P2[0].length; j2++) {
+      if (P2[i2][j2] < 0) continue;
+      var R = best.R0 + i2, C = best.C0 + j2;
+      if (!inb(sc, R, C) || e.has((R << 6) | C)) continue;
+      cells.push((R << 6) | C); cols.push(P2[i2][j2]);
+    }
+    return { cells: cells, cols: cols };
+  }
+
+  function repeatCells(sc, e, canvas, op) {
+    var v = op.v.f(sc, e);
+    if (!v || (!v[0] && !v[1])) return null;
+    var cells = [], cols = [], k, i;
+    for (k = 1; k < 62; k++) {
+      var any = false;
+      for (i = 0; i < e.n; i++) {
+        var p = e.cells[i], R = (p >> 6) + v[0] * k, C = (p & 63) + v[1] * k;
+        if (!inb(sc, R, C)) continue;
+        any = true;
+        cells.push((R << 6) | C); cols.push(sc.grid[p >> 6][p & 63]);
+      }
+      if (!any) break;
+    }
+    return { cells: cells, cols: cols };
+  }
+
+  function simpleCells(sc, e, canvas, op) {
+    var out = [], i, j, r, c, seen = new Set();
+    if (op.kind === "halo4" || op.kind === "halo8") {
+      var nb = op.kind === "halo4" ? DIRS.slice(0, 4) : DIRS;
+      for (i = 0; i < e.n; i++) for (j = 0; j < nb.length; j++) {
+        r = (e.cells[i] >> 6) + nb[j][0]; c = (e.cells[i] & 63) + nb[j][1];
+        if (!inb(sc, r, c) || canvas[r][c] !== sc.bg || e.has((r << 6) | c)) continue;
+        uniqPush(seen, out, (r << 6) | c);
+      }
+      return out;
+    }
+    if (op.kind === "bbox") {
+      for (r = e.r0; r <= e.r1; r++) for (c = e.c0; c <= e.c1; c++) if (canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      return out;
+    }
+    if (op.kind === "holes") return e.holeCells().filter(function (q) { return canvas[q >> 6][q & 63] === sc.bg; });
+    return out;
+  }
+
+  /* paint(sc, e, canvas) -> {cells, cols|null} or null (undefined here) */
+  function paint(sc, e, canvas, op) {
+    switch (op.kind) {
+      case "halo4": case "halo8": case "bbox": case "holes": return { cells: simpleCells(sc, e, canvas, op), cols: null };
+      case "ray": return { cells: rayCells(sc, e, canvas, op), cols: null };
+      case "link": return { cells: linkCells(sc, e, canvas, op), cols: null };
+      case "symm": return symmCells(sc, e, canvas, op);
+      case "stamp": return stampCells(sc, e, canvas, op);
+      case "repeat": return repeatCells(sc, e, canvas, op);
+    }
+    return null;
+  }
+
+  /* the enumerated operator grid, each with its code length */
+  var OPS = (function () {
+    var out = [];
+    function add(o) { o.key = key(o); out.push(o); }
+    add({ kind: "halo4", b: 3 }); add({ kind: "halo8", b: 3 });
+    add({ kind: "bbox", b: 3 }); add({ kind: "holes", b: 3 });
+    Object.keys(RAYSETS).forEach(function (d) {
+      var db = RAYSETS[d].length === 1 ? 3 : 1.5;
+      ["hit", "thru"].forEach(function (st) {
+        add({ kind: "ray", anchor: "edge", dir: d, stop: st, b: 3 + db + (st === "thru" ? 1 : 0) });
+        add({ kind: "ray", anchor: "minor", dir: d, stop: st, b: 4.5 + db + (st === "thru" ? 1 : 0) });
+      });
+    });
+    ["ul", "ur", "dl", "dr"].forEach(function (d) {
+      ["hit", "thru"].forEach(function (st) {
+        add({ kind: "ray", anchor: "corner", dir: d, stop: st, b: 7 + (st === "thru" ? 1 : 0) });
+        add({ kind: "ray", anchor: "edge", dir: d, stop: st, bounce: "bh", b: 8 + (st === "thru" ? 1 : 0) });
+        add({ kind: "ray", anchor: "edge", dir: d, stop: st, bounce: "bv", b: 8 + (st === "thru" ? 1 : 0) });
+      });
+    });
+    ["hit", "thru"].forEach(function (st) {
+      add({ kind: "ray", anchor: "minor", dir: "out", stop: st, b: 5 });
+      add({ kind: "ray", anchor: "edge", dir: "out", stop: st, b: 5.5 });
+      ["near", "nearD", "big", "cont"].forEach(function (r) {
+        add({ kind: "ray", anchor: "edge", dir: "away", r: r, stop: st, b: 4 + EXPR.REL_BY[r][1] });
+        add({ kind: "ray", anchor: "edge", dir: "toward", r: r, stop: st, b: 4 + EXPR.REL_BY[r][1] });
+      });
+    });
+    ["near", "nearS", "nearD", "rowN", "colN", "nearP"].forEach(function (r) {
+      add({ kind: "link", r: r, geo: "orth", b: 3 + EXPR.REL_BY[r][1] });
+      add({ kind: "link", r: r, geo: "diag", b: 4 + EXPR.REL_BY[r][1] });
+    });
+    ["allS", "all"].forEach(function (r) {
+      add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
+      add({ kind: "link", r: r, geo: "diag", b: r === "allS" ? 5.5 : 6 });
+    });
+    ["lr", "ud", "rot2", "both", "rot4"].forEach(function (k) {
+      ["self", "touch", "near", "nearD", "cont", "inner", "big"].forEach(function (a) {
+        add({ kind: "symm", sym: k, about: a, b: 4 + (a === "self" ? 0 : EXPR.REL_BY[a][1]) , patch: true });
+      });
+    });
+    ["big", "uniqS", "nearB", "near", "uniqC", "touch"].forEach(function (t) {
+      add({ kind: "stamp", tpl: t, align: "center", d4: false, b: 4 + EXPR.REL_BY[t][1], patch: true });
+      add({ kind: "stamp", tpl: t, align: "match", d4: false, b: 4 + EXPR.REL_BY[t][1], patch: true });
+      add({ kind: "stamp", tpl: t, align: "match", d4: true, b: 7 + EXPR.REL_BY[t][1], patch: true });
+    });
+    var steps = ["1", "h", "w", "h+1", "w+1", "2"];
+    EXPR.VEC_EXPRS.forEach(function (V) {
+      var parts = V.k.split("*");
+      if (parts.length === 2 && steps.indexOf(parts[1]) >= 0) add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+    });
+    return out;
+  })();
+  /* symm uses op.sym for its kind */
+  OPS.forEach(function (o) { if (o.kind === "symm") o.symKind = o.sym; });
+
+  function key(o) {
+    switch (o.kind) {
+      case "ray": return "ray:" + o.anchor + ":" + o.dir + (o.r ? "(" + o.r + ")" : "") + ":" + o.stop + (o.bounce ? ":" + o.bounce : "");
+      case "link": return "link:" + o.geo + "(" + o.r + ")";
+      case "symm": return "symm:" + o.sym + "@" + o.about;
+      case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "");
+      case "repeat": return "repeat[" + o.v.k + "]";
+      default: return o.kind;
+    }
+  }
+
+  function apply(sc, e, canvas, op) {
+    if (op.kind === "symm") return symmCells(sc, e, canvas, { kind: op.sym, about: op.about });
+    return paint(sc, e, canvas, op);
+  }
+
+  return { OPS: OPS, apply: apply, RAYSETS: RAYSETS, snapDir: snapDir };
+})();
+/* ===== src/63-sketch.js ===== */
+/* Entity-level sketch synthesis with version-space hole solving.
+ *
+ * A program here is a decision list over the entities of a scene:
+ *
+ *     for each entity e of SCN(input, seg):
+ *        first rule (PRED_i, ACTION_i) whose PRED_i(e) holds applies,
+ *        otherwise the DEFAULT action (keep | delete)
+ *     then GROWTH rules paint new cells relative to selected entities
+ *     then an optional canvas recolour of untouched background
+ *
+ * ACTION kinds and their typed holes:
+ *     recolor(COLOR)  del  move(VEC)  copy(VEC)  moverc(VEC, COLOR)
+ * GROWTH kinds: halo4/halo8(COLOR), bbox(COLOR), holes(COLOR),
+ *     ray(DIRSET, STOP, COLOR), link(REL, COLOR)
+ *
+ * Holes are EXPRESSIONS, not literals: COLOR ranges over literals, the
+ * entity's own colours, the colours of related entities (nearest, container,
+ * touching, unique-colour ...), and grid colour ranks; VEC over literal
+ * offsets, direction x INT (INT = own height/width/size, object counts,
+ * colour counts, distances ...), slides until blocked, moves until contact
+ * with a related entity, alignment and mirroring about it.
+ *
+ * The search is structure first, parameters second, and parameters are
+ * never enumerated blindly: for every entity of every demonstration the
+ * correspondence (61-correspondence.js) says what happened to it, and the
+ * set of expressions consistent with that is computed ONCE per entity. The
+ * hole's version space is the intersection of those sets over the entities a
+ * rule covers. Selection predicates are likewise the intersection of the
+ * predicates true on the entities a rule must cover and false on those it
+ * must not. When one rule cannot explain every entity the entities are
+ * partitioned by which expression explains them and a low-cost predicate
+ * separating the parts is searched: a conditional appears only where the
+ * residual partitions cleanly.
+ *
+ * Every assembled program is executed on every demonstration and kept only
+ * if it reproduces all of them exactly. Programs are values (plain objects)
+ * with a canonical key and a description length (64-mdl.js), so the
+ * portfolio can rank them, LODO can refit them, and the library can mine
+ * them.
+ */
+var SKETCH = (function () {
+  var DIRS = EXPR.DIRS, DNAME = EXPR.DNAME, LOG2_10 = EXPR.LOG2_10, RELS = EXPR.RELS, REL_BY = EXPR.REL_BY,
+      rel = EXPR.rel, COLOR_EXPRS = EXPR.COLOR_EXPRS, INT_EXPRS = EXPR.INT_EXPRS, VEC_EXPRS = EXPR.VEC_EXPRS,
+      litVec = EXPR.litVec, predCatalog = EXPR.predCatalog;
+
+  /* ---------------------------------------------------------- programs */
+  /* prog = {seg, bg, rules:[{p:pred, a:{kind, v:vexpr, c:cexpr}}], def: "keep"|"del",
+             grow:[{p, g:{kind, d, stop, c}}], canvas: color|-1} */
+  function actionKey(a) {
+    return a.kind + (a.d !== undefined ? "<" + (typeof a.d === "number" ? DNAME[a.d] : a.d) + ">" : "") +
+      (a.v ? "[" + a.v.k + "]" : "") + (a.c ? "{" + a.c.k + "}" : "");
+  }
+  function progKey(p) {
+    var s = p.seg + "|" + p.rules.map(function (r) { return r.p.k + ">" + actionKey(r.a); }).join(";") + "|" + p.def;
+    if (p.grow && p.grow.length) s += "|g:" + p.grow.map(function (r) { return r.p.k + ">" + growKey(r.g); }).join(";");
+    if (p.canvas >= 0) s += "|bg:" + p.canvas;
+    return s;
+  }
+  function growKey(g) { return g.op.key + (g.c ? "{" + g.c.k + "}" : ""); }
+
+  function paintPatch(out, e, dr, dc, color) {
+    var H = out.length, W = out[0].length, i, p, r, c;
+    for (i = 0; i < e.n; i++) {
+      p = e.cells[i]; r = (p >> 6) + dr; c = (p & 63) + dc;
+      if (r < 0 || r >= H || c < 0 || c >= W) continue;
+      out[r][c] = color === undefined || color === null ? e.patch[(p >> 6) - e.r0][(p & 63) - e.c0] : color;
+    }
+  }
+
+  /* direction of a fall: a literal orthogonal direction, or toward REL */
+  function fallDir(sc, e, d) {
+    if (typeof d === "number") return d;
+    var o = rel(sc, d, e);
+    if (!o) return -1;
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o);
+    if (cov && !rov) return e.r1 < o.r0 ? 1 : 0;
+    if (rov && !cov) return e.c1 < o.c0 ? 3 : 2;
+    return -1;
+  }
+  /* how far along direction d the entity already is (larger = nearer) */
+  function lead(e, d) {
+    return d === 0 ? -e.r0 : d === 1 ? e.r1 : d === 2 ? -e.c0 : e.c1;
+  }
+
+  function run(prog, grid) {
+    var sc = SCN.of(grid, prog.seg, prog.bg);
+    if (!sc) return null;
+    var out = [], r, i, j, ents = sc.ents, acts = new Array(ents.length);
+    for (r = 0; r < grid.length; r++) out.push(grid[r].slice());
+    for (i = 0; i < ents.length; i++) {
+      var a = null;
+      for (j = 0; j < prog.rules.length; j++) if (prog.rules[j].p.f(sc, ents[i])) { a = prog.rules[j].a; break; }
+      acts[i] = a;
+    }
+    /* phase 1: erasures */
+    for (i = 0; i < ents.length; i++) {
+      var k = acts[i] ? acts[i].kind : prog.def;
+      if (k === "del" || k === "move" || k === "moverc" || k === "fall")
+        for (j = 0; j < ents[i].n; j++) out[ents[i].cells[j] >> 6][ents[i].cells[j] & 63] = sc.bg;
+    }
+    /* sequential falls: nearest to the destination first, each sliding on
+       the canvas as it is now (so later ones stack on earlier ones) */
+    var falls = [];
+    for (i = 0; i < ents.length; i++) if (acts[i] && acts[i].kind === "fall") {
+      var fd = fallDir(sc, ents[i], acts[i].d);
+      if (fd < 0) return null;
+      falls.push([ents[i], fd, acts[i]]);
+    }
+    falls.sort(function (a, b) { return lead(b[0], b[1]) - lead(a[0], a[1]); });
+    for (i = 0; i < falls.length; i++) {
+      var fe = falls[i][0], dd = EXPR.DIRS[falls[i][1]], kk = 0, fc = null;
+      if (falls[i][2].c) { fc = falls[i][2].c.f(sc, fe); if (fc === null || fc === undefined) return null; }
+      for (;;) {
+        var nk = kk + 1, okk = true;
+        for (j = 0; j < fe.n; j++) {
+          var rr = (fe.cells[j] >> 6) + dd[0] * nk, cc = (fe.cells[j] & 63) + dd[1] * nk;
+          if (rr < 0 || rr >= sc.H || cc < 0 || cc >= sc.W || out[rr][cc] !== sc.bg) { okk = false; break; }
+        }
+        if (!okk || nk > 60) break;
+        kk = nk;
+      }
+      paintPatch(out, fe, dd[0] * kk, dd[1] * kk, fc);
+    }
+    /* phase 2: paints */
+    for (i = 0; i < ents.length; i++) {
+      var A = acts[i], e = ents[i];
+      if (!A) continue;
+      var col = null, v = null;
+      if (A.c) { col = A.c.f(sc, e); if (col === null || col === undefined) return null; }
+      if (A.v) { v = A.v.f(sc, e); if (!v) return null; }
+      if (A.kind === "recolor") paintPatch(out, e, 0, 0, col);
+      else if (A.kind === "move" || A.kind === "copy") paintPatch(out, e, v[0], v[1], null);
+      else if (A.kind === "moverc" || A.kind === "copyrc") paintPatch(out, e, v[0], v[1], col);
+    }
+    /* phase 3: growth, relative to the input's entities, on the canvas the
+       object rules left (so a halo may cover what a rule deleted) */
+    var base = null;
+    if (prog.grow && prog.grow.length) { base = []; for (r = 0; r < out.length; r++) base.push(out[r].slice()); }
+    if (prog.grow) for (j = 0; j < prog.grow.length; j++) {
+      var R = prog.grow[j];
+      for (i = 0; i < ents.length; i++) {
+        if (!R.p.f(sc, ents[i])) continue;
+        var res = GEN.apply(sc, ents[i], base, R.g.op);
+        if (!res) return null;
+        var gc = null;
+        if (!res.cols) { gc = R.g.c.f(sc, ents[i]); if (gc === null || gc === undefined) return null; }
+        for (var q = 0; q < res.cells.length; q++) out[res.cells[q] >> 6][res.cells[q] & 63] = res.cols ? res.cols[q] : gc;
+      }
+    }
+    if (prog.canvas >= 0) {
+      for (r = 0; r < out.length; r++) for (j = 0; j < out[0].length; j++)
+        if (out[r][j] === sc.bg && grid[r][j] === sc.bg) out[r][j] = prog.canvas;
+    }
+    return out;
+  }
+
+  /* --------------------------------------------------------- induction */
+  function valEq(a, b) {
+    if (a === null || a === undefined || b === null || b === undefined) return false;
+    if (Array.isArray(a)) return a[0] === b[0] && a[1] === b[1];
+    return a === b;
+  }
+
+  /* Observations: what each entity allows, as candidate actions with their
+     observed parameter values. */
+  function observe(item, x, y, bg) {
+    var e = item.e, f = item.fate, obs = [];
+    if (f.kind === "same") {
+      obs.push({ kind: "keep" });
+      if (e.ncol === 1) obs.push({ kind: "recolor", c: e.color });
+      /* staying put is the zero-length move */
+      obs.push({ kind: "move", v: [0, 0], zero: true });
+      if (e.ncol === 1) obs.push({ kind: "moverc", v: [0, 0], c: e.color, zero: true });
+    } else if (f.kind === "vacated") obs.push({ kind: "del" });
+    else if (f.kind === "recolor") {
+      obs.push({ kind: "recolor", c: f.c });
+      /* recoloured in place is the zero-length recolouring move */
+      if (e.ncol === 1) obs.push({ kind: "moverc", v: [0, 0], c: f.c, zero: true });
+    }
+    else if (f.kind === "mixed") obs.push({ kind: "keep", partial: true });
+    if ((f.kind === "vacated" || f.kind === "mixed" || f.kind === "same") && e.n <= 120) {
+      var pl = CORR.placements(e, x, y, bg, "exact", 0);
+      if (pl) pl.forEach(function (p) {
+        obs.push({ kind: f.kind === "same" ? "copy" : "move", v: [p.dr, p.dc] });
+      });
+      if (e.ncol === 1 && f.kind !== "same") {
+        var pr = CORR.placements(e, x, y, bg, "recolor", 0);
+        if (pr) pr.forEach(function (p) { obs.push({ kind: "moverc", v: [p.dr, p.dc], c: p.c }); });
+      }
+    }
+    return obs;
+  }
+
+  /* For one entity and one action kind: the consistent expressions. */
+  function consistentExprs(item, kind) {
+    var memo = item.vs || (item.vs = {});
+    if (memo[kind]) return memo[kind];
+    var sc = item.sc, e = item.e, res = { v: new Map(), c: new Map(), vc: [] }, i, j;
+    var want = item.obs.filter(function (o) { return o.kind === kind; });
+    if (!want.length) { memo[kind] = null; return null; }
+    if (kind === "recolor") {
+      for (i = 0; i < COLOR_EXPRS.length; i++) {
+        var cv = COLOR_EXPRS[i].f(sc, e);
+        for (j = 0; j < want.length; j++) if (cv === want[j].c) { res.c.set(COLOR_EXPRS[i].k, COLOR_EXPRS[i]); break; }
+      }
+    } else if (kind === "move" || kind === "copy" || kind === "moverc") {
+      var vals = [];
+      for (i = 0; i < VEC_EXPRS.length; i++) {
+        var vv = VEC_EXPRS[i].f(sc, e);
+        if (!vv) continue;
+        for (j = 0; j < want.length; j++) if (valEq(vv, want[j].v)) {
+          res.v.set(VEC_EXPRS[i].k, VEC_EXPRS[i]);
+          if (kind === "moverc") vals.push([VEC_EXPRS[i], want[j].c]);
+          break;
+        }
+      }
+      for (j = 0; j < want.length; j++) {
+        var L = litVec(want[j].v);
+        res.v.set(L.k, L);
+        if (kind === "moverc") vals.push([L, want[j].c]);
+      }
+      if (kind === "moverc") {
+        /* colour expressions per matching offset */
+        var cm = new Map();
+        for (i = 0; i < COLOR_EXPRS.length; i++) {
+          var cv2 = COLOR_EXPRS[i].f(sc, e);
+          for (j = 0; j < want.length; j++) if (cv2 === want[j].c) { cm.set(COLOR_EXPRS[i].k, COLOR_EXPRS[i]); break; }
+        }
+        res.c = cm;
+      }
+    }
+    memo[kind] = res;
+    return res;
+  }
+
+  function intersectMaps(a, b) {
+    var out = new Map();
+    a.forEach(function (v, k) { if (b.has(k)) out.set(k, v); });
+    return out;
+  }
+
+  /* The version space of an action kind over a set of entities: the
+     expressions every one of them allows. */
+  function recolorObs(items) {
+    var obs = [], i, j;
+    for (i = 0; i < items.length; i++) {
+      var o = null;
+      for (j = 0; j < items[i].obs.length; j++) if (items[i].obs[j].kind === "recolor") { o = items[i].obs[j]; break; }
+      if (!o) return null;
+      obs.push({ sc: items[i].sc, e: items[i].e, c: o.c });
+    }
+    return obs;
+  }
+  function tableVS(items) {
+    var obs = recolorObs(items);
+    if (!obs) return null;
+    var tabs = EXPR.fitTables(obs), m = new Map();
+    tabs.forEach(function (t) { m.set(t.k, t); });
+    return m.size ? m : null;
+  }
+  function actionVS(items, kind) {
+    var V = null, C = null, i;
+    if (kind === "recolor") {
+      for (i = 0; i < items.length; i++) {
+        var rc = consistentExprs(items[i], kind);
+        if (!rc) return null;
+        C = C === null ? new Map(rc.c) : intersectMaps(C, rc.c);
+        if (!C.size) break;
+      }
+      if (C && C.size) return { v: null, c: C };
+      /* no shared expression: a fitted attribute -> colour table */
+      var T = tableVS(items);
+      return T ? { v: null, c: T } : null;
+    }
+    for (i = 0; i < items.length; i++) {
+      var r = consistentExprs(items[i], kind);
+      if (!r) return null;
+      if (kind === "recolor") { C = C === null ? new Map(r.c) : intersectMaps(C, r.c); if (!C.size) return null; }
+      else {
+        V = V === null ? new Map(r.v) : intersectMaps(V, r.v);
+        if (!V.size) return null;
+        if (kind === "moverc") { C = C === null ? new Map(r.c) : intersectMaps(C, r.c); if (!C.size) return null; }
+      }
+    }
+    return { v: V, c: C };
+  }
+
+  function sortedExprs(m, cap) {
+    var arr = [];
+    m.forEach(function (x) { arr.push(x); });
+    arr.sort(function (a, b) { return (a.b - b.b) || (a.k < b.k ? -1 : 1); });
+    return arr.slice(0, cap);
+  }
+
+  /* predicates true on every item of T and false on every item of F */
+  function predVS(preds, T, F, cap) {
+    var out = [], i, j, ok;
+    for (i = 0; i < preds.length; i++) {
+      var p = preds[i];
+      ok = true;
+      for (j = 0; j < T.length && ok; j++) if (!truth(p, T[j])) ok = false;
+      for (j = 0; j < F.length && ok; j++) if (truth(p, F[j])) ok = false;
+      if (ok) out.push(p);
+    }
+    out.sort(function (a, b) { return a.b - b.b; });
+    if (out.length || !T.length || !F.length) return out.slice(0, cap);
+    /* conjunctions of two, when no single predicate separates */
+    var tp = preds.filter(function (p) { for (var k = 0; k < T.length; k++) if (!truth(p, T[k])) return false; return p.k !== "all"; });
+    tp.sort(function (a, b) { return a.b - b.b; });
+    tp = tp.slice(0, 24);
+    for (i = 0; i < tp.length; i++) for (j = i + 1; j < tp.length; j++) {
+      ok = true;
+      for (var q = 0; q < F.length; q++) if (truth(tp[i], F[q]) && truth(tp[j], F[q])) { ok = false; break; }
+      if (ok) out.push(conj(tp[i], tp[j]));
+      if (out.length >= cap * 3) break;
+    }
+    out.sort(function (a, b) { return a.b - b.b; });
+    return out.slice(0, cap);
+  }
+  function conj(p, q) {
+    return { k: p.k + "&" + q.k, b: p.b + q.b + 1, f: function (sc, e) { return p.f(sc, e) && q.f(sc, e); } };
+  }
+  function truth(p, item) {
+    var t = item.pt || (item.pt = {});
+    if (t[p.k] === undefined) t[p.k] = !!p.f(item.sc, item.e);
+    return t[p.k];
+  }
+
+  /* RELAX: an entity whose cells were recoloured may instead have been
+     deleted or kept and then painted over by a growth rule; the relaxed pass
+     lets the object rules say so and leaves those cells to growth. */
+  var RELAX = false;
+  function allows(item, kind) {
+    for (var i = 0; i < item.obs.length; i++) if (item.obs[i].kind === kind && !item.obs[i].partial) return true;
+    if (RELAX && (kind === "del" || kind === "keep") && (item.fate.kind === "recolor" || item.fate.kind === "mixed")) return true;
+    return false;
+  }
+
+  /* Enumerate decision lists (<= 2 rules + default) whose rule version
+     spaces are non-empty. Returns skeletons {rules:[{p, kind, vs}], def}. */
+  function decisionLists(items, preds, cap) {
+    var kinds = ["recolor", "del", "move", "moverc", "copy"], out = [];
+    var needs = items.filter(function (it) { return !allows(it, "keep"); });
+    if (!needs.length) return out;
+    ["keep", "del"].forEach(function (def) {
+      var defOK = items.map(function (it) { return def === "keep" ? (allows(it, "keep") || it.fate.kind === "mixed") : allows(it, "del"); });
+      var need = items.filter(function (it, i) { return !defOK[i]; });
+      if (!need.length) return;
+      /* one rule */
+      kinds.forEach(function (K) {
+        if (K === def) return;
+        var cover = need.filter(function (it) { return allows(it, K); });
+        if (cover.length !== need.length) return;
+        var vs = actionVS(need, K);
+        if (!vs) return;
+        /* entities where the rule would be wrong must be excluded by the
+           predicate: those that do not allow K with an expression in vs */
+        var F = [], T = need.slice();
+        items.forEach(function (it, i) {
+          if (!defOK[i]) return;
+          if (!compatible(it, K, vs)) F.push(it);
+        });
+        var ps = predVS(preds, T, F, 4);
+        ps.forEach(function (p) { out.push({ rules: [{ p: p, kind: K, vs: vs }], def: def }); });
+      });
+      /* two rules: partition the needy entities by kind / expression */
+      if (out.length >= cap) return;
+      kinds.forEach(function (K1) {
+        kinds.forEach(function (K2) {
+          if (K1 === def || K2 === def) return;
+          var g1 = need.filter(function (it) { return allows(it, K1); });
+          if (!g1.length || g1.length === need.length && K1 === K2) return;
+          /* split g1 further by expression: take the largest consistent
+             subset greedily (expression-driven partition) */
+          var parts = splitByExpr(g1, K1);
+          parts.forEach(function (part) {
+            var rest = need.filter(function (it) { return part.T.indexOf(it) < 0; });
+            if (!rest.length) return;
+            if (rest.some(function (it) { return !allows(it, K2); })) return;
+            var vs2 = actionVS(rest, K2);
+            if (!vs2) return;
+            /* rule 1 predicate: true on part, false on rest and on default
+               entities incompatible with rule 1 */
+            var F1 = rest.slice();
+            items.forEach(function (it, i) { if (defOK[i] && !compatible(it, K1, part.vs)) F1.push(it); });
+            var p1s = predVS(preds, part.T, F1, 2);
+            p1s.forEach(function (p1) {
+              var F2 = [];
+              items.forEach(function (it, i) {
+                if (!defOK[i] || truth(p1, it)) return;
+                if (!compatible(it, K2, vs2)) F2.push(it);
+              });
+              var p2s = predVS(preds, rest, F2, 2);
+              p2s.forEach(function (p2) {
+                out.push({ rules: [{ p: p1, kind: K1, vs: part.vs }, { p: p2, kind: K2, vs: vs2 }], def: def });
+              });
+            });
+          });
+        });
+      });
+    });
+    return out.slice(0, cap);
+  }
+
+  /* entity already satisfied by the default, but would the rule's action
+     (with SOME expression of the version space) also leave it right? */
+  function compatible(it, kind, vs) {
+    if (!allows(it, kind)) return false;
+    var r = consistentExprs(it, kind);
+    if (!r) return false;
+    var ok = false;
+    if (kind === "recolor") vs.c.forEach(function (x, k) {
+      if (r.c.has(k)) ok = true;
+      else if (x.tab) {
+        var v = x.f(it.sc, it.e);
+        for (var j = 0; j < it.obs.length; j++) if (it.obs[j].kind === "recolor" && it.obs[j].c === v) ok = true;
+      }
+    });
+    else if (kind === "del") ok = true;
+    else vs.v.forEach(function (x, k) { if (r.v.has(k)) ok = true; });
+    return ok;
+  }
+
+  /* partition entities allowing kind K by the expression that explains
+     them: the largest group sharing a non-empty version space first */
+  function splitByExpr(items, K) {
+    if (K === "del") return [{ T: items, vs: { v: null, c: null } }];
+    var counts = new Map(), i;
+    items.forEach(function (it) {
+      var r = consistentExprs(it, K);
+      if (!r) return;
+      var m = K === "recolor" ? r.c : r.v;
+      m.forEach(function (x, k) { counts.set(k, (counts.get(k) || 0) + 1); });
+    });
+    var keys = Array.from(counts.keys()).sort(function (a, b) { return counts.get(b) - counts.get(a); }).slice(0, 4);
+    var out = [];
+    for (i = 0; i < keys.length; i++) {
+      var T = items.filter(function (it) {
+        var r = consistentExprs(it, K); if (!r) return false;
+        return (K === "recolor" ? r.c : r.v).has(keys[i]);
+      });
+      var vs = actionVS(T, K);
+      if (vs) out.push({ T: T, vs: vs });
+    }
+    return out;
+  }
+
+  /* Programs from a skeleton: every combination of the cheapest expressions
+     (bounded), so disagreeing members of the version space all compete. */
+  function instantiate(sk, seg, bg, canvas, capPer) {
+    var progs = [[]];
+    sk.rules.forEach(function (r) {
+      var choices = [];
+      if (r.kind === "del") choices.push({ kind: "del" });
+      else if (r.kind === "recolor") sortedExprs(r.vs.c, capPer).forEach(function (c) { choices.push({ kind: "recolor", c: c }); });
+      else if (r.kind === "moverc") sortedExprs(r.vs.v, capPer).forEach(function (v) {
+        sortedExprs(r.vs.c, 2).forEach(function (c) { choices.push({ kind: "moverc", v: v, c: c }); });
+      });
+      else sortedExprs(r.vs.v, capPer).forEach(function (v) { choices.push({ kind: r.kind, v: v }); });
+      var next = [];
+      progs.forEach(function (pre) { choices.forEach(function (a) { next.push(pre.concat([{ p: r.p, a: a }])); }); });
+      progs = next.slice(0, 64);
+    });
+    return progs.map(function (rules) { return { seg: seg, bg: bg, rules: rules, def: sk.def, grow: [], canvas: canvas }; });
+  }
+
+  /* ------------------------------------------------------------ growth */
+  /* Induce growth rules (62a-genops.js operators) explaining the cells
+     `created` (per demo) that the object program left wrong. For every
+     operator and entity: the paint must agree with the output everywhere it
+     paints (a single colour, whose COLOR version space is intersected over
+     the rule's entities, or the copied patch colours exactly) -- "good" when
+     it also creates something, "bad" when it contradicts, "idle" otherwise.
+     The rule's predicate must hold on the good entities and fail on the bad. */
+  function induceGrowth(demos, preds, cap, deadline) {
+    var cands = [], oi;
+    for (oi = 0; oi < GEN.OPS.length; oi++) {
+      if (deadline && nowMs() > deadline) break;
+      var op = GEN.OPS[oi], goods = [], bads = [], covered = 0, t, i, j, C = null, dead = false, gobs = [];
+      for (t = 0; t < demos.length && !dead; t++) {
+        var D = demos[t];
+        for (i = 0; i < D.items.length; i++) {
+          var it = D.items[i], res = GEN.apply(D.sc, it.e, D.canvas, op);
+          if (!res || !res.cells.length) continue;
+          var good = true, useful = 0, col = -1;
+          for (j = 0; j < res.cells.length; j++) {
+            var p = res.cells[j], yv = D.y[p >> 6][p & 63];
+            if (res.cols) { if (yv !== res.cols[j]) { good = false; break; } }
+            else if (col < 0) col = yv; else if (yv !== col) { good = false; break; }
+            if (D.created.has(p)) useful++;
+          }
+          if (good && !res.cols && col === D.sc.bg) good = false;
+          if (!good) { bads.push(it); continue; }
+          if (!useful) continue;
+          covered += useful;
+          goods.push(it);
+          if (!res.cols) {
+            gobs.push({ sc: it.sc, e: it.e, c: col });
+            if (C === null || C.size) {
+              var m = new Map();
+              for (var ci = 0; ci < COLOR_EXPRS.length; ci++) if (COLOR_EXPRS[ci].f(it.sc, it.e) === col) m.set(COLOR_EXPRS[ci].k, COLOR_EXPRS[ci]);
+              C = C === null ? m : intersectMaps(C, m);
+            }
+          }
+        }
+      }
+      if (dead || !goods.length) continue;
+      if (C && !C.size) {
+        /* colours differ by entity with no shared relation: fitted table */
+        var tabs = EXPR.fitTables(gobs);
+        if (!tabs.length) continue;
+        C = new Map();
+        tabs.forEach(function (tb) { C.set(tb.k, tb); });
+      }
+      var ps = predVS(preds, goods, bads, 2);
+      if (!ps.length) continue;
+      cands.push({ op: op, C: C, ps: ps, covered: covered });
+    }
+    cands.sort(function (a, b) { return (b.covered - a.covered) || (a.op.b - b.op.b); });
+    return cands.slice(0, cap);
+  }
+
+  /* ------------------------------------------------------------ driver */
+  function paletteOf(ctx) {
+    return G.csList(G.csUnion(ctx.in_palette(), ctx.out_palette()));
+  }
+
+  function canvasColor(ctx, bg) {
+    /* untouched background of every input becomes one colour c != bg */
+    var c = -1, t, r, k;
+    for (t = 0; t < ctx.train.length; t++) {
+      var x = ctx.train[t][0], y = ctx.train[t][1], cnt = new Int32Array(10), tot = 0;
+      for (r = 0; r < x.length; r++) for (k = 0; k < x[0].length; k++) if (x[r][k] === bg) { cnt[y[r][k]]++; tot++; }
+      var best = 0;
+      for (k = 1; k < 10; k++) if (cnt[k] > cnt[best]) best = k;
+      if (best === bg || cnt[best] < tot * 0.5) return -1;
+      if (c < 0) c = best; else if (c !== best) return -1;
+    }
+    return c;
+  }
+
+  function verify(prog, ctx) {
+    for (var t = 0; t < ctx.train.length; t++) {
+      var out;
+      try { out = run(prog, ctx.train[t][0]); } catch (e) { return false; }
+      if (!out || !G.gEq(out, ctx.train[t][1])) return false;
+    }
+    return true;
+  }
+
+  /* residual of a program on each demo: the cells it leaves wrong */
+  function residual(prog, ctx) {
+    var res = [], t;
+    for (t = 0; t < ctx.train.length; t++) {
+      var out = null, y = ctx.train[t][1], x = ctx.train[t][0];
+      try { out = run(prog, x); } catch (e) { out = null; }
+      if (!out) return null;
+      var wrong = new Set(), r, c;
+      for (r = 0; r < y.length; r++) for (c = 0; c < y[0].length; c++) if (out[r][c] !== y[r][c]) wrong.add((r << 6) | c);
+      res.push({ out: out, wrong: wrong });
+    }
+    return res;
+  }
+
+  var STATS = null;
+
+  /* Synthesize for one segmentation. */
+  function forSeg(ctx, seg, bg, deadline, found, seen, canvas) {
+    var demos = [], allItems = [], t, i;
+    for (t = 0; t < ctx.train.length; t++) {
+      var x = ctx.train[t][0], y = ctx.train[t][1];
+      var sc = SCN.of(x, seg, bg);
+      if (!sc) return;
+      var fates = CORR.fates(sc, y);
+      if (!fates) return;
+      var items = [];
+      for (i = 0; i < sc.ents.length; i++) {
+        var item = { sc: sc, e: sc.ents[i], fate: fates[i], t: t };
+        item.obs = observe(item, x, y, bg);
+        items.push(item); allItems.push(item);
+      }
+      demos.push({ sc: sc, x: x, y: y, items: items });
+    }
+    for (t = 0; t < ctx.test_inputs.length; t++) if (!SCN.of(ctx.test_inputs[t], seg, bg)) return;
+    var preds = predCatalog(allItems, paletteOf(ctx)), nearCount = 0;
+    if (nowMs() > deadline) return;
+    function tryProg(p, why) {
+      if (STATS) STATS.executed++;
+      var key = progKey(p);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      if (!verify(p, ctx)) {
+        /* near-miss bookkeeping for the failure taxonomy: a program that
+           reproduces all demonstrations but one */
+        if (ctx.train.length >= 2 && !ctx._sketchNear && nearCount < 60) {
+          nearCount++;
+          var fit = 0;
+          for (var d0 = 0; d0 < ctx.train.length; d0++) {
+            var o0 = null; try { o0 = run(p, ctx.train[d0][0]); } catch (e0) { o0 = null; }
+            if (o0 && G.gEq(o0, ctx.train[d0][1])) fit++;
+          }
+          if (fit === ctx.train.length - 1) ctx._sketchNear = key;
+        }
+        return false;
+      }
+      p.why = why;
+      found.push(p);
+      return true;
+    }
+    /* 1. object rules (identity default when nothing needs an action);
+       then the relaxed pass, whose programs mainly seed growth */
+    var base = [];
+    [false, true].forEach(function (relax) {
+      if (nowMs() > deadline) return;
+      RELAX = relax;
+      var skels = decisionLists(allItems, preds, 24);
+      RELAX = false;
+      for (var s0 = 0; s0 < skels.length && nowMs() < deadline; s0++) {
+        var progs = instantiate(skels[s0], seg, bg, canvas, relax ? 2 : 4);
+        for (var j = 0; j < progs.length && nowMs() < deadline; j++) {
+          if (tryProg(progs[j], relax ? "relaxed" : "rules")) continue;
+          base.push(progs[j]);
+        }
+      }
+    });
+    /* 1b. sequential falls (gravity with stacking): the moved entities
+       select themselves; direction literal or toward a related entity */
+    var movers = allItems.filter(function (it) { return it.fate.kind === "vacated" || (it.fate.kind === "recolor" && it.e.ncol === 1); });
+    if (movers.length && movers.length <= 40 && nowMs() < deadline) {
+      var still = allItems.filter(function (it) { return it.fate.kind === "same"; });
+      var fps = predVS(preds, movers, [], 3).concat(predVS(preds, movers, still, 3));
+      var fcol = [null];
+      var recs = movers.filter(function (it) { return it.fate.kind === "recolor"; });
+      if (recs.length) {
+        var cm = null;
+        recs.forEach(function (it) {
+          var m = new Map();
+          COLOR_EXPRS.forEach(function (ce) { if (ce.f(it.sc, it.e) === it.fate.c) m.set(ce.k, ce); });
+          cm = cm === null ? m : intersectMaps(cm, m);
+        });
+        fcol = cm && cm.size ? sortedExprs(cm, 2) : [];
+      }
+      var fdirs = [0, 1, 2, 3, "nearB", "big", "near"];
+      for (var fi = 0; fi < fdirs.length && nowMs() < deadline; fi++)
+        for (var fj = 0; fj < fps.length; fj++) for (var fk = 0; fk < fcol.length; fk++)
+          tryProg({ seg: seg, bg: bg, rules: [{ p: fps[fj], a: { kind: "fall", d: fdirs[fi], c: fcol[fk] } }], def: "keep", grow: [], canvas: canvas }, "fall");
+    }
+    /* 2. growth on top of the best object programs (or of identity):
+       the object program's residual becomes the growth task (CEGIS) */
+    var starts = [{ seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas }].concat(base.slice(0, 10));
+    for (i = 0; i < starts.length && nowMs() < deadline; i++) {
+      var st = starts[i], R = residual(st, ctx);
+      if (!R) continue;
+      var creatable = true, dd = [];
+      for (t = 0; t < demos.length; t++) {
+        var created = new Set();
+        R[t].wrong.forEach(function (p) { created.add(p); });
+        if (!creatable) break;
+        dd.push({ sc: demos[t].sc, y: demos[t].y, items: demos[t].items, created: created, canvas: R[t].out });
+      }
+      if (!creatable) continue;
+      var gc = induceGrowth(dd, preds, 6, deadline);
+      for (var a = 0; a < gc.length && nowMs() < deadline; a++) {
+        var g1 = gc[a], cexprs = g1.C ? sortedExprs(g1.C, 3) : [null];
+        for (var b = 0; b < cexprs.length; b++) for (var q = 0; q < g1.ps.length; q++) {
+          var G1 = { op: g1.op, c: cexprs[b], b: g1.op.b };
+          var p1 = { seg: seg, bg: bg, rules: st.rules, def: st.def, grow: [{ p: g1.ps[q], g: G1 }], canvas: canvas };
+          if (tryProg(p1, "grow")) continue;
+          /* second growth rule on the remaining residual */
+          if (a < 3 && b === 0 && q === 0) {
+            var R2 = residual(p1, ctx);
+            if (!R2) continue;
+            var dd2 = [], ok2 = true;
+            for (t = 0; t < demos.length; t++) {
+              var cr2 = new Set();
+              R2[t].wrong.forEach(function (p) { cr2.add(p); });
+              dd2.push({ sc: demos[t].sc, y: demos[t].y, items: demos[t].items, created: cr2, canvas: R2[t].out });
+            }
+            if (!ok2) continue;
+            var gc2 = induceGrowth(dd2, preds, 3, deadline);
+            for (var a2 = 0; a2 < gc2.length; a2++) {
+              var cx2 = gc2[a2].C ? sortedExprs(gc2[a2].C, 2) : [null];
+              for (var b2 = 0; b2 < cx2.length; b2++) {
+                var G2 = { op: gc2[a2].op, c: cx2[b2], b: gc2[a2].op.b };
+                tryProg({ seg: seg, bg: bg, rules: st.rules, def: st.def, grow: [{ p: g1.ps[q], g: G1 }, { p: gc2[a2].ps[0], g: G2 }], canvas: canvas }, "grow2");
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function synthesize(ctx, deadline, opts) {
+    opts = opts || {};
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), found = [], seen = new Set();
+    var canvas = canvasColor(ctx, bg);
+    var segs = opts.segs || SCN.SEGS, i;
+    for (i = 0; i < segs.length && nowMs() < deadline; i++) {
+      forSeg(ctx, segs[i], bg, deadline, found, seen, canvas);
+      if (canvas >= 0) forSeg(ctx, segs[i], bg, deadline, found, seen, -1);
+      if (found.length >= 40) break;
+    }
+    return found;
+  }
+
+  /* Roles of a program on a grid: for each rule, the entities it selected
+     and the entities its relational expressions referred to. Used by the
+     referent-consistency evidence (64-mdl.js). */
+  function roles(prog, grid) {
+    var sc = SCN.of(grid, prog.seg, prog.bg);
+    if (!sc) return null;
+    var out = [], i, j, rest = { sel: [], ref: [] };
+    prog.rules.forEach(function () { out.push({ sel: [], ref: [] }); });
+    (prog.grow || []).forEach(function () { out.push({ sel: [], ref: [] }); });
+    for (i = 0; i < sc.ents.length; i++) {
+      var e = sc.ents[i], any = false;
+      for (j = 0; j < prog.rules.length; j++) if (prog.rules[j].p.f(sc, e)) {
+        any = true;
+        out[j].sel.push(e);
+        var a = prog.rules[j].a;
+        [a.c, a.v].forEach(function (x) { if (x && x.rel) { var o = rel(sc, x.rel, e); if (o) out[j].ref.push(o); } });
+        break;
+      }
+      (prog.grow || []).forEach(function (R, k) {
+        if (!R.p.f(sc, e)) return;
+        any = true;
+        var slot = out[prog.rules.length + k];
+        slot.sel.push(e);
+        var r = R.g.op.r || R.g.op.tpl || (R.g.op.about !== "self" ? R.g.op.about : null);
+        if (typeof r === "string" && REL_BY[r]) { var o = rel(sc, r, e); if (o) slot.ref.push(o); }
+        if (R.g.c && R.g.c.rel) { var o2 = rel(sc, R.g.c.rel, e); if (o2) slot.ref.push(o2); }
+      });
+      /* the complement role: what no rule touched is also taught */
+      if (!any) rest.sel.push(e);
+    }
+    out.push(rest);
+    return out;
+  }
+
+  /* Diagnostic (development measurement only): for each segmentation, how
+     much of the created residual the best single operator explains when
+     applied to its consistent entities, ignoring whether a predicate can
+     select them. Separates "no operator expresses it" from "no predicate
+     selects it". */
+  function explainGap(ctx) {
+    if (!ctx.same_shape()) return null;
+    var bg = ctx.bg(), best = { frac: 0 }, si;
+    for (si = 0; si < SCN.SEGS.length; si++) {
+      var seg = SCN.SEGS[si], demos = [], t, ok = true, total = 0;
+      for (t = 0; t < ctx.train.length; t++) {
+        var x = ctx.train[t][0], y = ctx.train[t][1], sc = SCN.of(x, seg, bg);
+        if (!sc) { ok = false; break; }
+        var created = new Set(), r, c;
+        for (r = 0; r < y.length; r++) for (c = 0; c < y[0].length; c++) if (x[r][c] !== y[r][c] && x[r][c] === bg) created.add((r << 6) | c);
+        total += created.size;
+        demos.push({ sc: sc, y: y, created: created, canvas: x, items: sc.ents.map(function (e) { return { sc: sc, e: e }; }) });
+      }
+      if (!ok || !total) continue;
+      for (var oi = 0; oi < GEN.OPS.length; oi++) {
+        var op = GEN.OPS[oi], got = 0, bad = 0;
+        demos.forEach(function (D) {
+          D.items.forEach(function (it) {
+            var res = GEN.apply(D.sc, it.e, D.canvas, op);
+            if (!res || !res.cells.length) return;
+            var good = true, col = -1, u = 0;
+            for (var j = 0; j < res.cells.length; j++) {
+              var p = res.cells[j], yv = D.y[p >> 6][p & 63];
+              if (res.cols ? yv !== res.cols[j] : (col < 0 ? (col = yv, false) : yv !== col)) { good = false; break; }
+              if (D.created.has(p)) u++;
+            }
+            if (good) got += u; else bad++;
+          });
+        });
+        var frac = got / total;
+        if (frac > best.frac) best = { frac: frac, op: op.key, seg: seg, bad: bad };
+      }
+    }
+    return best;
+  }
+
+  return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles, actionKey: actionKey, growKey: growKey,
+           RELS: RELS, COLOR_EXPRS: COLOR_EXPRS, VEC_EXPRS: VEC_EXPRS, INT_EXPRS: INT_EXPRS,
+           predCatalog: predCatalog, predVS: predVS, verify: verify, residual: residual,
+           stats: function (s) { if (s !== undefined) STATS = s; return STATS; } };
+})();
+/* ===== src/63a-extract.js ===== */
+/* Extraction sketches: the output is a rendering of ONE entity of the input.
+ *
+ *     out = RENDER_t( the entity e of SCN(input, seg) with PRED(e) )
+ *
+ * RENDER is the entity's bounding-box subgrid of the input, or its patch on
+ * the background, optionally under a D4 transform t. For every demonstration
+ * the correspondence is exact: the set of entities whose rendering equals the
+ * output. PRED's version space is then the predicates true on (one of) those
+ * targets and false on every other entity, intersected over all
+ * demonstrations; conjunctions of two are tried only when no single predicate
+ * separates. The same predicate language as the in-place sketches is used, so
+ * "the object touching the red marker", "the only one with a hole" and "the
+ * largest of the unique-coloured ones" are all reachable without a dedicated
+ * selector for each.
+ */
+var EXTRACT = (function () {
+  function render(sc, e, mode, t) {
+    var g;
+    if (mode === "bbox") g = G.subgrid(sc.grid, e.r0, e.c0, e.r1, e.c1);
+    else g = e.patch.map(function (row) { return row.map(function (v) { return v < 0 ? sc.bg : v; }); });
+    return t ? SCN.tf(g, t) : g;
+  }
+
+  function synthesize(ctx, deadline) {
+    if (ctx.same_shape()) return [];
+    var bg = ctx.bg(), found = [], seen = new Set(), si;
+    for (si = 0; si < SCN.SEGS.length && nowMs() < deadline; si++) {
+      var seg = SCN.SEGS[si];
+      if (seg === "bg4" || seg === "cell") continue;
+      ["bbox", "patch"].forEach(function (mode) {
+        for (var t = 0; t < 8 && nowMs() < deadline; t++) {
+          var targets = [], items = [], ok = true, d;
+          for (d = 0; d < ctx.train.length; d++) {
+            var sc = SCN.of(ctx.train[d][0], seg, bg), y = ctx.train[d][1];
+            if (!sc) { ok = false; break; }
+            var tg = [];
+            for (var i = 0; i < sc.ents.length; i++) {
+              var e = sc.ents[i];
+              var hh = t === 1 || t === 3 || t === 6 || t === 7 ? e.w : e.h, ww = hh === e.h ? e.w : e.h;
+              if (hh !== y.length || ww !== y[0].length) continue;
+              if (G.gEq(render(sc, e, mode, t), y)) tg.push(e);
+            }
+            if (!tg.length) { ok = false; break; }
+            targets.push(tg);
+            sc.ents.forEach(function (e2) { items.push({ sc: sc, e: e2, t: d, target: tg.indexOf(e2) >= 0 }); });
+          }
+          if (!ok) continue;
+          for (d = 0; d < ctx.test_inputs.length; d++) if (!SCN.of(ctx.test_inputs[d], seg, bg)) ok = false;
+          if (!ok) continue;
+          /* a demo may have several equal targets: the predicate must be
+             true on all of them (the render is then unambiguous anyway) */
+          var T = items.filter(function (x) { return x.target; }), F = items.filter(function (x) { return !x.target; });
+          var preds = EXPR.predCatalog(items, G.csList(G.csUnion(ctx.in_palette(), ctx.out_palette())));
+          var ps = SKETCH.predVS(preds, T, F, 4);
+          ps.forEach(function (p) {
+            var prog = { kind: "extract", seg: seg, bg: bg, mode: mode, t: t, p: p };
+            var key = keyOf(prog);
+            if (seen.has(key)) return;
+            seen.add(key);
+            if (verify(prog, ctx)) found.push(prog);
+          });
+        }
+      });
+      if (found.length >= 12) break;
+    }
+    return found;
+  }
+
+  function run(prog, grid) {
+    var sc = SCN.of(grid, prog.seg, prog.bg);
+    if (!sc) return null;
+    var hit = null, i;
+    for (i = 0; i < sc.ents.length; i++) if (prog.p.f(sc, sc.ents[i])) {
+      var g = render(sc, sc.ents[i], prog.mode, prog.t);
+      if (hit && !G.gEq(hit, g)) return null;
+      hit = g;
+    }
+    return hit;
+  }
+  function verify(prog, ctx) {
+    for (var d = 0; d < ctx.train.length; d++) {
+      var out = run(prog, ctx.train[d][0]);
+      if (!out || !G.gEq(out, ctx.train[d][1])) return false;
+    }
+    return true;
+  }
+  function keyOf(p) { return "x:" + p.seg + "|" + p.p.k + "|" + p.mode + (p.t ? "|t" + p.t : ""); }
+  function bits(p) { return Math.log(SCN.SEGS.length) / Math.LN2 + p.p.b + 1 + (p.t ? 3 : 0.5); }
+
+  (function () {
+    function generate(ctx) {
+      var progs = synthesize(ctx, ctx.deadline), out = [];
+      progs.forEach(function (p) {
+        var h = new Hyp(keyOf(p), function (g) { return run(p, g); }, 1.0 + bits(p) / 8.0, "sketch");
+        h.eprog = p;
+        out.push(h);
+      });
+      return out;
+    }
+    defSolver("extract", "sketch", generate, 1, 0.4);
+  })();
+
+  return { synthesize: synthesize, run: run, keyOf: keyOf, bits: bits };
+})();
+/* ===== src/64-mdl.js ===== */
+/* Description length of entity programs, and the solver family that emits
+ * them.
+ *
+ * Several programs usually reproduce every demonstration exactly; the one to
+ * trust is the one that explains them most compactly (CompressARC's lesson,
+ * applied to programs rather than to a network). The code is a real prefix
+ * code over the program's parts, not a renamed cost:
+ *
+ *   segmentation       log2 |beam|
+ *   each rule          1 (continue bit) + predicate + action kind + holes
+ *   default action     1
+ *   each growth rule   1 + predicate + growth kind + colour
+ *   canvas recolour    1 + log2 10 when used
+ *
+ * Expressions carry their own bits (63-sketch.js): a literal colour costs
+ * log2 10, a literal offset 2 + L(dr) + L(dc) with L(v) = 1 + 2 log2(|v|+1),
+ * while a relational expression costs the bits of the relation it names. So
+ * a literal that happens to agree across every demonstration is cheap only
+ * when it is one small value; three demonstrations moving by 2, 5 and 3 can
+ * never share a literal, and "down by own height" (5 bits) or "until contact
+ * with the nearest marker" (4.5 bits) is what compresses them. Predicates
+ * pay for literal thresholds the same way.
+ */
+var EMDL = (function () {
+  var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
+  var SEG_BITS = Math.log(SCN.SEGS.length) / Math.LN2;
+  function bits(p) {
+    var b = SEG_BITS + 1, i;
+    for (i = 0; i < p.rules.length; i++) {
+      var r = p.rules[i];
+      b += 1 + r.p.b + (KIND_BITS[r.a.kind] || 2) + (r.a.v ? r.a.v.b : 0) + (r.a.c ? r.a.c.b : 0) +
+        (r.a.d !== undefined ? (typeof r.a.d === "number" ? 2 : 2 + EXPR.REL_BY[r.a.d][1]) : 0);
+    }
+    if (p.grow) for (i = 0; i < p.grow.length; i++) {
+      var g = p.grow[i];
+      b += 1 + g.p.b + (g.g.b || 3) + (g.g.c ? g.g.c.b : 0);
+    }
+    if (p.canvas >= 0) b += 1 + Math.log(10) / Math.LN2;
+    return b;
+  }
+  /* portfolio cost units (typed programs pay 2 + bits/8) */
+  function cost(p) { return 1.0 + bits(p) / 8.0; }
+
+  /* Referent consistency. Every property that held for ALL entities a rule
+     selected (or ALL entities its relations referred to) across the
+     demonstrations is part of what the demonstrations taught about that
+     role. When the test input fills the role with an entity violating such a
+     property, the rule is extrapolating through a coincidence: "the nearest
+     different-coloured entity" was always a long border line in training and
+     is a stray pixel on the test grid. The count of violated invariants is
+     returned; nothing here reads a test output. */
+  var PROPS = [
+    ["pix", function (e) { return e.n === 1; }], ["line", function (e) { return e.line && e.n > 1; }],
+    ["rect", function (e) { return e.rect; }], ["border", function (e) { return e.border; }],
+    ["mono", function (e) { return e.ncol === 1; }], ["holes", function (e) { return e.holes() > 0; }],
+    ["sq", function (e) { return e.square; }]
+  ];
+  function sig(e) {
+    var s = {}, i;
+    for (i = 0; i < PROPS.length; i++) s[PROPS[i][0]] = !!PROPS[i][1](e);
+    s["c" + e.color] = true;
+    return s;
+  }
+  function shift(p, ctx) {
+    if (!SKETCH.roles) return 0;
+    var inv = null, t, i;
+    for (t = 0; t < ctx.train.length; t++) {
+      var R = SKETCH.roles(p, ctx.train[t][0]);
+      if (!R) return 0;
+      if (!inv) inv = R.map(function () { return { sel: null, ref: null }; });
+      R.forEach(function (slot, k) {
+        ["sel", "ref"].forEach(function (w) {
+          slot[w].forEach(function (e) {
+            var s = sig(e);
+            if (inv[k][w] === null) { inv[k][w] = {}; for (var key in s) inv[k][w][key] = s[key]; PROPS.forEach(function (q) { if (!s[q[0]]) inv[k][w]["!" + q[0]] = true; }); }
+            else {
+              for (var a in inv[k][w]) {
+                var neg = a.charAt(0) === "!", name = neg ? a.slice(1) : a;
+                if ((neg ? !s[name] : !!s[name]) === false) delete inv[k][w][a];
+              }
+            }
+          });
+        });
+      });
+    }
+    if (!inv) return 0;
+    var viol = 0;
+    for (t = 0; t < ctx.test_inputs.length; t++) {
+      var RT = SKETCH.roles(p, ctx.test_inputs[t]);
+      if (!RT) continue;
+      RT.forEach(function (slot, k) {
+        ["sel", "ref"].forEach(function (w) {
+          var I = inv[k] && inv[k][w];
+          if (!I) return;
+          slot[w].forEach(function (e) {
+            var s = sig(e);
+            for (var a in I) {
+              if (a.charAt(0) === "c") continue;          /* colours may legitimately change */
+              var neg = a.charAt(0) === "!", name = neg ? a.slice(1) : a;
+              if ((neg ? !s[name] : !!s[name]) === false) { viol++; break; }
+            }
+          });
+        });
+      });
+    }
+    return viol;
+  }
+  return { bits: bits, cost: cost, shift: shift };
+})();
+
+/* The sketch family inside the portfolio. */
+(function () {
+  function generate(ctx) {
+    var progs = SKETCH.synthesize(ctx, ctx.deadline), out = [], i;
+    for (i = 0; i < progs.length; i++) (function (p) {
+      var sh = 0;
+      try { sh = EMDL.shift(p, ctx); } catch (e) { sh = 0; }
+      p.shift = sh;
+      var h = new Hyp("sk:" + SKETCH.progKey(p), function (g) { return SKETCH.run(p, g); }, EMDL.cost(p) + Math.min(3, sh) * 1.0, "sketch");
+      h.eprog = p;
+      out.push(h);
+    })(progs[i]);
+    return out;
+  }
+  defSolver("sketch", "sketch", generate, 1, 0.9);
+})();
+/* ===== src/65-schema.js ===== */
+/* Task schema posterior and failure taxonomy (demonstrations only).
+ *
+ * SCHEMA.of(ctx) is a soft description of the task, computed before any
+ * expensive search from the demonstrations alone:
+ *   size     same | crop | scale | tile | const | derived | other
+ *   palette  preserved | subset | new-colour
+ *   change   distribution over keep / recolor / delete / move / copy / create
+ *            measured by entity correspondence in the best segmentation
+ *   level    pixels | objects | panels (separator lines present)
+ * and a posterior over hypothesis families (normalised weights) that the
+ * schedule uses to order and size the entity-level branches. It is never a
+ * hard classifier: every family still runs; the weights move time.
+ *
+ * TAXON.reason(ctx, res) names, for a task where no program fits, the most
+ * specific reason the demonstrations support, so NO_CANDIDATE splits into
+ * actionable counts:
+ *   OUTPUT_SHAPE_UNKNOWN          no shape law and no entity has the output's size
+ *   SEGMENTATION_FAILURE          every segmentation of the beam is too fragmented
+ *   OBJECT_CORRESPONDENCE_FAILURE foreground changed and no correspondence covers it
+ *   GENERATIVE_OP_MISSING         created cells no generative operator explains
+ *   RELATION_NOT_EXPRESSIBLE      an operator explains them, no predicate/expression selects
+ *   CONDITIONAL_REQUIRED          entity fates split into several action classes
+ *   CORRECT_STRUCTURE_WRONG_PARAMETERS  a program reproduces all but one demonstration
+ *   SIZE_CHANGE_UNEXPLAINED       output size law known, content rule not found
+ *   TIMEOUT                       the search did not finish its schedule
+ */
+var SCHEMA = (function () {
+  function sizeRel(ctx) {
+    if (ctx.same_shape()) return "same";
+    if (ctx.const_out_shape()) return "const";
+    var sr = ctx.shape_ratio();
+    if (sr) return (sr[0] === 1 && sr[1] === 1) ? "same" : "scale";
+    if (ctx.inv_shape_ratio()) return "shrink";
+    if (ctx.affine_shape()) return "derived";
+    /* crop: output fits inside the input in every pair */
+    var crop = ctx.train.every(function (p) { return p[1].length <= p[0].length && p[1][0].length <= p[0][0].length; });
+    return crop ? "crop" : "other";
+  }
+  function paletteRel(ctx) {
+    var sub = true, eq = true, t;
+    for (t = 0; t < ctx.train.length; t++) {
+      var a = G.palette(ctx.train[t][0]), b = G.palette(ctx.train[t][1]);
+      if (!G.csSubset(b, a)) sub = false;
+      if (a !== b) eq = false;
+    }
+    return eq ? "preserved" : sub ? "subset" : "new";
+  }
+  function panels(ctx) {
+    /* a full row or column of one non-background colour in every input */
+    var bg = ctx.bg();
+    return ctx.train.every(function (p) {
+      var g = p[0], r, c;
+      for (r = 0; r < g.length; r++) { var v = g[r][0]; if (v !== bg && g[r].every(function (x) { return x === v; })) return true; }
+      for (c = 0; c < g[0].length; c++) { var w = g[0][c]; if (w !== bg && g.every(function (row) { return row[c] === w; })) return true; }
+      return false;
+    });
+  }
+  /* entity change distribution in the segmentation with best coverage */
+  function changes(ctx) {
+    var bg = ctx.bg(), best = null, si;
+    if (!ctx.same_shape()) return null;
+    for (si = 0; si < SCN.SEGS.length; si++) {
+      var seg = SCN.SEGS[si];
+      if (seg === "cell") continue;
+      var dist = { keep: 0, recolor: 0, del: 0, moved: 0, mixed: 0, create: 0 }, cov = 0, ok = true, t;
+      for (t = 0; t < ctx.train.length; t++) {
+        var x = ctx.train[t][0], y = ctx.train[t][1], sc = SCN.of(x, seg, bg);
+        if (!sc) { ok = false; break; }
+        var f = CORR.fates(sc, y), i;
+        for (i = 0; i < f.length; i++) {
+          var k = f[i].kind;
+          if (k === "same") dist.keep++;
+          else if (k === "recolor" || k === "cmap") dist.recolor++;
+          else if (k === "vacated") dist.del++;
+          else dist.mixed++;
+        }
+        var r, c;
+        for (r = 0; r < x.length; r++) for (c = 0; c < x[0].length; c++) if (x[r][c] === bg && y[r][c] !== bg) dist.create++;
+        cov += CORR.coverage(sc, y) || 0;
+      }
+      if (!ok) continue;
+      cov /= ctx.train.length;
+      if (!best || cov > best.cov) best = { seg: seg, cov: cov, dist: dist };
+    }
+    return best;
+  }
+  function of(ctx) {
+    return ctx.memo("schema", function () {
+      var s = { size: sizeRel(ctx), palette: paletteRel(ctx), panels: panels(ctx) };
+      s.change = changes(ctx);
+      /* posterior over the entity-level branches */
+      var w = { sketch: 0.1, extract: 0.1 };
+      if (s.size === "same") {
+        w.sketch = 0.8;
+        if (s.change && s.change.dist.create > 0) w.sketch = 0.9;
+      } else if (s.size === "crop" || s.size === "shrink" || s.size === "other") w.extract = 0.7;
+      s.weights = w;
+      return s;
+    });
+  }
+  return { of: of };
+})();
+
+var TAXON = (function () {
+  function reason(ctx, res) {
+    try {
+      var s = SCHEMA.of(ctx);
+      if (res && res.diagnostics && res.diagnostics.timed_out) return "TIMEOUT";
+      if (s.size !== "same") {
+        var anySize = s.size !== "other" && s.size !== "crop";
+        if (!anySize) {
+          /* does some entity (any segmentation) have the output's size? */
+          var bg = ctx.bg(), hit = ctx.train.every(function (p) {
+            return SCN.SEGS.some(function (seg) {
+              var sc = SCN.of(p[0], seg, bg);
+              return sc && sc.ents.some(function (e) { return (e.h === p[1].length && e.w === p[1][0].length) || (e.w === p[1].length && e.h === p[1][0].length); });
+            });
+          });
+          if (!hit) return "OUTPUT_SHAPE_UNKNOWN";
+        }
+        return "SIZE_CHANGE_UNEXPLAINED";
+      }
+      if (!s.change) return "SEGMENTATION_FAILURE";
+      var d = s.change.dist, fg = d.recolor + d.del + d.mixed;
+      if (res && res.diagnostics && res.diagnostics.sketch_near) return "CORRECT_STRUCTURE_WRONG_PARAMETERS";
+      if (d.create > 0 && fg === 0) {
+        var gap = SKETCH.explainGap(ctx);
+        return gap && gap.frac >= 0.999 ? "RELATION_NOT_EXPRESSIBLE" : "GENERATIVE_OP_MISSING";
+      }
+      if (s.change.cov < 0.9) return "OBJECT_CORRESPONDENCE_FAILURE";
+      var classes = (d.recolor ? 1 : 0) + (d.del ? 1 : 0) + (d.mixed ? 1 : 0) + (d.create ? 1 : 0);
+      if (classes >= 2) return "CONDITIONAL_REQUIRED";
+      return "RELATION_NOT_EXPRESSIBLE";
+    } catch (e) { return "UNKNOWN"; }
+  }
+  return { reason: reason };
 })();
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
@@ -23906,6 +26250,7 @@ var ENGINE = {
   KERNEL: root.C4ReasonKernel, MEMORY: root.C4ReasonMemory, META: root.C4ReasonMeta,
   CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
   MACROS: MACROS, PASS2: PASS2,
+  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, SCHEMA: SCHEMA, TAXON: TAXON,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,

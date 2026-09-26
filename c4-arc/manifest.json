@@ -77,5 +77,13 @@
   "57b-testtime.js",
   "58-counterfactual.js",
   "59-equivariant.js",
+  "60-scene.js",
+  "61-correspondence.js",
+  "62-expr.js",
+  "62a-genops.js",
+  "63-sketch.js",
+  "63a-extract.js",
+  "64-mdl.js",
+  "65-schema.js",
   "90-engine.js"
 ]

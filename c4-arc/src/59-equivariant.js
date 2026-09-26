@@ -133,10 +133,17 @@ var REFRAME = (function () {
       tried.push(fr.name);
       if (!hasCandidate(r2)) continue;
       /* back to the task's own frame */
+      var framedProv = [];
       var preds = r2.predictions.map(function (list, ti) {
-        var inv = fr.invFor ? fr.invFor(testInputs[ti]) : fr.inv;
-        return (list || []).map(function (gr) { try { return gridOk(gr) ? inv(gr) : gr; } catch (e) { return gr; } })
-          .filter(function (gr) { return gridOk(gr); });
+        var inv = fr.invFor ? fr.invFor(testInputs[ti]) : fr.inv, byKey = new Map();
+        var fp = (r2.provenance && r2.provenance[ti]) || [];
+        var back = (list || []).map(function (gr, j) {
+          var b; try { b = gridOk(gr) ? inv(gr) : gr; } catch (e) { b = gr; }
+          if (gridOk(b) && !byKey.has(G.gkey(b))) byKey.set(G.gkey(b), (fp[j] || []).map(function (f) { return f + "@" + fr.name; }));
+          return b;
+        }).filter(function (gr) { return gridOk(gr); });
+        framedProv.push(byKey);
+        return back;
       });
       if (weak) {
         /* the raw answer broke a demonstrated law; the frame's answers go
@@ -148,6 +155,22 @@ var REFRAME = (function () {
           return list.concat((res.predictions[ti] || []).filter(function (gr) { return !seenK.has(G.gkey(gr)); }));
         });
       }
+      /* provenance and generation keys follow the predictions back into the
+         task's own frame (measurement only) */
+      var rawKeys = res.gen_keys || [], rawProv = res.provenance || [];
+      res.gen_keys = preds.map(function (list, ti) {
+        var s = new Set(rawKeys[ti] || []);
+        list.forEach(function (gr) { s.add(G.gkey(gr)); });
+        return Array.from(s).slice(0, 400);
+      });
+      res.provenance = preds.map(function (list, ti) {
+        var rawByKey = new Map();
+        (res.predictions[ti] || []).forEach(function (gr, j) { rawByKey.set(G.gkey(gr), rawProv[ti] ? rawProv[ti][j] : null); });
+        return list.map(function (gr) {
+          var k = G.gkey(gr);
+          return framedProv[ti].get(k) || rawByKey.get(k) || [];
+        });
+      });
       res.predictions = preds;
       res.chosen = (r2.chosen || []).map(function (c) { return c ? [c[0] + "@" + fr.name, c[1]] : c; });
       res.solver = r2.solver ? r2.solver + "@" + fr.name : null;

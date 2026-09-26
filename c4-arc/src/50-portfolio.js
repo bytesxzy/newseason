@@ -14,7 +14,9 @@ var SOLVER_PRIOR = {
   compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0,
   /* a typed program in another substrate: the substrate is an extra
      assumption, charged a quarter unit over the same program in raw cells */
-  represent: 1.25
+  represent: 1.25,
+  /* entity programs (63-sketch.js) pay their own description length */
+  sketch: 1.0
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -23,7 +25,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "tiling", "blocks", "selfstamp", "extend", "select", "locate", "regions",
   "counting", "cellwise", "objects_map", "objproc", "relproc", "tally", "motion",
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
-  "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
+  "sketch", "extract", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
   "enumerate_dsl", "represent", "typed"];
 
@@ -44,6 +46,8 @@ function Result() {
   this.n_hyps = 0;
   this.n_fit = 0;
   this.solver = null;
+  this.provenance = [];
+  this.gen_keys = [];
   this.diagnostics = { modules: [], loo: [], predictions: [] };
 }
 
@@ -657,11 +661,31 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     }
   }
   res.diagnostics.voting_hypotheses = pool.length;
+  /* generation oracle (measurement only): every distinct test output any
+     demonstration-fitting hypothesis produced, including those past the
+     voting-pool cap. Keys, not grids; the harness compares them to answers
+     after the prediction is committed. Nothing downstream reads them. */
+  res.gen_keys = [];
+  for (j = 0; j < ctx.test_inputs.length; j++) {
+    var gks = new Set();
+    for (i = 0; i < fitted.length; i++) {
+      var sgj = sigsByIdx.get(fitted[i][1]);
+      if (sgj && sgj[j]) gks.add(G.gkey(sgj[j]));
+    }
+    res.gen_keys.push(Array.from(gks).slice(0, 400));
+  }
+  res.provenance = [];
   var v2 = _versionSpaceSupport(ctx, pool, res);
 
   var preservesColors = true;
   for (i = 0; i < ctx.train.length; i++)
     if (!G.csSubset(G.palette(ctx.train[i][1]), G.palette(ctx.train[i][0]))) { preservesColors = false; break; }
+  /* removed-colour law: a colour present in every demonstration input and
+     absent from every demonstration output is one the rule eliminates; a
+     prediction that keeps it contradicts every demonstration */
+  var removedColors = 0x3ff;
+  for (i = 0; i < ctx.train.length; i++)
+    removedColors &= G.palette(ctx.train[i][0]) & ~G.palette(ctx.train[i][1]);
 
   var ti;
   for (ti = 0; ti < ctx.test_inputs.length; ti++) {
@@ -708,6 +732,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       var violations = 0;
       if (shapes.size && !shapes.has(gg2.length + "," + gg2[0].length)) violations += 1;
       if (allowed !== null && !G.csSubset(G.palette(gg2), allowed)) violations += 1;
+      if (removedColors && (G.palette(gg2) & removedColors & G.palette(tg))) violations += 1;
       weight += violations * Math.log(0.25);
       var cfKey = null;
       if (ctx._cfBehaviour) {
@@ -720,9 +745,13 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     scored.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
     var p2info = { promoted: false };
     scored = PASS2.select(scored, p2info);
-    var predictions = [];
-    for (i = 0; i < scored.length; i++) predictions.push(scored[i][2]);
+    var predictions = [], prov = [];
+    for (i = 0; i < scored.length; i++) {
+      predictions.push(scored[i][2]);
+      prov.push(Array.from(scored[i][5].keys()));
+    }
     res.predictions.push(collectAll ? predictions : predictions.slice(0, k));
+    res.provenance.push(collectAll ? prov : prov.slice(0, k));
     res.chosen.push(predictions.length ? author.get(G.gkey(predictions[0])) : null);
     res.diagnostics.predictions.push({
       distinct: scored.length,
@@ -736,6 +765,11 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   for (i = 0; i < res.chosen.length; i++) if (res.chosen[i]) { res.solver = res.chosen[i][0]; break; }
   res.elapsed = (nowMs() - t0) / 1000;
   res.diagnostics.timed_out = res.elapsed > timeBudget;
+  /* why nothing fits, from the demonstrations alone (65-schema.js) */
+  if (!res.n_fit) {
+    if (ctx._sketchNear) res.diagnostics.sketch_near = ctx._sketchNear;
+    try { res.diagnostics.failure_reason = TAXON.reason(ctx, res); } catch (e) { res.diagnostics.failure_reason = "UNKNOWN"; }
+  }
   var ranNames = new Set(res.diagnostics.modules.map(function (m) { return m.module; }));
   res.diagnostics.unrun_modules = mods.filter(function (m) { return !ranNames.has(_moduleKey(m)); }).length;
   /* search-quality counters of the typed synthesis (last search run in

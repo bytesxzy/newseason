@@ -43,12 +43,15 @@ if (!isMainThread) {
   if (!(budget>0 && Number.isInteger(jobs) && jobs>=1 && jobs<=4)) throw Error('Use positive budget and 1..4 workers');
   fs.mkdirSync(out,{recursive:true});
   const prefix=arg('prefix','arc1_');
-  const packed=require(path.join(root,'c4-arc-tasks.js')).filter(t=>t[0].startsWith(prefix)).slice(start,end);
+  /* --corpus selects another packed task file (the frozen evaluation split is
+     c4-arc-eval-tasks.js with --prefix arc1eval_) */
+  const corpusFile=path.resolve(root,arg('corpus','c4-arc-tasks.js'));
+  const packed=require(corpusFile).filter(t=>t[0].startsWith(prefix)).slice(start,end);
   const ids=arg('ids','').split(',').filter(Boolean);
   const grid=s=>s.split('|').map(r=>[...r].map(Number));
   const pairs=s=>s.split(';').filter(Boolean).map(p=>{const [x,y]=p.split('>'); return {input:grid(x), output:y?grid(y):undefined};});
   const tasks=packed.filter(t=>!ids.length||ids.includes(t[0])).map(t=>({id:t[0],train:pairs(t[1]),test:pairs(t[2])}));
-  const config={engine_sha256:hash(fs.readFileSync(engine)),corpus_sha256:hash(fs.readFileSync(path.join(root,'c4-arc-tasks.js'))),policy_sha256:policy?hash(fs.readFileSync(policy)):null,budget,jobs,start,end,without,ids,node:process.version,
+  const config={engine_sha256:hash(fs.readFileSync(engine)),corpus_sha256:hash(fs.readFileSync(corpusFile)),policy_sha256:policy?hash(fs.readFileSync(policy)):null,budget,jobs,start,end,without,ids,node:process.version,prefix,
     policy_mode:policyMode,ablate,
     note:policyMode==='legacy'?'legacy planner: its memory was built from solved ARC development tasks; not a clean measurement':policyMode==='clean'?'clean planner: task-history memory disabled; general weights (fitted on development tasks) kept':'no planner'};
   const meta=path.join(out,'config.json');
@@ -68,13 +71,20 @@ if (!isMainThread) {
     const top1=ranks.every(n=>n===1), top2=ranks.every(n=>n>0&&n<=2), oracle=ranks.every(n=>n>0);
     const d=r?r.diagnostics:{};
     const failure=top1?'SOLVED':msg.error?'ERROR':oracle?'RIGHT_OUTPUT_OUTRANKED':r.n_fit===0?'NO_CANDIDATE':d.unrun_modules>0?'SCHEDULER_STARVED':'NO_CORRECT_RETAINED_PREDICTION';
-    const rec={task_id:t.id,solved_top1:top1,solved_top2:top2,oracle_retained:oracle,runtime:r?r.elapsed:null,candidate_count:r?r.n_hyps:0,fitted_count:r?r.n_fit:0,winning_program:r?r.chosen:null,winning_family:r?r.solver:null,winning_program_cost:null,ranked_hypotheses:r?r.hyps:null,rank_of_correct_if_generated:ranks,failure_class:failure,error:msg.error||null,diagnostics:d};
+    /* generation oracle: the correct output was produced by SOME
+       demonstration-fitting hypothesis, retained or not (engine gen_keys) */
+    const gkey=g=>g.map(row=>row.join(',')).join(';');   /* = engine G.gkey */
+    const generated=!!r&&t.test.every((p,i)=>ranks[i]>0||((r.gen_keys||[])[i]||[]).includes(gkey(p.output)));
+    /* which solver families authored the correct output (per test input) */
+    const correctFamilies=r?t.test.map((p,i)=>ranks[i]>0?((r.provenance||[])[i]||[])[ranks[i]-1]||[]:[]):[];
+    const reason=top1?null:(oracle?'RANKING':generated?'CORRECT_PROGRAM_PRUNED':(d&&d.failure_reason)||'UNKNOWN');
+    const rec={task_id:t.id,solved_top1:top1,solved_top2:top2,oracle_retained:oracle,oracle_generated:generated,correct_families:correctFamilies,failure_reason:reason,runtime:r?r.elapsed:null,candidate_count:r?r.n_hyps:0,fitted_count:r?r.n_fit:0,winning_program:r?r.chosen:null,winning_family:r?r.solver:null,winning_program_cost:null,ranked_hypotheses:r?r.hyps:null,rank_of_correct_if_generated:ranks,failure_class:failure,error:msg.error||null,diagnostics:d};
     atomic(path.join(out,t.id+'.json'),JSON.stringify(rec)); records.push(rec);
     if(records.length%25===0) console.log(`${records.length}/${tasks.length}, top1=${records.filter(r=>r.solved_top1).length}`);
   }
   function finish() {
-    const failures={};for(const r of records) failures[r.failure_class]=(failures[r.failure_class]||0)+1;
-    const summary={...config,n:records.length,top1:records.filter(r=>r.solved_top1).length,top2:records.filter(r=>r.solved_top2).length,oracle_retained:records.filter(r=>r.oracle_retained).length,task_seconds:records.reduce((a,r)=>a+(r.runtime||0),0),wall_seconds:(Date.now()-started)/1000,failures};
+    const failures={},reasons={};for(const r of records){failures[r.failure_class]=(failures[r.failure_class]||0)+1;if(r.failure_reason)reasons[r.failure_reason]=(reasons[r.failure_reason]||0)+1;}
+    const summary={...config,n:records.length,top1:records.filter(r=>r.solved_top1).length,top2:records.filter(r=>r.solved_top2).length,oracle_retained:records.filter(r=>r.oracle_retained).length,oracle_generated:records.filter(r=>r.oracle_generated).length,task_seconds:records.reduce((a,r)=>a+(r.runtime||0),0),wall_seconds:(Date.now()-started)/1000,failures,failure_reasons:reasons};
     fs.writeFileSync(path.join(out,'summary.json'),JSON.stringify(summary,null,2));console.log(JSON.stringify(summary));
   }
   let active=0;
