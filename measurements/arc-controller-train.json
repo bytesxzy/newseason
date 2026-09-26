@@ -1,0 +1,32 @@
+{
+  "training_tasks": 1700,
+  "dream": 1200,
+  "hindsight": 500,
+  "real_trajectories": 80,
+  "labels": 23,
+  "exclude": null,
+  "validation": {
+    "seg": {
+      "mean_rank": 3.21,
+      "top1": 0.176,
+      "of": 7
+    },
+    "fam": {
+      "mean_rank": 5.24,
+      "top1": 0.295,
+      "of": 16
+    }
+  },
+  "train_fit": {
+    "seg": {
+      "mean_rank": 3.09,
+      "top1": 0.225,
+      "of": 7
+    },
+    "fam": {
+      "mean_rank": 4.95,
+      "top1": 0.302,
+      "of": 16
+    }
+  }
+}

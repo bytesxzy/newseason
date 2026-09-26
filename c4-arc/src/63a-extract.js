@@ -86,7 +86,7 @@ var EXTRACT = (function () {
     return true;
   }
   function keyOf(p) { return "x:" + p.seg + "|" + p.p.k + "|" + p.mode + (p.t ? "|t" + p.t : ""); }
-  function bits(p) { return Math.log(SCN.SEGS.length) / Math.LN2 + p.p.b + 1 + (p.t ? 3 : 0.5); }
+  function bits(p) { return EMDL.segBits(p.seg) + p.p.b + 1 + (p.t ? 3 : 0.5); }
 
   (function () {
     function generate(ctx) {

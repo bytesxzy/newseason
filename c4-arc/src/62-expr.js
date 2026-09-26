@@ -265,6 +265,16 @@ var EXPR = (function () {
     });
     add("uShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) === 1; });
     add("rShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) > 1; });
+    /* majority / minority by shape or colour (unique extreme counts) */
+    [["d4", function (e) { return e.d4(); }], ["color", function (e) { return e.color; }]].forEach(function (A) {
+      ["maj", "min"].forEach(function (w) {
+        add(w + (A[0] === "d4" ? "Shape" : "Color"), 3.0, function (sc, e) {
+          var m = sc.countOf(A[0]), best = null, tie = false, mine = m.get(A[1](e));
+          m.forEach(function (n) { if (best === null || (w === "maj" ? n > best : n < best)) { best = n; tie = false; } else if (n === best) tie = true; });
+          return !tie && mine === best && m.size > 1;
+        });
+      });
+    });
     add("uColor", 2.5, function (sc, e) { return sc.countOf("color").get(e.color) === 1; });
     add("rColor", 2.5, function (sc, e) { return sc.countOf("color").get(e.color) > 1; });
     add("border", 2.0, function (sc, e) { return e.border; });

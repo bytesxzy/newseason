@@ -24631,6 +24631,16 @@ var EXPR = (function () {
     });
     add("uShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) === 1; });
     add("rShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) > 1; });
+    /* majority / minority by shape or colour (unique extreme counts) */
+    [["d4", function (e) { return e.d4(); }], ["color", function (e) { return e.color; }]].forEach(function (A) {
+      ["maj", "min"].forEach(function (w) {
+        add(w + (A[0] === "d4" ? "Shape" : "Color"), 3.0, function (sc, e) {
+          var m = sc.countOf(A[0]), best = null, tie = false, mine = m.get(A[1](e));
+          m.forEach(function (n) { if (best === null || (w === "maj" ? n > best : n < best)) { best = n; tie = false; } else if (n === best) tie = true; });
+          return !tie && mine === best && m.size > 1;
+        });
+      });
+    });
     add("uColor", 2.5, function (sc, e) { return sc.countOf("color").get(e.color) === 1; });
     add("rColor", 2.5, function (sc, e) { return sc.countOf("color").get(e.color) > 1; });
     add("border", 2.0, function (sc, e) { return e.border; });
@@ -24729,6 +24739,44 @@ var GEN = (function () {
     return bd < 0.4 ? best : -1;
   }
   function uniqPush(set, list, p) { if (!set.has(p)) { set.add(p); list.push(p); } }
+  var OPP = [1, 0, 3, 2, 7, 6, 5, 4];
+  /* direction from e toward o: perpendicular when they share rows or
+     columns (a line or band is approached square-on), else the snapped
+     centre-to-centre direction */
+  function relDir(sc, e, o) {
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o);
+    if (cov && !rov) return e.r1 < o.r0 ? 1 : 0;
+    if (rov && !cov) return e.c1 < o.c0 ? 3 : 2;
+    return snapDir(o.cr2 - e.cr2, o.cc2 - e.cc2);
+  }
+  /* the midpoint between e and its partner (a dot or a plus) */
+  function midCells(sc, e, canvas, op) {
+    var o = rel(sc, op.r, e), out = [];
+    if (!o || e.cr2 + o.cr2 & 3 || e.cc2 + o.cc2 & 3) return out;
+    var r = (e.cr2 + o.cr2) / 4, c = (e.cc2 + o.cc2) / 4, k, pts = [[0, 0]];
+    if (op.shape === "plus") pts = pts.concat(DIRS.slice(0, 4));
+    for (k = 0; k < pts.length; k++) {
+      var R = r + pts[k][0], C = c + pts[k][1];
+      if (inb(sc, R, C) && canvas[R][C] === sc.bg) out.push((R << 6) | C);
+    }
+    return out;
+  }
+  /* rays leaking out of gaps in the entity's frame: every background cell
+     on the bbox boundary casts outward, perpendicular to its side */
+  function leakCells(sc, e, canvas, op) {
+    var out = [], seen = new Set(), r, c;
+    if (e.h < 3 || e.w < 3) return out;
+    function side(r0, c0, d) {
+      /* a gap is a boundary cell of the frame that is not the frame: it
+         leaks whatever colour the canvas has there by now */
+      if (e.has((r0 << 6) | c0) || sc.grid[r0][c0] !== sc.bg) return;
+      if (canvas[r0][c0] === sc.bg) uniqPush(seen, out, (r0 << 6) | c0);
+      cast(sc, canvas, r0, c0, d, op.stop, seen, out, null);
+    }
+    for (c = e.c0; c <= e.c1; c++) { side(e.r0, c, 0); side(e.r1, c, 1); }
+    for (r = e.r0 + 1; r < e.r1; r++) { side(r, e.c0, 2); side(r, e.c1, 3); }
+    return out;
+  }
 
   /* cast a ray from (r,c) (exclusive) in direction d on canvas */
   function cast(sc, canvas, r, c, d, stop, seen, out, bounce) {
@@ -24768,12 +24816,24 @@ var GEN = (function () {
     } else if (op.dir === "away" || op.dir === "toward") {
       var o = rel(sc, op.r, e);
       if (!o) return out;
-      var dd = snapDir((e.cr2 - o.cr2) * (op.dir === "away" ? 1 : -1), (e.cc2 - o.cc2) * (op.dir === "away" ? 1 : -1));
+      var dd = relDir(sc, e, o);
       if (dd < 0) return out;
+      if (op.dir === "away") dd = OPP[dd];
       dirs = [dd];
+    } else if (op.dir === "concave") {
+      /* from the entity's mass through the empty part of its box */
+      var dc0 = snapDir(e.cr2 / 2 - e.mr, e.cc2 / 2 - e.mc);
+      if (dc0 < 0) return out;
+      dirs = [dc0];
     } else dirs = RAYSETS[op.dir];
     for (j = 0; j < dirs.length; j++) {
       var d = dirs[j], dr = DIRS[d][0], dc = DIRS[d][1];
+      if (op.anchor === "center") {
+        if (e.cr2 & 1 || e.cc2 & 1) return out;
+        if (canvas[e.cr2 / 2][e.cc2 / 2] === sc.bg) uniqPush(seen, out, ((e.cr2 / 2) << 6) | (e.cc2 / 2));
+        cast(sc, canvas, e.cr2 / 2, e.cc2 / 2, d, op.stop, seen, out, op.bounce);
+        continue;
+      }
       if (op.anchor === "corner") {
         r = dr < 0 ? e.r0 : dr > 0 ? e.r1 : -1; c = dc < 0 ? e.c0 : dc > 0 ? e.c1 : -1;
         if (r < 0 || c < 0) continue;
@@ -24944,6 +25004,8 @@ var GEN = (function () {
       case "halo4": case "halo8": case "bbox": case "holes": return { cells: simpleCells(sc, e, canvas, op), cols: null };
       case "ray": return { cells: rayCells(sc, e, canvas, op), cols: null };
       case "link": return { cells: linkCells(sc, e, canvas, op), cols: null };
+      case "leak": return { cells: leakCells(sc, e, canvas, op), cols: null };
+      case "mid": return { cells: midCells(sc, e, canvas, op), cols: null };
       case "symm": return symmCells(sc, e, canvas, op);
       case "stamp": return stampCells(sc, e, canvas, op);
       case "repeat": return repeatCells(sc, e, canvas, op);
@@ -24972,6 +25034,9 @@ var GEN = (function () {
       });
     });
     ["hit", "thru"].forEach(function (st) {
+      add({ kind: "ray", anchor: "corner", dir: "concave", stop: st, b: 6 });
+      ["orth", "diag", "all8", "ud", "lr"].forEach(function (d) { add({ kind: "ray", anchor: "center", dir: d, stop: st, b: 5 + (st === "thru" ? 1 : 0) }); });
+      add({ kind: "leak", stop: st, b: 5 });
       add({ kind: "ray", anchor: "minor", dir: "out", stop: st, b: 5 });
       add({ kind: "ray", anchor: "edge", dir: "out", stop: st, b: 5.5 });
       ["near", "nearD", "big", "cont"].forEach(function (r) {
@@ -24982,6 +25047,10 @@ var GEN = (function () {
     ["near", "nearS", "nearD", "rowN", "colN", "nearP"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: 3 + EXPR.REL_BY[r][1] });
       add({ kind: "link", r: r, geo: "diag", b: 4 + EXPR.REL_BY[r][1] });
+    });
+    ["nearS", "near", "rowN", "colN"].forEach(function (r) {
+      add({ kind: "mid", r: r, shape: "dot", b: 4 + EXPR.REL_BY[r][1] });
+      add({ kind: "mid", r: r, shape: "plus", b: 5 + EXPR.REL_BY[r][1] });
     });
     ["allS", "all"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
@@ -25014,6 +25083,8 @@ var GEN = (function () {
       case "symm": return "symm:" + o.sym + "@" + o.about;
       case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "");
       case "repeat": return "repeat[" + o.v.k + "]";
+      case "leak": return "leak:" + o.stop;
+      case "mid": return "mid(" + o.r + "):" + o.shape;
       default: return o.kind;
     }
   }
@@ -25345,8 +25416,10 @@ var SKETCH = (function () {
     out.sort(function (a, b) { return a.b - b.b; });
     return out.slice(0, cap);
   }
+  /* a conjunction pays for both tests and for the choice to conjoin: with a
+     large predicate catalogue some pair separates almost anything */
   function conj(p, q) {
-    return { k: p.k + "&" + q.k, b: p.b + q.b + 1, f: function (sc, e) { return p.f(sc, e) && q.f(sc, e); } };
+    return { k: p.k + "&" + q.k, b: p.b + q.b + 3, f: function (sc, e) { return p.f(sc, e) && q.f(sc, e); } };
   }
   function truth(p, item) {
     var t = item.pt || (item.pt = {});
@@ -25500,11 +25573,12 @@ var SKETCH = (function () {
      the rule's entities, or the copied patch colours exactly) -- "good" when
      it also creates something, "bad" when it contradicts, "idle" otherwise.
      The rule's predicate must hold on the good entities and fail on the bad. */
-  function induceGrowth(demos, preds, cap, deadline) {
+  function induceGrowth(demos, preds, cap, deadline, ops) {
     var cands = [], oi;
-    for (oi = 0; oi < GEN.OPS.length; oi++) {
+    ops = ops || GEN.OPS;
+    for (oi = 0; oi < ops.length; oi++) {
       if (deadline && nowMs() > deadline) break;
-      var op = GEN.OPS[oi], goods = [], bads = [], covered = 0, t, i, j, C = null, dead = false, gobs = [];
+      var op = ops[oi], goods = [], bads = [], covered = 0, t, i, j, C = null, dead = false, gobs = [];
       for (t = 0; t < demos.length && !dead; t++) {
         var D = demos[t];
         for (i = 0; i < D.items.length; i++) {
@@ -25593,14 +25667,36 @@ var SKETCH = (function () {
   var STATS = null;
 
   /* Synthesize for one segmentation. */
-  function forSeg(ctx, seg, bg, deadline, found, seen, canvas) {
+  /* ------------------------------------------------------------- arms */
+  /* The search is a set of ARMS, each a lazy stream of candidate programs
+     of one kind in one segmentation:
+       rules      strict decision lists
+       relaxed    decision lists whose recoloured entities may be left to growth
+       fall       sequential falls
+       grow:F     one growth rule of operator family F on the identity program
+       refine     growth (one or two rules) on the residual of a near miss
+     The scheduler (66-search.js) decides which arm to pull next; every pull
+     is one candidate execution, recorded with a dense reward so that failed
+     candidates teach the scheduler where to look. */
+  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat"];
+  function opFamily(op) {
+    switch (op.kind) {
+      case "halo4": case "halo8": return "halo";
+      case "bbox": case "holes": return "fill";
+      case "ray": return op.anchor === "corner" ? "raycorner" : op.anchor === "center" ? "raycenter" : "ray";
+      default: return op.kind;
+    }
+  }
+
+  /* per-segmentation preparation: scenes, fates, observations, predicates */
+  function prepare(ctx, seg, bg) {
     var demos = [], allItems = [], t, i;
     for (t = 0; t < ctx.train.length; t++) {
       var x = ctx.train[t][0], y = ctx.train[t][1];
       var sc = SCN.of(x, seg, bg);
-      if (!sc) return;
+      if (!sc) return null;
       var fates = CORR.fates(sc, y);
-      if (!fates) return;
+      if (!fates) return null;
       var items = [];
       for (i = 0; i < sc.ents.length; i++) {
         var item = { sc: sc, e: sc.ents[i], fate: fates[i], t: t };
@@ -25609,54 +25705,62 @@ var SKETCH = (function () {
       }
       demos.push({ sc: sc, x: x, y: y, items: items });
     }
-    for (t = 0; t < ctx.test_inputs.length; t++) if (!SCN.of(ctx.test_inputs[t], seg, bg)) return;
-    var preds = predCatalog(allItems, paletteOf(ctx)), nearCount = 0;
-    if (nowMs() > deadline) return;
-    function tryProg(p, why) {
-      if (STATS) STATS.executed++;
-      var key = progKey(p);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      if (!verify(p, ctx)) {
-        /* near-miss bookkeeping for the failure taxonomy: a program that
-           reproduces all demonstrations but one */
-        if (ctx.train.length >= 2 && !ctx._sketchNear && nearCount < 60) {
-          nearCount++;
-          var fit = 0;
-          for (var d0 = 0; d0 < ctx.train.length; d0++) {
-            var o0 = null; try { o0 = run(p, ctx.train[d0][0]); } catch (e0) { o0 = null; }
-            if (o0 && G.gEq(o0, ctx.train[d0][1])) fit++;
-          }
-          if (fit === ctx.train.length - 1) ctx._sketchNear = key;
-        }
-        return false;
-      }
-      p.why = why;
-      found.push(p);
-      return true;
+    for (t = 0; t < ctx.test_inputs.length; t++) if (!SCN.of(ctx.test_inputs[t], seg, bg)) return null;
+    return { seg: seg, bg: bg, demos: demos, allItems: allItems, preds: predCatalog(allItems, paletteOf(ctx)) };
+  }
+
+  function listArm(key, seg, type, fam, make) {
+    var list = null, i = 0;
+    return { key: key, seg: seg, type: type, fam: fam, pulls: 0, exhausted: false, best: 0,
+      next: function () {
+        if (list === null) { list = make() || []; }
+        if (i >= list.length) { this.exhausted = true; return null; }
+        return list[i++];
+      } };
+  }
+
+  function growthPrograms(P, start, R, ctx, deadline, ops, cap) {
+    var dd = [], t, out = [];
+    for (t = 0; t < P.demos.length; t++) {
+      var created = new Set();
+      R[t].wrong.forEach(function (p) { created.add(p); });
+      dd.push({ sc: P.demos[t].sc, y: P.demos[t].y, items: P.demos[t].items, created: created, canvas: R[t].out });
     }
-    /* 1. object rules (identity default when nothing needs an action);
-       then the relaxed pass, whose programs mainly seed growth */
-    var base = [];
-    [false, true].forEach(function (relax) {
-      if (nowMs() > deadline) return;
-      RELAX = relax;
-      var skels = decisionLists(allItems, preds, 24);
-      RELAX = false;
-      for (var s0 = 0; s0 < skels.length && nowMs() < deadline; s0++) {
-        var progs = instantiate(skels[s0], seg, bg, canvas, relax ? 2 : 4);
-        for (var j = 0; j < progs.length && nowMs() < deadline; j++) {
-          if (tryProg(progs[j], relax ? "relaxed" : "rules")) continue;
-          base.push(progs[j]);
-        }
-      }
+    var gc = induceGrowth(dd, P.preds, cap, deadline, ops);
+    gc.forEach(function (g1) {
+      var cexprs = g1.C ? sortedExprs(g1.C, 3) : [null];
+      cexprs.forEach(function (ce) {
+        g1.ps.forEach(function (p1) {
+          out.push({ seg: start.seg, bg: start.bg, rules: start.rules, def: start.def,
+                     grow: (start.grow || []).concat([{ p: p1, g: { op: g1.op, c: ce, b: g1.op.b } }]), canvas: start.canvas });
+        });
+      });
     });
-    /* 1b. sequential falls (gravity with stacking): the moved entities
-       select themselves; direction literal or toward a related entity */
-    var movers = allItems.filter(function (it) { return it.fate.kind === "vacated" || (it.fate.kind === "recolor" && it.e.ncol === 1); });
-    if (movers.length && movers.length <= 40 && nowMs() < deadline) {
-      var still = allItems.filter(function (it) { return it.fate.kind === "same"; });
-      var fps = predVS(preds, movers, [], 3).concat(predVS(preds, movers, still, 3));
+    return out;
+  }
+
+  /* all first-level arms of one segmentation (preparation is lazy) */
+  function makeArms(ctx, seg, bg, canvas, S) {
+    var P = undefined;
+    function prep() { if (P === undefined) P = prepare(ctx, seg, bg); return P; }
+    var arms = [], tag = seg + (canvas >= 0 ? "+bg" : "");
+    [false, true].forEach(function (relax) {
+      arms.push(listArm((relax ? "relaxed:" : "rules:") + tag, seg, relax ? "relaxed" : "rules", "obj", function () {
+        var Q = prep(); if (!Q) return [];
+        RELAX = relax;
+        var skels = decisionLists(Q.allItems, Q.preds, 24);
+        RELAX = false;
+        var out = [];
+        skels.forEach(function (sk) { instantiate(sk, seg, bg, canvas, relax ? 2 : 4).forEach(function (p) { out.push(p); }); });
+        return out;
+      }));
+    });
+    arms.push(listArm("fall:" + tag, seg, "fall", "fall", function () {
+      var Q = prep(); if (!Q) return [];
+      var movers = Q.allItems.filter(function (it) { return it.fate.kind === "vacated" || (it.fate.kind === "recolor" && it.e.ncol === 1); });
+      if (!movers.length || movers.length > 40) return [];
+      var still = Q.allItems.filter(function (it) { return it.fate.kind === "same"; });
+      var fps = predVS(Q.preds, movers, [], 3).concat(predVS(Q.preds, movers, still, 3));
       var fcol = [null];
       var recs = movers.filter(function (it) { return it.fate.kind === "recolor"; });
       if (recs.length) {
@@ -25668,69 +25772,95 @@ var SKETCH = (function () {
         });
         fcol = cm && cm.size ? sortedExprs(cm, 2) : [];
       }
-      var fdirs = [0, 1, 2, 3, "nearB", "big", "near"];
-      for (var fi = 0; fi < fdirs.length && nowMs() < deadline; fi++)
-        for (var fj = 0; fj < fps.length; fj++) for (var fk = 0; fk < fcol.length; fk++)
-          tryProg({ seg: seg, bg: bg, rules: [{ p: fps[fj], a: { kind: "fall", d: fdirs[fi], c: fcol[fk] } }], def: "keep", grow: [], canvas: canvas }, "fall");
-    }
-    /* 2. growth on top of the best object programs (or of identity):
-       the object program's residual becomes the growth task (CEGIS) */
-    var starts = [{ seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas }].concat(base.slice(0, 10));
-    for (i = 0; i < starts.length && nowMs() < deadline; i++) {
-      var st = starts[i], R = residual(st, ctx);
-      if (!R) continue;
-      var creatable = true, dd = [];
-      for (t = 0; t < demos.length; t++) {
-        var created = new Set();
-        R[t].wrong.forEach(function (p) { created.add(p); });
-        if (!creatable) break;
-        dd.push({ sc: demos[t].sc, y: demos[t].y, items: demos[t].items, created: created, canvas: R[t].out });
-      }
-      if (!creatable) continue;
-      var gc = induceGrowth(dd, preds, 6, deadline);
-      for (var a = 0; a < gc.length && nowMs() < deadline; a++) {
-        var g1 = gc[a], cexprs = g1.C ? sortedExprs(g1.C, 3) : [null];
-        for (var b = 0; b < cexprs.length; b++) for (var q = 0; q < g1.ps.length; q++) {
-          var G1 = { op: g1.op, c: cexprs[b], b: g1.op.b };
-          var p1 = { seg: seg, bg: bg, rules: st.rules, def: st.def, grow: [{ p: g1.ps[q], g: G1 }], canvas: canvas };
-          if (tryProg(p1, "grow")) continue;
-          /* second growth rule on the remaining residual */
-          if (a < 3 && b === 0 && q === 0) {
-            var R2 = residual(p1, ctx);
-            if (!R2) continue;
-            var dd2 = [], ok2 = true;
-            for (t = 0; t < demos.length; t++) {
-              var cr2 = new Set();
-              R2[t].wrong.forEach(function (p) { cr2.add(p); });
-              dd2.push({ sc: demos[t].sc, y: demos[t].y, items: demos[t].items, created: cr2, canvas: R2[t].out });
-            }
-            if (!ok2) continue;
-            var gc2 = induceGrowth(dd2, preds, 3, deadline);
-            for (var a2 = 0; a2 < gc2.length; a2++) {
-              var cx2 = gc2[a2].C ? sortedExprs(gc2[a2].C, 2) : [null];
-              for (var b2 = 0; b2 < cx2.length; b2++) {
-                var G2 = { op: gc2[a2].op, c: cx2[b2], b: gc2[a2].op.b };
-                tryProg({ seg: seg, bg: bg, rules: st.rules, def: st.def, grow: [{ p: g1.ps[q], g: G1 }, { p: gc2[a2].ps[0], g: G2 }], canvas: canvas }, "grow2");
-              }
-            }
-          }
-        }
-      }
-    }
+      var out = [], fdirs = [0, 1, 2, 3, "nearB", "big", "near"];
+      fdirs.forEach(function (fd) { fps.forEach(function (fp) { fcol.forEach(function (fc) {
+        out.push({ seg: seg, bg: bg, rules: [{ p: fp, a: { kind: "fall", d: fd, c: fc } }], def: "keep", grow: [], canvas: canvas });
+      }); }); });
+      return out;
+    }));
+    FAMILIES.forEach(function (fam) {
+      arms.push(listArm("grow:" + fam + ":" + tag, seg, "grow", fam, function () {
+        var Q = prep(); if (!Q) return [];
+        var start = { seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas };
+        var R = residual(start, ctx);
+        if (!R) return [];
+        var ops = GEN.OPS.filter(function (o) { return opFamily(o) === fam; });
+        return growthPrograms(Q, start, R, ctx, S.deadline, ops, 4);
+      }));
+    });
+    arms.forEach(function (a) { a.prep = prep; });
+    return arms;
   }
 
+  /* refinement arm from a near miss: its residual becomes the growth task */
+  function refineArm(ctx, prog, arm, S) {
+    return listArm("refine:" + progKey(prog), prog.seg, "refine", "refine", function () {
+      var Q = arm.prep ? arm.prep() : prepare(ctx, prog.seg, prog.bg);
+      if (!Q) return [];
+      var R = residual(prog, ctx);
+      if (!R) return [];
+      return growthPrograms(Q, prog, R, ctx, S.deadline, GEN.OPS, 6);
+    });
+  }
+
+  /* dense reward of a candidate: exact demos and cell agreement on the
+     cells that matter (changed by the task or by the candidate) */
+  function reward(prog, ctx) {
+    var n = ctx.train.length, exact = 0, acc = 0, t;
+    for (t = 0; t < n; t++) {
+      var x = ctx.train[t][0], y = ctx.train[t][1], out = null;
+      try { out = run(prog, x); } catch (e) { out = null; }
+      if (!out) return { exact: 0, score: 0 };
+      var rel2 = 0, ok = 0, r, c;
+      for (r = 0; r < y.length; r++) for (c = 0; c < y[0].length; c++) {
+        if (x[r][c] === y[r][c] && out[r][c] === y[r][c]) continue;
+        rel2++;
+        if (out[r][c] === y[r][c]) ok++;
+      }
+      if (!rel2 || ok === rel2) exact++;
+      acc += rel2 ? ok / rel2 : 1;
+    }
+    return { exact: exact, score: 0.5 * exact / n + 0.5 * acc / n };
+  }
+
+  var SEARCH_HOOK = null;     /* 66-search.js installs the scheduler */
   function synthesize(ctx, deadline, opts) {
     opts = opts || {};
     if (!ctx.same_shape()) return [];
-    var bg = ctx.bg(), found = [], seen = new Set();
-    var canvas = canvasColor(ctx, bg);
-    var segs = opts.segs || SCN.SEGS, i;
-    for (i = 0; i < segs.length && nowMs() < deadline; i++) {
-      forSeg(ctx, segs[i], bg, deadline, found, seen, canvas);
-      if (canvas >= 0) forSeg(ctx, segs[i], bg, deadline, found, seen, -1);
-      if (found.length >= 40) break;
+    var bg = ctx.bg(), canvas = canvasColor(ctx, bg);
+    var S = { ctx: ctx, found: [], seen: new Set(), exec: 0, deadline: deadline, traj: opts.record ? [] : null, nearCount: 0,
+              keepProgs: !!opts.keepProgs };
+    var arms = [];
+    (opts.segs || SCN.SEGS).forEach(function (seg) {
+      arms = arms.concat(makeArms(ctx, seg, bg, canvas, S));
+      if (canvas >= 0) arms = arms.concat(makeArms(ctx, seg, bg, -1, S));
+    });
+    SEARCH_HOOK(ctx, arms, S, opts);
+    if (opts.record) opts.record.push.apply(opts.record, S.traj);
+    if (opts.stats) { opts.stats.exec = S.exec; opts.stats.found = S.found.length; }
+    return S.found;
+  }
+
+  /* execute one candidate: verify, record, keep if exact */
+  function execute(ctx, prog, arm, S) {
+    var key = progKey(prog);
+    if (S.seen.has(key)) return null;
+    S.seen.add(key);
+    S.exec++;
+    if (STATS) STATS.executed++;
+    var ok = verify(prog, ctx), rw = null;
+    if (ok) { prog.why = arm.type; S.found.push(prog); rw = { exact: ctx.train.length, score: 1 }; }
+    else if (S.wantReward) rw = reward(prog, ctx);
+    if (!ok && ctx.train.length >= 2 && !ctx._sketchNear && S.nearCount < 60) {
+      S.nearCount++;
+      var r2 = rw || reward(prog, ctx);
+      rw = r2;
+      if (r2.exact === ctx.train.length - 1) ctx._sketchNear = key;
     }
-    return found;
+    if (S.traj) S.traj.push({ arm: arm.key, seg: arm.seg, type: arm.type, fam: arm.fam, key: key,
+                              exact: ok, score: rw ? rw.score : null, fit: rw ? rw.exact : null, n: S.exec,
+                              prog: S.keepProgs ? prog : undefined });
+    return { ok: ok, reward: rw };
   }
 
   /* Roles of a program on a grid: for each rule, the entities it selected
@@ -25808,7 +25938,10 @@ var SKETCH = (function () {
     return best;
   }
 
-  return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles, actionKey: actionKey, growKey: growKey,
+  return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles,
+           makeArms: makeArms, refineArm: refineArm, execute: execute, reward: reward, opFamily: opFamily,
+           FAMILIES: FAMILIES, prepare: prepare, canvasColor: canvasColor,
+           setSearch: function (f) { SEARCH_HOOK = f; }, actionKey: actionKey, growKey: growKey,
            RELS: RELS, COLOR_EXPRS: COLOR_EXPRS, VEC_EXPRS: VEC_EXPRS, INT_EXPRS: INT_EXPRS,
            predCatalog: predCatalog, predVS: predVS, verify: verify, residual: residual,
            stats: function (s) { if (s !== undefined) STATS = s; return STATS; } };
@@ -25901,7 +26034,7 @@ var EXTRACT = (function () {
     return true;
   }
   function keyOf(p) { return "x:" + p.seg + "|" + p.p.k + "|" + p.mode + (p.t ? "|t" + p.t : ""); }
-  function bits(p) { return Math.log(SCN.SEGS.length) / Math.LN2 + p.p.b + 1 + (p.t ? 3 : 0.5); }
+  function bits(p) { return EMDL.segBits(p.seg) + p.p.b + 1 + (p.t ? 3 : 0.5); }
 
   (function () {
     function generate(ctx) {
@@ -25944,9 +26077,11 @@ var EXTRACT = (function () {
  */
 var EMDL = (function () {
   var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
-  var SEG_BITS = Math.log(SCN.SEGS.length) / Math.LN2;
+  /* representation choice: -log2 of a prior that prefers readings with
+     fewer, larger entities (objectness); single cells are the last resort */
+  var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, cell: 5.0 };
   function bits(p) {
-    var b = SEG_BITS + 1, i;
+    var b = (SEG_BITS[p.seg] || 4) + 1, i;
     for (i = 0; i < p.rules.length; i++) {
       var r = p.rules[i];
       b += 1 + r.p.b + (KIND_BITS[r.a.kind] || 2) + (r.a.v ? r.a.v.b : 0) + (r.a.c ? r.a.c.b : 0) +
@@ -26005,11 +26140,15 @@ var EMDL = (function () {
       });
     }
     if (!inv) return 0;
+    /* a role no training entity ever filled has no demonstrated behaviour:
+       filling it on the test grid is extrapolation (one violation per role) */
+    var everFilled = inv.map(function (x) { return !!(x.sel || x.ref); });
     var viol = 0;
     for (t = 0; t < ctx.test_inputs.length; t++) {
       var RT = SKETCH.roles(p, ctx.test_inputs[t]);
       if (!RT) continue;
       RT.forEach(function (slot, k) {
+        if (!everFilled[k] && (slot.sel.length || slot.ref.length)) { viol++; return; }
         ["sel", "ref"].forEach(function (w) {
           var I = inv[k] && inv[k][w];
           if (!I) return;
@@ -26026,7 +26165,7 @@ var EMDL = (function () {
     }
     return viol;
   }
-  return { bits: bits, cost: cost, shift: shift };
+  return { bits: bits, cost: cost, shift: shift, segBits: function (seg) { return SEG_BITS[seg] || 4; } };
 })();
 
 /* The sketch family inside the portfolio. */
@@ -26183,6 +26322,260 @@ var TAXON = (function () {
   }
   return { reason: reason };
 })();
+/* ===== src/66-search.js ===== */
+/* Scheduling the entity-program search: pure search vs search-learn-search.
+ *
+ * The sketch engine exposes its search as ARMS (63-sketch.js): lazy streams
+ * of candidate programs of one kind in one segmentation. Every pull is ONE
+ * candidate execution, so compute is counted in executions and two
+ * schedules can be compared at exactly the same count.
+ *
+ *   pure   arms are pulled by a fixed prior (the learned controller's, when
+ *          one is installed, 67-controller.js); what the executed candidates
+ *          reveal is never used.
+ *   sls    search -> learn -> search. The execution budget is split into
+ *          rounds (default 1/4, 1/4, 1/2). After each round the executed
+ *          candidates -- failures included -- are relabelled in hindsight
+ *          as evidence about their COMPONENTS (segmentation, candidate kind,
+ *          operator family): each component's value is the best dense reward
+ *          (exact demonstrations + agreement on the cells that matter) any of
+ *          its candidates reached. Arm priorities are re-derived from those
+ *          values, and the best near misses spawn REFINEMENT arms that
+ *          search for a growth rule explaining exactly their residual. Arms
+ *          whose candidates stay at zero reward decay; arms that produce
+ *          new information are expanded.
+ *
+ * In production the schedule is sls with no execution cap (the wall clock
+ * bounds it). The ablation tool (tools/arc-sls.js) runs both at matched
+ * execution counts.
+ */
+var SEARCH = (function () {
+  var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, cell: 0.45 };
+  var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9 };
+  var CONTROLLER = null;         /* (ctx) -> {seg:{}, type:{}, fam:{}} log-prior bonuses */
+
+  function staticPrior(arm, bonus) {
+    var p = (SEG_PRIOR[arm.seg] || 0.5) + (TYPE_PRIOR[arm.type] || 0.5);
+    if (arm.key.indexOf("+bg") >= 0) p += 0.05;
+    if (bonus) p += (bonus.seg[arm.seg] || 0) + (bonus.type[arm.type] || 0) + (bonus.fam[arm.fam] || 0);
+    return p;
+  }
+
+  function run(ctx, arms, S, opts) {
+    var mode = opts.mode || "sls", maxExec = opts.maxExec || Infinity;
+    var bonus = null;
+    if (CONTROLLER && opts.controller !== false) { try { bonus = CONTROLLER(ctx); } catch (e) { bonus = null; } }
+    arms.forEach(function (a) { a.prior = staticPrior(a, bonus); a.value = a.prior; });
+    var comp = { seg: {}, type: {}, fam: {} }, spawned = new Set();
+    S.wantReward = mode === "sls";
+    /* pureref: the control for the ablation -- the same rounds and the same
+       refinement arms, but spawned from the FIRST candidates of each niche
+       in execution order, blind to how well they did */
+    var blind = mode === "pureref";
+    if (blind) mode = "sls";
+    var rounds = mode === "sls" ? (opts.rounds || [0.25, 0.25, 0.5]) : [1];
+    /* without an execution cap (production) the rounds end at absolute
+       counts, so learning happens early and the clock bounds the rest */
+    var PROD = [48, 160, 400, Infinity];
+    if (mode === "sls" && maxExec === Infinity) rounds = PROD.map(function () { return 0; });
+    var start = S.exec;
+    for (var ri = 0; ri < rounds.length; ri++) {
+      var cap;
+      if (maxExec === Infinity) cap = mode === "sls" ? start + PROD[ri] : Infinity;
+      else cap = start + Math.round(maxExec * rounds.slice(0, ri + 1).reduce(function (a, b) { return a + b; }, 0));
+      if (ri === rounds.length - 1 && maxExec !== Infinity) cap = start + maxExec;
+      var progressRound = [];
+      /* one round: pull the best-valued arm, one candidate at a time */
+      while (S.exec < cap && nowMs() < S.deadline) {
+        var best = null, i;
+        for (i = 0; i < arms.length; i++) {
+          var a = arms[i];
+          if (a.exhausted) continue;
+          var v = a.value - 0.15 * Math.log(1 + a.pulls);
+          if (!best || v > best.v) best = { a: a, v: v };
+        }
+        if (!best) break;
+        var arm = best.a, prog = arm.next();
+        if (!prog) continue;
+        arm.pulls++;
+        var res = SKETCH.execute(ctx, prog, arm, S);
+        if (!res) continue;
+        if (blind) { progressRound.push({ prog: prog, arm: arm, r: { score: 1, exact: 0 } }); continue; }
+        if (res.reward) {
+          progressRound.push({ prog: prog, arm: arm, r: res.reward });
+          if (res.reward.score > arm.best) arm.best = res.reward.score;
+        }
+        if (opts.stopAt && S.found.length >= opts.stopAt) return;
+      }
+      if (mode !== "sls" || ri === rounds.length - 1) break;
+      /* learn: hindsight credit to components, then re-prioritise and spawn
+         refinement arms from the best near misses */
+      if (!blind) progressRound.forEach(function (x) {
+        [["seg", x.arm.seg], ["type", x.arm.type], ["fam", x.arm.fam]].forEach(function (kv) {
+          var m = comp[kv[0]];
+          if (!(kv[1] in m) || x.r.score > m[kv[1]]) m[kv[1]] = x.r.score;
+        });
+      });
+      /* learning re-orders, it does not prune: a family whose first
+         candidates miss may still hold the answer further down */
+      if (!blind) arms.forEach(function (a) {
+        var learned = (comp.seg[a.seg] || 0) + (comp.fam[a.fam] || 0) + a.best;
+        a.value = a.prior + 0.8 * learned;
+        if (a.pulls >= 8 && a.best === 0) a.value -= 0.3;          /* long plateau */
+      });
+      /* niches (MAP-Elites style): the elite of each (segmentation,
+         family) cell is refined, so one cheap near-fit lineage cannot take
+         every refinement slot */
+      if (!blind) progressRound.sort(function (x, y) { return y.r.score - x.r.score; });
+      var elites = [], niche = new Set();
+      progressRound.forEach(function (x) {
+        var nk = x.arm.seg + "/" + x.arm.fam + "/" + x.arm.type;
+        if (niche.has(nk) || (!blind && x.r.score <= 0)) return;
+        niche.add(nk); elites.push(x);
+      });
+      var made = 0;
+      for (var k = 0; k < elites.length && made < 16; k++) {
+        var near = elites[k];
+        var key = SKETCH.progKey(near.prog);
+        if (spawned.has(key)) continue;
+        spawned.add(key);
+        var ra = SKETCH.refineArm(ctx, near.prog, near.arm, S);
+        ra.prior = staticPrior(ra, bonus);
+        ra.value = ra.prior + 1.0 + (blind ? 0 : 1.0 * near.r.score);
+        arms.push(ra);
+        made++;
+      }
+    }
+  }
+
+  SKETCH.setSearch(run);
+  return { run: run, SEG_PRIOR: SEG_PRIOR, TYPE_PRIOR: TYPE_PRIOR,
+           setController: function (f) { CONTROLLER = f; } };
+})();
+/* ===== src/67-controller.js ===== */
+/* The learned search controller.
+ *
+ * Which segmentation, which kind of rule, which generative family should the
+ * search try first? A small model answers from the demonstrations alone:
+ * features of the task (how entities fared under correspondence, how much
+ * was created, where created cells sit relative to what was there) and one
+ * logistic model per label (segmentation, operator family, object-rule kind,
+ * default action). Its log-probabilities become bonuses on the arm priors of
+ * 66-search.js; the search itself, verification and ranking are unchanged,
+ * so a wrong controller costs executions, never correctness.
+ *
+ * The weights (67a-controller-weights.js) are GENERATED by
+ * tools/arc-controller.js from hindsight-relabelled tasks: programs sampled
+ * from the grammar and candidates the search executed and rejected, each
+ * re-run on development-corpus INPUTS, so every one is the correct program
+ * of the task it produces. No ARC output is used, and no task identity.
+ */
+var CONTROL = (function () {
+  var FEATURES = ["bias", "same", "newc", "remc", "keep", "recol", "del", "mixed", "create",
+                  "adj", "line", "diag", "inbox", "pix", "nents", "multi", "bgreg", "sym"];
+
+  function features(ctx) {
+    return ctx.memo("ctlfeat", function () {
+      var f = {}, bg = ctx.bg(), t, r, c;
+      FEATURES.forEach(function (k) { f[k] = 0; });
+      f.bias = 1;
+      f.same = ctx.same_shape() ? 1 : 0;
+      var inPal = 0, outPal = 0, rem = 0x3ff;
+      for (t = 0; t < ctx.train.length; t++) {
+        inPal |= G.palette(ctx.train[t][0]); outPal |= G.palette(ctx.train[t][1]);
+        rem &= G.palette(ctx.train[t][0]) & ~G.palette(ctx.train[t][1]);
+      }
+      f.newc = Math.min(3, G.csSize(outPal & ~inPal)) / 3;
+      f.remc = Math.min(3, G.csSize(rem)) / 3;
+      if (!f.same) return f;
+      var ents = 0, pix = 0, multi = 0, created = 0, total = 0, adj = 0, line = 0, diag = 0, inbox = 0, sym = 0, bgreg = 0;
+      var fate = { same: 0, recolor: 0, vacated: 0, mixed: 0, cmap: 0 }, nf = 0;
+      for (t = 0; t < ctx.train.length; t++) {
+        var x = ctx.train[t][0], y = ctx.train[t][1], H = x.length, W = x[0].length;
+        var sc = SCN.of(x, "c8", bg), sm = SCN.of(x, "m8", bg), sb = SCN.of(x, "bgin", bg);
+        total += H * W;
+        if (sc) {
+          ents += sc.ents.length;
+          sc.ents.forEach(function (e) { if (e.n === 1) pix++; });
+          var fs = CORR.fates(sc, y) || [];
+          fs.forEach(function (q) { fate[q.kind] = (fate[q.kind] || 0) + 1; nf++; });
+        }
+        if (sm) sm.ents.forEach(function (e) { if (e.ncol > 1) multi++; });
+        if (sb) bgreg += sb.ents.length;
+        var rowFg = new Uint8Array(H), colFg = new Uint8Array(W), dg = new Set(), ag = new Set();
+        for (r = 0; r < H; r++) for (c = 0; c < W; c++) if (x[r][c] !== bg) { rowFg[r] = 1; colFg[c] = 1; dg.add(r - c); ag.add(r + c); }
+        for (r = 0; r < H; r++) for (c = 0; c < W; c++) {
+          if (x[r][c] !== bg || y[r][c] === bg) continue;
+          created++;
+          var a8 = false;
+          for (var dr = -1; dr <= 1 && !a8; dr++) for (var dc = -1; dc <= 1; dc++) {
+            var rr = r + dr, cc = c + dc;
+            if ((dr || dc) && rr >= 0 && rr < H && cc >= 0 && cc < W && x[rr][cc] !== bg) { a8 = true; break; }
+          }
+          if (a8) adj++;
+          if (rowFg[r] || colFg[c]) line++;
+          if (dg.has(r - c) || ag.has(r + c)) diag++;
+          if (sc && sc.ents.some(function (e) { return r >= e.r0 && r <= e.r1 && c >= e.c0 && c <= e.c1; })) inbox++;
+          if (x[H - 1 - r][c] !== bg || x[r][W - 1 - c] !== bg) sym++;
+        }
+      }
+      var n = ctx.train.length;
+      f.nents = Math.min(1, Math.log(1 + ents / n) / Math.log(64));
+      f.pix = ents ? pix / ents : 0;
+      f.multi = ents ? Math.min(1, multi / ents) : 0;
+      f.bgreg = Math.min(1, bgreg / n / 8);
+      f.keep = nf ? fate.same / nf : 0;
+      f.recol = nf ? (fate.recolor + fate.cmap) / nf : 0;
+      f.del = nf ? fate.vacated / nf : 0;
+      f.mixed = nf ? fate.mixed / nf : 0;
+      f.create = Math.min(1, 4 * created / Math.max(1, total));
+      if (created) { f.adj = adj / created; f.line = line / created; f.diag = diag / created; f.inbox = inbox / created; f.sym = sym / created; }
+      return f;
+    });
+  }
+
+  function vec(f) { return FEATURES.map(function (k) { return f[k] || 0; }); }
+  function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+  /* bonuses for 66-search.js from the generated weights */
+  function bonus(ctx) {
+    var W = typeof CONTROL_WEIGHTS !== "undefined" ? CONTROL_WEIGHTS : null;
+    if (!W || !W.labels) return null;
+    var x = vec(features(ctx)), out = { seg: {}, type: {}, fam: {} }, scale = W.scale || 0.6;
+    Object.keys(W.labels).forEach(function (lab) {
+      var w = W.labels[lab], z = 0, i;
+      for (i = 0; i < x.length && i < w.length; i++) z += w[i] * x[i];
+      var p = Math.min(0.98, Math.max(0.02, sigmoid(z)));
+      var parts = lab.split(":"), grp = parts[0], name = parts[1];
+      var val = scale * Math.log(p / (W.base && W.base[lab] ? W.base[lab] : 0.2));
+      if (grp === "seg") out.seg[name] = val;
+      else if (grp === "fam") out.fam[name] = val;
+      else if (grp === "obj") out.type.rules = Math.max(out.type.rules || -9, val);
+    });
+    if (out.fam.fall !== undefined) out.type.fall = out.fam.fall;
+    return out;
+  }
+
+  /* labels of a program (training targets) */
+  function labels(p) {
+    var L = ["seg:" + p.seg];
+    p.rules.forEach(function (r) { L.push(r.a.kind === "fall" ? "fam:fall" : "obj:" + r.a.kind); });
+    (p.grow || []).forEach(function (g) { L.push("fam:" + SKETCH.opFamily(g.g.op)); });
+    return L;
+  }
+
+  SEARCH.setController(bonus);
+  return { FEATURES: FEATURES, features: features, vec: vec, bonus: bonus, labels: labels };
+})();
+/* ===== src/67a-controller-weights.js ===== */
+/* GENERATED by tools/arc-controller.js --write. Production ships NO learned
+ * controller: three trained variants (dreamed programs; hindsight-relabelled
+ * rejected candidates of real search; components of solved first-half
+ * tasks) were each neutral or harmful on held-out second-half development
+ * tasks at matched executions (measurements/arc-controller-*.json), so the
+ * static objectness prior of 66-search.js is used. Regenerate with --write
+ * to experiment. */
+var CONTROL_WEIGHTS = null;
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
 
@@ -26250,7 +26643,7 @@ var ENGINE = {
   KERNEL: root.C4ReasonKernel, MEMORY: root.C4ReasonMemory, META: root.C4ReasonMeta,
   CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
   MACROS: MACROS, PASS2: PASS2,
-  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, SCHEMA: SCHEMA, TAXON: TAXON,
+  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, SCHEMA: SCHEMA, TAXON: TAXON, SEARCH: SEARCH, CONTROL: CONTROL,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,

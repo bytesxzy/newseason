@@ -24,9 +24,11 @@
  */
 var EMDL = (function () {
   var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
-  var SEG_BITS = Math.log(SCN.SEGS.length) / Math.LN2;
+  /* representation choice: -log2 of a prior that prefers readings with
+     fewer, larger entities (objectness); single cells are the last resort */
+  var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, cell: 5.0 };
   function bits(p) {
-    var b = SEG_BITS + 1, i;
+    var b = (SEG_BITS[p.seg] || 4) + 1, i;
     for (i = 0; i < p.rules.length; i++) {
       var r = p.rules[i];
       b += 1 + r.p.b + (KIND_BITS[r.a.kind] || 2) + (r.a.v ? r.a.v.b : 0) + (r.a.c ? r.a.c.b : 0) +
@@ -85,11 +87,15 @@ var EMDL = (function () {
       });
     }
     if (!inv) return 0;
+    /* a role no training entity ever filled has no demonstrated behaviour:
+       filling it on the test grid is extrapolation (one violation per role) */
+    var everFilled = inv.map(function (x) { return !!(x.sel || x.ref); });
     var viol = 0;
     for (t = 0; t < ctx.test_inputs.length; t++) {
       var RT = SKETCH.roles(p, ctx.test_inputs[t]);
       if (!RT) continue;
       RT.forEach(function (slot, k) {
+        if (!everFilled[k] && (slot.sel.length || slot.ref.length)) { viol++; return; }
         ["sel", "ref"].forEach(function (w) {
           var I = inv[k] && inv[k][w];
           if (!I) return;
@@ -106,7 +112,7 @@ var EMDL = (function () {
     }
     return viol;
   }
-  return { bits: bits, cost: cost, shift: shift };
+  return { bits: bits, cost: cost, shift: shift, segBits: function (seg) { return SEG_BITS[seg] || 4; } };
 })();
 
 /* The sketch family inside the portfolio. */

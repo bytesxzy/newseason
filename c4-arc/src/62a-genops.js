@@ -47,6 +47,44 @@ var GEN = (function () {
     return bd < 0.4 ? best : -1;
   }
   function uniqPush(set, list, p) { if (!set.has(p)) { set.add(p); list.push(p); } }
+  var OPP = [1, 0, 3, 2, 7, 6, 5, 4];
+  /* direction from e toward o: perpendicular when they share rows or
+     columns (a line or band is approached square-on), else the snapped
+     centre-to-centre direction */
+  function relDir(sc, e, o) {
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o);
+    if (cov && !rov) return e.r1 < o.r0 ? 1 : 0;
+    if (rov && !cov) return e.c1 < o.c0 ? 3 : 2;
+    return snapDir(o.cr2 - e.cr2, o.cc2 - e.cc2);
+  }
+  /* the midpoint between e and its partner (a dot or a plus) */
+  function midCells(sc, e, canvas, op) {
+    var o = rel(sc, op.r, e), out = [];
+    if (!o || e.cr2 + o.cr2 & 3 || e.cc2 + o.cc2 & 3) return out;
+    var r = (e.cr2 + o.cr2) / 4, c = (e.cc2 + o.cc2) / 4, k, pts = [[0, 0]];
+    if (op.shape === "plus") pts = pts.concat(DIRS.slice(0, 4));
+    for (k = 0; k < pts.length; k++) {
+      var R = r + pts[k][0], C = c + pts[k][1];
+      if (inb(sc, R, C) && canvas[R][C] === sc.bg) out.push((R << 6) | C);
+    }
+    return out;
+  }
+  /* rays leaking out of gaps in the entity's frame: every background cell
+     on the bbox boundary casts outward, perpendicular to its side */
+  function leakCells(sc, e, canvas, op) {
+    var out = [], seen = new Set(), r, c;
+    if (e.h < 3 || e.w < 3) return out;
+    function side(r0, c0, d) {
+      /* a gap is a boundary cell of the frame that is not the frame: it
+         leaks whatever colour the canvas has there by now */
+      if (e.has((r0 << 6) | c0) || sc.grid[r0][c0] !== sc.bg) return;
+      if (canvas[r0][c0] === sc.bg) uniqPush(seen, out, (r0 << 6) | c0);
+      cast(sc, canvas, r0, c0, d, op.stop, seen, out, null);
+    }
+    for (c = e.c0; c <= e.c1; c++) { side(e.r0, c, 0); side(e.r1, c, 1); }
+    for (r = e.r0 + 1; r < e.r1; r++) { side(r, e.c0, 2); side(r, e.c1, 3); }
+    return out;
+  }
 
   /* cast a ray from (r,c) (exclusive) in direction d on canvas */
   function cast(sc, canvas, r, c, d, stop, seen, out, bounce) {
@@ -86,12 +124,24 @@ var GEN = (function () {
     } else if (op.dir === "away" || op.dir === "toward") {
       var o = rel(sc, op.r, e);
       if (!o) return out;
-      var dd = snapDir((e.cr2 - o.cr2) * (op.dir === "away" ? 1 : -1), (e.cc2 - o.cc2) * (op.dir === "away" ? 1 : -1));
+      var dd = relDir(sc, e, o);
       if (dd < 0) return out;
+      if (op.dir === "away") dd = OPP[dd];
       dirs = [dd];
+    } else if (op.dir === "concave") {
+      /* from the entity's mass through the empty part of its box */
+      var dc0 = snapDir(e.cr2 / 2 - e.mr, e.cc2 / 2 - e.mc);
+      if (dc0 < 0) return out;
+      dirs = [dc0];
     } else dirs = RAYSETS[op.dir];
     for (j = 0; j < dirs.length; j++) {
       var d = dirs[j], dr = DIRS[d][0], dc = DIRS[d][1];
+      if (op.anchor === "center") {
+        if (e.cr2 & 1 || e.cc2 & 1) return out;
+        if (canvas[e.cr2 / 2][e.cc2 / 2] === sc.bg) uniqPush(seen, out, ((e.cr2 / 2) << 6) | (e.cc2 / 2));
+        cast(sc, canvas, e.cr2 / 2, e.cc2 / 2, d, op.stop, seen, out, op.bounce);
+        continue;
+      }
       if (op.anchor === "corner") {
         r = dr < 0 ? e.r0 : dr > 0 ? e.r1 : -1; c = dc < 0 ? e.c0 : dc > 0 ? e.c1 : -1;
         if (r < 0 || c < 0) continue;
@@ -262,6 +312,8 @@ var GEN = (function () {
       case "halo4": case "halo8": case "bbox": case "holes": return { cells: simpleCells(sc, e, canvas, op), cols: null };
       case "ray": return { cells: rayCells(sc, e, canvas, op), cols: null };
       case "link": return { cells: linkCells(sc, e, canvas, op), cols: null };
+      case "leak": return { cells: leakCells(sc, e, canvas, op), cols: null };
+      case "mid": return { cells: midCells(sc, e, canvas, op), cols: null };
       case "symm": return symmCells(sc, e, canvas, op);
       case "stamp": return stampCells(sc, e, canvas, op);
       case "repeat": return repeatCells(sc, e, canvas, op);
@@ -290,6 +342,9 @@ var GEN = (function () {
       });
     });
     ["hit", "thru"].forEach(function (st) {
+      add({ kind: "ray", anchor: "corner", dir: "concave", stop: st, b: 6 });
+      ["orth", "diag", "all8", "ud", "lr"].forEach(function (d) { add({ kind: "ray", anchor: "center", dir: d, stop: st, b: 5 + (st === "thru" ? 1 : 0) }); });
+      add({ kind: "leak", stop: st, b: 5 });
       add({ kind: "ray", anchor: "minor", dir: "out", stop: st, b: 5 });
       add({ kind: "ray", anchor: "edge", dir: "out", stop: st, b: 5.5 });
       ["near", "nearD", "big", "cont"].forEach(function (r) {
@@ -300,6 +355,10 @@ var GEN = (function () {
     ["near", "nearS", "nearD", "rowN", "colN", "nearP"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: 3 + EXPR.REL_BY[r][1] });
       add({ kind: "link", r: r, geo: "diag", b: 4 + EXPR.REL_BY[r][1] });
+    });
+    ["nearS", "near", "rowN", "colN"].forEach(function (r) {
+      add({ kind: "mid", r: r, shape: "dot", b: 4 + EXPR.REL_BY[r][1] });
+      add({ kind: "mid", r: r, shape: "plus", b: 5 + EXPR.REL_BY[r][1] });
     });
     ["allS", "all"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
@@ -332,14 +391,46 @@ var GEN = (function () {
       case "symm": return "symm:" + o.sym + "@" + o.about;
       case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "");
       case "repeat": return "repeat[" + o.v.k + "]";
+      case "leak": return "leak:" + o.stop;
+      case "mid": return "mid(" + o.r + "):" + o.shape;
       default: return o.kind;
     }
   }
 
   function apply(sc, e, canvas, op) {
     if (op.kind === "symm") return symmCells(sc, e, canvas, { kind: op.sym, about: op.about });
+    if (op.kind === "fused") {
+      /* a library concept: two operators of one rule, the second measured on
+         the canvas the first left */
+      var a = apply(sc, e, canvas, op.a);
+      if (!a) return null;
+      var cv = canvas.map(function (row) { return row.slice(); }), i, mark = op.c0 === undefined ? 1 : op.c0;
+      for (i = 0; i < a.cells.length; i++) cv[a.cells[i] >> 6][a.cells[i] & 63] = a.cols ? a.cols[i] : (sc.bg === mark ? mark + 1 : mark) % 10;
+      var b = apply(sc, e, cv, op.b);
+      if (!b) return null;
+      var seen = new Set(), cells = [], cols = (a.cols || b.cols) ? [] : null;
+      [a, b].forEach(function (res) {
+        for (var k = 0; k < res.cells.length; k++) if (!seen.has(res.cells[k])) {
+          seen.add(res.cells[k]); cells.push(res.cells[k]);
+          if (cols) cols.push(res.cols ? res.cols[k] : -1);
+        }
+      });
+      if (cols && cols.indexOf(-1) >= 0) return null;       /* mixed colour sources */
+      return { cells: cells, cols: cols };
+    }
     return paint(sc, e, canvas, op);
   }
+  /* register a mined concept (62b-concepts.js) as one more operator */
+  function addFused(def) {
+    var A = null, B = null;
+    OPS.forEach(function (o) { if (o.key === def.a) A = o; if (o.key === def.b) B = o; });
+    if (!A || !B || !!A.patch !== !!B.patch) return null;
+    var o = { kind: "fused", a: A, b: B, patch: !!A.patch, b0: 0, concept: def };
+    o.b = Math.max(A.b, B.b) + 1;
+    o.key = "fuse(" + A.key + "+" + B.key + ")";
+    OPS.push(o);
+    return o;
+  }
 
-  return { OPS: OPS, apply: apply, RAYSETS: RAYSETS, snapDir: snapDir };
+  return { OPS: OPS, apply: apply, addFused: addFused, RAYSETS: RAYSETS, snapDir: snapDir };
 })();

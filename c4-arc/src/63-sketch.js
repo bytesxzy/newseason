@@ -318,8 +318,10 @@ var SKETCH = (function () {
     out.sort(function (a, b) { return a.b - b.b; });
     return out.slice(0, cap);
   }
+  /* a conjunction pays for both tests and for the choice to conjoin: with a
+     large predicate catalogue some pair separates almost anything */
   function conj(p, q) {
-    return { k: p.k + "&" + q.k, b: p.b + q.b + 1, f: function (sc, e) { return p.f(sc, e) && q.f(sc, e); } };
+    return { k: p.k + "&" + q.k, b: p.b + q.b + 3, f: function (sc, e) { return p.f(sc, e) && q.f(sc, e); } };
   }
   function truth(p, item) {
     var t = item.pt || (item.pt = {});
@@ -473,11 +475,12 @@ var SKETCH = (function () {
      the rule's entities, or the copied patch colours exactly) -- "good" when
      it also creates something, "bad" when it contradicts, "idle" otherwise.
      The rule's predicate must hold on the good entities and fail on the bad. */
-  function induceGrowth(demos, preds, cap, deadline) {
+  function induceGrowth(demos, preds, cap, deadline, ops) {
     var cands = [], oi;
-    for (oi = 0; oi < GEN.OPS.length; oi++) {
+    ops = ops || GEN.OPS;
+    for (oi = 0; oi < ops.length; oi++) {
       if (deadline && nowMs() > deadline) break;
-      var op = GEN.OPS[oi], goods = [], bads = [], covered = 0, t, i, j, C = null, dead = false, gobs = [];
+      var op = ops[oi], goods = [], bads = [], covered = 0, t, i, j, C = null, dead = false, gobs = [];
       for (t = 0; t < demos.length && !dead; t++) {
         var D = demos[t];
         for (i = 0; i < D.items.length; i++) {
@@ -566,14 +569,36 @@ var SKETCH = (function () {
   var STATS = null;
 
   /* Synthesize for one segmentation. */
-  function forSeg(ctx, seg, bg, deadline, found, seen, canvas) {
+  /* ------------------------------------------------------------- arms */
+  /* The search is a set of ARMS, each a lazy stream of candidate programs
+     of one kind in one segmentation:
+       rules      strict decision lists
+       relaxed    decision lists whose recoloured entities may be left to growth
+       fall       sequential falls
+       grow:F     one growth rule of operator family F on the identity program
+       refine     growth (one or two rules) on the residual of a near miss
+     The scheduler (66-search.js) decides which arm to pull next; every pull
+     is one candidate execution, recorded with a dense reward so that failed
+     candidates teach the scheduler where to look. */
+  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "fused"];
+  function opFamily(op) {
+    switch (op.kind) {
+      case "halo4": case "halo8": return "halo";
+      case "bbox": case "holes": return "fill";
+      case "ray": return op.anchor === "corner" ? "raycorner" : op.anchor === "center" ? "raycenter" : "ray";
+      default: return op.kind;
+    }
+  }
+
+  /* per-segmentation preparation: scenes, fates, observations, predicates */
+  function prepare(ctx, seg, bg) {
     var demos = [], allItems = [], t, i;
     for (t = 0; t < ctx.train.length; t++) {
       var x = ctx.train[t][0], y = ctx.train[t][1];
       var sc = SCN.of(x, seg, bg);
-      if (!sc) return;
+      if (!sc) return null;
       var fates = CORR.fates(sc, y);
-      if (!fates) return;
+      if (!fates) return null;
       var items = [];
       for (i = 0; i < sc.ents.length; i++) {
         var item = { sc: sc, e: sc.ents[i], fate: fates[i], t: t };
@@ -582,54 +607,62 @@ var SKETCH = (function () {
       }
       demos.push({ sc: sc, x: x, y: y, items: items });
     }
-    for (t = 0; t < ctx.test_inputs.length; t++) if (!SCN.of(ctx.test_inputs[t], seg, bg)) return;
-    var preds = predCatalog(allItems, paletteOf(ctx)), nearCount = 0;
-    if (nowMs() > deadline) return;
-    function tryProg(p, why) {
-      if (STATS) STATS.executed++;
-      var key = progKey(p);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      if (!verify(p, ctx)) {
-        /* near-miss bookkeeping for the failure taxonomy: a program that
-           reproduces all demonstrations but one */
-        if (ctx.train.length >= 2 && !ctx._sketchNear && nearCount < 60) {
-          nearCount++;
-          var fit = 0;
-          for (var d0 = 0; d0 < ctx.train.length; d0++) {
-            var o0 = null; try { o0 = run(p, ctx.train[d0][0]); } catch (e0) { o0 = null; }
-            if (o0 && G.gEq(o0, ctx.train[d0][1])) fit++;
-          }
-          if (fit === ctx.train.length - 1) ctx._sketchNear = key;
-        }
-        return false;
-      }
-      p.why = why;
-      found.push(p);
-      return true;
+    for (t = 0; t < ctx.test_inputs.length; t++) if (!SCN.of(ctx.test_inputs[t], seg, bg)) return null;
+    return { seg: seg, bg: bg, demos: demos, allItems: allItems, preds: predCatalog(allItems, paletteOf(ctx)) };
+  }
+
+  function listArm(key, seg, type, fam, make) {
+    var list = null, i = 0;
+    return { key: key, seg: seg, type: type, fam: fam, pulls: 0, exhausted: false, best: 0,
+      next: function () {
+        if (list === null) { list = make() || []; }
+        if (i >= list.length) { this.exhausted = true; return null; }
+        return list[i++];
+      } };
+  }
+
+  function growthPrograms(P, start, R, ctx, deadline, ops, cap) {
+    var dd = [], t, out = [];
+    for (t = 0; t < P.demos.length; t++) {
+      var created = new Set();
+      R[t].wrong.forEach(function (p) { created.add(p); });
+      dd.push({ sc: P.demos[t].sc, y: P.demos[t].y, items: P.demos[t].items, created: created, canvas: R[t].out });
     }
-    /* 1. object rules (identity default when nothing needs an action);
-       then the relaxed pass, whose programs mainly seed growth */
-    var base = [];
-    [false, true].forEach(function (relax) {
-      if (nowMs() > deadline) return;
-      RELAX = relax;
-      var skels = decisionLists(allItems, preds, 24);
-      RELAX = false;
-      for (var s0 = 0; s0 < skels.length && nowMs() < deadline; s0++) {
-        var progs = instantiate(skels[s0], seg, bg, canvas, relax ? 2 : 4);
-        for (var j = 0; j < progs.length && nowMs() < deadline; j++) {
-          if (tryProg(progs[j], relax ? "relaxed" : "rules")) continue;
-          base.push(progs[j]);
-        }
-      }
+    var gc = induceGrowth(dd, P.preds, cap, deadline, ops);
+    gc.forEach(function (g1) {
+      var cexprs = g1.C ? sortedExprs(g1.C, 3) : [null];
+      cexprs.forEach(function (ce) {
+        g1.ps.forEach(function (p1) {
+          out.push({ seg: start.seg, bg: start.bg, rules: start.rules, def: start.def,
+                     grow: (start.grow || []).concat([{ p: p1, g: { op: g1.op, c: ce, b: g1.op.b } }]), canvas: start.canvas });
+        });
+      });
     });
-    /* 1b. sequential falls (gravity with stacking): the moved entities
-       select themselves; direction literal or toward a related entity */
-    var movers = allItems.filter(function (it) { return it.fate.kind === "vacated" || (it.fate.kind === "recolor" && it.e.ncol === 1); });
-    if (movers.length && movers.length <= 40 && nowMs() < deadline) {
-      var still = allItems.filter(function (it) { return it.fate.kind === "same"; });
-      var fps = predVS(preds, movers, [], 3).concat(predVS(preds, movers, still, 3));
+    return out;
+  }
+
+  /* all first-level arms of one segmentation (preparation is lazy) */
+  function makeArms(ctx, seg, bg, canvas, S) {
+    var P = undefined;
+    function prep() { if (P === undefined) P = prepare(ctx, seg, bg); return P; }
+    var arms = [], tag = seg + (canvas >= 0 ? "+bg" : "");
+    [false, true].forEach(function (relax) {
+      arms.push(listArm((relax ? "relaxed:" : "rules:") + tag, seg, relax ? "relaxed" : "rules", "obj", function () {
+        var Q = prep(); if (!Q) return [];
+        RELAX = relax;
+        var skels = decisionLists(Q.allItems, Q.preds, 24);
+        RELAX = false;
+        var out = [];
+        skels.forEach(function (sk) { instantiate(sk, seg, bg, canvas, relax ? 2 : 4).forEach(function (p) { out.push(p); }); });
+        return out;
+      }));
+    });
+    arms.push(listArm("fall:" + tag, seg, "fall", "fall", function () {
+      var Q = prep(); if (!Q) return [];
+      var movers = Q.allItems.filter(function (it) { return it.fate.kind === "vacated" || (it.fate.kind === "recolor" && it.e.ncol === 1); });
+      if (!movers.length || movers.length > 40) return [];
+      var still = Q.allItems.filter(function (it) { return it.fate.kind === "same"; });
+      var fps = predVS(Q.preds, movers, [], 3).concat(predVS(Q.preds, movers, still, 3));
       var fcol = [null];
       var recs = movers.filter(function (it) { return it.fate.kind === "recolor"; });
       if (recs.length) {
@@ -641,69 +674,95 @@ var SKETCH = (function () {
         });
         fcol = cm && cm.size ? sortedExprs(cm, 2) : [];
       }
-      var fdirs = [0, 1, 2, 3, "nearB", "big", "near"];
-      for (var fi = 0; fi < fdirs.length && nowMs() < deadline; fi++)
-        for (var fj = 0; fj < fps.length; fj++) for (var fk = 0; fk < fcol.length; fk++)
-          tryProg({ seg: seg, bg: bg, rules: [{ p: fps[fj], a: { kind: "fall", d: fdirs[fi], c: fcol[fk] } }], def: "keep", grow: [], canvas: canvas }, "fall");
-    }
-    /* 2. growth on top of the best object programs (or of identity):
-       the object program's residual becomes the growth task (CEGIS) */
-    var starts = [{ seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas }].concat(base.slice(0, 10));
-    for (i = 0; i < starts.length && nowMs() < deadline; i++) {
-      var st = starts[i], R = residual(st, ctx);
-      if (!R) continue;
-      var creatable = true, dd = [];
-      for (t = 0; t < demos.length; t++) {
-        var created = new Set();
-        R[t].wrong.forEach(function (p) { created.add(p); });
-        if (!creatable) break;
-        dd.push({ sc: demos[t].sc, y: demos[t].y, items: demos[t].items, created: created, canvas: R[t].out });
-      }
-      if (!creatable) continue;
-      var gc = induceGrowth(dd, preds, 6, deadline);
-      for (var a = 0; a < gc.length && nowMs() < deadline; a++) {
-        var g1 = gc[a], cexprs = g1.C ? sortedExprs(g1.C, 3) : [null];
-        for (var b = 0; b < cexprs.length; b++) for (var q = 0; q < g1.ps.length; q++) {
-          var G1 = { op: g1.op, c: cexprs[b], b: g1.op.b };
-          var p1 = { seg: seg, bg: bg, rules: st.rules, def: st.def, grow: [{ p: g1.ps[q], g: G1 }], canvas: canvas };
-          if (tryProg(p1, "grow")) continue;
-          /* second growth rule on the remaining residual */
-          if (a < 3 && b === 0 && q === 0) {
-            var R2 = residual(p1, ctx);
-            if (!R2) continue;
-            var dd2 = [], ok2 = true;
-            for (t = 0; t < demos.length; t++) {
-              var cr2 = new Set();
-              R2[t].wrong.forEach(function (p) { cr2.add(p); });
-              dd2.push({ sc: demos[t].sc, y: demos[t].y, items: demos[t].items, created: cr2, canvas: R2[t].out });
-            }
-            if (!ok2) continue;
-            var gc2 = induceGrowth(dd2, preds, 3, deadline);
-            for (var a2 = 0; a2 < gc2.length; a2++) {
-              var cx2 = gc2[a2].C ? sortedExprs(gc2[a2].C, 2) : [null];
-              for (var b2 = 0; b2 < cx2.length; b2++) {
-                var G2 = { op: gc2[a2].op, c: cx2[b2], b: gc2[a2].op.b };
-                tryProg({ seg: seg, bg: bg, rules: st.rules, def: st.def, grow: [{ p: g1.ps[q], g: G1 }, { p: gc2[a2].ps[0], g: G2 }], canvas: canvas }, "grow2");
-              }
-            }
-          }
-        }
-      }
-    }
+      var out = [], fdirs = [0, 1, 2, 3, "nearB", "big", "near"];
+      fdirs.forEach(function (fd) { fps.forEach(function (fp) { fcol.forEach(function (fc) {
+        out.push({ seg: seg, bg: bg, rules: [{ p: fp, a: { kind: "fall", d: fd, c: fc } }], def: "keep", grow: [], canvas: canvas });
+      }); }); });
+      return out;
+    }));
+    FAMILIES.forEach(function (fam) {
+      arms.push(listArm("grow:" + fam + ":" + tag, seg, "grow", fam, function () {
+        var Q = prep(); if (!Q) return [];
+        var start = { seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas };
+        var R = residual(start, ctx);
+        if (!R) return [];
+        var ops = GEN.OPS.filter(function (o) { return opFamily(o) === fam; });
+        return growthPrograms(Q, start, R, ctx, S.deadline, ops, 4);
+      }));
+    });
+    arms.forEach(function (a) { a.prep = prep; });
+    return arms;
   }
 
+  /* refinement arm from a near miss: its residual becomes the growth task */
+  function refineArm(ctx, prog, arm, S) {
+    return listArm("refine:" + progKey(prog), prog.seg, "refine", "refine", function () {
+      var Q = arm.prep ? arm.prep() : prepare(ctx, prog.seg, prog.bg);
+      if (!Q) return [];
+      var R = residual(prog, ctx);
+      if (!R) return [];
+      return growthPrograms(Q, prog, R, ctx, S.deadline, GEN.OPS, 6);
+    });
+  }
+
+  /* dense reward of a candidate: exact demos and cell agreement on the
+     cells that matter (changed by the task or by the candidate) */
+  function reward(prog, ctx) {
+    var n = ctx.train.length, exact = 0, acc = 0, t;
+    for (t = 0; t < n; t++) {
+      var x = ctx.train[t][0], y = ctx.train[t][1], out = null;
+      try { out = run(prog, x); } catch (e) { out = null; }
+      if (!out) return { exact: 0, score: 0 };
+      var rel2 = 0, ok = 0, r, c;
+      for (r = 0; r < y.length; r++) for (c = 0; c < y[0].length; c++) {
+        if (x[r][c] === y[r][c] && out[r][c] === y[r][c]) continue;
+        rel2++;
+        if (out[r][c] === y[r][c]) ok++;
+      }
+      if (!rel2 || ok === rel2) exact++;
+      acc += rel2 ? ok / rel2 : 1;
+    }
+    return { exact: exact, score: 0.5 * exact / n + 0.5 * acc / n };
+  }
+
+  var SEARCH_HOOK = null;     /* 66-search.js installs the scheduler */
   function synthesize(ctx, deadline, opts) {
     opts = opts || {};
     if (!ctx.same_shape()) return [];
-    var bg = ctx.bg(), found = [], seen = new Set();
-    var canvas = canvasColor(ctx, bg);
-    var segs = opts.segs || SCN.SEGS, i;
-    for (i = 0; i < segs.length && nowMs() < deadline; i++) {
-      forSeg(ctx, segs[i], bg, deadline, found, seen, canvas);
-      if (canvas >= 0) forSeg(ctx, segs[i], bg, deadline, found, seen, -1);
-      if (found.length >= 40) break;
+    var bg = ctx.bg(), canvas = canvasColor(ctx, bg);
+    var S = { ctx: ctx, found: [], seen: new Set(), exec: 0, deadline: deadline, traj: opts.record ? [] : null, nearCount: 0,
+              keepProgs: !!opts.keepProgs };
+    var arms = [];
+    (opts.segs || SCN.SEGS).forEach(function (seg) {
+      arms = arms.concat(makeArms(ctx, seg, bg, canvas, S));
+      if (canvas >= 0) arms = arms.concat(makeArms(ctx, seg, bg, -1, S));
+    });
+    SEARCH_HOOK(ctx, arms, S, opts);
+    if (opts.record) opts.record.push.apply(opts.record, S.traj);
+    if (opts.stats) { opts.stats.exec = S.exec; opts.stats.found = S.found.length; }
+    return S.found;
+  }
+
+  /* execute one candidate: verify, record, keep if exact */
+  function execute(ctx, prog, arm, S) {
+    var key = progKey(prog);
+    if (S.seen.has(key)) return null;
+    S.seen.add(key);
+    S.exec++;
+    if (STATS) STATS.executed++;
+    var ok = verify(prog, ctx), rw = null;
+    if (ok) { prog.why = arm.type; S.found.push(prog); rw = { exact: ctx.train.length, score: 1 }; }
+    else if (S.wantReward) rw = reward(prog, ctx);
+    if (!ok && ctx.train.length >= 2 && !ctx._sketchNear && S.nearCount < 60) {
+      S.nearCount++;
+      var r2 = rw || reward(prog, ctx);
+      rw = r2;
+      if (r2.exact === ctx.train.length - 1) ctx._sketchNear = key;
     }
-    return found;
+    if (S.traj) S.traj.push({ arm: arm.key, seg: arm.seg, type: arm.type, fam: arm.fam, key: key,
+                              exact: ok, score: rw ? rw.score : null, fit: rw ? rw.exact : null, n: S.exec,
+                              prog: S.keepProgs ? prog : undefined });
+    return { ok: ok, reward: rw };
   }
 
   /* Roles of a program on a grid: for each rule, the entities it selected
@@ -781,7 +840,10 @@ var SKETCH = (function () {
     return best;
   }
 
-  return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles, actionKey: actionKey, growKey: growKey,
+  return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles,
+           makeArms: makeArms, refineArm: refineArm, execute: execute, reward: reward, opFamily: opFamily,
+           FAMILIES: FAMILIES, prepare: prepare, canvasColor: canvasColor,
+           setSearch: function (f) { SEARCH_HOOK = f; }, actionKey: actionKey, growKey: growKey,
            RELS: RELS, COLOR_EXPRS: COLOR_EXPRS, VEC_EXPRS: VEC_EXPRS, INT_EXPRS: INT_EXPRS,
            predCatalog: predCatalog, predVS: predVS, verify: verify, residual: residual,
            stats: function (s) { if (s !== undefined) STATS = s; return STATS; } };

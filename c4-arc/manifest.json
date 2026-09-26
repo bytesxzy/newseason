@@ -81,9 +81,13 @@
   "61-correspondence.js",
   "62-expr.js",
   "62a-genops.js",
+  "62b-concepts.js",
   "63-sketch.js",
   "63a-extract.js",
   "64-mdl.js",
   "65-schema.js",
+  "66-search.js",
+  "67-controller.js",
+  "67a-controller-weights.js",
   "90-engine.js"
 ]
