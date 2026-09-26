@@ -20,9 +20,9 @@
  * portfolio's demonstration check proves nothing about it. It is admitted
  * only by LEAVE-ONE-DEMONSTRATION-OUT: trained without demonstration i it
  * must reconstruct demonstration i exactly, for every i. It then enters the
- * portfolio as family "transduce" at a cost above any short program, and
- * 64-mdl.js uses its prediction as consensus evidence among competing
- * programs.
+ * portfolio as family "transduce" at a cost above any short program; the
+ * portfolio's aggregation (50-portfolio.js) counts its agreement with a
+ * program as one more independent family behind that prediction.
  */
 var TRANSDUCE = (function () {
   var D4F = [function (g) { return g; }, G.rot90, G.rot180, G.rot270, G.flipH, G.flipV, G.transpose, G.antiTranspose];

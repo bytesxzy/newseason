@@ -1,0 +1,52 @@
+{
+  "n": 30,
+  "seed": 3,
+  "split": "heldout",
+  "families": {
+    "halo": {
+      "tasks": 30,
+      "full_top1": 24,
+      "without_family_top1": 10
+    },
+    "fill": {
+      "tasks": 30,
+      "full_top1": 28,
+      "without_family_top1": 23
+    },
+    "ray": {
+      "tasks": 30,
+      "full_top1": 22,
+      "without_family_top1": 17
+    },
+    "raycorner": {
+      "tasks": 30,
+      "full_top1": 23,
+      "without_family_top1": 10
+    },
+    "link": {
+      "tasks": 25,
+      "full_top1": 18,
+      "without_family_top1": 4
+    },
+    "symm": {
+      "tasks": 30,
+      "full_top1": 21,
+      "without_family_top1": 0
+    },
+    "stamp": {
+      "tasks": 14,
+      "full_top1": 14,
+      "without_family_top1": 1
+    },
+    "repeat": {
+      "tasks": 30,
+      "full_top1": 21,
+      "without_family_top1": 7
+    },
+    "bar": {
+      "tasks": 30,
+      "full_top1": 26,
+      "without_family_top1": 1
+    }
+  }
+}

@@ -25501,8 +25501,16 @@ CONCEPT_DEFS.forEach(function (d) { GEN.addFused(d); });
  *
  * ACTION kinds and their typed holes:
  *     recolor(COLOR)  del  move(VEC)  copy(VEC)  moverc(VEC, COLOR)
- * GROWTH kinds: halo4/halo8(COLOR), bbox(COLOR), holes(COLOR),
- *     ray(DIRSET, STOP, COLOR), link(REL, COLOR)
+ *     rmove / rcopy(REFL)   reflection across a related entity (one action)
+ *     fall(DIR, COLOR?)     slide until blocked, nearest to the destination
+ *                           first so later entities stack; DIR is a direction
+ *                           or toward REL(e)
+ * GROWTH kinds: every generative operator family of 62a-genops.js --
+ *     halo, fill (bbox, holes), ray (edge / minority / corner / centre
+ *     anchors), leak, link, mid, symm, stamp, repeat, bar, stretch,
+ *     extrude, fused -- each with a COLOR hole where it paints one colour
+ * Two programs compose as { seq: [P1, P2] }: P2 is synthesised on
+ * (P1(x) -> y) when P1 is a near miss (stage2Arm).
  *
  * Holes are EXPRESSIONS, not literals: COLOR ranges over literals, the
  * entity's own colours, the colours of related entities (nearest, container,
@@ -27399,9 +27407,9 @@ var CONTROL_WEIGHTS = null;
  * portfolio's demonstration check proves nothing about it. It is admitted
  * only by LEAVE-ONE-DEMONSTRATION-OUT: trained without demonstration i it
  * must reconstruct demonstration i exactly, for every i. It then enters the
- * portfolio as family "transduce" at a cost above any short program, and
- * 64-mdl.js uses its prediction as consensus evidence among competing
- * programs.
+ * portfolio as family "transduce" at a cost above any short program; the
+ * portfolio's aggregation (50-portfolio.js) counts its agreement with a
+ * program as one more independent family behind that prediction.
  */
 var TRANSDUCE = (function () {
   var D4F = [function (g) { return g; }, G.rot90, G.rot180, G.rot270, G.flipH, G.flipV, G.transpose, G.antiTranspose];

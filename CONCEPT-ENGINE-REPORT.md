@@ -6,6 +6,27 @@ public TRAINING split (`arc1_` in `c4-arc-tasks.js`) and synthetic tasks. The
 ARC-AGI-1 public EVALUATION split was frozen in `c4-arc-eval-tasks.js`
 (commit 7c088f4, sha256 `b724c5cf...`) before any engine run on it.
 
+**Results at a glance** (3 s per task, same harness, details in sections 4-13):
+
+| | baseline | final | change |
+|---|---|---|---|
+| held-out ARC-AGI-1 evaluation, top-1 | 102 / 400 (25.5%) | **115 / 400 (28.75%)** | +13 (+3.25 points) |
+| held-out ARC-AGI-1 evaluation, top-2 | 104 (26.0%) | **120 (30.0%)** | +16 (+4.0 points) |
+| held-out correct output generated | 108 | 122 | +14 |
+| development (ARC-AGI-1 training), top-1 | 232 (58.0%) | 260 (65.0%) | +28 |
+| runtime per task | 2.73 s | 2.74 s | same |
+
+The +10-point target was not reached on the held-out split, and 70% is far
+away. Section 13 says why.
+
+Where each requested item is: architecture before/after 1; files changed
+and added 2; algorithms and their research sources 3 (table 0); baseline
+numbers 5; final numbers, top-1/top-2, oracle generation and retention,
+runtime 6; failure taxonomy 7; matched-compute ablations 8a-8c;
+subsystem per newly solved task, regressions, unique gains 9a-9b;
+branch intersection/union 9c; synthetic generalisation 10;
+leave-family-out 11; negative results 12; remaining failures 13.
+
 ## 0. Research table (written before implementation)
 
 Sources actually read: Barbadillo's ARC25 solution summary (ironbar/arc25
@@ -132,7 +153,18 @@ Added, tools and tests (10): `c4-arc/concept-test.js`, `tools/arc-sls.js`,
 `tools/arc-library.js`, `tools/arc-report.js`, `tools/arc-lfo.js`,
 `tools/arc-final-runs.sh`, `c4-arc-eval-tasks.js` (the frozen evaluation split).
 
-Added, measurements: `measurements/arc-*.json` (listed where used below).
+Added, report and measurements: `CONCEPT-ENGINE-REPORT.md` (this file);
+`measurements/arc-final-runs.json` (summaries of all 12 frozen runs),
+`arc-report-eval.json`, `arc-report-dev.json` (gains, regressions,
+branches), `arc-sls-dev*.json`, `arc-controller-*.json`,
+`arc-synth-heldout.json` (development stage), `arc-synth-heldout-final.json`,
+`arc-lfo.json`, `arc-library-mine.json`.
+
+After the frozen runs, two header comments were corrected (63-sketch.js
+listed fewer action and growth kinds than exist; 69-transduce.js named the
+wrong file for consensus). The rebuilt bundle differs from the measured one
+in comment lines only (13 added, 5 removed; sha256 `d94da26aac8eff16...`).
+The measured engine is commit 2c2c845.
 
 ## 3. Algorithms and where each idea came from
 
@@ -337,6 +369,32 @@ the components the search already tries early. The weights file ships
 `null`; the code stays so the experiment can be re-run
 (`measurements/arc-controller-*.json`).
 
+### 8c. Component ablations at matched wall time
+
+Same harness as section 6 (3 s per task, 3 workers), frozen engine, one
+component switched off (`--ablate` / `--without`). Only the development
+split was used: the held-out split was run once, for the three evaluation
+runs of section 6.
+
+| ablation | top-1 | top-2 | oracle retained | top-1 vs final |
+|---|---|---|---|---|
+| final engine | 260 | 268 | 270 | - |
+| without sketch, extract, encode, transduce | 233 | 240 | 241 | -27 |
+| pure search instead of search-learn-search (no refinement or stage-2 arms) | 253 | 259 | 260 | -7 |
+| without extraction and encoding | 256 | 264 | 266 | -4 |
+| without D4 view consistency | 258 | 265 | 267 | -2 |
+| without referent consistency | 259 | 266 | 269 | -1 |
+| without the transducer | 259 | 268 | 270 | -1 |
+| without the removed-colour law | 260 | 266 | 268 | 0 (top-2 -2) |
+| held-out evaluation, without the new families | 104 | 106 | 110 | -11 (vs 115) |
+
+The same engine run twice differs by about one task (K-13 vs dev-final),
+so only the first three removals are clearly real: the new families (-27),
+refinement inside the search (-7), extraction and encoding (-4). View
+consistency (-2) is at the edge of the noise. Referent consistency, the
+transducer and the removed-colour law are within it: they are not shown
+to matter at this scale.
+
 ## 9. Newly solved tasks, regressions, unique gains
 
 `node tools/arc-report.js BASELINE_DIR FINAL_DIR` (answers are compared by
@@ -410,3 +468,158 @@ transduce), or by both.
 The new branches reach 33 held-out outputs (15 unique) and 114 development
 outputs (29 unique). Nothing was deleted: 89 held-out answers exist only
 in the old families.
+
+## 10. Synthetic generalisation by depth
+
+`tools/arc-synth-gen.js --n 60 --depths 1,2,3 --seed 7 --split heldout`,
+frozen engine, 1.5 s of entity search per task. Each task is a program
+sampled from the grammar (depth = number of object and growth rules) and
+executed on development INPUTS from the second half of the corpus, which the
+controller and library tools never used. Top-1 = the lowest-cost exact
+program is correct on the held-out test pair
+(`measurements/arc-synth-heldout-final.json`).
+
+| depth | tasks | demo-exact program found | top-1 correct | some exact program correct | executions to first exact |
+|---|---|---|---|---|---|
+| 1 | 60 | 37 | 29 (48%) | 34 | 11.2 |
+| 2 | 60 | 28 | 26 (43%) | 26 | 51.9 |
+| 3 | 60 | 36 | 25 (42%) | 29 | 49.8 |
+
+By concept family over all depths (tasks / exact / top-1): recolor 38/28/24,
+repeat 59/37/30, ray 20/15/13, bar 17/14/10, symm 24/13/12, move 37/15/12,
+del 50/26/15, copy 44/17/11, moverc 21/8/7, stamp 12/8/5, keeponly 21/8/5.
+
+What this says:
+* The engine does not reliably solve its OWN grammar: 23 of 60 depth-1
+  tasks get no exact program in 1.5 s. Sampled holes (colour and offset
+  expressions, predicates) are drawn from the full catalogues, and the
+  inducer does not reconstruct all of them from three demonstrations.
+  Some sampled tasks are also under-determined by their demonstrations
+  (copy: 17 exact, 11 correct).
+* Composition costs executions: the first exact program takes about 4.5x
+  more executions at depth 2-3 than at depth 1.
+* Depth 3 finds MORE exact programs than depth 2 (36 vs 28), but top-1
+  barely moves (25 vs 26). Deeper samples are often explained by a shorter
+  program that fits the demonstrations and fails the test: the
+  over-general fit of section 13, reproduced synthetically.
+* An earlier development-stage run of the same command reported 41 / 25 /
+  26 top-1. It is not comparable: the suite is sampled from the engine's
+  grammar, which grew before the freeze, so the same seed draws different
+  tasks.
+
+## 11. Leave-family-out
+
+`tools/arc-lfo.js --n 30`: for each generative family F, 30 depth-1 tasks
+that REQUIRE F are dreamed on the held-out inputs and solved twice by the
+frozen engine: with the full grammar, and with every operator of F removed
+from the search (`measurements/arc-lfo.json`). Top-1 correct:
+
+| family removed | tasks | full grammar | without the family |
+|---|---|---|---|
+| fill (bbox, holes) | 30 | 28 | 23 |
+| ray | 30 | 22 | 17 |
+| raycorner | 30 | 23 | 10 |
+| halo | 30 | 24 | 10 |
+| repeat | 30 | 21 | 7 |
+| link | 25 | 18 | 4 |
+| stamp | 14 | 14 | 1 |
+| bar | 30 | 26 | 1 |
+| symm | 30 | 21 | 0 |
+
+Where the behaviour is recovered (fill, ray, some halo and raycorner
+tasks), the likely mechanism is a neighbouring operator painting the same
+cells on those particular grids (a ray that stops after one cell draws a
+halo side; a fill of a small box can equal a halo). The tool does not record
+which operator won, so this is an inference. It is coincidence of
+operators, not a missing concept being rebuilt. Symmetry, stamp and bar are
+not recovered at all (0-1 of 14-30), and link barely (4 of 25). The engine does not invent a concept it
+lacks. This matches the empty library (section 12) and the held-out
+failure counts (section 13).
+
+## 12. What did not work
+
+| attempt | measured result | status |
+|---|---|---|
+| Learned search controller (dreams, hindsight, solved-task hindsight) | never better than no controller on held-out inputs; -4 top-1 at N = 32 for the largest training set (8b) | ships with null weights |
+| Reward-guided arm pruning (search-learn-search v1) | worse than the blind refinement control: 61 vs 66 top-1 at N = 512 (8a) | replaced |
+| Learning which arm to pull (final version) | equal to the blind control on top-1 (67 = 67 at N = 512) | kept: fewer executions to the first exact program |
+| Concept library (DreamCoder-style abstraction) | 41 solved programs mined, 43 candidate fused operators, none with support in 2 or more tasks and positive MDL gain (`measurements/arc-library-mine.json`) | library is empty (62b-concepts.js) |
+| Transducer | development: admitted by LODO on 16 tasks, correct on 13, the only source of a correct output on 0. Held-out: admitted on 1, correct, not unique. Removing it: -1 top-1 (noise level, 8c) | kept, but no measured benefit |
+| Referent consistency, removed-colour law | removing either changes development top-1 by -1 and 0 (8c) | kept, no measured benefit |
+| Rewrite composition | -2 top-1 on development (checkpoint J-10) | reverted |
+| ArcMemo-style concept memory | not built as a separate store; its closest analogue is the controller above | not done |
+| Colour-permutation views | view consistency re-induces in D4 views only; colour frames exist only in the old re-framing wrapper | not done |
+| Recursion deeper than two stages | only P2 after P1; see depth 3 in section 10 | partial |
+
+## 13. Remaining failures, honestly
+
+285 held-out tasks are still wrong at top-1. From the taxonomy (section 7):
+
+* 278 are GENERATION failures: no program that fits the demonstrations
+  produces the right output. Ranking loses only 7. Better ranking cannot
+  close the gap.
+* 79 have a program that fits every demonstration and is wrong on the test
+  (coincidental fits: a cell decision tree or an enumeration that
+  reproduces 2-3 demonstrations by accident). MDL, view consistency,
+  referent consistency and LODO choose among candidates. With no correct
+  candidate present, they cannot help.
+* 50 need a generative concept that is not among the operators (halo,
+  fills, rays, links, symmetry, stamps, repeats, bars, stretch, extrude,
+  leak, midpoints): for example paths that turn, continuation of a
+  sequence, construction driven by counts, gravity with stacking.
+* 44 change the foreground in ways the correspondence cannot state: objects
+  scaled, rotated or reflected in place, split or merged, recoloured by a
+  context-dependent map, or a unit of change that no segmentation of the
+  beam isolates.
+* 44 know the output size but not the content. Entity programs are
+  same-shape; extraction and encoding cover single-entity crops and numeric
+  encodings. Crop-then-transform, tile-then-modify and assembling several
+  entities are not in the space.
+* 41 have an operator but lack the selecting relation or predicate (21), or
+  have entity fates that split into classes no short predicate separates
+  (20); 18 have no size law at all.
+
+The structural reasons behind those counts:
+
+1. The hypothesis space is hand-built. Every solved concept had to be
+   reachable in it, and the learning components (controller, library)
+   added no concept (section 12), as Barbadillo found for low-diversity
+   generators. What added programs was refinement of near misses.
+2. Composition is shallow: one level of rules plus growth, and a second
+   stage only after a near miss (see the depth results in section 10).
+3. 3 s per task on a CPU. The anytime families trade time with each other.
+   Both held-out regressions are schedule effects.
+4. Part of the new code fits the development concepts. Operator variants
+   were added where development tasks needed them. It gains 7.0 points
+   there and 3.25 held-out. The held-out number is the honest one.
+
+The systems that reach 50-72% on this split (ARChitects 71.6% with an 8B
+model; Akyurek et al. 61.9% with test-time training plus programs) train
+neural models per task on GPUs. That is outside this engine's constraints:
+local, no external model, CPU, 3 s per task. A symbolic engine of this kind
+needs many more concepts in its space, or a way to learn new ones that
+actually works, before 70% is a sensible target. This work does not provide
+either.
+
+## 14. Reproduction
+
+```
+node c4-arc/build.js            # bundle from c4-arc/src (measured engine: commit 2c2c845)
+npm test                        # includes c4-arc/concept-test.js
+sh tools/arc-final-runs.sh BASELINE_ROOT results/final
+node tools/arc-report.js results/final/eval-baseline results/final/eval-final
+node tools/arc-report.js results/base-arc1 results/final/dev-final
+node tools/arc-report.js --table results/final/*
+node tools/arc-sls.js --n 128,512 --out measurements/arc-sls-dev-v2.json
+node tools/arc-controller.js --out measurements/arc-controller-train.json
+#   --write installs the trained weights (then rebuild); production ships null
+node tools/arc-sls.js --n 32,64,128 --half 2 [--no-controller]
+node tools/arc-synth-gen.js --n 60 --depths 1,2,3 --split heldout
+node tools/arc-lfo.js --n 30
+```
+
+`BASELINE_ROOT` holds the pre-change `c4-arc-engine.js` (commit 2771611)
+and copies of both corpus files. The container restarted once during the
+ablation `dev-no-views`. That run was deleted and redone from scratch, and
+the ablations after it were run with the same commands. Every other run
+finished in one piece.

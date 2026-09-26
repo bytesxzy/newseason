@@ -1,0 +1,117 @@
+{
+  "seed": 7,
+  "n": 60,
+  "split": "heldout",
+  "mode": "sls",
+  "maxExec": null,
+  "byDepth": {
+    "1": {
+      "tasks": 60,
+      "exact": 37,
+      "top1": 29,
+      "any_correct": 34,
+      "exec_to_first": 11.2
+    },
+    "2": {
+      "tasks": 60,
+      "exact": 28,
+      "top1": 26,
+      "any_correct": 26,
+      "exec_to_first": 51.9
+    },
+    "3": {
+      "tasks": 60,
+      "exact": 36,
+      "top1": 25,
+      "any_correct": 29,
+      "exec_to_first": 49.8
+    }
+  },
+  "byFamily": {
+    "copy": {
+      "n": 44,
+      "exact": 17,
+      "top1": 11
+    },
+    "repeat": {
+      "n": 59,
+      "exact": 37,
+      "top1": 30
+    },
+    "symm": {
+      "n": 24,
+      "exact": 13,
+      "top1": 12
+    },
+    "del": {
+      "n": 50,
+      "exact": 26,
+      "top1": 15
+    },
+    "move": {
+      "n": 37,
+      "exact": 15,
+      "top1": 12
+    },
+    "recolor": {
+      "n": 38,
+      "exact": 28,
+      "top1": 24
+    },
+    "bar": {
+      "n": 17,
+      "exact": 14,
+      "top1": 10
+    },
+    "moverc": {
+      "n": 21,
+      "exact": 8,
+      "top1": 7
+    },
+    "keeponly": {
+      "n": 21,
+      "exact": 8,
+      "top1": 5
+    },
+    "ray": {
+      "n": 20,
+      "exact": 15,
+      "top1": 13
+    },
+    "stamp": {
+      "n": 12,
+      "exact": 8,
+      "top1": 5
+    },
+    "extrude": {
+      "n": 3,
+      "exact": 2,
+      "top1": 2
+    },
+    "stretch": {
+      "n": 2,
+      "exact": 1,
+      "top1": 0
+    },
+    "raycorner": {
+      "n": 2,
+      "exact": 0,
+      "top1": 0
+    },
+    "mid": {
+      "n": 2,
+      "exact": 2,
+      "top1": 2
+    },
+    "raycenter": {
+      "n": 2,
+      "exact": 0,
+      "top1": 0
+    },
+    "link": {
+      "n": 1,
+      "exact": 0,
+      "top1": 0
+    }
+  }
+}

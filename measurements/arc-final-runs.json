@@ -38,6 +38,213 @@
    "RANKING": 10
   }
  },
+ "dev-no-extract-encode": {
+  "engine_sha256": "e17a325ccc941ba05f6df08054144b03c183ec58cb855fb8c6242fccf5143036",
+  "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
+  "policy_sha256": null,
+  "budget": 3,
+  "jobs": 3,
+  "start": 0,
+  "end": 400,
+  "without": [
+   "extract",
+   "encode"
+  ],
+  "ids": [],
+  "node": "v22.22.2",
+  "prefix": "arc1_",
+  "policy_mode": "none",
+  "ablate": [],
+  "note": "no planner",
+  "n": 400,
+  "top1": 256,
+  "top2": 264,
+  "oracle_retained": 266,
+  "oracle_generated": 266,
+  "task_seconds": 1033.8450000000005,
+  "wall_seconds": 346.482,
+  "failures": {
+   "SOLVED": 256,
+   "NO_CANDIDATE": 96,
+   "NO_CORRECT_RETAINED_PREDICTION": 38,
+   "RIGHT_OUTPUT_OUTRANKED": 10
+  },
+  "failure_reasons": {
+   "GENERATIVE_OP_MISSING": 26,
+   "CONDITIONAL_REQUIRED": 7,
+   "SIZE_CHANGE_UNEXPLAINED": 28,
+   "OBJECT_CORRESPONDENCE_FAILURE": 16,
+   "UNKNOWN": 38,
+   "OUTPUT_SHAPE_UNKNOWN": 12,
+   "RELATION_NOT_EXPRESSIBLE": 7,
+   "RANKING": 10
+  }
+ },
+ "dev-no-referent": {
+  "engine_sha256": "e17a325ccc941ba05f6df08054144b03c183ec58cb855fb8c6242fccf5143036",
+  "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
+  "policy_sha256": null,
+  "budget": 3,
+  "jobs": 3,
+  "start": 0,
+  "end": 400,
+  "without": [],
+  "ids": [],
+  "node": "v22.22.2",
+  "prefix": "arc1_",
+  "policy_mode": "none",
+  "ablate": [
+   "shift"
+  ],
+  "note": "no planner",
+  "n": 400,
+  "top1": 259,
+  "top2": 266,
+  "oracle_retained": 269,
+  "oracle_generated": 269,
+  "task_seconds": 1018.7309999999989,
+  "wall_seconds": 341.779,
+  "failures": {
+   "SOLVED": 259,
+   "NO_CANDIDATE": 95,
+   "NO_CORRECT_RETAINED_PREDICTION": 36,
+   "RIGHT_OUTPUT_OUTRANKED": 10
+  },
+  "failure_reasons": {
+   "GENERATIVE_OP_MISSING": 26,
+   "CONDITIONAL_REQUIRED": 7,
+   "UNKNOWN": 36,
+   "OBJECT_CORRESPONDENCE_FAILURE": 18,
+   "RELATION_NOT_EXPRESSIBLE": 8,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 26,
+   "RANKING": 10
+  }
+ },
+ "dev-no-removed-law": {
+  "engine_sha256": "e17a325ccc941ba05f6df08054144b03c183ec58cb855fb8c6242fccf5143036",
+  "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
+  "policy_sha256": null,
+  "budget": 3,
+  "jobs": 3,
+  "start": 0,
+  "end": 400,
+  "without": [],
+  "ids": [],
+  "node": "v22.22.2",
+  "prefix": "arc1_",
+  "policy_mode": "none",
+  "ablate": [
+   "removed"
+  ],
+  "note": "no planner",
+  "n": 400,
+  "top1": 260,
+  "top2": 266,
+  "oracle_retained": 268,
+  "oracle_generated": 268,
+  "task_seconds": 1019.5709999999991,
+  "wall_seconds": 341.947,
+  "failures": {
+   "SOLVED": 260,
+   "NO_CANDIDATE": 94,
+   "NO_CORRECT_RETAINED_PREDICTION": 38,
+   "RIGHT_OUTPUT_OUTRANKED": 8
+  },
+  "failure_reasons": {
+   "GENERATIVE_OP_MISSING": 26,
+   "CONDITIONAL_REQUIRED": 8,
+   "UNKNOWN": 38,
+   "OBJECT_CORRESPONDENCE_FAILURE": 16,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 27,
+   "RELATION_NOT_EXPRESSIBLE": 7,
+   "RANKING": 8
+  }
+ },
+ "dev-no-transduce": {
+  "engine_sha256": "e17a325ccc941ba05f6df08054144b03c183ec58cb855fb8c6242fccf5143036",
+  "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
+  "policy_sha256": null,
+  "budget": 3,
+  "jobs": 3,
+  "start": 0,
+  "end": 400,
+  "without": [
+   "transduce"
+  ],
+  "ids": [],
+  "node": "v22.22.2",
+  "prefix": "arc1_",
+  "policy_mode": "none",
+  "ablate": [],
+  "note": "no planner",
+  "n": 400,
+  "top1": 259,
+  "top2": 268,
+  "oracle_retained": 270,
+  "oracle_generated": 270,
+  "task_seconds": 1036.3920000000003,
+  "wall_seconds": 347.52,
+  "failures": {
+   "SOLVED": 259,
+   "NO_CANDIDATE": 93,
+   "NO_CORRECT_RETAINED_PREDICTION": 37,
+   "RIGHT_OUTPUT_OUTRANKED": 11
+  },
+  "failure_reasons": {
+   "GENERATIVE_OP_MISSING": 25,
+   "CONDITIONAL_REQUIRED": 7,
+   "UNKNOWN": 37,
+   "OBJECT_CORRESPONDENCE_FAILURE": 17,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 27,
+   "RELATION_NOT_EXPRESSIBLE": 7,
+   "RANKING": 11
+  }
+ },
+ "dev-no-views": {
+  "engine_sha256": "e17a325ccc941ba05f6df08054144b03c183ec58cb855fb8c6242fccf5143036",
+  "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
+  "policy_sha256": null,
+  "budget": 3,
+  "jobs": 3,
+  "start": 0,
+  "end": 400,
+  "without": [],
+  "ids": [],
+  "node": "v22.22.2",
+  "prefix": "arc1_",
+  "policy_mode": "none",
+  "ablate": [
+   "views"
+  ],
+  "note": "no planner",
+  "n": 400,
+  "top1": 258,
+  "top2": 265,
+  "oracle_retained": 267,
+  "oracle_generated": 267,
+  "task_seconds": 1008.762,
+  "wall_seconds": 338.328,
+  "failures": {
+   "SOLVED": 258,
+   "NO_CANDIDATE": 92,
+   "NO_CORRECT_RETAINED_PREDICTION": 40,
+   "RIGHT_OUTPUT_OUTRANKED": 9,
+   "SCHEDULER_STARVED": 1
+  },
+  "failure_reasons": {
+   "GENERATIVE_OP_MISSING": 26,
+   "CONDITIONAL_REQUIRED": 6,
+   "UNKNOWN": 40,
+   "OBJECT_CORRESPONDENCE_FAILURE": 16,
+   "RELATION_NOT_EXPRESSIBLE": 8,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 27,
+   "RANKING": 9
+  }
+ },
  "dev-pure-search": {
   "engine_sha256": "e17a325ccc941ba05f6df08054144b03c183ec58cb855fb8c6242fccf5143036",
   "corpus_sha256": "95cd8ffe1bc7145ddbb5a03f2ff4d56f844e2aa74007b950f45ab44a03e43fe6",
