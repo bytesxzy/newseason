@@ -1,0 +1,274 @@
+{
+ "baseline": {
+  "n": 400,
+  "top1": 232,
+  "top2": 239,
+  "oracle_retained": 239,
+  "oracle_generated": 239,
+  "task_seconds": 1002,
+  "failures": {
+   "SOLVED": 232,
+   "NO_CANDIDATE": 121,
+   "NO_CORRECT_RETAINED_PREDICTION": 40,
+   "RIGHT_OUTPUT_OUTRANKED": 7
+  },
+  "reasons": {}
+ },
+ "final": {
+  "n": 400,
+  "top1": 260,
+  "top2": 268,
+  "oracle_retained": 270,
+  "oracle_generated": 270,
+  "task_seconds": 1013,
+  "failures": {
+   "SOLVED": 260,
+   "NO_CANDIDATE": 93,
+   "NO_CORRECT_RETAINED_PREDICTION": 37,
+   "RIGHT_OUTPUT_OUTRANKED": 10
+  },
+  "reasons": {
+   "GENERATIVE_OP_MISSING": 26,
+   "CONDITIONAL_REQUIRED": 7,
+   "UNKNOWN": 37,
+   "OBJECT_CORRESPONDENCE_FAILURE": 16,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 27,
+   "RELATION_NOT_EXPRESSIBLE": 7,
+   "RANKING": 10
+  }
+ },
+ "regressions": [
+  {
+   "id": "arc1_1bfc4729",
+   "now": "NO_CORRECT_RETAINED_PREDICTION",
+   "before": "geometry:const"
+  },
+  {
+   "id": "arc1_4612dd53",
+   "now": "RIGHT_OUTPUT_OUTRANKED",
+   "before": "cellwise:treeD[line,6]"
+  },
+  {
+   "id": "arc1_5582e5ca",
+   "now": "RIGHT_OUTPUT_OUTRANKED",
+   "before": "select:m4.min_holes.solid"
+  },
+  {
+   "id": "arc1_b27ca6d3",
+   "now": "RIGHT_OUTPUT_OUTRANKED",
+   "before": "objects:objtree[c4/size,1]"
+  },
+  {
+   "id": "arc1_b9b7f026",
+   "now": "RIGHT_OUTPUT_OUTRANKED",
+   "before": "select:c4.max_holes.cell"
+  }
+ ],
+ "unique_gains": [
+  {
+   "id": "arc1_06df4c85",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>link:orth(allS){self}"
+  },
+  {
+   "id": "arc1_1f0c79e5",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:m8|all>recolor{other:2}|keep|g:all>extrude(2){other:2}"
+  },
+  {
+   "id": "arc1_25d487eb",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>ray:edge:toward(big):thru{self}"
+  },
+  {
+   "id": "arc1_31aa019c",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8|pix&uColor>recolor{self}|del|g:pix&uColor>halo8{c2}"
+  },
+  {
+   "id": "arc1_3bdb4ada",
+   "subsystem": "cellwise",
+   "author": "old:cellwise",
+   "program": "cellwise:treeD[all,4]"
+  },
+  {
+   "id": "arc1_3befdf3e",
+   "subsystem": "sketch",
+   "author": "sketch:two-stage",
+   "program": "sketch:sk:c8|all>recolor{col(near)}|keep|g:all>halo4{self};col!=4>bar:u*2{gmaj} >> c8||keep|g:all>symm:rot4@near"
+  },
+  {
+   "id": "arc1_3eda0437",
+   "subsystem": "sketch",
+   "author": "sketch:object-rule",
+   "program": "sketch:sk:rects|max:n>recolor{c6}|keep"
+  },
+  {
+   "id": "arc1_40853293",
+   "subsystem": "cellwise",
+   "author": "old:cellwise",
+   "program": "cellwise:treeD[field,2]"
+  },
+  {
+   "id": "arc1_4093f84a",
+   "subsystem": "sketch",
+   "author": "sketch:fall",
+   "program": "sketch:sk:c8|pix>fall<big>{gmaj}|keep"
+  },
+  {
+   "id": "arc1_41e4d17e",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>ray:center:orth:thru{c6}"
+  },
+  {
+   "id": "arc1_444801d8",
+   "subsystem": "sketch",
+   "author": "sketch:growth+conditional",
+   "program": "sketch:sk:m8||keep|g:!has:2>repeat[away(near)*1]:rc{minor};!holes>repeat[u*1]:rc{gmin};holes>bar:u*1{minor};holes>bbo"
+  },
+  {
+   "id": "arc1_445eab21",
+   "subsystem": "sketch+represent",
+   "author": "encode",
+   "program": "sketch:enc:fill[colorsxcolors]{most}"
+  },
+  {
+   "id": "arc1_4938f0c2",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:!rect>symm:both@near"
+  },
+  {
+   "id": "arc1_4c5c2cf0",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:!sym>symm:both@near"
+  },
+  {
+   "id": "arc1_5521c0d9",
+   "subsystem": "sketch",
+   "author": "sketch:object-rule",
+   "program": "sketch:sk:c8|all>move[u*h]|keep"
+  },
+  {
+   "id": "arc1_56dc2b01",
+   "subsystem": "sketch",
+   "author": "sketch:two-stage",
+   "program": "sketch:sk:c8|!rect>move[to(near)]|keep >> c8||keep|g:all>symm:both@big:rc{c8}"
+  },
+  {
+   "id": "arc1_5c0a986e",
+   "subsystem": "sketch",
+   "author": "sketch:growth+conditional",
+   "program": "sketch:sk:c8||keep|g:col=1>ray:corner:ul:hit{self};col=2>ray:corner:dr:hit{self}"
+  },
+  {
+   "id": "arc1_6855a6e4",
+   "subsystem": "sketch",
+   "author": "sketch:reflection",
+   "program": "sketch:sk:c8|uShape>rmove[refl:near(near)]|keep"
+  },
+  {
+   "id": "arc1_6e19193c",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>ray:corner:concave:hit{self}"
+  },
+  {
+   "id": "arc1_868de0fa",
+   "subsystem": "sketch+objects",
+   "author": "sketch:object-rule",
+   "program": "sketch:sk:bgin|all>recolor{tab(odd:h:0>2,1>7)}|keep"
+  },
+  {
+   "id": "arc1_8d510a79",
+   "subsystem": "sketch+cellwise",
+   "author": "sketch:growth+conditional",
+   "program": "sketch:sk:c8||keep|g:col=2>link:orth(colN){self};col=1>ray:edge:away(big):hit{self}"
+  },
+  {
+   "id": "arc1_9af7a82c",
+   "subsystem": "sketch",
+   "author": "encode",
+   "program": "sketch:enc:acol[all:maxcntxall:colors]"
+  },
+  {
+   "id": "arc1_9edfc990",
+   "subsystem": "sketch",
+   "author": "sketch:object-rule",
+   "program": "sketch:sk:bg4|adjC:1>recolor{c1}|keep"
+  },
+  {
+   "id": "arc1_a3df8b1e",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>ray:edge:ul:hit:bh{self}"
+  },
+  {
+   "id": "arc1_aabf363d",
+   "subsystem": "objects+sketch+relpalette+compose",
+   "author": "old:objects",
+   "program": "objects:objtree[c4/rel,1]"
+  },
+  {
+   "id": "arc1_b548a754",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:m8||keep|g:all>stretch(near)"
+  },
+  {
+   "id": "arc1_b8cdaf2b",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c4||keep|g:!border>ray:corner:ul:hit{gmin};!border>ray:corner:ur:hit{gmin}"
+  },
+  {
+   "id": "arc1_d0f5fe59",
+   "subsystem": "sketch",
+   "author": "encode",
+   "program": "sketch:enc:diag[ents:c8xents:c8]{most}"
+  },
+  {
+   "id": "arc1_dbc1a6ce",
+   "subsystem": "sketch+sequence+typed+cellwise",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c4||keep|g:all>link:orth(allS){c8}"
+  },
+  {
+   "id": "arc1_e9614598",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>mid(near):plus{c3}"
+  },
+  {
+   "id": "arc1_ec883f72",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:!rect>ray:corner:ur:hit{col(near)};!rect>ray:corner:dr:hit{gmin};!rect>ray:corner:dl:hit{gmin};!"
+  },
+  {
+   "id": "arc1_f8a8fe49",
+   "subsystem": "sketch",
+   "author": "sketch:reflection",
+   "program": "sketch:sk:c8|uShape>rmove[refl:far(nearD)]|keep"
+  },
+  {
+   "id": "arc1_fcc82909",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:m8||keep|g:all>bar:d*ncol{c3}"
+  }
+ ],
+ "branches": {
+  "old_only": 156,
+  "new_only": 29,
+  "both": 85,
+  "union": 270
+ }
+}

@@ -11,6 +11,19 @@
  */
 'use strict';
 const fs = require('fs'), path = require('path');
+/*   node tools/arc-report.js --table DIR...   one markdown row per run
+ *   (summary.json as written by the bench; nothing is recomputed) */
+if (process.argv.includes('--table')) {
+  const dirs = process.argv.slice(2).filter(a => !a.startsWith('--'));
+  console.log('| run | top-1 | top-2 | oracle generated | oracle retained | task seconds | failure reasons |');
+  console.log('|---|---|---|---|---|---|---|');
+  for (const d of dirs) {
+    const s = JSON.parse(fs.readFileSync(path.join(d, 'summary.json')));
+    const rs = Object.entries(s.failure_reasons || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ');
+    console.log(`| ${path.basename(d)} | ${s.top1}/${s.n} | ${s.top2} | ${s.oracle_generated === undefined ? '-' : s.oracle_generated} | ${s.oracle_retained} | ${Math.round(s.task_seconds)} | ${rs || '-'} |`);
+  }
+  process.exit(0);
+}
 const [A, B] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const NEW = new Set(['sketch', 'transduce']);           /* families of the new branches */
 function read(dir) {
@@ -40,11 +53,31 @@ function authorOf(r) {
   const w = r.winning_program && r.winning_program[0];
   return w ? String(w[0]).split('@')[0] + ':' + String(w[1]).slice(0, 110) : null;
 }
+/* which part of the new branches wrote the top-1 program (from its name) */
+function detailOf(r) {
+  const w = r.winning_program && r.winning_program[0], n = w ? String(w[1]) : '';
+  if (/^x:/.test(n)) return 'extract';
+  if (/^enc:/.test(n)) return 'encode';
+  if (/^transduce:/.test(n)) return 'transduce';
+  if (!/^sk:/.test(n)) return w ? 'old:' + String(w[0]).split('@')[0] : null;
+  if (n.includes(' >> ')) return 'sketch:two-stage';
+  /* fields: seg | object rules | default | g:growth rules | bg:canvas;
+     a rule is PRED>ACTION and predicate keys never contain '>' */
+  const f = n.slice(3).split('|'), rules = f[1] ? f[1].split(';') : [];
+  const g = (f.find(x => x.startsWith('g:')) || 'g:').slice(2).split(';').filter(Boolean);
+  const preds = l => new Set(l.map(r => r.split('>')[0])).size;
+  const parts = [];
+  if (g.length) parts.push('growth');
+  if (/fall/.test(f[1] || '')) parts.push('fall');
+  if (/rmove|rcopy/.test(f[1] || '')) parts.push('reflection');
+  if (rules.length > 1 || preds(g) > 1) parts.push('conditional');
+  return 'sketch:' + (parts.join('+') || 'object-rule');
+}
 const regressions = [], gains = [];
 fin.forEach((r, id) => {
   const b = base.get(id); if (!b) return;
   if (b.solved_top1 && !r.solved_top1) regressions.push({ id, now: r.failure_class, before: authorOf(b) });
-  if (!b.solved_top1 && r.solved_top1) gains.push({ id, subsystem: [...fams(r)].join('+'), program: authorOf(r) });
+  if (!b.solved_top1 && r.solved_top1) gains.push({ id, subsystem: [...fams(r)].join('+'), author: detailOf(r), program: authorOf(r) });
 });
 /* branch intersection / union over correct retained outputs */
 let oldOnly = 0, newOnly = 0, both = 0;

@@ -1,0 +1,155 @@
+{
+ "baseline": {
+  "n": 400,
+  "top1": 102,
+  "top2": 104,
+  "oracle_retained": 108,
+  "oracle_generated": 108,
+  "task_seconds": 1091,
+  "failures": {
+   "SOLVED": 102,
+   "RIGHT_OUTPUT_OUTRANKED": 6,
+   "NO_CANDIDATE": 215,
+   "NO_CORRECT_RETAINED_PREDICTION": 77
+  },
+  "reasons": {
+   "RANKING": 6,
+   "UNKNOWN": 292
+  }
+ },
+ "final": {
+  "n": 400,
+  "top1": 115,
+  "top2": 120,
+  "oracle_retained": 122,
+  "oracle_generated": 122,
+  "task_seconds": 1094,
+  "failures": {
+   "SOLVED": 115,
+   "RIGHT_OUTPUT_OUTRANKED": 7,
+   "NO_CANDIDATE": 199,
+   "NO_CORRECT_RETAINED_PREDICTION": 79
+  },
+  "reasons": {
+   "RANKING": 7,
+   "OBJECT_CORRESPONDENCE_FAILURE": 44,
+   "UNKNOWN": 79,
+   "SIZE_CHANGE_UNEXPLAINED": 44,
+   "GENERATIVE_OP_MISSING": 50,
+   "OUTPUT_SHAPE_UNKNOWN": 18,
+   "CONDITIONAL_REQUIRED": 20,
+   "RELATION_NOT_EXPRESSIBLE": 21,
+   "CORRECT_STRUCTURE_WRONG_PARAMETERS": 2
+  }
+ },
+ "regressions": [
+  {
+   "id": "arc1eval_21f83797",
+   "now": "NO_CANDIDATE",
+   "before": "cellwise:treeD[cascade,9]"
+  },
+  {
+   "id": "arc1eval_bf89d739",
+   "now": "NO_CANDIDATE",
+   "before": "popsearch:pop:cmap_x(connect(connect($)),{2/0>3})"
+  }
+ ],
+ "unique_gains": [
+  {
+   "id": "arc1eval_13713586",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>ray:edge:toward(big):hit{self}"
+  },
+  {
+   "id": "arc1eval_140c817e",
+   "subsystem": "sketch",
+   "author": "sketch:two-stage",
+   "program": "sketch:sk:c8|all>recolor{c3}|keep|g:all>ray:edge:orth:hit{self} >> c4||keep|g:pix>halo8{c4}"
+  },
+  {
+   "id": "arc1eval_18419cfa",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>symm:rot2@cont"
+  },
+  {
+   "id": "arc1eval_1a6449f1",
+   "subsystem": "sketch",
+   "author": "extract",
+   "program": "sketch:x:bgin|max:n|bbox"
+  },
+  {
+   "id": "arc1eval_292dd178",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>bbox{c3};all>leak:hit{c3}"
+  },
+  {
+   "id": "arc1eval_42918530",
+   "subsystem": "sketch",
+   "author": "sketch:two-stage",
+   "program": "sketch:sk:c8||keep|g:all>stamp(hasC):center >> col||keep|g:n=33>symm:rot2@self"
+  },
+  {
+   "id": "arc1eval_55059096",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>link:diag(allS){c2}"
+  },
+  {
+   "id": "arc1eval_551d5bf1",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:c8||keep|g:all>bbox{c8};all>leak:hit{c8}"
+  },
+  {
+   "id": "arc1eval_5af49b42",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:m8||keep|g:all>stamp(hasC):match"
+  },
+  {
+   "id": "arc1eval_5b526a93",
+   "subsystem": "cellwise",
+   "author": "old:cellwise",
+   "program": "cellwise:treeD[pos,5]"
+  },
+  {
+   "id": "arc1eval_60a26a3e",
+   "subsystem": "sketch",
+   "author": "sketch:growth",
+   "program": "sketch:sk:bgin||keep|g:all>link:orth(rowN){c1};all>link:orth(colN){c1}"
+  },
+  {
+   "id": "arc1eval_64a7c07e",
+   "subsystem": "sketch",
+   "author": "sketch:object-rule",
+   "program": "sketch:sk:c8|all>move[r*h]|keep"
+  },
+  {
+   "id": "arc1eval_73c3b0d8",
+   "subsystem": "sketch",
+   "author": "sketch:two-stage",
+   "program": "sketch:sk:c8|pix>move[d*h]|keep >> m8||keep|g:all>ray:minor:diag:hit{gmin}"
+  },
+  {
+   "id": "arc1eval_b1fc8b8e",
+   "subsystem": "sketch+bidirectional",
+   "author": "encode",
+   "program": "sketch:enc:lookup[fg]"
+  },
+  {
+   "id": "arc1eval_f5aa3634",
+   "subsystem": "select+sketch+compose",
+   "author": "old:select",
+   "program": "select:m4.majority_shape.patch"
+  }
+ ],
+ "branches": {
+  "old_only": 89,
+  "new_only": 15,
+  "both": 18,
+  "union": 122
+ }
+}
