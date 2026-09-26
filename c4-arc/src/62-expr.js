@@ -74,6 +74,31 @@ var EXPR = (function () {
       for (i = 0; i < sc.ents.length; i++) if (m.get(sc.ents[i].d4()) === 1) { if (id >= 0) return -1; id = i; }
       return id === e.id ? -1 : id;
     }],
+    /* the unique multi-cell entity that contains e's colour: the template a
+       marker of that colour refers to */
+    ["hasC", 3.0, function (sc, e) {
+      var id = -1, i;
+      for (i = 0; i < sc.ents.length; i++) {
+        var o = sc.ents[i];
+        if (o === e || o.n <= e.n || !(o.colors & (1 << e.color))) continue;
+        if (id >= 0) return -1;
+        id = i;
+      }
+      return id;
+    }],
+    /* the entity with the most non-background cells (a template panel) */
+    ["rich", 3.0, function (sc, e) {
+      var id = sc.memo("rich", function () {
+        var best = -1, bn = -1, tie = false, i, j;
+        for (i = 0; i < this.ents.length; i++) {
+          var o = this.ents[i], n = 0;
+          for (j = 0; j < o.n; j++) if (this.grid[o.cells[j] >> 6][o.cells[j] & 63] !== this.bg) n++;
+          if (n > bn) { bn = n; best = i; tie = false; } else if (n === bn) tie = true;
+        }
+        return tie ? -1 : best;
+      });
+      return id === e.id ? -1 : id;
+    }],
     ["rowN", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return sc.rowOverlap(e, o); }); }],
     ["colN", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return sc.colOverlap(e, o); }); }]
   ];
@@ -129,6 +154,7 @@ var EXPR = (function () {
     INT_EXPRS.push({ k: "#ents", b: 3.0, f: function (sc) { return sc.ents.length; } });
     INT_EXPRS.push({ k: "#same", b: 3.5, f: function (sc, e) { return countEntsColor(sc, e.color); } });
     INT_EXPRS.push({ k: "holes", b: 3.0, f: function (sc, e) { return e.holes(); } });
+    INT_EXPRS.push({ k: "ncol", b: 3.0, f: function (sc, e) { return e.ncol; } });
     for (k = 0; k < 10; k++) INT_EXPRS.push({ k: "#c" + k, b: 2.0 + LOG2_10, cref: k,
       f: (function (v) { return function (sc) { return countColor(sc, v); }; })(k) });
     RELS.slice(0, 5).forEach(function (R) {
@@ -254,6 +280,17 @@ var EXPR = (function () {
       add("col!=" + cc, 2 + LOG2_10, function (sc, e) { return e.color !== cc; });
       add("has:" + cc, 2 + LOG2_10, function (sc, e) { return (e.colors & (1 << cc)) !== 0; });
       add("!has:" + cc, 3 + LOG2_10, function (sc, e) { return (e.colors & (1 << cc)) === 0; });
+      /* adjacent (4-neighbour) to a cell of colour cc in the grid itself,
+         whatever the segmentation made of that cell */
+      add("adjC:" + cc, 3 + LOG2_10, function (sc, e) {
+        var g = sc.grid, j;
+        for (j = 0; j < e.n; j++) {
+          var r = e.cells[j] >> 6, c = e.cells[j] & 63;
+          if ((r > 0 && g[r - 1][c] === cc && !e.has(((r - 1) << 6) | c)) || (r < sc.H - 1 && g[r + 1][c] === cc && !e.has(((r + 1) << 6) | c)) ||
+              (c > 0 && g[r][c - 1] === cc && !e.has((r << 6) | (c - 1))) || (c < sc.W - 1 && g[r][c + 1] === cc && !e.has((r << 6) | (c + 1)))) return true;
+        }
+        return false;
+      });
       add("touchC:" + cc, 3 + LOG2_10, function (sc, e) {
         for (var j = 0; j < sc.ents.length; j++) if (sc.ents[j].color === cc && sc.touch(e, sc.ents[j])) return true;
         return false;
@@ -262,6 +299,17 @@ var EXPR = (function () {
     [["n", "size"], ["h", "height"], ["w", "width"], ["area", "area"]].forEach(function (a) {
       add("max:" + a[0], 2.5, function (sc, e) { return sc.extreme(a[0], true) === e.id; });
       add("min:" + a[0], 2.5, function (sc, e) { return sc.extreme(a[0], false) === e.id; });
+    });
+    /* tie-tolerant extremes: among the largest / smallest */
+    ["n", "area"].forEach(function (a) {
+      add("top:" + a, 3.0, function (sc, e) {
+        var m = sc.memo("mx:" + a, function () { var v = -1; this.ents.forEach(function (o) { v = Math.max(v, SCN.attr(o, a, this)); }, this); return v; });
+        return SCN.attr(e, a, sc) === m;
+      });
+      add("bot:" + a, 3.0, function (sc, e) {
+        var m = sc.memo("mn:" + a, function () { var v = 1e9; this.ents.forEach(function (o) { v = Math.min(v, SCN.attr(o, a, this)); }, this); return v; });
+        return SCN.attr(e, a, sc) === m;
+      });
     });
     add("uShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) === 1; });
     add("rShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) > 1; });

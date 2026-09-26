@@ -26,7 +26,7 @@ var EMDL = (function () {
   var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
   /* representation choice: -log2 of a prior that prefers readings with
      fewer, larger entities (objectness); single cells are the last resort */
-  var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, cell: 5.0 };
+  var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, panel: 3.0, rects: 4.5, cell: 5.0 };
   function bits(p) {
     var b = (SEG_BITS[p.seg] || 4) + 1, i;
     for (i = 0; i < p.rules.length; i++) {
@@ -112,22 +112,75 @@ var EMDL = (function () {
     }
     return viol;
   }
-  return { bits: bits, cost: cost, shift: shift, segBits: function (seg) { return SEG_BITS[seg] || 4; } };
+  /* Equivariance as a consistency test. When exact programs disagree about
+     a test output, the task is re-posed in D4 views (every demonstration
+     and test input transformed) and synthesis runs again there. Each raw
+     prediction is scored by the number of views whose own exact programs
+     predict the same grid after the inverse transform. The DSL is closed
+     under D4, so a rule that survives re-induction in every frame is not
+     leaning on reading order or tie-breaks; a prediction no other frame
+     reproduces is. The SAME views are used for every competing candidate. */
+  var VIEWS = [
+    { name: "transpose", f: G.transpose, inv: G.transpose },
+    { name: "rot180", f: G.rot180, inv: G.rot180 },
+    { name: "flip_h", f: G.flipH, inv: G.flipH }
+  ];
+  function viewSupport(ctx, progs, deadline) {
+    var byPred = new Map(), i, t;
+    progs.forEach(function (p) {
+      var ks = [];
+      for (t = 0; t < ctx.test_inputs.length; t++) { var o = SKETCH.run(p, ctx.test_inputs[t]); ks.push(o ? G.gkey(o) : "-"); }
+      p._pk = ks.join("~");
+      if (!byPred.has(p._pk)) byPred.set(p._pk, 0);
+    });
+    if (byPred.size < 2) return null;
+    var used = 0;
+    for (i = 0; i < VIEWS.length; i++) {
+      if (nowMs() > deadline) break;
+      var V = VIEWS[i], tr = ctx.train.map(function (pr) { return [V.f(pr[0]), V.f(pr[1])]; });
+      var sub = new Ctx(tr, ctx.test_inputs.map(V.f), null), found = [];
+      var left = deadline - nowMs();
+      try { found = SKETCH.synthesize(sub, nowMs() + left / (VIEWS.length - i), {}); } catch (e) { found = []; }
+      if (!found.length) continue;
+      used++;
+      var seen = new Set();
+      found.forEach(function (q) {
+        var ks = [];
+        for (t = 0; t < ctx.test_inputs.length; t++) { var o = SKETCH.run(q, sub.test_inputs[t]); ks.push(o ? G.gkey(V.inv(o)) : "-"); }
+        var k = ks.join("~");
+        if (byPred.has(k) && !seen.has(k)) { seen.add(k); byPred.set(k, byPred.get(k) + 1); }
+      });
+    }
+    return used ? { views: used, support: byPred } : null;
+  }
+  var FLAGS = { mode: "sls", views: true, shift: true };
+  function flags(o) { for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) FLAGS[k] = o[k]; return FLAGS; }
+  return { bits: bits, cost: cost, shift: shift, viewSupport: viewSupport, flags: flags, FLAGS: FLAGS,
+           segBits: function (seg) { return SEG_BITS[seg] || 4; } };
 })();
 
 /* The sketch family inside the portfolio. */
 (function () {
   function generate(ctx) {
-    var progs = SKETCH.synthesize(ctx, ctx.deadline), out = [], i;
+    var F = EMDL.FLAGS, t0 = nowMs();
+    var progs = SKETCH.synthesize(ctx, t0 + (ctx.deadline - t0) * (F.views ? 0.85 : 1.0), { mode: F.mode }), out = [], i;
+    /* view consistency, only when exact programs disagree about the test
+       and time is left for at least one re-induction */
+    var vs = null;
+    if (F.views && progs.length > 1 && ctx.deadline - nowMs() > 150) { try { vs = EMDL.viewSupport(ctx, progs, ctx.deadline); } catch (e) { vs = null; } }
     for (i = 0; i < progs.length; i++) (function (p) {
-      var sh = 0;
-      try { sh = EMDL.shift(p, ctx); } catch (e) { sh = 0; }
+      var sh = 0, vpen = 0;
+      if (F.shift) { try { sh = EMDL.shift(p, ctx); } catch (e) { sh = 0; } }
       p.shift = sh;
-      var h = new Hyp("sk:" + SKETCH.progKey(p), function (g) { return SKETCH.run(p, g); }, EMDL.cost(p) + Math.min(3, sh) * 1.0, "sketch");
+      if (vs) { p.views = vs.support.get(p._pk) || 0; vpen = 0.8 * (vs.views - p.views); }
+      var h = new Hyp("sk:" + SKETCH.progKey(p), function (g) { return SKETCH.run(p, g); }, EMDL.cost(p) + Math.min(3, sh) * 1.0 + vpen, "sketch");
       h.eprog = p;
       out.push(h);
     })(progs[i]);
     return out;
   }
-  defSolver("sketch", "sketch", generate, 1, 0.9);
+  /* the family with the most unique correct answers per second on the
+     development split gets a guaranteed slice (it returns at once on tasks
+     it does not apply to) */
+  defSolver("sketch", "sketch", generate, 1, 1.2).MIN_SLICE = 1.0;
 })();

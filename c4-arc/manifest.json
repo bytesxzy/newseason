@@ -84,10 +84,12 @@
   "62b-concepts.js",
   "63-sketch.js",
   "63a-extract.js",
+  "63b-encode.js",
   "64-mdl.js",
   "65-schema.js",
   "66-search.js",
   "67-controller.js",
   "67a-controller-weights.js",
+  "69-transduce.js",
   "90-engine.js"
 ]

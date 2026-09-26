@@ -1,0 +1,64 @@
+{
+  "source_tasks_with_programs": 41,
+  "candidates": 43,
+  "accepted": [],
+  "rejected_top": [
+    {
+      "a": "ray:edge:diag:hit",
+      "b": "halo4",
+      "support": 1,
+      "uses": 1,
+      "gain": 24.11
+    },
+    {
+      "a": "ray:edge:diag:hit",
+      "b": "halo8",
+      "support": 1,
+      "uses": 1,
+      "gain": 24.11
+    },
+    {
+      "a": "ray:edge:diag:hit",
+      "b": "ray:edge:orth:hit",
+      "support": 1,
+      "uses": 1,
+      "gain": 24.11
+    },
+    {
+      "a": "ray:edge:diag:hit",
+      "b": "ray:edge:all8:hit",
+      "support": 1,
+      "uses": 1,
+      "gain": 24.11
+    },
+    {
+      "a": "halo4",
+      "b": "halo8",
+      "support": 1,
+      "uses": 1,
+      "gain": 2.32
+    },
+    {
+      "a": "ray:center:orth:hit",
+      "b": "bbox",
+      "support": 1,
+      "uses": 4,
+      "gain": -0.05
+    },
+    {
+      "a": "link:orth(nearS)",
+      "b": "link:orth(allS)",
+      "support": 1,
+      "uses": 1,
+      "gain": -0.18
+    },
+    {
+      "a": "link:orth(nearS)",
+      "b": "link:orth(all)",
+      "support": 1,
+      "uses": 1,
+      "gain": -0.18
+    }
+  ],
+  "exclude": []
+}

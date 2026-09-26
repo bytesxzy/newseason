@@ -57,6 +57,25 @@ var GEN = (function () {
     if (rov && !cov) return e.c1 < o.c0 ? 3 : 2;
     return snapDir(o.cr2 - e.cr2, o.cc2 - e.cc2);
   }
+  /* a bar of computed length k beside the entity, as wide as the entity:
+     "under each block, a column as tall as the block has colours" */
+  function barCells(sc, e, canvas, op) {
+    var k = op.len.f(sc, e), out = [], r, c;
+    if (!(k > 0) || k > 30) return out;
+    var d = DIRS[op.d];
+    if (op.d === 1 || op.d === 0) {
+      for (var i = 1; i <= k; i++) {
+        r = op.d === 1 ? e.r1 + i : e.r0 - i;
+        for (c = e.c0; c <= e.c1; c++) if (inb(sc, r, c) && canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      }
+    } else {
+      for (var j = 1; j <= k; j++) {
+        c = op.d === 3 ? e.c1 + j : e.c0 - j;
+        for (r = e.r0; r <= e.r1; r++) if (inb(sc, r, c) && canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      }
+    }
+    return d ? out : out;
+  }
   /* the midpoint between e and its partner (a dot or a plus) */
   function midCells(sc, e, canvas, op) {
     var o = rel(sc, op.r, e), out = [];
@@ -227,7 +246,7 @@ var GEN = (function () {
      coincide with T's cells of the same colours (any D4 image of T) */
   function stampCells(sc, e, canvas, op) {
     var T = rel(sc, op.tpl, e);
-    if (!T || T === e || T.n <= e.n) return null;
+    if (!T || T === e || T.n < e.n) return null;
     var best = null, t, cnt = 0;
     for (t = 0; t < (op.d4 ? 8 : 1); t++) {
       var P = CORR.tpatch(T, t), ph = P.length, pw = P[0].length, offs = [];
@@ -262,7 +281,7 @@ var GEN = (function () {
     if (!best || cnt !== 1 && op.align !== "center") return null;
     var cells = [], cols = [], P2 = best.P;
     for (var i2 = 0; i2 < P2.length; i2++) for (var j2 = 0; j2 < P2[0].length; j2++) {
-      if (P2[i2][j2] < 0) continue;
+      if (P2[i2][j2] < 0 || P2[i2][j2] === sc.bg) continue;
       var R = best.R0 + i2, C = best.C0 + j2;
       if (!inb(sc, R, C) || e.has((R << 6) | C)) continue;
       cells.push((R << 6) | C); cols.push(P2[i2][j2]);
@@ -314,6 +333,7 @@ var GEN = (function () {
       case "link": return { cells: linkCells(sc, e, canvas, op), cols: null };
       case "leak": return { cells: leakCells(sc, e, canvas, op), cols: null };
       case "mid": return { cells: midCells(sc, e, canvas, op), cols: null };
+      case "bar": return { cells: barCells(sc, e, canvas, op), cols: null };
       case "symm": return symmCells(sc, e, canvas, op);
       case "stamp": return stampCells(sc, e, canvas, op);
       case "repeat": return repeatCells(sc, e, canvas, op);
@@ -327,8 +347,11 @@ var GEN = (function () {
     function add(o) { o.key = key(o); out.push(o); }
     add({ kind: "halo4", b: 3 }); add({ kind: "halo8", b: 3 });
     add({ kind: "bbox", b: 3 }); add({ kind: "holes", b: 3 });
+    /* isotropy prior: all directions alike is the default; one axis, or
+       one direction, is an extra choice that must be paid for */
+    var DIRSET_BITS = { all8: 1.0, orth: 1.5, diag: 1.5, ud: 2.5, lr: 2.5 };
     Object.keys(RAYSETS).forEach(function (d) {
-      var db = RAYSETS[d].length === 1 ? 3 : 1.5;
+      var db = RAYSETS[d].length === 1 ? 3.5 : DIRSET_BITS[d];
       ["hit", "thru"].forEach(function (st) {
         add({ kind: "ray", anchor: "edge", dir: d, stop: st, b: 3 + db + (st === "thru" ? 1 : 0) });
         add({ kind: "ray", anchor: "minor", dir: d, stop: st, b: 4.5 + db + (st === "thru" ? 1 : 0) });
@@ -360,6 +383,10 @@ var GEN = (function () {
       add({ kind: "mid", r: r, shape: "dot", b: 4 + EXPR.REL_BY[r][1] });
       add({ kind: "mid", r: r, shape: "plus", b: 5 + EXPR.REL_BY[r][1] });
     });
+    [0, 1, 2, 3].forEach(function (d) {
+      EXPR.INT_EXPRS.filter(function (I) { return ["ncolE", "h", "w", "n", "1", "2", "3", "#same", "holes"].indexOf(I.k) >= 0 || I.k === "ncol"; })
+        .forEach(function (I) { add({ kind: "bar", d: d, len: I, b: 4 + I.b }); });
+    });
     ["allS", "all"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
       add({ kind: "link", r: r, geo: "diag", b: r === "allS" ? 5.5 : 6 });
@@ -369,15 +396,40 @@ var GEN = (function () {
         add({ kind: "symm", sym: k, about: a, b: 4 + (a === "self" ? 0 : EXPR.REL_BY[a][1]) , patch: true });
       });
     });
-    ["big", "uniqS", "nearB", "near", "uniqC", "touch"].forEach(function (t) {
+    ["lr", "ud", "rot2", "both", "rot4"].forEach(function (k) {
+      ["self", "near", "big"].forEach(function (a) {
+        add({ kind: "symm", sym: k, about: a, rc: true, b: 5 + (a === "self" ? 0 : EXPR.REL_BY[a][1]) });
+      });
+    });
+    ["big", "uniqS", "nearB", "near", "uniqC", "touch", "hasC", "rich"].forEach(function (t) {
       add({ kind: "stamp", tpl: t, align: "center", d4: false, b: 4 + EXPR.REL_BY[t][1], patch: true });
       add({ kind: "stamp", tpl: t, align: "match", d4: false, b: 4 + EXPR.REL_BY[t][1], patch: true });
       add({ kind: "stamp", tpl: t, align: "match", d4: true, b: 7 + EXPR.REL_BY[t][1], patch: true });
+      add({ kind: "stamp", tpl: t, align: "center", d4: false, rc: true, b: 5 + EXPR.REL_BY[t][1] });
     });
     var steps = ["1", "h", "w", "h+1", "w+1", "2"];
     EXPR.VEC_EXPRS.forEach(function (V) {
       var parts = V.k.split("*");
-      if (parts.length === 2 && steps.indexOf(parts[1]) >= 0) add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+      if (parts.length === 2 && steps.indexOf(parts[1]) >= 0) {
+        add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+        add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+      }
+    });
+    /* repeats stepping away from / toward a related entity by own size+1 */
+    ["near", "nearD", "big", "nearP"].forEach(function (r) {
+      ["away", "toward"].forEach(function (w) {
+        ["h+1", "1"].forEach(function (st) {
+          var V = { k: w + "(" + r + ")*" + st, b: 3 + EXPR.REL_BY[r][1], rel: r, f: function (sc, e) {
+            var o = EXPR.rel(sc, r, e); if (!o) return null;
+            var d = relDir(sc, e, o); if (d < 0) return null;
+            if (w === "away") d = OPP[d];
+            var k = st === "1" ? 1 : (DIRS[d][0] ? e.h : e.w) + 1;
+            return [DIRS[d][0] * k, DIRS[d][1] * k];
+          } };
+          add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+          add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+        });
+      });
     });
     return out;
   })();
@@ -388,17 +440,54 @@ var GEN = (function () {
     switch (o.kind) {
       case "ray": return "ray:" + o.anchor + ":" + o.dir + (o.r ? "(" + o.r + ")" : "") + ":" + o.stop + (o.bounce ? ":" + o.bounce : "");
       case "link": return "link:" + o.geo + "(" + o.r + ")";
-      case "symm": return "symm:" + o.sym + "@" + o.about;
-      case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "");
-      case "repeat": return "repeat[" + o.v.k + "]";
+      case "symm": return "symm:" + o.sym + "@" + o.about + (o.rc ? ":rc" : "");
+      case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "") + (o.rc ? ":rc" : "");
+      case "repeat": return "repeat[" + o.v.k + "]" + (o.rc ? ":rc" : "");
       case "leak": return "leak:" + o.stop;
       case "mid": return "mid(" + o.r + "):" + o.shape;
+      case "bar": return "bar:" + EXPR.DNAME[o.d] + "*" + o.len.k;
       default: return o.kind;
     }
   }
 
+  /* Results are memoised per scene by (operator, entity, canvas): every
+     growth arm and every refinement re-asks the same questions. Stamps,
+     repeats and symmetries do not read the canvas at all. */
+  var CANVAS_FREE = { stamp: 1, symm: 1 };
+  var NEXT_IDX = 1;
   function apply(sc, e, canvas, op) {
-    if (op.kind === "symm") return symmCells(sc, e, canvas, { kind: op.sym, about: op.about });
+    if (!op.idx) op.idx = NEXT_IDX++;
+    var cache = sc._gen || (sc._gen = new Map());
+    var ch = CANVAS_FREE[op.kind] && !op.rc ? 0 : G.ghash(canvas);
+    var bucket = cache.get(ch);
+    if (!bucket) { if (cache.size > 64) cache.clear(); bucket = new Map(); cache.set(ch, bucket); }
+    var k = op.idx * 128 + e.id;
+    var res = bucket.get(k);
+    if (res !== undefined) return res;
+    res = apply0(sc, e, canvas, op);
+    bucket.set(k, res);
+    return res;
+  }
+  function apply0(sc, e, canvas, op) {
+    if (op.kind === "symm") {
+      var sm = symmCells(sc, e, canvas, { kind: op.sym, about: op.about });
+      if (sm && op.rc) {
+        /* the completed part drawn in the rule's colour, only where empty */
+        var cs = [];
+        for (var q = 0; q < sm.cells.length; q++) if (canvas[sm.cells[q] >> 6][sm.cells[q] & 63] === sc.bg) cs.push(sm.cells[q]);
+        return { cells: cs, cols: null };
+      }
+      return sm;
+    }
+    if (op.kind === "stamp" && op.rc) {
+      /* the template's shape in the rule's colour, on empty cells only */
+      var sp = stampCells(sc, e, canvas, op);
+      return sp ? { cells: sp.cells.filter(function (p) { return canvas[p >> 6][p & 63] === sc.bg; }), cols: null } : null;
+    }
+    if (op.kind === "repeat" && op.rc) {
+      var rp = repeatCells(sc, e, canvas, op);
+      return rp ? { cells: rp.cells.filter(function (p) { return canvas[p >> 6][p & 63] === sc.bg; }), cols: null } : null;
+    }
     if (op.kind === "fused") {
       /* a library concept: two operators of one rule, the second measured on
          the canvas the first left */

@@ -1,0 +1,122 @@
+{
+  "seed": 7,
+  "n": 60,
+  "split": "heldout",
+  "mode": "sls",
+  "maxExec": null,
+  "byDepth": {
+    "1": {
+      "tasks": 60,
+      "exact": 48,
+      "top1": 41,
+      "any_correct": 44,
+      "exec_to_first": 16.5
+    },
+    "2": {
+      "tasks": 60,
+      "exact": 32,
+      "top1": 25,
+      "any_correct": 30,
+      "exec_to_first": 16.5
+    },
+    "3": {
+      "tasks": 60,
+      "exact": 34,
+      "top1": 26,
+      "any_correct": 30,
+      "exec_to_first": 48.7
+    }
+  },
+  "byFamily": {
+    "copy": {
+      "n": 42,
+      "exact": 17,
+      "top1": 9
+    },
+    "keeponly": {
+      "n": 21,
+      "exact": 12,
+      "top1": 10
+    },
+    "moverc": {
+      "n": 26,
+      "exact": 12,
+      "top1": 9
+    },
+    "ray": {
+      "n": 46,
+      "exact": 32,
+      "top1": 22
+    },
+    "repeat": {
+      "n": 57,
+      "exact": 34,
+      "top1": 27
+    },
+    "del": {
+      "n": 50,
+      "exact": 37,
+      "top1": 29
+    },
+    "bar": {
+      "n": 16,
+      "exact": 11,
+      "top1": 9
+    },
+    "move": {
+      "n": 43,
+      "exact": 16,
+      "top1": 13
+    },
+    "recolor": {
+      "n": 31,
+      "exact": 22,
+      "top1": 20
+    },
+    "symm": {
+      "n": 13,
+      "exact": 9,
+      "top1": 8
+    },
+    "raycenter": {
+      "n": 2,
+      "exact": 1,
+      "top1": 1
+    },
+    "raycorner": {
+      "n": 3,
+      "exact": 1,
+      "top1": 1
+    },
+    "fill": {
+      "n": 1,
+      "exact": 1,
+      "top1": 1
+    },
+    "mid": {
+      "n": 2,
+      "exact": 2,
+      "top1": 2
+    },
+    "stamp": {
+      "n": 4,
+      "exact": 2,
+      "top1": 2
+    },
+    "leak": {
+      "n": 1,
+      "exact": 1,
+      "top1": 1
+    },
+    "halo": {
+      "n": 2,
+      "exact": 1,
+      "top1": 1
+    },
+    "link": {
+      "n": 1,
+      "exact": 1,
+      "top1": 1
+    }
+  }
+}

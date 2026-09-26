@@ -25,7 +25,7 @@
  *   cell  single foreground cells (small grids only)
  */
 var SCN = (function () {
-  var SEGS = ["c8", "c4", "m8", "m4", "col", "bgin", "bg4", "cell"];
+  var SEGS = ["c8", "c4", "m8", "m4", "col", "bgin", "bg4", "panel", "rects", "cell"];
   var MAX_ENTS = 64;
 
   /* ---------------------------------------------------------- masks / D4 */
@@ -179,8 +179,73 @@ var SCN = (function () {
     return out;
   }
 
+  /* maximal all-background rectangles of at least 2 x 2 (negative space as
+     things); they may overlap. Histogram-and-stack per bottom row gives the
+     width-maximal rectangle of every height; containment filtering keeps
+     the maximal ones. */
+  function emptyRects(g, bg) {
+    var H = g.length, W = g[0].length, hts = new Int32Array(W), cand = [], r, c;
+    for (r = 0; r < H; r++) {
+      for (c = 0; c < W; c++) hts[c] = g[r][c] === bg ? hts[c] + 1 : 0;
+      var st = [];
+      for (c = 0; c <= W; c++) {
+        var h = c < W ? hts[c] : 0, start = c;
+        while (st.length && st[st.length - 1][1] >= h) {
+          var top = st.pop(), hh = top[1], left = top[0];
+          if (hh >= 2 && c - left >= 2) cand.push([r - hh + 1, left, r, c - 1]);
+          start = left;
+        }
+        if (h > 0 && (!st.length || st[st.length - 1][1] < h)) st.push([start, h]);
+      }
+    }
+    var keep = cand.filter(function (a, i) {
+      return !cand.some(function (b, j) {
+        return j !== i && b[0] <= a[0] && b[1] <= a[1] && b[2] >= a[2] && b[3] >= a[3] &&
+          (b[0] !== a[0] || b[1] !== a[1] || b[2] !== a[2] || b[3] !== a[3] || j < i);
+      });
+    });
+    keep.sort(function (a, b) { return (b[2] - b[0] + 1) * (b[3] - b[1] + 1) - (a[2] - a[0] + 1) * (a[3] - a[1] + 1); });
+    return keep.slice(0, 40).map(function (q) {
+      var cells = [], rr, cc;
+      for (rr = q[0]; rr <= q[2]; rr++) for (cc = q[1]; cc <= q[3]; cc++) cells.push((rr << 6) | cc);
+      return cells;
+    });
+  }
+
+  /* panels: the regions between full separator lines of one colour (rows
+     and/or columns), background included, as entities */
+  function panels(g, bg) {
+    var H = g.length, W = g[0].length, r, c, sepC = -1, rows = [], cols = [];
+    for (r = 0; r < H; r++) {
+      var v = g[r][0], full = v !== bg;
+      for (c = 1; c < W && full; c++) if (g[r][c] !== v) full = false;
+      if (full) { if (sepC < 0) sepC = v; if (v === sepC) rows.push(r); }
+    }
+    for (c = 0; c < W; c++) {
+      var w = g[0][c], fullc = w !== bg && (sepC < 0 || w === sepC);
+      for (r = 1; r < H && fullc; r++) if (g[r][c] !== w) fullc = false;
+      if (fullc) { if (sepC < 0) sepC = w; cols.push(c); }
+    }
+    if (sepC < 0 || (!rows.length && !cols.length)) return null;
+    function spans(marks, n) {
+      var out = [], start = 0, k;
+      for (k = 0; k <= n; k++) if (k === n || marks.indexOf(k) >= 0) { if (k > start) out.push([start, k - 1]); start = k + 1; }
+      return out;
+    }
+    var rs = spans(rows, H), cs = spans(cols, W), out = [];
+    if (rs.length * cs.length < 2) return null;
+    rs.forEach(function (a) { cs.forEach(function (b) {
+      var cells = [];
+      for (r = a[0]; r <= a[1]; r++) for (c = b[0]; c <= b[1]; c++) cells.push((r << 6) | c);
+      out.push(cells);
+    }); });
+    return out;
+  }
+
   function cellLists(g, seg, bg) {
     var i, objs, out = [];
+    if (seg === "rects") return emptyRects(g, bg);
+    if (seg === "panel") return panels(g, bg);
     if (seg === "bgin") return bgRegions(g, bg, true);
     if (seg === "bg4") return bgRegions(g, bg, false);
     var mode = seg === "col" ? "color" : seg === "cell" ? "cells" : seg;

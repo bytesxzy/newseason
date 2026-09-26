@@ -22,6 +22,12 @@ function configure(o) {
   if (o.counterfactual !== undefined) out.counterfactual_active = CFACT.active(!!o.counterfactual);
   if (o.macros === false) { PROG.clearMacros(); out.macros = false; }
   if (o.pass2 !== undefined) out.pass2 = PASS2.diverse(!!o.pass2);
+  /* concept-engine switches (ablations): search schedule, view and
+     referent consistency, the removed-colour law */
+  if (o.sls !== undefined) out.sls = EMDL.flags({ mode: o.sls ? "sls" : "pure" }).mode;
+  if (o.views !== undefined) out.views = EMDL.flags({ views: !!o.views }).views;
+  if (o.shift !== undefined) out.shift = EMDL.flags({ shift: !!o.shift }).shift;
+  if (o.removed !== undefined) out.removed = PORTFOLIO_FLAGS.removed = !!o.removed;
   return out;
 }
 
@@ -65,7 +71,7 @@ var ENGINE = {
   KERNEL: root.C4ReasonKernel, MEMORY: root.C4ReasonMemory, META: root.C4ReasonMeta,
   CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
   MACROS: MACROS, PASS2: PASS2,
-  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, SCHEMA: SCHEMA, TAXON: TAXON, SEARCH: SEARCH, CONTROL: CONTROL,
+  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, ENCODE: ENCODE, SCHEMA: SCHEMA, TAXON: TAXON, SEARCH: SEARCH, CONTROL: CONTROL, TRANSDUCE: TRANSDUCE,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,

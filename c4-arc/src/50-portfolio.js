@@ -8,6 +8,7 @@
  * probabilities.
  */
 
+var PORTFOLIO_FLAGS = { removed: true };
 var SOLVER_PRIOR = {
   geometry: 0.0, cellwise: 1.0, partition: 0.0, symmetry: 0.0,
   objects: 1.5, tiling: 0.5, colormap: 0.0, select: 1.0,
@@ -16,7 +17,9 @@ var SOLVER_PRIOR = {
      assumption, charged a quarter unit over the same program in raw cells */
   represent: 1.25,
   /* entity programs (63-sketch.js) pay their own description length */
-  sketch: 1.0
+  sketch: 1.0,
+  /* direct output prediction: admitted only by leave-one-demo-out */
+  transduce: 2.0
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -25,7 +28,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "tiling", "blocks", "selfstamp", "extend", "select", "locate", "regions",
   "counting", "cellwise", "objects_map", "objproc", "relproc", "tally", "motion",
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
-  "sketch", "extract", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
+  "sketch", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
   "enumerate_dsl", "represent", "typed"];
 
@@ -531,11 +534,16 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     for (i = 0; i < all.length; i++) {
       now = nowMs();
       if (now >= generationEnd) break;
-      if (i < phase1.length)
+      if (i < phase1.length) {
         moduleEnd = Math.min(generationEnd, Math.max(now + share1 * 0.5, t0 + share1 * (i + 1)));
+        if (all[i].MIN_SLICE) moduleEnd = Math.min(generationEnd, Math.max(moduleEnd, now + all[i].MIN_SLICE * 1000));
+      }
       else {
         remaining = all.length - i;
         moduleEnd = Math.min(generationEnd, now + (generationEnd - now) / remaining);
+        /* a family whose fits only appear at the end of its induction gets a
+           guaranteed minimum; cutting it short buys nothing */
+        if (all[i].MIN_SLICE) moduleEnd = Math.min(generationEnd, Math.max(moduleEnd, now + all[i].MIN_SLICE * 1000));
       }
       order = _harvest(all[i], ctx, moduleEnd, bias, reservoir, order, res);
     }
@@ -683,7 +691,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   /* removed-colour law: a colour present in every demonstration input and
      absent from every demonstration output is one the rule eliminates; a
      prediction that keeps it contradicts every demonstration */
-  var removedColors = 0x3ff;
+  var removedColors = PORTFOLIO_FLAGS.removed ? 0x3ff : 0;
   for (i = 0; i < ctx.train.length; i++)
     removedColors &= G.palette(ctx.train[i][0]) & ~G.palette(ctx.train[i][1]);
 

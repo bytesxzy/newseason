@@ -1154,6 +1154,6 @@ var CELLTREE = null;
                featureNames: function () {
                  return FEATURES.map(function (f) { return f[0]; });
                } };
-  defSolver("celltree", "cellwise", generate, 2, 1.5);
+  defSolver("celltree", "cellwise", generate, 2, 1.5).MIN_SLICE = 0.35;
 })();
 

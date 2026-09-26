@@ -401,6 +401,44 @@ var SKETCH = (function () {
           });
         });
       });
+      /* three rules, only when two found nothing: the same expression-driven
+         partition applied once more to what rule 1 leaves */
+      if (out.length) return;
+      kinds.forEach(function (K1) {
+        if (K1 === def || out.length >= cap) return;
+        var g1 = need.filter(function (it) { return allows(it, K1); });
+        splitByExpr(g1, K1).forEach(function (part) {
+          var rest = need.filter(function (it) { return part.T.indexOf(it) < 0; });
+          if (!rest.length) return;
+          kinds.forEach(function (K2) {
+            if (K2 === def || out.length >= cap) return;
+            var g2 = rest.filter(function (it) { return allows(it, K2); });
+            splitByExpr(g2, K2).forEach(function (part2) {
+              var rest2 = rest.filter(function (it) { return part2.T.indexOf(it) < 0; });
+              if (!rest2.length) return;
+              kinds.forEach(function (K3) {
+                if (K3 === def || out.length >= cap) return;
+                if (rest2.some(function (it) { return !allows(it, K3); })) return;
+                var vs3 = actionVS(rest2, K3);
+                if (!vs3) return;
+                var F1 = rest.slice();
+                items.forEach(function (it, i) { if (defOK[i] && !compatible(it, K1, part.vs)) F1.push(it); });
+                predVS(preds, part.T, F1, 1).forEach(function (p1) {
+                  var F2 = rest2.slice();
+                  items.forEach(function (it, i) { if (defOK[i] && !truth(p1, it) && !compatible(it, K2, part2.vs)) F2.push(it); });
+                  predVS(preds, part2.T, F2, 1).forEach(function (p2) {
+                    var F3 = [];
+                    items.forEach(function (it, i) { if (defOK[i] && !truth(p1, it) && !truth(p2, it) && !compatible(it, K3, vs3)) F3.push(it); });
+                    predVS(preds, rest2, F3, 1).forEach(function (p3) {
+                      out.push({ rules: [{ p: p1, kind: K1, vs: part.vs }, { p: p2, kind: K2, vs: part2.vs }, { p: p3, kind: K3, vs: vs3 }], def: def });
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
     });
     return out.slice(0, cap);
   }
@@ -580,7 +618,7 @@ var SKETCH = (function () {
      The scheduler (66-search.js) decides which arm to pull next; every pull
      is one candidate execution, recorded with a dense reward so that failed
      candidates teach the scheduler where to look. */
-  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "fused"];
+  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "bar", "fused"];
   function opFamily(op) {
     switch (op.kind) {
       case "halo4": case "halo8": return "halo";
@@ -680,7 +718,15 @@ var SKETCH = (function () {
       }); }); });
       return out;
     }));
-    FAMILIES.forEach(function (fam) {
+    /* growth only when some demonstration creates something on background */
+    var creates = ctx.memo("creates", function () {
+      return ctx.train.some(function (pr) {
+        for (var r = 0; r < pr[0].length; r++) for (var c = 0; c < pr[0][0].length; c++)
+          if (pr[0][r][c] === bg && pr[1][r][c] !== bg) return true;
+        return false;
+      });
+    });
+    if (creates) FAMILIES.forEach(function (fam) {
       arms.push(listArm("grow:" + fam + ":" + tag, seg, "grow", fam, function () {
         var Q = prep(); if (!Q) return [];
         var start = { seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas };
@@ -725,6 +771,16 @@ var SKETCH = (function () {
     return { exact: exact, score: 0.5 * exact / n + 0.5 * acc / n };
   }
 
+  function partitionSig(ctx, seg, bg) {
+    var parts = [], grids = ctx.inputs().concat(ctx.test_inputs), i;
+    for (i = 0; i < grids.length; i++) {
+      var sc = SCN.of(grids[i], seg, bg);
+      if (!sc) return null;
+      parts.push(sc.ents.map(function (e) { return e.cells[0] + ":" + e.n + ":" + e.cells[e.n - 1]; }).join(","));
+    }
+    return parts.join("/");
+  }
+
   var SEARCH_HOOK = null;     /* 66-search.js installs the scheduler */
   function synthesize(ctx, deadline, opts) {
     opts = opts || {};
@@ -732,8 +788,14 @@ var SKETCH = (function () {
     var bg = ctx.bg(), canvas = canvasColor(ctx, bg);
     var S = { ctx: ctx, found: [], seen: new Set(), exec: 0, deadline: deadline, traj: opts.record ? [] : null, nearCount: 0,
               keepProgs: !!opts.keepProgs };
-    var arms = [];
+    var arms = [], sigs = new Set();
     (opts.segs || SCN.SEGS).forEach(function (seg) {
+      /* segmentations that cut every grid of the task into the same
+         entities are one representation: search it once (the first, i.e.
+         cheapest, name keeps it) */
+      var sig = partitionSig(ctx, seg, bg);
+      if (sig === null || sigs.has(sig)) return;
+      sigs.add(sig);
       arms = arms.concat(makeArms(ctx, seg, bg, canvas, S));
       if (canvas >= 0) arms = arms.concat(makeArms(ctx, seg, bg, -1, S));
     });

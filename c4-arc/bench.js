@@ -10,6 +10,7 @@ if (!isMainThread) {
   if (workerData.policy) E.activatePlanner(E.loadPlanner(require(workerData.policy), { clean: workerData.policyMode === 'clean' }));
   if (workerData.ablate && workerData.ablate.length && E.configure) {
     const off = {}; for (const a of workerData.ablate) off[a] = false;
+    /* concept-engine ablations: --ablate sls,views,shift,removed */
     E.configure(off);
   }
   parentPort.on('message', ({index, task}) => {

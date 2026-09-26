@@ -26,7 +26,7 @@
  * execution counts.
  */
 var SEARCH = (function () {
-  var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, cell: 0.45 };
+  var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, panel: 0.6, rects: 0.45, cell: 0.45 };
   var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9 };
   var CONTROLLER = null;         /* (ctx) -> {seg:{}, type:{}, fam:{}} log-prior bonuses */
 
@@ -37,11 +37,42 @@ var SEARCH = (function () {
     return p;
   }
 
+  /* Schema evidence per segmentation (correspondence fates, no search):
+     which KINDS of candidate the demonstrations can support. */
+  function segEvidence(ctx, seg) {
+    return ctx.memo("segev:" + seg, function () {
+      var bg = ctx.bg(), ev = { vacated: 0, recolor: 0, mixed: 0, same: 0, created: 0 }, t;
+      for (t = 0; t < ctx.train.length; t++) {
+        var x = ctx.train[t][0], y = ctx.train[t][1], sc = SCN.of(x, seg, bg);
+        if (!sc) return null;
+        (CORR.fates(sc, y) || []).forEach(function (f) {
+          if (f.kind === "vacated") ev.vacated++;
+          else if (f.kind === "recolor" || f.kind === "cmap") ev.recolor++;
+          else if (f.kind === "mixed") ev.mixed++;
+          else ev.same++;
+        });
+      }
+      ev.created = ctx.memo("creates", function () { return true; }) ? 1 : 0;
+      return ev;
+    });
+  }
+  function schemaBonus(ctx, arm) {
+    var ev = segEvidence(ctx, arm.seg);
+    if (!ev) return 0;
+    switch (arm.type) {
+      case "rules": return ev.recolor + ev.vacated + ev.mixed > 0 ? 0.3 : -0.5;
+      case "relaxed": return (ev.recolor + ev.mixed > 0) && ev.created ? 0.2 : -0.5;
+      case "fall": return ev.vacated > 0 ? 0.3 : -0.8;
+      case "grow": return ev.created ? 0.1 : -0.8;
+      default: return 0;
+    }
+  }
+
   function run(ctx, arms, S, opts) {
     var mode = opts.mode || "sls", maxExec = opts.maxExec || Infinity;
     var bonus = null;
     if (CONTROLLER && opts.controller !== false) { try { bonus = CONTROLLER(ctx); } catch (e) { bonus = null; } }
-    arms.forEach(function (a) { a.prior = staticPrior(a, bonus); a.value = a.prior; });
+    arms.forEach(function (a) { a.prior = staticPrior(a, bonus) + (opts.schema === false ? 0 : schemaBonus(ctx, a)); a.value = a.prior; });
     var comp = { seg: {}, type: {}, fam: {} }, spawned = new Set();
     S.wantReward = mode === "sls";
     /* pureref: the control for the ablation -- the same rounds and the same

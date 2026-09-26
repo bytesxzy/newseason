@@ -15524,7 +15524,7 @@ var CELLTREE = null;
                featureNames: function () {
                  return FEATURES.map(function (f) { return f[0]; });
                } };
-  defSolver("celltree", "cellwise", generate, 2, 1.5);
+  defSolver("celltree", "cellwise", generate, 2, 1.5).MIN_SLICE = 0.35;
 })();
 
 /* ===== src/48-canvastree.js ===== */
@@ -17159,6 +17159,7 @@ var REPEAT = null;
  * probabilities.
  */
 
+var PORTFOLIO_FLAGS = { removed: true };
 var SOLVER_PRIOR = {
   geometry: 0.0, cellwise: 1.0, partition: 0.0, symmetry: 0.0,
   objects: 1.5, tiling: 0.5, colormap: 0.0, select: 1.0,
@@ -17167,7 +17168,9 @@ var SOLVER_PRIOR = {
      assumption, charged a quarter unit over the same program in raw cells */
   represent: 1.25,
   /* entity programs (63-sketch.js) pay their own description length */
-  sketch: 1.0
+  sketch: 1.0,
+  /* direct output prediction: admitted only by leave-one-demo-out */
+  transduce: 2.0
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -17176,7 +17179,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "tiling", "blocks", "selfstamp", "extend", "select", "locate", "regions",
   "counting", "cellwise", "objects_map", "objproc", "relproc", "tally", "motion",
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
-  "sketch", "extract", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
+  "sketch", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
   "enumerate_dsl", "represent", "typed"];
 
@@ -17682,11 +17685,16 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     for (i = 0; i < all.length; i++) {
       now = nowMs();
       if (now >= generationEnd) break;
-      if (i < phase1.length)
+      if (i < phase1.length) {
         moduleEnd = Math.min(generationEnd, Math.max(now + share1 * 0.5, t0 + share1 * (i + 1)));
+        if (all[i].MIN_SLICE) moduleEnd = Math.min(generationEnd, Math.max(moduleEnd, now + all[i].MIN_SLICE * 1000));
+      }
       else {
         remaining = all.length - i;
         moduleEnd = Math.min(generationEnd, now + (generationEnd - now) / remaining);
+        /* a family whose fits only appear at the end of its induction gets a
+           guaranteed minimum; cutting it short buys nothing */
+        if (all[i].MIN_SLICE) moduleEnd = Math.min(generationEnd, Math.max(moduleEnd, now + all[i].MIN_SLICE * 1000));
       }
       order = _harvest(all[i], ctx, moduleEnd, bias, reservoir, order, res);
     }
@@ -17834,7 +17842,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   /* removed-colour law: a colour present in every demonstration input and
      absent from every demonstration output is one the rule eliminates; a
      prediction that keeps it contradicts every demonstration */
-  var removedColors = 0x3ff;
+  var removedColors = PORTFOLIO_FLAGS.removed ? 0x3ff : 0;
   for (i = 0; i < ctx.train.length; i++)
     removedColors &= G.palette(ctx.train[i][0]) & ~G.palette(ctx.train[i][1]);
 
@@ -23923,7 +23931,7 @@ var REFRAME = (function () {
  *   cell  single foreground cells (small grids only)
  */
 var SCN = (function () {
-  var SEGS = ["c8", "c4", "m8", "m4", "col", "bgin", "bg4", "cell"];
+  var SEGS = ["c8", "c4", "m8", "m4", "col", "bgin", "bg4", "panel", "rects", "cell"];
   var MAX_ENTS = 64;
 
   /* ---------------------------------------------------------- masks / D4 */
@@ -24077,8 +24085,73 @@ var SCN = (function () {
     return out;
   }
 
+  /* maximal all-background rectangles of at least 2 x 2 (negative space as
+     things); they may overlap. Histogram-and-stack per bottom row gives the
+     width-maximal rectangle of every height; containment filtering keeps
+     the maximal ones. */
+  function emptyRects(g, bg) {
+    var H = g.length, W = g[0].length, hts = new Int32Array(W), cand = [], r, c;
+    for (r = 0; r < H; r++) {
+      for (c = 0; c < W; c++) hts[c] = g[r][c] === bg ? hts[c] + 1 : 0;
+      var st = [];
+      for (c = 0; c <= W; c++) {
+        var h = c < W ? hts[c] : 0, start = c;
+        while (st.length && st[st.length - 1][1] >= h) {
+          var top = st.pop(), hh = top[1], left = top[0];
+          if (hh >= 2 && c - left >= 2) cand.push([r - hh + 1, left, r, c - 1]);
+          start = left;
+        }
+        if (h > 0 && (!st.length || st[st.length - 1][1] < h)) st.push([start, h]);
+      }
+    }
+    var keep = cand.filter(function (a, i) {
+      return !cand.some(function (b, j) {
+        return j !== i && b[0] <= a[0] && b[1] <= a[1] && b[2] >= a[2] && b[3] >= a[3] &&
+          (b[0] !== a[0] || b[1] !== a[1] || b[2] !== a[2] || b[3] !== a[3] || j < i);
+      });
+    });
+    keep.sort(function (a, b) { return (b[2] - b[0] + 1) * (b[3] - b[1] + 1) - (a[2] - a[0] + 1) * (a[3] - a[1] + 1); });
+    return keep.slice(0, 40).map(function (q) {
+      var cells = [], rr, cc;
+      for (rr = q[0]; rr <= q[2]; rr++) for (cc = q[1]; cc <= q[3]; cc++) cells.push((rr << 6) | cc);
+      return cells;
+    });
+  }
+
+  /* panels: the regions between full separator lines of one colour (rows
+     and/or columns), background included, as entities */
+  function panels(g, bg) {
+    var H = g.length, W = g[0].length, r, c, sepC = -1, rows = [], cols = [];
+    for (r = 0; r < H; r++) {
+      var v = g[r][0], full = v !== bg;
+      for (c = 1; c < W && full; c++) if (g[r][c] !== v) full = false;
+      if (full) { if (sepC < 0) sepC = v; if (v === sepC) rows.push(r); }
+    }
+    for (c = 0; c < W; c++) {
+      var w = g[0][c], fullc = w !== bg && (sepC < 0 || w === sepC);
+      for (r = 1; r < H && fullc; r++) if (g[r][c] !== w) fullc = false;
+      if (fullc) { if (sepC < 0) sepC = w; cols.push(c); }
+    }
+    if (sepC < 0 || (!rows.length && !cols.length)) return null;
+    function spans(marks, n) {
+      var out = [], start = 0, k;
+      for (k = 0; k <= n; k++) if (k === n || marks.indexOf(k) >= 0) { if (k > start) out.push([start, k - 1]); start = k + 1; }
+      return out;
+    }
+    var rs = spans(rows, H), cs = spans(cols, W), out = [];
+    if (rs.length * cs.length < 2) return null;
+    rs.forEach(function (a) { cs.forEach(function (b) {
+      var cells = [];
+      for (r = a[0]; r <= a[1]; r++) for (c = b[0]; c <= b[1]; c++) cells.push((r << 6) | c);
+      out.push(cells);
+    }); });
+    return out;
+  }
+
   function cellLists(g, seg, bg) {
     var i, objs, out = [];
+    if (seg === "rects") return emptyRects(g, bg);
+    if (seg === "panel") return panels(g, bg);
     if (seg === "bgin") return bgRegions(g, bg, true);
     if (seg === "bg4") return bgRegions(g, bg, false);
     var mode = seg === "col" ? "color" : seg === "cell" ? "cells" : seg;
@@ -24440,6 +24513,31 @@ var EXPR = (function () {
       for (i = 0; i < sc.ents.length; i++) if (m.get(sc.ents[i].d4()) === 1) { if (id >= 0) return -1; id = i; }
       return id === e.id ? -1 : id;
     }],
+    /* the unique multi-cell entity that contains e's colour: the template a
+       marker of that colour refers to */
+    ["hasC", 3.0, function (sc, e) {
+      var id = -1, i;
+      for (i = 0; i < sc.ents.length; i++) {
+        var o = sc.ents[i];
+        if (o === e || o.n <= e.n || !(o.colors & (1 << e.color))) continue;
+        if (id >= 0) return -1;
+        id = i;
+      }
+      return id;
+    }],
+    /* the entity with the most non-background cells (a template panel) */
+    ["rich", 3.0, function (sc, e) {
+      var id = sc.memo("rich", function () {
+        var best = -1, bn = -1, tie = false, i, j;
+        for (i = 0; i < this.ents.length; i++) {
+          var o = this.ents[i], n = 0;
+          for (j = 0; j < o.n; j++) if (this.grid[o.cells[j] >> 6][o.cells[j] & 63] !== this.bg) n++;
+          if (n > bn) { bn = n; best = i; tie = false; } else if (n === bn) tie = true;
+        }
+        return tie ? -1 : best;
+      });
+      return id === e.id ? -1 : id;
+    }],
     ["rowN", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return sc.rowOverlap(e, o); }); }],
     ["colN", 3.0, function (sc, e) { return uniqueMin(sc, e, function (o) { return sc.colOverlap(e, o); }); }]
   ];
@@ -24495,6 +24593,7 @@ var EXPR = (function () {
     INT_EXPRS.push({ k: "#ents", b: 3.0, f: function (sc) { return sc.ents.length; } });
     INT_EXPRS.push({ k: "#same", b: 3.5, f: function (sc, e) { return countEntsColor(sc, e.color); } });
     INT_EXPRS.push({ k: "holes", b: 3.0, f: function (sc, e) { return e.holes(); } });
+    INT_EXPRS.push({ k: "ncol", b: 3.0, f: function (sc, e) { return e.ncol; } });
     for (k = 0; k < 10; k++) INT_EXPRS.push({ k: "#c" + k, b: 2.0 + LOG2_10, cref: k,
       f: (function (v) { return function (sc) { return countColor(sc, v); }; })(k) });
     RELS.slice(0, 5).forEach(function (R) {
@@ -24620,6 +24719,17 @@ var EXPR = (function () {
       add("col!=" + cc, 2 + LOG2_10, function (sc, e) { return e.color !== cc; });
       add("has:" + cc, 2 + LOG2_10, function (sc, e) { return (e.colors & (1 << cc)) !== 0; });
       add("!has:" + cc, 3 + LOG2_10, function (sc, e) { return (e.colors & (1 << cc)) === 0; });
+      /* adjacent (4-neighbour) to a cell of colour cc in the grid itself,
+         whatever the segmentation made of that cell */
+      add("adjC:" + cc, 3 + LOG2_10, function (sc, e) {
+        var g = sc.grid, j;
+        for (j = 0; j < e.n; j++) {
+          var r = e.cells[j] >> 6, c = e.cells[j] & 63;
+          if ((r > 0 && g[r - 1][c] === cc && !e.has(((r - 1) << 6) | c)) || (r < sc.H - 1 && g[r + 1][c] === cc && !e.has(((r + 1) << 6) | c)) ||
+              (c > 0 && g[r][c - 1] === cc && !e.has((r << 6) | (c - 1))) || (c < sc.W - 1 && g[r][c + 1] === cc && !e.has((r << 6) | (c + 1)))) return true;
+        }
+        return false;
+      });
       add("touchC:" + cc, 3 + LOG2_10, function (sc, e) {
         for (var j = 0; j < sc.ents.length; j++) if (sc.ents[j].color === cc && sc.touch(e, sc.ents[j])) return true;
         return false;
@@ -24628,6 +24738,17 @@ var EXPR = (function () {
     [["n", "size"], ["h", "height"], ["w", "width"], ["area", "area"]].forEach(function (a) {
       add("max:" + a[0], 2.5, function (sc, e) { return sc.extreme(a[0], true) === e.id; });
       add("min:" + a[0], 2.5, function (sc, e) { return sc.extreme(a[0], false) === e.id; });
+    });
+    /* tie-tolerant extremes: among the largest / smallest */
+    ["n", "area"].forEach(function (a) {
+      add("top:" + a, 3.0, function (sc, e) {
+        var m = sc.memo("mx:" + a, function () { var v = -1; this.ents.forEach(function (o) { v = Math.max(v, SCN.attr(o, a, this)); }, this); return v; });
+        return SCN.attr(e, a, sc) === m;
+      });
+      add("bot:" + a, 3.0, function (sc, e) {
+        var m = sc.memo("mn:" + a, function () { var v = 1e9; this.ents.forEach(function (o) { v = Math.min(v, SCN.attr(o, a, this)); }, this); return v; });
+        return SCN.attr(e, a, sc) === m;
+      });
     });
     add("uShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) === 1; });
     add("rShape", 2.5, function (sc, e) { return sc.countOf("d4").get(e.d4()) > 1; });
@@ -24748,6 +24869,25 @@ var GEN = (function () {
     if (cov && !rov) return e.r1 < o.r0 ? 1 : 0;
     if (rov && !cov) return e.c1 < o.c0 ? 3 : 2;
     return snapDir(o.cr2 - e.cr2, o.cc2 - e.cc2);
+  }
+  /* a bar of computed length k beside the entity, as wide as the entity:
+     "under each block, a column as tall as the block has colours" */
+  function barCells(sc, e, canvas, op) {
+    var k = op.len.f(sc, e), out = [], r, c;
+    if (!(k > 0) || k > 30) return out;
+    var d = DIRS[op.d];
+    if (op.d === 1 || op.d === 0) {
+      for (var i = 1; i <= k; i++) {
+        r = op.d === 1 ? e.r1 + i : e.r0 - i;
+        for (c = e.c0; c <= e.c1; c++) if (inb(sc, r, c) && canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      }
+    } else {
+      for (var j = 1; j <= k; j++) {
+        c = op.d === 3 ? e.c1 + j : e.c0 - j;
+        for (r = e.r0; r <= e.r1; r++) if (inb(sc, r, c) && canvas[r][c] === sc.bg) out.push((r << 6) | c);
+      }
+    }
+    return d ? out : out;
   }
   /* the midpoint between e and its partner (a dot or a plus) */
   function midCells(sc, e, canvas, op) {
@@ -24919,7 +25059,7 @@ var GEN = (function () {
      coincide with T's cells of the same colours (any D4 image of T) */
   function stampCells(sc, e, canvas, op) {
     var T = rel(sc, op.tpl, e);
-    if (!T || T === e || T.n <= e.n) return null;
+    if (!T || T === e || T.n < e.n) return null;
     var best = null, t, cnt = 0;
     for (t = 0; t < (op.d4 ? 8 : 1); t++) {
       var P = CORR.tpatch(T, t), ph = P.length, pw = P[0].length, offs = [];
@@ -24954,7 +25094,7 @@ var GEN = (function () {
     if (!best || cnt !== 1 && op.align !== "center") return null;
     var cells = [], cols = [], P2 = best.P;
     for (var i2 = 0; i2 < P2.length; i2++) for (var j2 = 0; j2 < P2[0].length; j2++) {
-      if (P2[i2][j2] < 0) continue;
+      if (P2[i2][j2] < 0 || P2[i2][j2] === sc.bg) continue;
       var R = best.R0 + i2, C = best.C0 + j2;
       if (!inb(sc, R, C) || e.has((R << 6) | C)) continue;
       cells.push((R << 6) | C); cols.push(P2[i2][j2]);
@@ -25006,6 +25146,7 @@ var GEN = (function () {
       case "link": return { cells: linkCells(sc, e, canvas, op), cols: null };
       case "leak": return { cells: leakCells(sc, e, canvas, op), cols: null };
       case "mid": return { cells: midCells(sc, e, canvas, op), cols: null };
+      case "bar": return { cells: barCells(sc, e, canvas, op), cols: null };
       case "symm": return symmCells(sc, e, canvas, op);
       case "stamp": return stampCells(sc, e, canvas, op);
       case "repeat": return repeatCells(sc, e, canvas, op);
@@ -25019,8 +25160,11 @@ var GEN = (function () {
     function add(o) { o.key = key(o); out.push(o); }
     add({ kind: "halo4", b: 3 }); add({ kind: "halo8", b: 3 });
     add({ kind: "bbox", b: 3 }); add({ kind: "holes", b: 3 });
+    /* isotropy prior: all directions alike is the default; one axis, or
+       one direction, is an extra choice that must be paid for */
+    var DIRSET_BITS = { all8: 1.0, orth: 1.5, diag: 1.5, ud: 2.5, lr: 2.5 };
     Object.keys(RAYSETS).forEach(function (d) {
-      var db = RAYSETS[d].length === 1 ? 3 : 1.5;
+      var db = RAYSETS[d].length === 1 ? 3.5 : DIRSET_BITS[d];
       ["hit", "thru"].forEach(function (st) {
         add({ kind: "ray", anchor: "edge", dir: d, stop: st, b: 3 + db + (st === "thru" ? 1 : 0) });
         add({ kind: "ray", anchor: "minor", dir: d, stop: st, b: 4.5 + db + (st === "thru" ? 1 : 0) });
@@ -25052,6 +25196,10 @@ var GEN = (function () {
       add({ kind: "mid", r: r, shape: "dot", b: 4 + EXPR.REL_BY[r][1] });
       add({ kind: "mid", r: r, shape: "plus", b: 5 + EXPR.REL_BY[r][1] });
     });
+    [0, 1, 2, 3].forEach(function (d) {
+      EXPR.INT_EXPRS.filter(function (I) { return ["ncolE", "h", "w", "n", "1", "2", "3", "#same", "holes"].indexOf(I.k) >= 0 || I.k === "ncol"; })
+        .forEach(function (I) { add({ kind: "bar", d: d, len: I, b: 4 + I.b }); });
+    });
     ["allS", "all"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
       add({ kind: "link", r: r, geo: "diag", b: r === "allS" ? 5.5 : 6 });
@@ -25061,15 +25209,40 @@ var GEN = (function () {
         add({ kind: "symm", sym: k, about: a, b: 4 + (a === "self" ? 0 : EXPR.REL_BY[a][1]) , patch: true });
       });
     });
-    ["big", "uniqS", "nearB", "near", "uniqC", "touch"].forEach(function (t) {
+    ["lr", "ud", "rot2", "both", "rot4"].forEach(function (k) {
+      ["self", "near", "big"].forEach(function (a) {
+        add({ kind: "symm", sym: k, about: a, rc: true, b: 5 + (a === "self" ? 0 : EXPR.REL_BY[a][1]) });
+      });
+    });
+    ["big", "uniqS", "nearB", "near", "uniqC", "touch", "hasC", "rich"].forEach(function (t) {
       add({ kind: "stamp", tpl: t, align: "center", d4: false, b: 4 + EXPR.REL_BY[t][1], patch: true });
       add({ kind: "stamp", tpl: t, align: "match", d4: false, b: 4 + EXPR.REL_BY[t][1], patch: true });
       add({ kind: "stamp", tpl: t, align: "match", d4: true, b: 7 + EXPR.REL_BY[t][1], patch: true });
+      add({ kind: "stamp", tpl: t, align: "center", d4: false, rc: true, b: 5 + EXPR.REL_BY[t][1] });
     });
     var steps = ["1", "h", "w", "h+1", "w+1", "2"];
     EXPR.VEC_EXPRS.forEach(function (V) {
       var parts = V.k.split("*");
-      if (parts.length === 2 && steps.indexOf(parts[1]) >= 0) add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+      if (parts.length === 2 && steps.indexOf(parts[1]) >= 0) {
+        add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+        add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+      }
+    });
+    /* repeats stepping away from / toward a related entity by own size+1 */
+    ["near", "nearD", "big", "nearP"].forEach(function (r) {
+      ["away", "toward"].forEach(function (w) {
+        ["h+1", "1"].forEach(function (st) {
+          var V = { k: w + "(" + r + ")*" + st, b: 3 + EXPR.REL_BY[r][1], rel: r, f: function (sc, e) {
+            var o = EXPR.rel(sc, r, e); if (!o) return null;
+            var d = relDir(sc, e, o); if (d < 0) return null;
+            if (w === "away") d = OPP[d];
+            var k = st === "1" ? 1 : (DIRS[d][0] ? e.h : e.w) + 1;
+            return [DIRS[d][0] * k, DIRS[d][1] * k];
+          } };
+          add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+          add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+        });
+      });
     });
     return out;
   })();
@@ -25080,22 +25253,94 @@ var GEN = (function () {
     switch (o.kind) {
       case "ray": return "ray:" + o.anchor + ":" + o.dir + (o.r ? "(" + o.r + ")" : "") + ":" + o.stop + (o.bounce ? ":" + o.bounce : "");
       case "link": return "link:" + o.geo + "(" + o.r + ")";
-      case "symm": return "symm:" + o.sym + "@" + o.about;
-      case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "");
-      case "repeat": return "repeat[" + o.v.k + "]";
+      case "symm": return "symm:" + o.sym + "@" + o.about + (o.rc ? ":rc" : "");
+      case "stamp": return "stamp(" + o.tpl + "):" + o.align + (o.d4 ? ":d4" : "") + (o.rc ? ":rc" : "");
+      case "repeat": return "repeat[" + o.v.k + "]" + (o.rc ? ":rc" : "");
       case "leak": return "leak:" + o.stop;
       case "mid": return "mid(" + o.r + "):" + o.shape;
+      case "bar": return "bar:" + EXPR.DNAME[o.d] + "*" + o.len.k;
       default: return o.kind;
     }
   }
 
+  /* Results are memoised per scene by (operator, entity, canvas): every
+     growth arm and every refinement re-asks the same questions. Stamps,
+     repeats and symmetries do not read the canvas at all. */
+  var CANVAS_FREE = { stamp: 1, symm: 1 };
+  var NEXT_IDX = 1;
   function apply(sc, e, canvas, op) {
-    if (op.kind === "symm") return symmCells(sc, e, canvas, { kind: op.sym, about: op.about });
+    if (!op.idx) op.idx = NEXT_IDX++;
+    var cache = sc._gen || (sc._gen = new Map());
+    var ch = CANVAS_FREE[op.kind] && !op.rc ? 0 : G.ghash(canvas);
+    var bucket = cache.get(ch);
+    if (!bucket) { if (cache.size > 64) cache.clear(); bucket = new Map(); cache.set(ch, bucket); }
+    var k = op.idx * 128 + e.id;
+    var res = bucket.get(k);
+    if (res !== undefined) return res;
+    res = apply0(sc, e, canvas, op);
+    bucket.set(k, res);
+    return res;
+  }
+  function apply0(sc, e, canvas, op) {
+    if (op.kind === "symm") {
+      var sm = symmCells(sc, e, canvas, { kind: op.sym, about: op.about });
+      if (sm && op.rc) {
+        /* the completed part drawn in the rule's colour, only where empty */
+        var cs = [];
+        for (var q = 0; q < sm.cells.length; q++) if (canvas[sm.cells[q] >> 6][sm.cells[q] & 63] === sc.bg) cs.push(sm.cells[q]);
+        return { cells: cs, cols: null };
+      }
+      return sm;
+    }
+    if (op.kind === "stamp" && op.rc) {
+      /* the template's shape in the rule's colour, on empty cells only */
+      var sp = stampCells(sc, e, canvas, op);
+      return sp ? { cells: sp.cells.filter(function (p) { return canvas[p >> 6][p & 63] === sc.bg; }), cols: null } : null;
+    }
+    if (op.kind === "repeat" && op.rc) {
+      var rp = repeatCells(sc, e, canvas, op);
+      return rp ? { cells: rp.cells.filter(function (p) { return canvas[p >> 6][p & 63] === sc.bg; }), cols: null } : null;
+    }
+    if (op.kind === "fused") {
+      /* a library concept: two operators of one rule, the second measured on
+         the canvas the first left */
+      var a = apply(sc, e, canvas, op.a);
+      if (!a) return null;
+      var cv = canvas.map(function (row) { return row.slice(); }), i, mark = op.c0 === undefined ? 1 : op.c0;
+      for (i = 0; i < a.cells.length; i++) cv[a.cells[i] >> 6][a.cells[i] & 63] = a.cols ? a.cols[i] : (sc.bg === mark ? mark + 1 : mark) % 10;
+      var b = apply(sc, e, cv, op.b);
+      if (!b) return null;
+      var seen = new Set(), cells = [], cols = (a.cols || b.cols) ? [] : null;
+      [a, b].forEach(function (res) {
+        for (var k = 0; k < res.cells.length; k++) if (!seen.has(res.cells[k])) {
+          seen.add(res.cells[k]); cells.push(res.cells[k]);
+          if (cols) cols.push(res.cols ? res.cols[k] : -1);
+        }
+      });
+      if (cols && cols.indexOf(-1) >= 0) return null;       /* mixed colour sources */
+      return { cells: cells, cols: cols };
+    }
     return paint(sc, e, canvas, op);
   }
+  /* register a mined concept (62b-concepts.js) as one more operator */
+  function addFused(def) {
+    var A = null, B = null;
+    OPS.forEach(function (o) { if (o.key === def.a) A = o; if (o.key === def.b) B = o; });
+    if (!A || !B || !!A.patch !== !!B.patch) return null;
+    var o = { kind: "fused", a: A, b: B, patch: !!A.patch, b0: 0, concept: def };
+    o.b = Math.max(A.b, B.b) + 1;
+    o.key = "fuse(" + A.key + "+" + B.key + ")";
+    OPS.push(o);
+    return o;
+  }
 
-  return { OPS: OPS, apply: apply, RAYSETS: RAYSETS, snapDir: snapDir };
+  return { OPS: OPS, apply: apply, addFused: addFused, RAYSETS: RAYSETS, snapDir: snapDir };
 })();
+/* ===== src/62b-concepts.js ===== */
+/* GENERATED by tools/arc-library.js (placeholder until generated): mined
+ * library concepts, each two generative operators applied by one rule. */
+var CONCEPT_DEFS = [];
+CONCEPT_DEFS.forEach(function (d) { GEN.addFused(d); });
 /* ===== src/63-sketch.js ===== */
 /* Entity-level sketch synthesis with version-space hole solving.
  *
@@ -25499,6 +25744,44 @@ var SKETCH = (function () {
           });
         });
       });
+      /* three rules, only when two found nothing: the same expression-driven
+         partition applied once more to what rule 1 leaves */
+      if (out.length) return;
+      kinds.forEach(function (K1) {
+        if (K1 === def || out.length >= cap) return;
+        var g1 = need.filter(function (it) { return allows(it, K1); });
+        splitByExpr(g1, K1).forEach(function (part) {
+          var rest = need.filter(function (it) { return part.T.indexOf(it) < 0; });
+          if (!rest.length) return;
+          kinds.forEach(function (K2) {
+            if (K2 === def || out.length >= cap) return;
+            var g2 = rest.filter(function (it) { return allows(it, K2); });
+            splitByExpr(g2, K2).forEach(function (part2) {
+              var rest2 = rest.filter(function (it) { return part2.T.indexOf(it) < 0; });
+              if (!rest2.length) return;
+              kinds.forEach(function (K3) {
+                if (K3 === def || out.length >= cap) return;
+                if (rest2.some(function (it) { return !allows(it, K3); })) return;
+                var vs3 = actionVS(rest2, K3);
+                if (!vs3) return;
+                var F1 = rest.slice();
+                items.forEach(function (it, i) { if (defOK[i] && !compatible(it, K1, part.vs)) F1.push(it); });
+                predVS(preds, part.T, F1, 1).forEach(function (p1) {
+                  var F2 = rest2.slice();
+                  items.forEach(function (it, i) { if (defOK[i] && !truth(p1, it) && !compatible(it, K2, part2.vs)) F2.push(it); });
+                  predVS(preds, part2.T, F2, 1).forEach(function (p2) {
+                    var F3 = [];
+                    items.forEach(function (it, i) { if (defOK[i] && !truth(p1, it) && !truth(p2, it) && !compatible(it, K3, vs3)) F3.push(it); });
+                    predVS(preds, rest2, F3, 1).forEach(function (p3) {
+                      out.push({ rules: [{ p: p1, kind: K1, vs: part.vs }, { p: p2, kind: K2, vs: part2.vs }, { p: p3, kind: K3, vs: vs3 }], def: def });
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
     });
     return out.slice(0, cap);
   }
@@ -25678,7 +25961,7 @@ var SKETCH = (function () {
      The scheduler (66-search.js) decides which arm to pull next; every pull
      is one candidate execution, recorded with a dense reward so that failed
      candidates teach the scheduler where to look. */
-  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat"];
+  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "bar", "fused"];
   function opFamily(op) {
     switch (op.kind) {
       case "halo4": case "halo8": return "halo";
@@ -25778,7 +26061,15 @@ var SKETCH = (function () {
       }); }); });
       return out;
     }));
-    FAMILIES.forEach(function (fam) {
+    /* growth only when some demonstration creates something on background */
+    var creates = ctx.memo("creates", function () {
+      return ctx.train.some(function (pr) {
+        for (var r = 0; r < pr[0].length; r++) for (var c = 0; c < pr[0][0].length; c++)
+          if (pr[0][r][c] === bg && pr[1][r][c] !== bg) return true;
+        return false;
+      });
+    });
+    if (creates) FAMILIES.forEach(function (fam) {
       arms.push(listArm("grow:" + fam + ":" + tag, seg, "grow", fam, function () {
         var Q = prep(); if (!Q) return [];
         var start = { seg: seg, bg: bg, rules: [], def: "keep", grow: [], canvas: canvas };
@@ -25823,6 +26114,16 @@ var SKETCH = (function () {
     return { exact: exact, score: 0.5 * exact / n + 0.5 * acc / n };
   }
 
+  function partitionSig(ctx, seg, bg) {
+    var parts = [], grids = ctx.inputs().concat(ctx.test_inputs), i;
+    for (i = 0; i < grids.length; i++) {
+      var sc = SCN.of(grids[i], seg, bg);
+      if (!sc) return null;
+      parts.push(sc.ents.map(function (e) { return e.cells[0] + ":" + e.n + ":" + e.cells[e.n - 1]; }).join(","));
+    }
+    return parts.join("/");
+  }
+
   var SEARCH_HOOK = null;     /* 66-search.js installs the scheduler */
   function synthesize(ctx, deadline, opts) {
     opts = opts || {};
@@ -25830,8 +26131,14 @@ var SKETCH = (function () {
     var bg = ctx.bg(), canvas = canvasColor(ctx, bg);
     var S = { ctx: ctx, found: [], seen: new Set(), exec: 0, deadline: deadline, traj: opts.record ? [] : null, nearCount: 0,
               keepProgs: !!opts.keepProgs };
-    var arms = [];
+    var arms = [], sigs = new Set();
     (opts.segs || SCN.SEGS).forEach(function (seg) {
+      /* segmentations that cut every grid of the task into the same
+         entities are one representation: search it once (the first, i.e.
+         cheapest, name keeps it) */
+      var sig = partitionSig(ctx, seg, bg);
+      if (sig === null || sigs.has(sig)) return;
+      sigs.add(sig);
       arms = arms.concat(makeArms(ctx, seg, bg, canvas, S));
       if (canvas >= 0) arms = arms.concat(makeArms(ctx, seg, bg, -1, S));
     });
@@ -26051,6 +26358,173 @@ var EXTRACT = (function () {
 
   return { synthesize: synthesize, run: run, keyOf: keyOf, bits: bits };
 })();
+/* ===== src/63b-encode.js ===== */
+/* Encoding sketches: the output ENCODES numbers read off the scene.
+ *
+ *     out = PATTERN_C( canvas of H(scene) x W(scene) )
+ *
+ * H and W are integer expressions over the whole input scene -- entity
+ * counts per segmentation, pixel counts, colour counts, per-colour cell and
+ * entity counts, the largest entity, or a literal when every demonstration
+ * agrees -- and each is solved as a version space: the expressions whose
+ * value equals the output's height (width) in EVERY demonstration. PATTERN
+ * paints the canvas (filled, main or anti diagonal, the first K cells in
+ * reading order, a histogram of colours by count as columns or rows), in a
+ * colour given by a COLOR expression over the scene. Every combination is
+ * executed on every demonstration; only exact ones are kept.
+ */
+var ENCODE = (function () {
+  var SEGS = ["c8", "c4", "m8", "col"];
+
+  function features(g, bg) {
+    var f = {}, i, c, hist = G.histogram(g), colors = [];
+    for (c = 0; c < 10; c++) if (c !== bg && hist[c]) { colors.push(c); f["cells:" + c] = hist[c]; }
+    f.colors = colors.length;
+    f.fg = colors.reduce(function (a, c2) { return a + hist[c2]; }, 0);
+    SEGS.forEach(function (seg) {
+      var sc = SCN.of(g, seg, bg);
+      if (!sc) return;
+      f["ents:" + seg] = sc.ents.length;
+      f["pix:" + seg] = sc.ents.filter(function (e) { return e.n === 1; }).length;
+      f["big:" + seg] = sc.ents.reduce(function (a, e) { return Math.max(a, e.n); }, 0);
+      f["multi:" + seg] = sc.ents.filter(function (e) { return e.n > 1; }).length;
+      if (seg === "c8") colors.forEach(function (c3) { f["ents:c8:" + c3] = sc.ents.filter(function (e) { return e.color === c3; }).length; });
+    });
+    var byCount = colors.slice().sort(function (a, b) { return (hist[b] - hist[a]) || (a - b); });
+    f._byCount = byCount; f._hist = hist;
+    f.maxcnt = byCount.length ? hist[byCount[0]] : 0;
+    /* the same counts with NO background (grids that are all foreground) */
+    var all = [];
+    for (c = 0; c < 10; c++) if (hist[c]) all.push(c);
+    f["all:colors"] = all.length;
+    var allBy = all.slice().sort(function (a, b) { return (hist[b] - hist[a]) || (a - b); });
+    f["all:maxcnt"] = allBy.length ? hist[allBy[0]] : 0;
+    f._allBy = allBy;
+    /* shape of the whole foreground, raw and up to D4 (classification keys) */
+    var r0 = 99, r1 = -1, c0 = 99, c1 = -1, r, cc;
+    for (r = 0; r < g.length; r++) for (cc = 0; cc < g[0].length; cc++) if (g[r][cc] !== bg) { r0 = Math.min(r0, r); r1 = Math.max(r1, r); c0 = Math.min(c0, cc); c1 = Math.max(c1, cc); }
+    if (r1 >= 0) {
+      var m = [];
+      for (r = r0; r <= r1; r++) { var row = []; for (cc = c0; cc <= c1; cc++) row.push(g[r][cc] !== bg ? 1 : 0); m.push(row); }
+      f._mask = SCN.maskKey(m); f._d4 = SCN.d4Key(m);
+    }
+    return f;
+  }
+
+  function colorExprs() {
+    return [
+      { k: "most", b: 2, f: function (F) { return F._byCount.length ? F._byCount[0] : null; } },
+      { k: "least", b: 2.5, f: function (F) { return F._byCount.length ? F._byCount[F._byCount.length - 1] : null; } }
+    ].concat([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (c) { return { k: "c" + c, b: EXPR.LOG2_10, f: function () { return c; } }; }));
+  }
+
+  function paint(pat, H, W, C, F, bg, K) {
+    if (!(H > 0 && W > 0 && H <= 30 && W <= 30)) return null;
+    var out = G.constGrid(H, W, bg), r, c, i;
+    if (pat === "fill") { for (r = 0; r < H; r++) for (c = 0; c < W; c++) out[r][c] = C; }
+    else if (pat === "diag") { if (H !== W) return null; for (i = 0; i < H; i++) out[i][i] = C; }
+    else if (pat === "adiag") { if (H !== W) return null; for (i = 0; i < H; i++) out[i][W - 1 - i] = C; }
+    else if (pat === "firstk") { if (!(K >= 0) || K > H * W) return null; for (i = 0; i < K; i++) out[(i / W) | 0][i % W] = C; }
+    else if (pat === "hcol" || pat === "hrow" || pat === "acol" || pat === "arow") {
+      var cols = pat.charAt(0) === "a" ? F._allBy : F._byCount;
+      pat = pat === "acol" ? "hcol" : pat === "arow" ? "hrow" : pat;
+      if (pat === "hcol") { if (W !== cols.length) return null; for (c = 0; c < W; c++) for (r = 0; r < Math.min(H, F._hist[cols[c]]); r++) out[r][c] = cols[c]; }
+      else { if (H !== cols.length) return null; for (r = 0; r < H; r++) for (c = 0; c < Math.min(W, F._hist[cols[r]]); c++) out[r][c] = cols[r]; }
+    } else return null;
+    return out;
+  }
+
+  function synthesize(ctx, deadline) {
+    if (ctx.same_shape()) return [];
+    var bg = ctx.bg(), feats = [], t;
+    for (t = 0; t < ctx.train.length; t++) feats.push(features(ctx.train[t][0], bg));
+    var testF = ctx.test_inputs.map(function (g) { return features(g, bg); });
+    var outBg = G.background(ctx.train[0][1]);
+    /* dimension version spaces */
+    function dimVS(which) {
+      var names = Object.keys(feats[0]).filter(function (k) { return k.charAt(0) !== "_"; }), out = [];
+      names.forEach(function (k) {
+        for (var d = 0; d < feats.length; d++) {
+          var v = feats[d][k], want = which === "h" ? ctx.train[d][1].length : ctx.train[d][1][0].length;
+          if (v !== want) return;
+        }
+        if (testF.every(function (F) { return F[k] > 0; })) out.push({ k: k, b: 3 + (k.indexOf(":") >= 0 ? 2 : 0), f: function (F) { return F[k]; } });
+      });
+      var lit = which === "h" ? ctx.const_out_shape() && ctx.const_out_shape()[0] : ctx.const_out_shape() && ctx.const_out_shape()[1];
+      if (lit) out.push({ k: "" + lit, b: EXPR.litBits(lit) + 1, f: function () { return lit; } });
+      out.sort(function (a, b) { return a.b - b.b; });
+      return out.slice(0, 4);
+    }
+    var found0 = lookups(ctx, feats, testF, bg);
+    var HS = dimVS("h"), WS = dimVS("w");
+    if (!HS.length || !WS.length) return found0;
+    var found = [], seen = new Set(), CS = colorExprs(), kNames = Object.keys(feats[0]).filter(function (k) { return k.charAt(0) !== "_"; });
+    ["fill", "diag", "adiag", "hcol", "hrow", "acol", "arow", "firstk"].forEach(function (pat) {
+      HS.forEach(function (Hx) { WS.forEach(function (Wx) {
+        (/^[ha](col|row)$/.test(pat) ? [null] : CS).forEach(function (Cx) {
+          (pat === "firstk" ? kNames : [null]).forEach(function (Kn) {
+            if (nowMs() > deadline) return;
+            var prog = { pat: pat, H: Hx, W: Wx, C: Cx, K: Kn, bg: outBg, segBg: bg };
+            var key = keyOf(prog);
+            if (seen.has(key)) return;
+            seen.add(key);
+            for (var d = 0; d < feats.length; d++) {
+              var o = runF(prog, feats[d]);
+              if (!o || !G.gEq(o, ctx.train[d][1])) return;
+            }
+            found.push(prog);
+          });
+        });
+      }); });
+    });
+    return found0.concat(found.slice(0, 12));
+  }
+
+  /* classification: out = TABLE[key(input)], the table fitted from the
+     demonstrations; it must compress (fewer entries than demonstrations)
+     and know the key of every test input */
+  function lookups(ctx, feats, testF, bg) {
+    var keys = ["_d4", "_mask", "colors", "ents:c8", "ents:m8", "fg", "maxcnt"], out = [];
+    keys.forEach(function (k) {
+      var T = new Map(), N = new Map(), ok = true, d;
+      for (d = 0; d < feats.length && ok; d++) {
+        var v = feats[d][k], y = ctx.train[d][1];
+        if (v === undefined) { ok = false; break; }
+        if (T.has(v)) { if (!G.gEq(T.get(v), y)) ok = false; } else T.set(v, y);
+        N.set(v, (N.get(v) || 0) + 1);
+      }
+      if (!ok || T.size < 2 || T.size >= feats.length) return;
+      var thin = false;
+      N.forEach(function (n) { if (n < 2) thin = true; });
+      if (thin) return;
+      if (!testF.every(function (F) { return T.has(F[k]); })) return;
+      out.push({ pat: "lookup", key: k, table: T, segBg: bg, H: { k: k, b: 0 }, W: { k: "", b: 0 }, C: null, K: null, bg: 0,
+                 b0: 3 + T.size * 4 });
+    });
+    return out;
+  }
+  function runF(p, F) {
+    if (p.pat === "lookup") { var y = p.table.get(F[p.key]); return y ? y.map(function (row) { return row.slice(); }) : null; }
+    var C = p.C ? p.C.f(F) : 0;
+    if (C === null || C === undefined) return null;
+    return paint(p.pat, p.H.f(F), p.W.f(F), C, F, p.bg, p.K ? F[p.K] : 0);
+  }
+  function run(p, g) { return runF(p, features(g, p.segBg)); }
+  function keyOf(p) { if (p.pat === "lookup") return "enc:lookup[" + p.key + "]"; return "enc:" + p.pat + "[" + p.H.k + "x" + p.W.k + "]" + (p.C ? "{" + p.C.k + "}" : "") + (p.K ? "#" + p.K : ""); }
+  function bits(p) { if (p.pat === "lookup") return p.b0; return 2 + p.H.b + p.W.b + (p.C ? p.C.b : 0) + (p.K ? 4 : 0) + (p.H.k === p.W.k ? -1 : 0); }
+
+  (function () {
+    function generate(ctx) {
+      return synthesize(ctx, ctx.deadline).map(function (p) {
+        var h = new Hyp(keyOf(p), function (g) { return run(p, g); }, 1.0 + bits(p) / 8.0, "sketch");
+        h.eprog = p;
+        return h;
+      });
+    }
+    defSolver("encode", "sketch", generate, 1, 0.2);
+  })();
+  return { synthesize: synthesize, run: run, keyOf: keyOf, bits: bits, features: features };
+})();
 /* ===== src/64-mdl.js ===== */
 /* Description length of entity programs, and the solver family that emits
  * them.
@@ -26079,7 +26553,7 @@ var EMDL = (function () {
   var KIND_BITS = { recolor: 1.0, del: 1.0, move: 1.6, copy: 2.0, moverc: 2.6, copyrc: 3.0, fall: 3.0 };
   /* representation choice: -log2 of a prior that prefers readings with
      fewer, larger entities (objectness); single cells are the last resort */
-  var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, cell: 5.0 };
+  var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, panel: 3.0, rects: 4.5, cell: 5.0 };
   function bits(p) {
     var b = (SEG_BITS[p.seg] || 4) + 1, i;
     for (i = 0; i < p.rules.length; i++) {
@@ -26165,24 +26639,77 @@ var EMDL = (function () {
     }
     return viol;
   }
-  return { bits: bits, cost: cost, shift: shift, segBits: function (seg) { return SEG_BITS[seg] || 4; } };
+  /* Equivariance as a consistency test. When exact programs disagree about
+     a test output, the task is re-posed in D4 views (every demonstration
+     and test input transformed) and synthesis runs again there. Each raw
+     prediction is scored by the number of views whose own exact programs
+     predict the same grid after the inverse transform. The DSL is closed
+     under D4, so a rule that survives re-induction in every frame is not
+     leaning on reading order or tie-breaks; a prediction no other frame
+     reproduces is. The SAME views are used for every competing candidate. */
+  var VIEWS = [
+    { name: "transpose", f: G.transpose, inv: G.transpose },
+    { name: "rot180", f: G.rot180, inv: G.rot180 },
+    { name: "flip_h", f: G.flipH, inv: G.flipH }
+  ];
+  function viewSupport(ctx, progs, deadline) {
+    var byPred = new Map(), i, t;
+    progs.forEach(function (p) {
+      var ks = [];
+      for (t = 0; t < ctx.test_inputs.length; t++) { var o = SKETCH.run(p, ctx.test_inputs[t]); ks.push(o ? G.gkey(o) : "-"); }
+      p._pk = ks.join("~");
+      if (!byPred.has(p._pk)) byPred.set(p._pk, 0);
+    });
+    if (byPred.size < 2) return null;
+    var used = 0;
+    for (i = 0; i < VIEWS.length; i++) {
+      if (nowMs() > deadline) break;
+      var V = VIEWS[i], tr = ctx.train.map(function (pr) { return [V.f(pr[0]), V.f(pr[1])]; });
+      var sub = new Ctx(tr, ctx.test_inputs.map(V.f), null), found = [];
+      var left = deadline - nowMs();
+      try { found = SKETCH.synthesize(sub, nowMs() + left / (VIEWS.length - i), {}); } catch (e) { found = []; }
+      if (!found.length) continue;
+      used++;
+      var seen = new Set();
+      found.forEach(function (q) {
+        var ks = [];
+        for (t = 0; t < ctx.test_inputs.length; t++) { var o = SKETCH.run(q, sub.test_inputs[t]); ks.push(o ? G.gkey(V.inv(o)) : "-"); }
+        var k = ks.join("~");
+        if (byPred.has(k) && !seen.has(k)) { seen.add(k); byPred.set(k, byPred.get(k) + 1); }
+      });
+    }
+    return used ? { views: used, support: byPred } : null;
+  }
+  var FLAGS = { mode: "sls", views: true, shift: true };
+  function flags(o) { for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) FLAGS[k] = o[k]; return FLAGS; }
+  return { bits: bits, cost: cost, shift: shift, viewSupport: viewSupport, flags: flags, FLAGS: FLAGS,
+           segBits: function (seg) { return SEG_BITS[seg] || 4; } };
 })();
 
 /* The sketch family inside the portfolio. */
 (function () {
   function generate(ctx) {
-    var progs = SKETCH.synthesize(ctx, ctx.deadline), out = [], i;
+    var F = EMDL.FLAGS, t0 = nowMs();
+    var progs = SKETCH.synthesize(ctx, t0 + (ctx.deadline - t0) * (F.views ? 0.85 : 1.0), { mode: F.mode }), out = [], i;
+    /* view consistency, only when exact programs disagree about the test
+       and time is left for at least one re-induction */
+    var vs = null;
+    if (F.views && progs.length > 1 && ctx.deadline - nowMs() > 150) { try { vs = EMDL.viewSupport(ctx, progs, ctx.deadline); } catch (e) { vs = null; } }
     for (i = 0; i < progs.length; i++) (function (p) {
-      var sh = 0;
-      try { sh = EMDL.shift(p, ctx); } catch (e) { sh = 0; }
+      var sh = 0, vpen = 0;
+      if (F.shift) { try { sh = EMDL.shift(p, ctx); } catch (e) { sh = 0; } }
       p.shift = sh;
-      var h = new Hyp("sk:" + SKETCH.progKey(p), function (g) { return SKETCH.run(p, g); }, EMDL.cost(p) + Math.min(3, sh) * 1.0, "sketch");
+      if (vs) { p.views = vs.support.get(p._pk) || 0; vpen = 0.8 * (vs.views - p.views); }
+      var h = new Hyp("sk:" + SKETCH.progKey(p), function (g) { return SKETCH.run(p, g); }, EMDL.cost(p) + Math.min(3, sh) * 1.0 + vpen, "sketch");
       h.eprog = p;
       out.push(h);
     })(progs[i]);
     return out;
   }
-  defSolver("sketch", "sketch", generate, 1, 0.9);
+  /* the family with the most unique correct answers per second on the
+     development split gets a guaranteed slice (it returns at once on tasks
+     it does not apply to) */
+  defSolver("sketch", "sketch", generate, 1, 1.2).MIN_SLICE = 1.0;
 })();
 /* ===== src/65-schema.js ===== */
 /* Task schema posterior and failure taxonomy (demonstrations only).
@@ -26350,7 +26877,7 @@ var TAXON = (function () {
  * execution counts.
  */
 var SEARCH = (function () {
-  var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, cell: 0.45 };
+  var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, panel: 0.6, rects: 0.45, cell: 0.45 };
   var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9 };
   var CONTROLLER = null;         /* (ctx) -> {seg:{}, type:{}, fam:{}} log-prior bonuses */
 
@@ -26576,6 +27103,167 @@ var CONTROL = (function () {
  * static objectness prior of 66-search.js is used. Regenerate with --write
  * to experiment. */
 var CONTROL_WEIGHTS = null;
+/* ===== src/69-transduce.js ===== */
+/* Transduction: predict the output cells directly, without a program.
+ *
+ * Program induction fails when the rule is texture-like, when no DSL
+ * composition states it, or when the output's regularity is easier to see
+ * than the rule; direct prediction fails in the opposite places. The two
+ * have complementary errors, so this branch is independent of the others.
+ *
+ * Model. A backoff context model over cells, trained per task on the
+ * demonstrations and their D4 images (augmentation). Each training cell
+ * contributes its contexts at several levels of detail -- own colour plus
+ * the 8 neighbours plus what the four orthogonal rays hit, down to own colour
+ * alone -- and its TARGET, which is relational when it can be: "unchanged",
+ * "the colour the ray to the left hits", or a literal colour. A test cell is
+ * predicted from its most specific context whose training evidence is
+ * unanimous (PPM-style backoff). Nothing is enumerated; nothing is verified
+ * by construction.
+ *
+ * Validation. The model reproduces its own training cells trivially, so the
+ * portfolio's demonstration check proves nothing about it. It is admitted
+ * only by LEAVE-ONE-DEMONSTRATION-OUT: trained without demonstration i it
+ * must reconstruct demonstration i exactly, for every i. It then enters the
+ * portfolio as family "transduce" at a cost above any short program, and
+ * 64-mdl.js uses its prediction as consensus evidence among competing
+ * programs.
+ */
+var TRANSDUCE = (function () {
+  var D4F = [function (g) { return g; }, G.rot90, G.rot180, G.rot270, G.flipH, G.flipV, G.transpose, G.antiTranspose];
+  var ORTH = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  var N8 = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+
+  function rayHit(g, r, c, d, bg) {
+    var H = g.length, W = g[0].length, k = 1;
+    for (;;) {
+      var rr = r + d[0] * k, cc = c + d[1] * k;
+      if (rr < 0 || rr >= H || cc < 0 || cc >= W) return [-1, 0];
+      if (g[rr][cc] !== bg) return [g[rr][cc], Math.min(k, 4)];
+      k++;
+    }
+  }
+  /* contexts from most to least specific */
+  function contexts(g, r, c, bg) {
+    var v = g[r][c], H = g.length, W = g[0].length, nb = [], rays = [], i;
+    for (i = 0; i < 8; i++) {
+      var rr = r + N8[i][0], cc = c + N8[i][1];
+      nb.push(rr < 0 || rr >= H || cc < 0 || cc >= W ? "x" : g[rr][cc] === bg ? "." : g[rr][cc] === v ? "=" : g[rr][cc]);
+    }
+    for (i = 0; i < 4; i++) rays.push(rayHit(g, r, c, ORTH[i], bg));
+    var rayC = rays.map(function (h) { return h[0]; }).join(","), rayD = rays.map(function (h) { return h[1]; }).join(",");
+    var nbs = nb.join("");
+    return [
+      "A" + v + "|" + nbs + "|" + rayC + "|" + rayD,
+      "B" + v + "|" + nbs + "|" + rayC,
+      "C" + v + "|" + nbs,
+      "D" + v + "|" + rayC,
+      "E" + v + "|" + nb.map(function (x) { return x === "." || x === "x" ? x : "o"; }).join(""),
+      "F" + v
+    ].concat([rays]);
+  }
+  /* targets a training cell supports (relational first) */
+  function targets(x, y, r, c, rays) {
+    var out = [], v = y[r][c];
+    if (v === x[r][c]) out.push("same");
+    for (var i = 0; i < 4; i++) if (rays[i][0] === v) out.push("ray" + i);
+    out.push("c" + v);
+    return out;
+  }
+
+  function train(pairs, bg, aug) {
+    var M = new Map(), t, k;
+    pairs.forEach(function (pr) {
+      var views = aug ? D4F : [D4F[0]];
+      for (k = 0; k < views.length; k++) {
+        var x = views[k](pr[0]), y = views[k](pr[1]), r, c;
+        for (r = 0; r < x.length; r++) for (c = 0; c < x[0].length; c++) {
+          var ctx = contexts(x, r, c, bg), rays = ctx[ctx.length - 1];
+          var ts = targets(x, y, r, c, rays);
+          for (t = 0; t < ctx.length - 1; t++) {
+            var e = M.get(ctx[t]);
+            if (!e) { e = { n: 0, T: new Map() }; M.set(ctx[t], e); }
+            e.n++;
+            ts.forEach(function (q) { e.T.set(q, (e.T.get(q) || 0) + 1); });
+          }
+        }
+      }
+    });
+    return M;
+  }
+  function predict(M, g, bg) {
+    var out = [], r, c, t;
+    for (r = 0; r < g.length; r++) {
+      var row = new Array(g[0].length);
+      for (c = 0; c < g[0].length; c++) {
+        var ctx = contexts(g, r, c, bg), rays = ctx[ctx.length - 1], val = null;
+        for (t = 0; t < ctx.length - 1 && val === null; t++) {
+          var e = M.get(ctx[t]);
+          if (!e) continue;
+          /* a target every training cell of this context supports */
+          var best = null;
+          e.T.forEach(function (n, q) { if (n === e.n && (best === null || rank(q) < rank(best))) best = q; });
+          if (best === null) continue;
+          if (best === "same") val = g[r][c];
+          else if (best.charAt(0) === "r") { var h = rays[+best.slice(3)][0]; val = h < 0 ? null : h; }
+          else val = +best.slice(1);
+        }
+        if (val === null) return null;
+        row[c] = val;
+      }
+      out.push(row);
+    }
+    return out;
+  }
+  function rank(q) { return q === "same" ? 0 : q.charAt(0) === "r" ? 1 : 2; }
+
+  /* leave-one-demonstration-out: every held-out demo reconstructed exactly */
+  function lodo(ctx, bg, aug, deadline) {
+    var n = ctx.train.length, i, ok = 0;
+    if (n < 2) return 0;
+    for (i = 0; i < n; i++) {
+      if (nowMs() > deadline) return -1;
+      var M = train(ctx.train.filter(function (_, j) { return j !== i; }), bg, aug);
+      var p = predict(M, ctx.train[i][0], bg);
+      if (p && G.gEq(p, ctx.train[i][1])) ok++;
+    }
+    return ok;
+  }
+
+  function model(ctx, deadline) {
+    if (!ctx.same_shape()) return null;
+    return ctx.memo("transduce", function () {
+      var bg = ctx.bg(), cells = 0;
+      ctx.train.forEach(function (p) { cells += p[0].length * p[0][0].length; });
+      if (cells > 3000) return null;
+      var n = ctx.train.length;
+      for (var aug = 1; aug >= 0; aug--) {
+        var ok = lodo(ctx, bg, !!aug, deadline);
+        if (ok < 0) return null;
+        if (ok === n) {
+          var M = train(ctx.train, bg, !!aug);
+          return { M: M, bg: bg, aug: !!aug, lodo: ok };
+        }
+      }
+      return null;
+    });
+  }
+  function run(m, g) { return predict(m.M, g, m.bg); }
+
+  (function () {
+    function generate(ctx) {
+      var m = model(ctx, ctx.deadline);
+      if (!m) return [];
+      var h = new Hyp("transduce:" + (m.aug ? "d4" : "raw"), function (g) { return run(m, g); }, 7.0, "transduce");
+      h.NO_LOO = true;
+      return [h];
+    }
+    var mod = defSolver("transduce", "transduce", generate, 2, 0.5);
+    mod.NO_LOO = true;
+  })();
+
+  return { model: model, run: run, lodo: lodo, train: train, predict: predict };
+})();
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
 
@@ -26600,6 +27288,12 @@ function configure(o) {
   if (o.counterfactual !== undefined) out.counterfactual_active = CFACT.active(!!o.counterfactual);
   if (o.macros === false) { PROG.clearMacros(); out.macros = false; }
   if (o.pass2 !== undefined) out.pass2 = PASS2.diverse(!!o.pass2);
+  /* concept-engine switches (ablations): search schedule, view and
+     referent consistency, the removed-colour law */
+  if (o.sls !== undefined) out.sls = EMDL.flags({ mode: o.sls ? "sls" : "pure" }).mode;
+  if (o.views !== undefined) out.views = EMDL.flags({ views: !!o.views }).views;
+  if (o.shift !== undefined) out.shift = EMDL.flags({ shift: !!o.shift }).shift;
+  if (o.removed !== undefined) out.removed = PORTFOLIO_FLAGS.removed = !!o.removed;
   return out;
 }
 
@@ -26643,7 +27337,7 @@ var ENGINE = {
   KERNEL: root.C4ReasonKernel, MEMORY: root.C4ReasonMemory, META: root.C4ReasonMeta,
   CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
   MACROS: MACROS, PASS2: PASS2,
-  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, SCHEMA: SCHEMA, TAXON: TAXON, SEARCH: SEARCH, CONTROL: CONTROL,
+  SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, ENCODE: ENCODE, SCHEMA: SCHEMA, TAXON: TAXON, SEARCH: SEARCH, CONTROL: CONTROL, TRANSDUCE: TRANSDUCE,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,
