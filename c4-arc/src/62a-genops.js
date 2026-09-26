@@ -76,6 +76,61 @@ var GEN = (function () {
     }
     return d ? out : out;
   }
+  /* extrude(c): every cell of colour c in e is a corner the whole shape
+     is pushed through -- copies of e's mask step along the direction from
+     e's centre through that cell until they leave the grid */
+  function extrudeCells(sc, e, canvas, op) {
+    if (!(e.colors & (1 << op.c)) || e.ncol < 2) return null;
+    var dirs = new Set(), i, out = [], seen = new Set();
+    for (i = 0; i < e.n; i++) {
+      var p = e.cells[i], r = p >> 6, c = p & 63;
+      if (sc.grid[r][c] !== op.c) continue;
+      var d = snapDir(2 * r - e.cr2, 2 * c - e.cc2);
+      if (d >= 0) dirs.add(d);
+    }
+    dirs.forEach(function (d) {
+      for (var k = 1; k < 62; k++) {
+        var any = false;
+        for (var j = 0; j < e.n; j++) {
+          var R = (e.cells[j] >> 6) + DIRS[d][0] * k, C = (e.cells[j] & 63) + DIRS[d][1] * k;
+          if (!inb(sc, R, C)) continue;
+          any = true;
+          if (canvas[R][C] === sc.bg) uniqPush(seen, out, (R << 6) | C);
+        }
+        if (!any) break;
+      }
+    });
+    return out.length ? { cells: out, cols: null } : null;
+  }
+  /* stretch e toward R until its far end reaches R's row / column: the end
+     slice is moved there and the interior slice repeated in between */
+  function stretchCells(sc, e, canvas, op) {
+    var o = rel(sc, op.r, e);
+    if (!o || e.h < 3 && e.w < 3) return null;
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o), cells = [], cols = [], P = e.patch, i, j, r, c;
+    function put(rr, cc, v) { if (v >= 0 && inb(sc, rr, cc)) { cells.push((rr << 6) | cc); cols.push(v); } }
+    if (cov && !rov) {
+      var down = e.r1 < o.r0, end = down ? o.r1 : o.r0;
+      var edgeRow = down ? P[e.h - 1] : P[0], mid = down ? P[e.h - 2] : P[1];
+      if (!mid) return null;
+      for (r = down ? e.r1 : e.r0; down ? r <= end : r >= end; r += down ? 1 : -1) {
+        var row = r === end ? edgeRow : mid;
+        for (j = 0; j < e.w; j++) put(r, e.c0 + j, row[j]);
+      }
+      return { cells: cells, cols: cols };
+    }
+    if (rov && !cov) {
+      var right = e.c1 < o.c0, endc = right ? o.c1 : o.c0;
+      var edgeCol = [], midCol = [];
+      for (i = 0; i < e.h; i++) { edgeCol.push(P[i][right ? e.w - 1 : 0]); midCol.push(P[i][right ? e.w - 2 : 1]); }
+      for (c = right ? e.c1 : e.c0; right ? c <= endc : c >= endc; c += right ? 1 : -1) {
+        var col = c === endc ? edgeCol : midCol;
+        for (i = 0; i < e.h; i++) put(e.r0 + i, c, col[i]);
+      }
+      return { cells: cells, cols: cols };
+    }
+    return null;
+  }
   /* the midpoint between e and its partner (a dot or a plus) */
   function midCells(sc, e, canvas, op) {
     var o = rel(sc, op.r, e), out = [];
@@ -334,6 +389,8 @@ var GEN = (function () {
       case "leak": return { cells: leakCells(sc, e, canvas, op), cols: null };
       case "mid": return { cells: midCells(sc, e, canvas, op), cols: null };
       case "bar": return { cells: barCells(sc, e, canvas, op), cols: null };
+      case "stretch": return stretchCells(sc, e, canvas, op);
+      case "extrude": return extrudeCells(sc, e, canvas, op);
       case "symm": return symmCells(sc, e, canvas, op);
       case "stamp": return stampCells(sc, e, canvas, op);
       case "repeat": return repeatCells(sc, e, canvas, op);
@@ -387,6 +444,8 @@ var GEN = (function () {
       EXPR.INT_EXPRS.filter(function (I) { return ["ncolE", "h", "w", "n", "1", "2", "3", "#same", "holes"].indexOf(I.k) >= 0 || I.k === "ncol"; })
         .forEach(function (I) { add({ kind: "bar", d: d, len: I, b: 4 + I.b }); });
     });
+    ["near", "nearP", "nearD"].forEach(function (r) { add({ kind: "stretch", r: r, b: 4 + EXPR.REL_BY[r][1], patch: true }); });
+    for (var xc = 0; xc < 10; xc++) add({ kind: "extrude", c: xc, b: 5 + EXPR.LOG2_10 });
     ["allS", "all"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
       add({ kind: "link", r: r, geo: "diag", b: r === "allS" ? 5.5 : 6 });
@@ -415,15 +474,48 @@ var GEN = (function () {
         add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
       }
     });
+    /* extrusion toward the minority-colour corner (major -> minor), step 1 */
+    ["1"].forEach(function (st) {
+      var V = { k: "out*" + st, b: 4, f: function (sc, e) {
+        if (e.ncol < 2) return null;
+        var sr = 0, scc = 0, n = 0, mr = 0, mc = 0, m = 0, i;
+        for (i = 0; i < e.n; i++) {
+          var p = e.cells[i], r = p >> 6, c = p & 63;
+          if (sc.grid[r][c] === e.minor) { mr += r; mc += c; m++; } else { sr += r; scc += c; n++; }
+        }
+        if (!m || !n) return null;
+        var d = snapDir(mr / m - sr / n, mc / m - scc / n);
+        return d < 0 ? null : [DIRS[d][0], DIRS[d][1]];
+      } };
+      add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+      add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+    });
+    /* extrusion toward the cells of one colour c (a marker colour that need
+       not be the minority) */
+    for (var mc = 0; mc < 10; mc++) (function (cc) {
+      var V = { k: "outc" + cc + "*1", b: 4 + EXPR.LOG2_10, f: function (sc, e) {
+        if (e.ncol < 2 || !(e.colors & (1 << cc))) return null;
+        var sr = 0, scc = 0, n = 0, mr = 0, mcc = 0, m = 0, i;
+        for (i = 0; i < e.n; i++) {
+          var p = e.cells[i], r = p >> 6, c = p & 63;
+          if (sc.grid[r][c] === cc) { mr += r; mcc += c; m++; } else { sr += r; scc += c; n++; }
+        }
+        if (!m || !n) return null;
+        var d = snapDir(mr / m - sr / n, mcc / m - scc / n);
+        return d < 0 ? null : [DIRS[d][0], DIRS[d][1]];
+      } };
+      add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+    })(mc);
     /* repeats stepping away from / toward a related entity by own size+1 */
     ["near", "nearD", "big", "nearP"].forEach(function (r) {
       ["away", "toward"].forEach(function (w) {
-        ["h+1", "1"].forEach(function (st) {
+        ["h+1", "1", "h-1"].forEach(function (st) {
           var V = { k: w + "(" + r + ")*" + st, b: 3 + EXPR.REL_BY[r][1], rel: r, f: function (sc, e) {
             var o = EXPR.rel(sc, r, e); if (!o) return null;
             var d = relDir(sc, e, o); if (d < 0) return null;
             if (w === "away") d = OPP[d];
-            var k = st === "1" ? 1 : (DIRS[d][0] ? e.h : e.w) + 1;
+            var sz = DIRS[d][0] ? e.h : e.w, k = st === "1" ? 1 : st === "h-1" ? sz - 1 : sz + 1;
+            if (k < 1) return null;
             return [DIRS[d][0] * k, DIRS[d][1] * k];
           } };
           add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
@@ -446,6 +538,8 @@ var GEN = (function () {
       case "leak": return "leak:" + o.stop;
       case "mid": return "mid(" + o.r + "):" + o.shape;
       case "bar": return "bar:" + EXPR.DNAME[o.d] + "*" + o.len.k;
+      case "stretch": return "stretch(" + o.r + ")";
+      case "extrude": return "extrude(" + o.c + ")";
       default: return o.kind;
     }
   }

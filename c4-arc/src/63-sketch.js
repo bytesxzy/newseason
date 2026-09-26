@@ -52,6 +52,7 @@ var SKETCH = (function () {
       (a.v ? "[" + a.v.k + "]" : "") + (a.c ? "{" + a.c.k + "}" : "");
   }
   function progKey(p) {
+    if (p.seq) return progKey(p.seq[0]) + " >> " + progKey(p.seq[1]);
     var s = p.seg + "|" + p.rules.map(function (r) { return r.p.k + ">" + actionKey(r.a); }).join(";") + "|" + p.def;
     if (p.grow && p.grow.length) s += "|g:" + p.grow.map(function (r) { return r.p.k + ">" + growKey(r.g); }).join(";");
     if (p.canvas >= 0) s += "|bg:" + p.canvas;
@@ -84,6 +85,11 @@ var SKETCH = (function () {
   }
 
   function run(prog, grid) {
+    if (prog.seq) {
+      /* recursive refinement: the second program perceives the first's output */
+      var mid = run(prog.seq[0], grid);
+      return mid ? run(prog.seq[1], mid) : null;
+    }
     var sc = SCN.of(grid, prog.seg, prog.bg);
     if (!sc) return null;
     var out = [], r, i, j, ents = sc.ents, acts = new Array(ents.length);
@@ -151,7 +157,7 @@ var SKETCH = (function () {
       for (i = 0; i < ents.length; i++) {
         if (!R.p.f(sc, ents[i])) continue;
         var res = GEN.apply(sc, ents[i], base, R.g.op);
-        if (!res) return null;
+        if (!res) continue;                 /* nothing to paint here, as in induction */
         var gc = null;
         if (!res.cols) { gc = R.g.c.f(sc, ents[i]); if (gc === null || gc === undefined) return null; }
         for (var q = 0; q < res.cells.length; q++) out[res.cells[q] >> 6][res.cells[q] & 63] = res.cols ? res.cols[q] : gc;
@@ -650,7 +656,7 @@ var SKETCH = (function () {
      The scheduler (66-search.js) decides which arm to pull next; every pull
      is one candidate execution, recorded with a dense reward so that failed
      candidates teach the scheduler where to look. */
-  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "bar", "fused"];
+  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "bar", "stretch", "extrude", "fused"];
   function opFamily(op) {
     switch (op.kind) {
       case "halo4": case "halo8": return "halo";
@@ -783,6 +789,28 @@ var SKETCH = (function () {
     });
   }
 
+  /* stage-2 arm: the near miss's OUTPUT is perceived afresh (new scenes,
+     new entities) and a second program is synthesized on the residual task
+     (P1(x) -> y); every exact P2 yields the composition P2 . P1. The inner
+     search never spawns its own stage 2. */
+  function stage2Arm(ctx, prog, S) {
+    return listArm("stage2:" + progKey(prog), prog.seg, "stage2", "stage2", function () {
+      var tr = [], te = [], t;
+      for (t = 0; t < ctx.train.length; t++) {
+        var m = run(prog, ctx.train[t][0]);
+        if (!m || m.length !== ctx.train[t][1].length || m[0].length !== ctx.train[t][1][0].length) return [];
+        tr.push([m, ctx.train[t][1]]);
+      }
+      for (t = 0; t < ctx.test_inputs.length; t++) { var mt = run(prog, ctx.test_inputs[t]); if (!mt) return []; te.push(mt); }
+      var sub;
+      try { sub = new Ctx(tr, te, null); } catch (e) { return []; }
+      var left = S.deadline - nowMs();
+      if (left < 60) return [];
+      var p2 = synthesize(sub, nowMs() + Math.min(250, left * 0.4), { mode: "pure", noStage2: true, maxExec: 300 });
+      return p2.map(function (q) { return { seq: [prog, q], seg: prog.seg, bg: prog.bg }; });
+    });
+  }
+
   /* dense reward of a candidate: exact demos and cell agreement on the
      cells that matter (changed by the task or by the candidate) */
   function reward(prog, ctx) {
@@ -819,7 +847,7 @@ var SKETCH = (function () {
     if (!ctx.same_shape()) return [];
     var bg = ctx.bg(), canvas = canvasColor(ctx, bg);
     var S = { ctx: ctx, found: [], seen: new Set(), exec: 0, deadline: deadline, traj: opts.record ? [] : null, nearCount: 0,
-              keepProgs: !!opts.keepProgs };
+              keepProgs: !!opts.keepProgs, noStage2: !!opts.noStage2 };
     var arms = [], sigs = new Set();
     (opts.segs || SCN.SEGS).forEach(function (seg) {
       /* segmentations that cut every grid of the task into the same
@@ -863,6 +891,11 @@ var SKETCH = (function () {
      and the entities its relational expressions referred to. Used by the
      referent-consistency evidence (64-mdl.js). */
   function roles(prog, grid) {
+    if (prog.seq) {
+      var r1 = roles(prog.seq[0], grid), mid = run(prog.seq[0], grid);
+      var r2 = mid ? roles(prog.seq[1], mid) : null;
+      return r1 && r2 ? r1.concat(r2) : null;
+    }
     var sc = SCN.of(grid, prog.seg, prog.bg);
     if (!sc) return null;
     var out = [], i, j, rest = { sel: [], ref: [] };
@@ -935,7 +968,7 @@ var SKETCH = (function () {
   }
 
   return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles,
-           makeArms: makeArms, refineArm: refineArm, execute: execute, reward: reward, opFamily: opFamily,
+           makeArms: makeArms, refineArm: refineArm, stage2Arm: stage2Arm, execute: execute, reward: reward, opFamily: opFamily,
            FAMILIES: FAMILIES, prepare: prepare, canvasColor: canvasColor,
            setSearch: function (f) { SEARCH_HOOK = f; }, actionKey: actionKey, growKey: growKey,
            RELS: RELS, COLOR_EXPRS: COLOR_EXPRS, VEC_EXPRS: VEC_EXPRS, INT_EXPRS: INT_EXPRS,

@@ -27,7 +27,7 @@
  */
 var SEARCH = (function () {
   var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, panel: 0.6, rects: 0.45, cell: 0.45 };
-  var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9 };
+  var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9, stage2: 0.8 };
   var CONTROLLER = null;         /* (ctx) -> {seg:{}, type:{}, fam:{}} log-prior bonuses */
 
   function staticPrior(arm, bonus) {
@@ -151,6 +151,23 @@ var SEARCH = (function () {
         ra.value = ra.prior + 1.0 + (blind ? 0 : 1.0 * near.r.score);
         arms.push(ra);
         made++;
+      }
+      /* recursive refinement: the two best near misses of object rules are
+         re-perceived and a second program is searched on their residual */
+      if (!S.noStage2) {
+        var st2 = 0;
+        for (var k2 = 0; k2 < elites.length && st2 < 2; k2++) {
+          var e2 = elites[k2];
+          if (e2.arm.type === "stage2" || (!blind && e2.r.score < 0.4)) continue;
+          var key2 = "s2:" + SKETCH.progKey(e2.prog);
+          if (spawned.has(key2)) continue;
+          spawned.add(key2);
+          var sa = SKETCH.stage2Arm(ctx, e2.prog, S);
+          sa.prior = staticPrior(sa, bonus);
+          sa.value = sa.prior + 0.8 + (blind ? 0 : e2.r.score);
+          arms.push(sa);
+          st2++;
+        }
       }
     }
   }

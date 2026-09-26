@@ -17784,8 +17784,12 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       var targets = groupList[i][1];
       for (j = 0; j < targets.length; j++) {
         var wt = evid.get(targets[j].key), wins = wt[0], trials = wt[1];
-        /* Partial cross-validation carries proportionally less weight. */
+        /* Partial cross-validation carries proportionally less weight. A
+           family that SEARCHES a large space per fold (entity programs)
+           re-finds some fitting program in most folds, so its refit is
+           weaker evidence than a fixed family's: half weight. */
         var adjustment = trials ? ((1.5 - 4.5 * wins / trials) * trials / ctx.train.length) : 0.0;
+        if (targets[j].solver === "sketch") adjustment *= 0.5;
         adjustments.set(modId(groupList[i][0]) + "" + targets[j].key, adjustment);
         res.diagnostics.loo.push({ solver: targets[j].solver, name: targets[j].name,
           wins: wins, trials: trials, folds: ctx.train.length, adjustment: adjustment });
@@ -17887,6 +17891,10 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       var sum = 0, m;
       for (m = 0; m < logits.length; m++) sum += Math.exp(logits[m] - peak);
       var weight = peak + Math.log(sum);
+      /* effective independent support: distinct families reaching the same
+         output are independent derivations (clones inside one family count
+         once, as above) */
+      weight += 0.5 * Math.log(families.size);
       var gg2 = gridByKey.get(gk);
       var violations = 0;
       if (shapes.size && !shapes.has(gg2.length + "," + gg2[0].length)) violations += 1;
@@ -24563,6 +24571,14 @@ var EXPR = (function () {
     COLOR_EXPRS.push({ k: "self", b: 1.0, f: function (sc, e) { return e.color; } });
     COLOR_EXPRS.push({ k: "minor", b: 2.5, f: function (sc, e) { return e.minor >= 0 ? e.minor : null; } });
     COLOR_EXPRS.push({ k: "bg", b: 2.0, f: function (sc) { return sc.bg; } });
+    /* the entity's colour other than c (bicolour entities with a marker c) */
+    for (c = 0; c < 10; c++) (function (cc) {
+      COLOR_EXPRS.push({ k: "other:" + cc, b: 2.5 + LOG2_10, f: function (sc, e) {
+        if (e.ncol !== 2 || !(e.colors & (1 << cc))) return null;
+        for (var v = 0; v < 10; v++) if (v !== cc && (e.colors & (1 << v))) return v;
+        return null;
+      } });
+    })(c);
     COLOR_EXPRS.push({ k: "gmaj", b: 3.0, f: function (sc) { var v = sc.colorRank(true); return v < 0 ? null : v; } });
     COLOR_EXPRS.push({ k: "gmin", b: 3.0, f: function (sc) { var v = sc.colorRank(false); return v < 0 ? null : v; } });
     RELS.forEach(function (R) {
@@ -24926,6 +24942,61 @@ var GEN = (function () {
     }
     return d ? out : out;
   }
+  /* extrude(c): every cell of colour c in e is a corner the whole shape
+     is pushed through -- copies of e's mask step along the direction from
+     e's centre through that cell until they leave the grid */
+  function extrudeCells(sc, e, canvas, op) {
+    if (!(e.colors & (1 << op.c)) || e.ncol < 2) return null;
+    var dirs = new Set(), i, out = [], seen = new Set();
+    for (i = 0; i < e.n; i++) {
+      var p = e.cells[i], r = p >> 6, c = p & 63;
+      if (sc.grid[r][c] !== op.c) continue;
+      var d = snapDir(2 * r - e.cr2, 2 * c - e.cc2);
+      if (d >= 0) dirs.add(d);
+    }
+    dirs.forEach(function (d) {
+      for (var k = 1; k < 62; k++) {
+        var any = false;
+        for (var j = 0; j < e.n; j++) {
+          var R = (e.cells[j] >> 6) + DIRS[d][0] * k, C = (e.cells[j] & 63) + DIRS[d][1] * k;
+          if (!inb(sc, R, C)) continue;
+          any = true;
+          if (canvas[R][C] === sc.bg) uniqPush(seen, out, (R << 6) | C);
+        }
+        if (!any) break;
+      }
+    });
+    return out.length ? { cells: out, cols: null } : null;
+  }
+  /* stretch e toward R until its far end reaches R's row / column: the end
+     slice is moved there and the interior slice repeated in between */
+  function stretchCells(sc, e, canvas, op) {
+    var o = rel(sc, op.r, e);
+    if (!o || e.h < 3 && e.w < 3) return null;
+    var rov = sc.rowOverlap(e, o), cov = sc.colOverlap(e, o), cells = [], cols = [], P = e.patch, i, j, r, c;
+    function put(rr, cc, v) { if (v >= 0 && inb(sc, rr, cc)) { cells.push((rr << 6) | cc); cols.push(v); } }
+    if (cov && !rov) {
+      var down = e.r1 < o.r0, end = down ? o.r1 : o.r0;
+      var edgeRow = down ? P[e.h - 1] : P[0], mid = down ? P[e.h - 2] : P[1];
+      if (!mid) return null;
+      for (r = down ? e.r1 : e.r0; down ? r <= end : r >= end; r += down ? 1 : -1) {
+        var row = r === end ? edgeRow : mid;
+        for (j = 0; j < e.w; j++) put(r, e.c0 + j, row[j]);
+      }
+      return { cells: cells, cols: cols };
+    }
+    if (rov && !cov) {
+      var right = e.c1 < o.c0, endc = right ? o.c1 : o.c0;
+      var edgeCol = [], midCol = [];
+      for (i = 0; i < e.h; i++) { edgeCol.push(P[i][right ? e.w - 1 : 0]); midCol.push(P[i][right ? e.w - 2 : 1]); }
+      for (c = right ? e.c1 : e.c0; right ? c <= endc : c >= endc; c += right ? 1 : -1) {
+        var col = c === endc ? edgeCol : midCol;
+        for (i = 0; i < e.h; i++) put(e.r0 + i, c, col[i]);
+      }
+      return { cells: cells, cols: cols };
+    }
+    return null;
+  }
   /* the midpoint between e and its partner (a dot or a plus) */
   function midCells(sc, e, canvas, op) {
     var o = rel(sc, op.r, e), out = [];
@@ -25184,6 +25255,8 @@ var GEN = (function () {
       case "leak": return { cells: leakCells(sc, e, canvas, op), cols: null };
       case "mid": return { cells: midCells(sc, e, canvas, op), cols: null };
       case "bar": return { cells: barCells(sc, e, canvas, op), cols: null };
+      case "stretch": return stretchCells(sc, e, canvas, op);
+      case "extrude": return extrudeCells(sc, e, canvas, op);
       case "symm": return symmCells(sc, e, canvas, op);
       case "stamp": return stampCells(sc, e, canvas, op);
       case "repeat": return repeatCells(sc, e, canvas, op);
@@ -25237,6 +25310,8 @@ var GEN = (function () {
       EXPR.INT_EXPRS.filter(function (I) { return ["ncolE", "h", "w", "n", "1", "2", "3", "#same", "holes"].indexOf(I.k) >= 0 || I.k === "ncol"; })
         .forEach(function (I) { add({ kind: "bar", d: d, len: I, b: 4 + I.b }); });
     });
+    ["near", "nearP", "nearD"].forEach(function (r) { add({ kind: "stretch", r: r, b: 4 + EXPR.REL_BY[r][1], patch: true }); });
+    for (var xc = 0; xc < 10; xc++) add({ kind: "extrude", c: xc, b: 5 + EXPR.LOG2_10 });
     ["allS", "all"].forEach(function (r) {
       add({ kind: "link", r: r, geo: "orth", b: r === "allS" ? 4.5 : 5 });
       add({ kind: "link", r: r, geo: "diag", b: r === "allS" ? 5.5 : 6 });
@@ -25265,15 +25340,48 @@ var GEN = (function () {
         add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
       }
     });
+    /* extrusion toward the minority-colour corner (major -> minor), step 1 */
+    ["1"].forEach(function (st) {
+      var V = { k: "out*" + st, b: 4, f: function (sc, e) {
+        if (e.ncol < 2) return null;
+        var sr = 0, scc = 0, n = 0, mr = 0, mc = 0, m = 0, i;
+        for (i = 0; i < e.n; i++) {
+          var p = e.cells[i], r = p >> 6, c = p & 63;
+          if (sc.grid[r][c] === e.minor) { mr += r; mc += c; m++; } else { sr += r; scc += c; n++; }
+        }
+        if (!m || !n) return null;
+        var d = snapDir(mr / m - sr / n, mc / m - scc / n);
+        return d < 0 ? null : [DIRS[d][0], DIRS[d][1]];
+      } };
+      add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
+      add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+    });
+    /* extrusion toward the cells of one colour c (a marker colour that need
+       not be the minority) */
+    for (var mc = 0; mc < 10; mc++) (function (cc) {
+      var V = { k: "outc" + cc + "*1", b: 4 + EXPR.LOG2_10, f: function (sc, e) {
+        if (e.ncol < 2 || !(e.colors & (1 << cc))) return null;
+        var sr = 0, scc = 0, n = 0, mr = 0, mcc = 0, m = 0, i;
+        for (i = 0; i < e.n; i++) {
+          var p = e.cells[i], r = p >> 6, c = p & 63;
+          if (sc.grid[r][c] === cc) { mr += r; mcc += c; m++; } else { sr += r; scc += c; n++; }
+        }
+        if (!m || !n) return null;
+        var d = snapDir(mr / m - sr / n, mcc / m - scc / n);
+        return d < 0 ? null : [DIRS[d][0], DIRS[d][1]];
+      } };
+      add({ kind: "repeat", v: V, b: 4 + V.b, rc: true });
+    })(mc);
     /* repeats stepping away from / toward a related entity by own size+1 */
     ["near", "nearD", "big", "nearP"].forEach(function (r) {
       ["away", "toward"].forEach(function (w) {
-        ["h+1", "1"].forEach(function (st) {
+        ["h+1", "1", "h-1"].forEach(function (st) {
           var V = { k: w + "(" + r + ")*" + st, b: 3 + EXPR.REL_BY[r][1], rel: r, f: function (sc, e) {
             var o = EXPR.rel(sc, r, e); if (!o) return null;
             var d = relDir(sc, e, o); if (d < 0) return null;
             if (w === "away") d = OPP[d];
-            var k = st === "1" ? 1 : (DIRS[d][0] ? e.h : e.w) + 1;
+            var sz = DIRS[d][0] ? e.h : e.w, k = st === "1" ? 1 : st === "h-1" ? sz - 1 : sz + 1;
+            if (k < 1) return null;
             return [DIRS[d][0] * k, DIRS[d][1] * k];
           } };
           add({ kind: "repeat", v: V, b: 3 + V.b, patch: true });
@@ -25296,6 +25404,8 @@ var GEN = (function () {
       case "leak": return "leak:" + o.stop;
       case "mid": return "mid(" + o.r + "):" + o.shape;
       case "bar": return "bar:" + EXPR.DNAME[o.d] + "*" + o.len.k;
+      case "stretch": return "stretch(" + o.r + ")";
+      case "extrude": return "extrude(" + o.c + ")";
       default: return o.kind;
     }
   }
@@ -25432,6 +25542,7 @@ var SKETCH = (function () {
       (a.v ? "[" + a.v.k + "]" : "") + (a.c ? "{" + a.c.k + "}" : "");
   }
   function progKey(p) {
+    if (p.seq) return progKey(p.seq[0]) + " >> " + progKey(p.seq[1]);
     var s = p.seg + "|" + p.rules.map(function (r) { return r.p.k + ">" + actionKey(r.a); }).join(";") + "|" + p.def;
     if (p.grow && p.grow.length) s += "|g:" + p.grow.map(function (r) { return r.p.k + ">" + growKey(r.g); }).join(";");
     if (p.canvas >= 0) s += "|bg:" + p.canvas;
@@ -25464,6 +25575,11 @@ var SKETCH = (function () {
   }
 
   function run(prog, grid) {
+    if (prog.seq) {
+      /* recursive refinement: the second program perceives the first's output */
+      var mid = run(prog.seq[0], grid);
+      return mid ? run(prog.seq[1], mid) : null;
+    }
     var sc = SCN.of(grid, prog.seg, prog.bg);
     if (!sc) return null;
     var out = [], r, i, j, ents = sc.ents, acts = new Array(ents.length);
@@ -25531,7 +25647,7 @@ var SKETCH = (function () {
       for (i = 0; i < ents.length; i++) {
         if (!R.p.f(sc, ents[i])) continue;
         var res = GEN.apply(sc, ents[i], base, R.g.op);
-        if (!res) return null;
+        if (!res) continue;                 /* nothing to paint here, as in induction */
         var gc = null;
         if (!res.cols) { gc = R.g.c.f(sc, ents[i]); if (gc === null || gc === undefined) return null; }
         for (var q = 0; q < res.cells.length; q++) out[res.cells[q] >> 6][res.cells[q] & 63] = res.cols ? res.cols[q] : gc;
@@ -26030,7 +26146,7 @@ var SKETCH = (function () {
      The scheduler (66-search.js) decides which arm to pull next; every pull
      is one candidate execution, recorded with a dense reward so that failed
      candidates teach the scheduler where to look. */
-  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "bar", "fused"];
+  var FAMILIES = ["halo", "fill", "ray", "raycorner", "raycenter", "leak", "link", "mid", "symm", "stamp", "repeat", "bar", "stretch", "extrude", "fused"];
   function opFamily(op) {
     switch (op.kind) {
       case "halo4": case "halo8": return "halo";
@@ -26163,6 +26279,28 @@ var SKETCH = (function () {
     });
   }
 
+  /* stage-2 arm: the near miss's OUTPUT is perceived afresh (new scenes,
+     new entities) and a second program is synthesized on the residual task
+     (P1(x) -> y); every exact P2 yields the composition P2 . P1. The inner
+     search never spawns its own stage 2. */
+  function stage2Arm(ctx, prog, S) {
+    return listArm("stage2:" + progKey(prog), prog.seg, "stage2", "stage2", function () {
+      var tr = [], te = [], t;
+      for (t = 0; t < ctx.train.length; t++) {
+        var m = run(prog, ctx.train[t][0]);
+        if (!m || m.length !== ctx.train[t][1].length || m[0].length !== ctx.train[t][1][0].length) return [];
+        tr.push([m, ctx.train[t][1]]);
+      }
+      for (t = 0; t < ctx.test_inputs.length; t++) { var mt = run(prog, ctx.test_inputs[t]); if (!mt) return []; te.push(mt); }
+      var sub;
+      try { sub = new Ctx(tr, te, null); } catch (e) { return []; }
+      var left = S.deadline - nowMs();
+      if (left < 60) return [];
+      var p2 = synthesize(sub, nowMs() + Math.min(250, left * 0.4), { mode: "pure", noStage2: true, maxExec: 300 });
+      return p2.map(function (q) { return { seq: [prog, q], seg: prog.seg, bg: prog.bg }; });
+    });
+  }
+
   /* dense reward of a candidate: exact demos and cell agreement on the
      cells that matter (changed by the task or by the candidate) */
   function reward(prog, ctx) {
@@ -26199,7 +26337,7 @@ var SKETCH = (function () {
     if (!ctx.same_shape()) return [];
     var bg = ctx.bg(), canvas = canvasColor(ctx, bg);
     var S = { ctx: ctx, found: [], seen: new Set(), exec: 0, deadline: deadline, traj: opts.record ? [] : null, nearCount: 0,
-              keepProgs: !!opts.keepProgs };
+              keepProgs: !!opts.keepProgs, noStage2: !!opts.noStage2 };
     var arms = [], sigs = new Set();
     (opts.segs || SCN.SEGS).forEach(function (seg) {
       /* segmentations that cut every grid of the task into the same
@@ -26243,6 +26381,11 @@ var SKETCH = (function () {
      and the entities its relational expressions referred to. Used by the
      referent-consistency evidence (64-mdl.js). */
   function roles(prog, grid) {
+    if (prog.seq) {
+      var r1 = roles(prog.seq[0], grid), mid = run(prog.seq[0], grid);
+      var r2 = mid ? roles(prog.seq[1], mid) : null;
+      return r1 && r2 ? r1.concat(r2) : null;
+    }
     var sc = SCN.of(grid, prog.seg, prog.bg);
     if (!sc) return null;
     var out = [], i, j, rest = { sel: [], ref: [] };
@@ -26315,7 +26458,7 @@ var SKETCH = (function () {
   }
 
   return { synthesize: synthesize, run: run, progKey: progKey, explainGap: explainGap, roles: roles,
-           makeArms: makeArms, refineArm: refineArm, execute: execute, reward: reward, opFamily: opFamily,
+           makeArms: makeArms, refineArm: refineArm, stage2Arm: stage2Arm, execute: execute, reward: reward, opFamily: opFamily,
            FAMILIES: FAMILIES, prepare: prepare, canvasColor: canvasColor,
            setSearch: function (f) { SEARCH_HOOK = f; }, actionKey: actionKey, growKey: growKey,
            RELS: RELS, COLOR_EXPRS: COLOR_EXPRS, VEC_EXPRS: VEC_EXPRS, INT_EXPRS: INT_EXPRS,
@@ -26625,6 +26768,7 @@ var EMDL = (function () {
      fewer, larger entities (objectness); single cells are the last resort */
   var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, panel: 3.0, rects: 4.5, cell: 5.0 };
   function bits(p) {
+    if (p.seq) return bits(p.seq[0]) + bits(p.seq[1]) + 1;
     var b = (SEG_BITS[p.seg] || 4) + 1, i;
     for (i = 0; i < p.rules.length; i++) {
       var r = p.rules[i];
@@ -26639,7 +26783,7 @@ var EMDL = (function () {
     return b;
   }
   /* portfolio cost units (typed programs pay 2 + bits/8) */
-  function cost(p) { return 1.0 + bits(p) / 8.0; }
+  function cost(p) { return 1.0 + bits(p) / 8.0 + (p.seq ? 1.0 : 0); }
 
   /* Referent consistency. Every property that held for ALL entities a rule
      selected (or ALL entities its relations referred to) across the
@@ -26761,6 +26905,18 @@ var EMDL = (function () {
   function generate(ctx) {
     var F = EMDL.FLAGS, t0 = nowMs();
     var progs = SKETCH.synthesize(ctx, t0 + (ctx.deadline - t0) * (F.views ? 0.85 : 1.0), { mode: F.mode }), out = [], i;
+    /* emit the cheapest few per distinct test prediction (compositions
+       multiply equivalent programs; each costs the portfolio a re-check) */
+    if (progs.length > 12) {
+      progs.sort(function (a, b) { return EMDL.cost(a) - EMDL.cost(b); });
+      var per = new Map(), kept = [];
+      progs.forEach(function (p) {
+        var k = ctx.test_inputs.map(function (g) { var o = SKETCH.run(p, g); return o ? G.gkey(o) : "-"; }).join("~");
+        var n = per.get(k) || 0;
+        if (n < 3 && kept.length < 40) { per.set(k, n + 1); kept.push(p); }
+      });
+      progs = kept;
+    }
     /* view consistency, only when exact programs disagree about the test
        and time is left for at least one re-induction */
     var vs = null;
@@ -26948,7 +27104,7 @@ var TAXON = (function () {
  */
 var SEARCH = (function () {
   var SEG_PRIOR = { c8: 1.0, c4: 0.9, m8: 0.8, m4: 0.7, col: 0.6, bgin: 0.6, bg4: 0.5, panel: 0.6, rects: 0.45, cell: 0.45 };
-  var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9 };
+  var TYPE_PRIOR = { rules: 1.0, relaxed: 0.55, fall: 0.5, grow: 0.8, refine: 0.9, stage2: 0.8 };
   var CONTROLLER = null;         /* (ctx) -> {seg:{}, type:{}, fam:{}} log-prior bonuses */
 
   function staticPrior(arm, bonus) {
@@ -27072,6 +27228,23 @@ var SEARCH = (function () {
         ra.value = ra.prior + 1.0 + (blind ? 0 : 1.0 * near.r.score);
         arms.push(ra);
         made++;
+      }
+      /* recursive refinement: the two best near misses of object rules are
+         re-perceived and a second program is searched on their residual */
+      if (!S.noStage2) {
+        var st2 = 0;
+        for (var k2 = 0; k2 < elites.length && st2 < 2; k2++) {
+          var e2 = elites[k2];
+          if (e2.arm.type === "stage2" || (!blind && e2.r.score < 0.4)) continue;
+          var key2 = "s2:" + SKETCH.progKey(e2.prog);
+          if (spawned.has(key2)) continue;
+          spawned.add(key2);
+          var sa = SKETCH.stage2Arm(ctx, e2.prog, S);
+          sa.prior = staticPrior(sa, bonus);
+          sa.value = sa.prior + 0.8 + (blind ? 0 : e2.r.score);
+          arms.push(sa);
+          st2++;
+        }
       }
     }
   }

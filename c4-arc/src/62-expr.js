@@ -124,6 +124,14 @@ var EXPR = (function () {
     COLOR_EXPRS.push({ k: "self", b: 1.0, f: function (sc, e) { return e.color; } });
     COLOR_EXPRS.push({ k: "minor", b: 2.5, f: function (sc, e) { return e.minor >= 0 ? e.minor : null; } });
     COLOR_EXPRS.push({ k: "bg", b: 2.0, f: function (sc) { return sc.bg; } });
+    /* the entity's colour other than c (bicolour entities with a marker c) */
+    for (c = 0; c < 10; c++) (function (cc) {
+      COLOR_EXPRS.push({ k: "other:" + cc, b: 2.5 + LOG2_10, f: function (sc, e) {
+        if (e.ncol !== 2 || !(e.colors & (1 << cc))) return null;
+        for (var v = 0; v < 10; v++) if (v !== cc && (e.colors & (1 << v))) return v;
+        return null;
+      } });
+    })(c);
     COLOR_EXPRS.push({ k: "gmaj", b: 3.0, f: function (sc) { var v = sc.colorRank(true); return v < 0 ? null : v; } });
     COLOR_EXPRS.push({ k: "gmin", b: 3.0, f: function (sc) { var v = sc.colorRank(false); return v < 0 ? null : v; } });
     RELS.forEach(function (R) {

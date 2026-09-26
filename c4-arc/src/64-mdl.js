@@ -29,6 +29,7 @@ var EMDL = (function () {
      fewer, larger entities (objectness); single cells are the last resort */
   var SEG_BITS = { c8: 2.0, c4: 2.2, m8: 2.6, m4: 2.8, col: 3.2, bgin: 3.2, bg4: 3.6, panel: 3.0, rects: 4.5, cell: 5.0 };
   function bits(p) {
+    if (p.seq) return bits(p.seq[0]) + bits(p.seq[1]) + 1;
     var b = (SEG_BITS[p.seg] || 4) + 1, i;
     for (i = 0; i < p.rules.length; i++) {
       var r = p.rules[i];
@@ -43,7 +44,7 @@ var EMDL = (function () {
     return b;
   }
   /* portfolio cost units (typed programs pay 2 + bits/8) */
-  function cost(p) { return 1.0 + bits(p) / 8.0; }
+  function cost(p) { return 1.0 + bits(p) / 8.0 + (p.seq ? 1.0 : 0); }
 
   /* Referent consistency. Every property that held for ALL entities a rule
      selected (or ALL entities its relations referred to) across the
@@ -165,6 +166,18 @@ var EMDL = (function () {
   function generate(ctx) {
     var F = EMDL.FLAGS, t0 = nowMs();
     var progs = SKETCH.synthesize(ctx, t0 + (ctx.deadline - t0) * (F.views ? 0.85 : 1.0), { mode: F.mode }), out = [], i;
+    /* emit the cheapest few per distinct test prediction (compositions
+       multiply equivalent programs; each costs the portfolio a re-check) */
+    if (progs.length > 12) {
+      progs.sort(function (a, b) { return EMDL.cost(a) - EMDL.cost(b); });
+      var per = new Map(), kept = [];
+      progs.forEach(function (p) {
+        var k = ctx.test_inputs.map(function (g) { var o = SKETCH.run(p, g); return o ? G.gkey(o) : "-"; }).join("~");
+        var n = per.get(k) || 0;
+        if (n < 3 && kept.length < 40) { per.set(k, n + 1); kept.push(p); }
+      });
+      progs = kept;
+    }
     /* view consistency, only when exact programs disagree about the test
        and time is left for at least one re-induction */
     var vs = null;

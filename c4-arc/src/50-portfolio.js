@@ -633,8 +633,12 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       var targets = groupList[i][1];
       for (j = 0; j < targets.length; j++) {
         var wt = evid.get(targets[j].key), wins = wt[0], trials = wt[1];
-        /* Partial cross-validation carries proportionally less weight. */
+        /* Partial cross-validation carries proportionally less weight. A
+           family that SEARCHES a large space per fold (entity programs)
+           re-finds some fitting program in most folds, so its refit is
+           weaker evidence than a fixed family's: half weight. */
         var adjustment = trials ? ((1.5 - 4.5 * wins / trials) * trials / ctx.train.length) : 0.0;
+        if (targets[j].solver === "sketch") adjustment *= 0.5;
         adjustments.set(modId(groupList[i][0]) + "" + targets[j].key, adjustment);
         res.diagnostics.loo.push({ solver: targets[j].solver, name: targets[j].name,
           wins: wins, trials: trials, folds: ctx.train.length, adjustment: adjustment });
@@ -736,6 +740,10 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       var sum = 0, m;
       for (m = 0; m < logits.length; m++) sum += Math.exp(logits[m] - peak);
       var weight = peak + Math.log(sum);
+      /* effective independent support: distinct families reaching the same
+         output are independent derivations (clones inside one family count
+         once, as above) */
+      weight += 0.5 * Math.log(families.size);
       var gg2 = gridByKey.get(gk);
       var violations = 0;
       if (shapes.size && !shapes.has(gg2.length + "," + gg2[0].length)) violations += 1;
