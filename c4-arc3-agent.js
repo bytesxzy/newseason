@@ -38,26 +38,59 @@
 
   function gcd(a, b) { while (b) { var t = a % b; a = b; b = t; } return a; }
   /* The render lattice: games draw logical cells as s x s pixel blocks.
-     Edges (colour changes between neighbouring pixels) of every frame seen
-     in the level fix the period and offset; more frames can only refine it. */
-  function Lattice() { this.ex = new Uint8Array(65); this.ey = new Uint8Array(65); this.s = 0; this.ox = 0; this.oy = 0; }
+     Each edge position (a colour change between neighbouring pixels) is
+     weighted by its length: how many rows / columns show it, at most over
+     the frames seen in the level. A period s with offset o is scored by the
+     share of edge weight on its lattice lines plus a coarseness prior
+     (lambda * ln s): a status line's few pixels cannot force a finer lattice
+     than the game's cells, and a multiple of the true period loses the
+     edges between its lines. An offset leaves partial cells at the screen
+     borders, allowed only when those margins are (mostly) one colour, a
+     frame, which rules out periods fitting a few edges by coincidence. */
+  function Lattice() { this.ex = new Float64Array(65); this.ey = new Float64Array(65); this.frames = []; this.s = 0; this.ox = 0; this.oy = 0; }
+  Lattice.LAMBDA = 0.2;
   Lattice.prototype.add = function (f) {
-    var H = f.length, W = f[0].length, y, x, changed = false;
-    for (y = 0; y < H; y++) for (x = 1; x < W; x++) if (f[y][x] !== f[y][x - 1] && !this.ex[x]) { this.ex[x] = 1; changed = true; }
-    for (y = 1; y < H; y++) for (x = 0; x < W; x++) if (f[y][x] !== f[y - 1][x] && !this.ey[y]) { this.ey[y] = 1; changed = true; }
-    if (changed || !this.s) this.solve(H, W);
+    var H = f.length, W = f[0].length, y, x, changed = false, cx = new Float64Array(65), cy = new Float64Array(65);
+    for (y = 0; y < H; y++) for (x = 1; x < W; x++) if (f[y][x] !== f[y][x - 1]) cx[x]++;
+    for (y = 1; y < H; y++) for (x = 0; x < W; x++) if (f[y][x] !== f[y - 1][x]) cy[y]++;
+    for (x = 0; x < 65; x++) { if (cx[x] > this.ex[x]) { if (!this.ex[x]) changed = true; this.ex[x] = cx[x]; } if (cy[x] > this.ey[x]) { if (!this.ey[x]) changed = true; this.ey[x] = cy[x]; } }
+    if (changed || !this.s) {
+      this.frames.push(f); if (this.frames.length > 8) this.frames.splice(1, 1);
+      this.solve(H, W);
+    }
     return changed;
   };
+  /* is the strip [a, b) of columns (or rows) a frame: at least 80% one
+     colour in every stored frame (status indicators may sit in it)? */
+  Lattice.prototype.uniformStrip = function (a, b, rowsAxis) {
+    if (b <= a) return true;
+    return this.frames.every(function (f) {
+      var H = f.length, W = f[0].length, cnt = {}, n = 0, mx = 0;
+      for (var i = a; i < b; i++) for (var j = 0; j < (rowsAxis ? W : H); j++) { var v = rowsAxis ? f[i][j] : f[j][i]; cnt[v] = (cnt[v] || 0) + 1; n++; if (cnt[v] > mx) mx = cnt[v]; }
+      return mx >= 0.8 * n;
+    });
+  };
   Lattice.prototype.solve = function (H, W) {
-    var xs = [], ys = [], i, g = 0;
-    for (i = 1; i < 65; i++) { if (this.ex[i]) xs.push(i); if (this.ey[i]) ys.push(i); }
-    var all = xs.concat(ys);
-    [xs, ys].forEach(function (v) { for (var j = 1; j < v.length; j++) g = gcd(g, v[j] - v[0]); });
-    if (!g) g = all.length ? Math.max(1, gcd(xs.length ? xs[0] : 0, ys.length ? ys[0] : 0)) : 1;
-    /* offsets must be common to both axes' edge sets */
-    var s = Math.max(1, Math.min(g, 16));
-    while (s > 1 && (xs.some(function (v) { return (v - (xs[0] || 0)) % s; }) || ys.some(function (v) { return (v - (ys[0] || 0)) % s; }))) s--;
-    this.s = s; this.ox = xs.length ? xs[0] % s : 0; this.oy = ys.length ? ys[0] % s : 0;
+    var self = this;
+    function best(w, s, n, rowsAxis) {
+      var tot = 0, by = new Float64Array(s), i;
+      for (i = 1; i < 65; i++) { tot += w[i]; by[i % s] += w[i]; }
+      if (!tot) return { o: 0, f: 1 };
+      var order = []; for (i = 0; i < s; i++) order.push(i);
+      order.sort(function (a, b) { return by[b] - by[a]; });
+      for (var q = 0; q < order.length; q++) {
+        var o = order[q], end = o + s * Math.floor((n - o) / s);
+        if (by[o] / tot < 0.6) break;
+        if (self.uniformStrip(0, o, rowsAxis) && self.uniformStrip(end, n, rowsAxis)) return { o: o, f: by[o] / tot };
+      }
+      return { o: 0, f: 0 };
+    }
+    var s = 1, bx = { o: 0 }, by2 = { o: 0 }, bs = -Infinity, lam = Lattice.LAMBDA;
+    for (var k = 1; k <= 16; k++) {
+      var qx = best(this.ex, k, W, false), qy = best(this.ey, k, H, true), f = Math.min(qx.f, qy.f), sc = f + lam * Math.log(k);
+      if (f >= 0.6 && sc > bs + 1e-9) { bs = sc; s = k; bx = qx; by2 = qy; }
+    }
+    this.s = s; this.ox = bx.o; this.oy = by2.o;
     this.W = Math.ceil((W - this.ox) / s) + (this.ox ? 1 : 0); this.H = Math.ceil((H - this.oy) / s) + (this.oy ? 1 : 0);
   };
   /* pixel -> logical cell and back */
@@ -808,22 +841,31 @@
     this.goalW = {};          /* goal template -> weight (persists across levels) */
     this.goalConfirmed = {};  /* template -> times it held at a level completion */
     this.phys = freshPhys();  /* contact model, learned from events, kept across levels */
+    this.gameCols = {};       /* every colour seen in the game */
+    this.lose = {};           /* lose hypotheses: state predicates that ended the game */
+    this.winStates = [];      /* winning configurations of completed levels */
     this.physV = 0;
     this.spec = this.cfg.spec ? new NavigationSpecialist(this.simple.filter(function (a) { return a >= 1 && a <= 5; })) : null;
     this.level = 0; this.nInLevel = 0;
     this.newLevel();
   };
   Agent.prototype.newLevel = function () {
-    this.L = new P.Lattice(); this.S = null; this.last = null; this.plan = null;
+    this.L = new P.Lattice(); this.S = null; this.last = null; this.plan = null; this.bgInfo = null;
     this.counts = {}; this.lc = null; this.vel = {}; this.levelSteps = 0;
-    this.under = {}; this.inv = []; this.levelCols = {}; this.startS = null; this.levelResets = 0;
+    this.under = {}; this.inv = []; this.levelCols = {}; this.startS = null; this.levelResets = 0; this.noise = {};
     this.refuted = {}; this.noPlan = {};
     this.cache = {};
     if (!this.cfg.memory) { this.trs = []; this.goalW = {}; this.goalConfirmed = {}; this.death = {}; this.phys = freshPhys(); this.physV++; }
   };
+  /* The background (and frame, play box) is decided on the level's first
+     frame and kept: in a board of tiles the commonest colour changes as
+     tiles are flipped, and a background that changed with it would turn
+     every flip into appearances and disappearances. Re-decided only when
+     the lattice (the logical grid's size) changes. */
   Agent.prototype.perceive = function (f) {
-    var lg = this.L.logical(f), bi = P.background(lg);
-    return P.parse(lg, bi);
+    var lg = this.L.logical(f), key = lg.length + "x" + lg[0].length;
+    if (!this.bgInfo || this.bgInfo.key !== key) { this.bgInfo = P.background(lg); this.bgInfo.key = key; }
+    return P.parse(lg, this.bgInfo);
   };
   /* ---------------------------------------------------- contexts */
   /* a click's context: the clicked class, colour, or any click, each also
@@ -840,7 +882,8 @@
     if (a !== 6) return ["a:" + a];
     if (k < 0) { var rb = cell >= 0 ? this.region(S, cell) : ""; return rb ? ["kbg" + rb, "kbg"] : ["kbg"]; }
     var o = S.objs[k], rg = cell >= 0 ? this.region(S, cell) : "";
-    return rg ? ["k:" + o.cls + rg, "k:" + o.cls, "kc:" + o.color + rg, "kc:" + o.color, "k*" + rg, "k*"] : ["k:" + o.cls, "kc:" + o.color, "k*"];
+    /* the band first: panels of a screen differ more than shapes do */
+    return rg ? ["k:" + o.cls + rg, "kc:" + o.color + rg, "k*" + rg, "k:" + o.cls, "kc:" + o.color, "k*"] : ["k:" + o.cls, "kc:" + o.color, "k*"];
   };
   /* latent features of a context: own occurrence parity, whether something
      is selected, the parity of every simple action (modes, toggles) */
@@ -890,22 +933,31 @@
   };
 
   /* ---------------------------------------------------- induction */
+  /* Autonomous rules (ticks): what happens whatever the action, in most
+     recent transitions under at least two different actions: patrolling
+     movers, countdown bars, blinking or cycling objects. Any operator of
+     the DSL on a class selector qualifies. Recomputed every few
+     transitions over a recent window, or at once when a tick fails. */
   Agent.prototype.ticks = function () {
     if (this.cache.ticks) return this.cache.ticks;
-    var trs = this.trs, rules = [];
-    if (this.cfg.ticks && trs.length >= 2) {
-      var cands = {};
-      trs.forEach(function (t) { t.ev.forEach(function (e) { if (e.t === "move") { cands["color:" + e.p.color] = { t: "color", c: e.p.color }; } }); });
-      Object.keys(cands).forEach(function (k) {
-        var rule = { sel: cands[k], op: { o: "patrol" } }, hits = 0, ok = true, acts = {};
-        trs.forEach(function (t) {
-          if (!ok) return;
-          var keys = new Set(t.ev.map(P.evKey)), pe = M.predictedEvents(t, rule);
-          if (!pe.every(function (x) { return keys.has(x); })) ok = false; else if (pe.length) { hits++; acts[t.a] = 1; }
-        });
-        if (ok && hits >= 2 && Object.keys(acts).length >= 2) rules.push(rule);
-      });
-    }
+    var trs = this.trs, rules = [], self = this, prev = this.tickRules || [];
+    if (!this.cfg.ticks || trs.length < 2) { this.cache.ticks = []; return []; }
+    var last = trs[trs.length - 1], lastKeys = new Set(last.ev.map(P.evKey));
+    var broken = prev.some(function (r) { return !M.predictedEvents(last, r).every(function (k) { return lastKeys.has(k); }); });
+    if (!broken && this.tickAt !== undefined && trs.length - this.tickAt < 4) { this.cache.ticks = prev; return prev; }
+    var win = trs.slice(-40), cands = new Map();
+    win.forEach(function (t) { t.ev.forEach(function (e) { if (e.t === "move") { var r = { sel: { t: "color", c: e.p.color }, op: { o: "patrol" } }; r.key = "color:" + e.p.color + "|patrol"; cands.set(r.key, r); } }); });
+    win.slice(-6).forEach(function (t) { M.explainTransition(t).cands.forEach(function (r, k) { if ((r.sel.t === "color" || r.sel.t === "cls") && r.op.o !== "patrol" && r.op.o !== "moveTo") cands.set(k, r); }); });
+    var tol = Math.max(1, Math.floor(win.length / 10));
+    cands.forEach(function (rule) {
+      var hits = 0, bad = 0, acts = {};
+      for (var i = 0; i < win.length && bad <= tol; i++) {
+        var t = win[i], keys = new Set(t.ev.map(P.evKey)), pe = M.predictedEvents(t, rule);
+        if (!pe.every(function (x) { return keys.has(x); })) bad++; else if (pe.length) { hits++; acts[t.a + ":" + (t.cx.k >= 0 ? "k" : "")] = 1; }
+      }
+      if (bad <= tol && hits >= 2 && hits >= 0.3 * win.length && Object.keys(acts).length >= 2) rules.push(rule);
+    });
+    this.tickRules = rules; this.tickAt = trs.length;
     this.cache.ticks = rules;
     return rules;
   };
@@ -960,7 +1012,7 @@
      inventories. extra: { optimistic: {colour: 1}, allPass } */
   Agent.prototype.predictState = function (S, a, k, alt, lat, extra) {
     lat = lat || this.curLat();
-    var cell = a === 6 && k >= 0 ? clickCell(S, k) : -1;
+    var cell = a === 6 ? clickCell(S, k) : -1;
     var rs = this.rulesFor(S, a, k, alt, lat, cell);
     if (!rs) return null;
     var lci = this.lcIndex(S, lat.lc);
@@ -993,7 +1045,7 @@
         this.L.add(winF);
         var Sw = this.perceive(winF);
         if (this.last && this.last.a !== 0) this.record(Sw, false);
-        this.confirmGoals(Sw);
+        this.confirmGoals(Sw); this.refuteLose(Sw, this.curLat()); this.winStates.push(Sw);
       }
       this.level = obs.levels_completed; this.newLevel();
       if (this.spec) { this.spec.nextLevel(); if (obs.state !== "WIN") this.spec.observe(f, {}); }
@@ -1009,11 +1061,11 @@
     /* RESET restarts the level: its latent state starts over */
     if (this.last && this.last.a === 0) {
       this.under = {}; this.inv = []; this.counts = {}; this.lc = null; this.vel = {};
-      if (this.last.gk) this.planOk = this.last.gk === P.gkey(S.g); else this.plan = null;
+      if (this.last.eg) this.planOk = this.sameGrid(this.last.eg, S.g); else this.plan = null;
     }
     if (!this.startS || levelUp || (this.last && this.last.a === 0)) this.startS = S;
     if (obs.state === "GAME_OVER") this.plan = null;
-    var lc = this.levelCols, cc = colorsOf(S); Object.keys(cc).forEach(function (c) { lc[c] = Math.max(lc[c] || 0, cc[c]); });
+    var lc = this.levelCols, gc = this.gameCols, cc = colorsOf(S); Object.keys(cc).forEach(function (c) { lc[c] = Math.max(lc[c] || 0, cc[c]); gc[c] = Math.max(gc[c] || 0, cc[c]); });
     this.S = S; this.frame = f;
   };
   /* one transition: contact model first (it changes what rules predict),
@@ -1025,7 +1077,9 @@
     if (this.cfg.physics && this.learnPhysics(t, S)) this.physChanged();
     this.trs.push(t);
     var cache = this.cache; t.keys.forEach(function (k) { delete cache[k]; }); delete cache.ticks; delete cache.actors; delete cache.splitF; delete cache.silent; delete cache.bgActive;
-    if (t.ev.some(function (e) { return e.t === "move"; })) this.cache = {};
+    /* other contexts' models change only if the autonomous rules did */
+    var tk0 = (this.tickRules || []).map(function (r) { return r.key; }).join("&"), tk1 = this.ticks().map(function (r) { return r.key; }).join("&");
+    if (tk0 !== tk1) this.cache = {};
     this.version = (this.version || 0) + 1;
     t.keys.forEach(function (k) { this.ctxSeen[k] = 1; }, this);
     /* prediction check (the model's own prediction, before the outcome) */
@@ -1037,13 +1091,22 @@
       this.stats.predLog.push(ok ? 1 : 0);
       this.lastPredOk = ok;
     } else { this.lastPredOk = null; this.stats.predLog.push(-1); }
+    /* cells that change although the model predicts no change for them
+       (status lines, counters, decorations) are noise for plan checks */
+    if (L.pred && L.pred.g.length === S.H && S0.H === S.H) for (var y = 0; y < S.H; y++) for (var x = 0; x < S.W; x++) { var v0 = S0.g[y][x]; if (L.pred.g[y][x] === v0 && S.g[y][x] !== v0) this.noise[y * S.W + x] = (this.noise[y * S.W + x] || 0) + 1; }
     /* a plan step carries the planner's own expectation */
-    this.planOk = L.gk ? L.gk === gk : this.lastPredOk;
+    this.planOk = L.eg ? this.sameGrid(L.eg, S.g) : this.lastPredOk;
     this.vel = this.velocities(t.ev);
     /* follow the selection */
     if (L.a === 6 && L.k >= 0) this.lc = lcDesc(S0.objs[L.k]);
     var li = this.lcIndex(S); if (this.lc && li >= 0) this.lc = lcDesc(S.objs[li]);
     if (gameOver) this.attributeDeath(t, L);
+  };
+  Agent.prototype.sameGrid = function (eg, g) {
+    if (eg.length !== g.length || eg[0].length !== g[0].length) return false;
+    var W = g[0].length;
+    for (var y = 0; y < g.length; y++) for (var x = 0; x < W; x++) if (eg[y][x] !== g[y][x] && (this.noise[y * W + x] || 0) < 2) return false;
+    return true;
   };
   Agent.prototype.physChanged = function () {
     this.physV++;
@@ -1111,12 +1174,16 @@
        refused although the model expected passage): refused while holding
        this inventory; a passage believed open is now conditional on what
        was held when it was taken, or unexplained */
-    (this.last.into || []).concat(this.last.enter || []).forEach(function (v) {
+    /* only an actor that stayed put was refused (one that moved elsewhere
+       tells nothing about the colour it was expected to enter) */
+    var act = this.actorColors(), actorMoved = t.ev.some(function (e) { return e.t === "move" && act[e.p.color]; });
+    if (!actorMoved) (this.last.into || []).concat(this.last.enter || []).forEach(function (v) {
       if (entered[v] || v === S0.bg) return;
       if (!ph.solid[v] || ph.solid[v].join() !== held.join()) { ph.solid[v] = held.slice(); changed = true; }
       var p = ph.pass[v];
       if (p && invHas(held, p.need)) {
-        if (p.succ && !invHas(held, p.succ)) p.need = p.succ.slice(); else delete ph.pass[v];
+        if (p.succ && !invHas(held, p.succ)) p.need = p.succ.slice();
+        else if ((p.ref = (p.ref || 0) + 1) >= 2) delete ph.pass[v];
         changed = true;
       }
     });
@@ -1127,6 +1194,18 @@
      action's context */
   Agent.prototype.attributeDeath = function (t, L) {
     var actors = this.actorColors(), ph = this.phys, blamed = {}, self = this;
+    /* lose hypotheses: predicates of the goal grammar the fatal step made
+       true (the last of something destroyed, a count run out); refuted by
+       any later safe state; the planner avoids states satisfying them */
+    var S1 = P.parse(t.g1, { bg: t.S0.bg, frame: t.S0.frame, box: t.S0.box }), lat = this.curLat();
+    goalHyps(S1, lat.actors, this.gameCols).forEach(function (h) {
+      if (h.type !== "clear" && h.type !== "clear2" && h.type !== "count") return;
+      if (goalDist(S1, h, lat) !== 0 || goalDist(t.S0, h, lat) === 0 || (self.loseRefuted || {})[h.key]) return;
+      /* any state seen safe before (every state acted from, every winning
+         configuration) that holds it refutes it at once */
+      var safe = self.trs.some(function (u) { return u !== t && u.S0 !== t.S0 && goalDist(u.S0, h, lat) === 0; }) || self.winStates.some(function (W0) { return goalDist(W0, h, lat) === 0; });
+      if (safe) { self.loseRefuted = self.loseRefuted || {}; self.loseRefuted[h.key] = 1; } else self.lose[h.key] = h;
+    });
     (L.touch || []).concat(L.pred && L.pred.contacts ? L.pred.contacts : []).forEach(function (c) {
       var a = c[0], b = c[1];
       if (actors[a] && !actors[b]) blamed[b] = 1; else if (actors[b] && !actors[a]) blamed[a] = 1;
@@ -1155,6 +1234,15 @@
   Agent.prototype.refuteGoals = function (S) {
     var self = this, lat = this.curLat();
     goalHyps(S, lat.actors, this.levelCols).forEach(function (h) { if (goalDist(S, h, lat) === 0) self.refuted[h.key] = 1; });
+    this.refuteLose(S, lat);
+  };
+  /* a state that holds a lose hypothesis without ending the game refutes it */
+  Agent.prototype.refuteLose = function (S, lat) {
+    var self = this; this.loseRefuted = this.loseRefuted || {};
+    Object.keys(this.lose).forEach(function (k) { if (goalDist(S, self.lose[k], lat) === 0) { delete self.lose[k]; self.loseRefuted[k] = 1; } });
+  };
+  Agent.prototype.losing = function (S, lat) {
+    var self = this; return Object.keys(this.lose).some(function (k) { return goalDist(S, self.lose[k], lat) === 0; });
   };
   Agent.prototype.confirmGoals = function (Wst) {
     var self = this, lat = this.curLat(), hs = goalHyps(Wst, lat.actors, this.levelCols), held = hs.filter(function (h) { return goalDist(Wst, h, lat) === 0 && !self.refuted[h.key]; });
@@ -1294,7 +1382,7 @@
     var lat = {}, key; for (key in lat0) lat[key] = lat0[key]; lat.opt = opt;
     var seen = new Set([P.gkey(S0.g) + "#" + this.latSig(lat)]), open = [{ S: S0, lat: lat, path: [], f: opts.test ? 0 : goalDist(S0, h, lat), pen: 0 }];
     this.planExhausted = false;
-    var nTicks = this.ticks().length;
+    var nTicks = this.ticks().length, nLose = Object.keys(this.lose).length;
     while (open.length && n < cap) {
       var bi = 0; for (var i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
       var cur = open[bi]; open.splice(bi, 1); n++;
@@ -1305,10 +1393,12 @@
         if (!nTicks) { var rs0 = this.rulesFor(cur.S, c.a, c.k, 0, cur.lat, cell); if (!rs0 || (!rs0.rules.length && rs0.complete)) continue; }
         var pr = this.predictState(cur.S, c.a, c.k, 0, cur.lat);
         if (!pr || !(pr.known || pr.cov >= 0.6) || pr.dead) continue;
-        var gk = P.gkey(pr.g), step = { a: c.a, k: c.k, gk: gk };
+        var gk = P.gkey(pr.g), step = { a: c.a, k: c.k, g: pr.g };
         if (opts.test && opts.test(cur.S, c, pr)) return cur.path.concat([step]);
         var sk = gk + "#" + this.latSig(pr.lat); if (seen.has(sk)) continue; seen.add(sk);
         var S2 = stateFromGrid(cur.S, pr.g), path = cur.path.concat([step]), pen = cur.pen + (opts.test ? 4 * pr.pushed : 0), f = path.length + pen;
+        if (nLose && this.losing(S2, pr.lat)) continue;
+        if (opts.test && opts.test(cur.S, c, pr, S2)) return path;
         if (!opts.test) { var d = goalDist(S2, h, pr.lat); if (d === 0) return path; f += 2 * d; if (!isFinite(f)) continue; }
         if (path.length < 40) open.push({ S: S2, lat: pr.lat, path: path, f: f, pen: pen });
       }
@@ -1327,6 +1417,22 @@
     S.objs.forEach(function (o) { if (self.untested(o.color, lat.inv)) cols[o.color] = 1; });
     if (!Object.keys(cols).length) return null;
     return this.planTo(S, null, lat, { cap: 800, test: function (S1, c, pr) { return c.a !== 6 && pr.into.some(function (v) { return cols[v]; }); } });
+  };
+  /* Context experiments: through the known program, reach a state where
+     an interaction never observed at the colour level can be tried (click
+     a colour that has to be made first, act while something new is
+     selected). */
+  Agent.prototype.contextPlan = function (S, lat) {
+    var self = this;
+    function colourKey(S1, c) {
+      if (c.a !== 6) return null;
+      var cell = clickCell(S1, c.k), keys = self.ctxKeys(S1, c.a, c.k, cell);
+      return c.k < 0 ? keys[0] : keys.filter(function (k) { return k.indexOf("kc:") === 0; })[0];
+    }
+    return this.planTo(S, null, lat, { cap: 400, test: function (S1, c, pr, S2) {
+      if (!S2) return false;
+      return self.candidates(S2).some(function (c2) { var k = colourKey(S2, c2); return k && !self.model(k).n; });
+    } });
   };
   Agent.prototype.isNavigation = function () { return Object.keys(this.actorColors()).length > 0; };
   /* a context's unexplained deaths ban it only when it kills most of the
@@ -1366,7 +1472,7 @@
         if (!planned && tried && dead === tried && this.startS && this.levelSteps > 0 && this.levelResets < 3) {
           for (var i2 = 0; i2 < Math.min(hs.length, 2) && !planned; i2++) {
             var pl2 = this.planTo(this.startS, hs[i2], this.startLat());
-            if (pl2 && pl2.length) planned = [{ a: 0, k: -1, gk: P.gkey(this.startS.g) }].concat(pl2);
+            if (pl2 && pl2.length) planned = [{ a: 0, k: -1, g: this.startS.g }].concat(pl2);
           }
         }
       }
@@ -1377,6 +1483,7 @@
         if (top.ig - top.risk > 0) choice = top.c;
         else {
           var ex = this.cfg.experiments ? this.experimentPlan(S, lat) : null;
+          if (!(ex && ex.length) && this.cfg.experiments && this.canClick) ex = this.contextPlan(S, lat);
           if (ex && ex.length) { this.plan = ex; this.planMode = "experiment"; choice = this.plan.shift(); mode = "experiment"; }
           else {
             var sug = this.spec && this.isNavigation() ? this.spec.suggest() : null;
@@ -1394,7 +1501,7 @@
       }
     }
     if (choice.a === 0) {
-      this.last = { a: 0, gk: choice.gk || null }; this.levelResets++;
+      this.last = { a: 0, eg: choice.g || null }; this.levelResets++;
       this.stats.modeLog.push("R");
       if (this.spec) this.spec.restart();
       return { id: 0 };
@@ -1405,7 +1512,7 @@
     var pred = this.predictState(S, choice.a, choice.k, 0, lat);
     var touch = this.cfg.physics ? this.predictState(S, choice.a, choice.k, 0, lat, { allPass: true }) : null;
     this.last = { a: choice.a, k: choice.k, cell: cell, lc: this.lcIndex(S), vel: this.vel, under: this.under, inv: this.inv, keys: keys, f: {},
-                  pred: pred || null, into: pred ? pred.into : [], enter: pred ? uniq(pred.contacts.filter(function (c) { return !c[2]; }).map(function (c) { return c[1]; })) : [], touch: touch ? touch.contacts : [], gk: choice.gk || null, frame: this.frame };
+                  pred: pred || null, into: pred ? pred.into : [], enter: pred ? uniq(pred.contacts.filter(function (c) { return !c[2]; }).map(function (c) { return c[1]; })) : [], touch: touch ? touch.contacts : [], eg: choice.g || null, frame: this.frame };
     this.under = {}; for (var uk in this.last.under) this.under[uk] = this.last.under[uk];
     keys.forEach(function (k) { self2.last.f = self2.features(k); });
     keys.forEach(function (k) { self2.counts[k] = (self2.counts[k] || 0) + 1; self2.useN[k] = (self2.useN[k] || 0) + 1; });

@@ -92,6 +92,43 @@
     return rec;
   }
 
+  /* The same loop for games whose reset/step return promises (the bridge to
+     the official engine, tools/arc3-official.js). */
+  async function runAsync(agent, game, opts) {
+    opts = opts || {};
+    var baselines = game.baselines || [], nLevels = game.levels || baselines.length || 1;
+    var budget = opts.budget || (baselines.length ? baselines.reduce(function (a, b) { return a + 5 * b; }, 0) : 200);
+    var obs = await game.reset(), t0 = Date.now(), thinkMs = 0;
+    nLevels = obs.win_levels || nLevels;
+    if (agent.start) agent.start({ available_actions: obs.available_actions, win_levels: obs.win_levels });
+    var level = obs.levels_completed || 0, levelActions = 0, total = 0, resets = 0, perLevel = [];
+    agent.observe(obs);
+    while (total < budget && obs.state !== "WIN") {
+      var t1 = Date.now(), a = agent.act();
+      thinkMs += Date.now() - t1;
+      if (!a) break;
+      var prevObs = obs;
+      obs = await game.step(a);
+      total++; levelActions++;
+      if (a.id === 0) resets++;
+      if (opts.onStep) opts.onStep(a, obs, prevObs, total);
+      if ((obs.levels_completed || 0) > level) {
+        for (var k = level; k < obs.levels_completed; k++) perLevel.push({ index: k + 1, actions: levelActions, completed: true });
+        level = obs.levels_completed; levelActions = 0;
+      }
+      t1 = Date.now(); agent.observe(obs); thinkMs += Date.now() - t1;
+      if (opts.maxWallMs && Date.now() - t0 > opts.maxWallMs) break;
+    }
+    if (obs.state !== "WIN" && level < nLevels) perLevel.push({ index: level + 1, actions: levelActions, completed: false });
+    for (var i = perLevel.length; i < nLevels; i++) perLevel.push({ index: i + 1, actions: 0, completed: false });
+    perLevel.forEach(function (L, i) {
+      L.baseline = baselines[i] || null;
+      L.score = L.baseline ? levelScore(L.baseline, L.actions, L.completed) : (L.completed ? 1 : 0);
+    });
+    return { levels: perLevel, total_actions: total, resets: resets, state: obs.state, completed_levels: perLevel.filter(function (L) { return L.completed; }).length,
+             win: obs.state === "WIN", score: gameScore(perLevel), think_ms: thinkMs, wall_ms: Date.now() - t0 };
+  }
+
   /* The pre-existing navigation agent (c4-arc3-world.js) behind the official
      interface: it sees the last frame, acts with the simple actions it is
      given (it has no notion of a click or of coordinates), and answers
@@ -118,7 +155,7 @@
     return { id: typeof a === "number" ? a : this.acts[0] };
   };
 
-  var ENV = { levelScore: levelScore, gameScore: gameScore, run: run, LegacyAgent: LegacyAgent };
+  var ENV = { levelScore: levelScore, gameScore: gameScore, run: run, runAsync: runAsync, LegacyAgent: LegacyAgent };
   root.C4Arc3Env = ENV;
   if (typeof module !== "undefined" && module.exports) module.exports = ENV;
 })(typeof globalThis !== "undefined" ? globalThis : this);
