@@ -598,7 +598,7 @@
       });
     });
     /* the clicked cell alone (second segmentation) */
-    if (t.cx.cell >= 0 && t.g1) {
+    if (t.cx.cell >= 0 && t.g1 && t.g1.length === t.S0.H && t.g1[0].length === t.S0.W && t.cx.cell < t.S0.H * t.S0.W) {
       var c = t.cx.cell, W = t.S0.W, v0 = t.S0.g[(c / W) | 0][c % W], v1 = t.g1[(c / W) | 0][c % W];
       if (v0 !== v1) (v1 === t.S0.bg ? [{ o: "delete" }] : [{ o: "recolor", to: v1 }, { o: "swapcol", a: v0, b: v1 }]).forEach(function (op) { tryRule({ t: "cell" }, op); });
     }
@@ -770,7 +770,7 @@
   function cellsOf(S, c) { var n = 0; S.objs.forEach(function (o) { if (o.color === c) n += o.n; }); return n; }
   function goalDist(S, h, lat) {
     var under = (lat && lat.under) || {}, actors = (lat && lat.actors) || {}, W = S.W;
-    function hiddenUnderActor(c) { var n = 0; for (var i in under) if (under[i] === c && actors[S.g[(i / W) | 0][i % W]]) n++; return n; }
+    function hiddenUnderActor(c) { var n = 0; for (var i in under) { var y = (i / W) | 0; if (y < S.H && under[i] === c && actors[S.g[y][i % W]]) n++; } return n; }
     if (h.type === "clear") return cellsOf(S, h.c) + hiddenUnderActor(h.c);
     if (h.type === "clear2") return cellsOf(S, h.a) + hiddenUnderActor(h.a) + cellsOf(S, h.b) + hiddenUnderActor(h.b);
     if (h.type === "count") return Math.abs(cellsOf(S, h.a) - cellsOf(S, h.b));
@@ -778,7 +778,7 @@
       if (hiddenUnderActor(h.c)) return 0;
       var act = [], tgt = [], best = Infinity;
       S.objs.forEach(function (o) { if (actors[o.color]) act = act.concat(o.cells); else if (o.color === h.c) tgt = tgt.concat(o.cells); });
-      for (var i in under) if (under[i] === h.c) tgt.push(+i);
+      for (var i in under) if (under[i] === h.c && +i < S.H * W) tgt.push(+i);
       if (!act.length || !tgt.length) return Infinity;
       act.forEach(function (a) { tgt.forEach(function (b) { var d = Math.abs(((a / W) | 0) - ((b / W) | 0)) + Math.abs(a % W - b % W); if (d < best) best = d; }); });
       return best;
@@ -826,7 +826,8 @@
       ig: this.opts.ig !== false, goals: this.opts.goals !== false, memory: this.opts.memory !== false,
       plan: this.opts.plan !== false, latent: this.opts.latent !== false, ticks: this.opts.ticks !== false,
       physics: this.opts.physics !== false, experiments: this.opts.experiments !== false, spec: this.opts.spec !== false,
-      maxNodes: this.opts.maxNodes || 1500
+      maxNodes: this.opts.maxNodes || 1500,
+      thinkMs: this.opts.thinkMs || 1000  /* deliberation safety deadline per action */
     };
     this.stats = { predicted: 0, correct: 0, byK: {}, contextsTried: 0, goalConfirmedAt: null, modeLog: [], predLog: [] };
   }
@@ -852,7 +853,7 @@
   Agent.prototype.newLevel = function () {
     this.L = new P.Lattice(); this.S = null; this.last = null; this.plan = null; this.bgInfo = null;
     this.counts = {}; this.lc = null; this.vel = {}; this.levelSteps = 0;
-    this.under = {}; this.inv = []; this.levelCols = {}; this.startS = null; this.levelResets = 0; this.noise = {};
+    this.under = {}; this.inv = []; this.levelCols = {}; this.startS = null; this.levelResets = 0; this.noise = {}; this.visits = {};
     this.refuted = {}; this.noPlan = {};
     this.cache = {};
     if (!this.cfg.memory) { this.trs = []; this.goalW = {}; this.goalConfirmed = {}; this.death = {}; this.phys = freshPhys(); this.physV++; }
@@ -1054,8 +1055,15 @@
     var relattice = this.L.add(f);
     var S = this.perceive(f);
     if (this.last && this.S && !levelUp && this.last.a !== 0) {
-      if (relattice) this.S = this.perceive(this.last.frame);
-      this.record(S, obs.state === "GAME_OVER");
+      if (relattice) {
+        this.S = this.perceive(this.last.frame);
+        if (this.last.a === 6 && this.last.px) {
+          var cl = this.L.cellOf(this.last.px.x, this.last.px.y), ci = cl.r * this.S.W + cl.c;
+          if (cl.r >= 0 && cl.c >= 0 && cl.r < this.S.H && cl.c < this.S.W) { this.last.cell = ci; this.last.k = this.S.at[ci] >= 0 ? this.S.at[ci] : -10 - ci; }
+          this.last.lc = -1;
+        }
+      }
+      if (this.S.H === S.H && this.S.W === S.W) this.record(S, obs.state === "GAME_OVER");
       if (obs.state !== "GAME_OVER") this.refuteGoals(S);
     }
     /* RESET restarts the level: its latent state starts over */
@@ -1065,6 +1073,7 @@
     }
     if (!this.startS || levelUp || (this.last && this.last.a === 0)) this.startS = S;
     if (obs.state === "GAME_OVER") this.plan = null;
+    var gkS = P.gkey(S.g); this.visits[gkS] = (this.visits[gkS] || 0) + 1;
     var lc = this.levelCols, gc = this.gameCols, cc = colorsOf(S); Object.keys(cc).forEach(function (c) { lc[c] = Math.max(lc[c] || 0, cc[c]); gc[c] = Math.max(gc[c] || 0, cc[c]); });
     this.S = S; this.frame = f;
   };
@@ -1383,7 +1392,9 @@
     var seen = new Set([P.gkey(S0.g) + "#" + this.latSig(lat)]), open = [{ S: S0, lat: lat, path: [], f: opts.test ? 0 : goalDist(S0, h, lat), pen: 0 }];
     this.planExhausted = false;
     var nTicks = this.ticks().length, nLose = Object.keys(this.lose).length;
+    var timedOut = false;
     while (open.length && n < cap) {
+      if ((n & 15) === 0 && this.deadline && Date.now() > this.deadline) { timedOut = true; break; }
       var bi = 0; for (var i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
       var cur = open[bi]; open.splice(bi, 1); n++;
       var cands = this.candidates(cur.S, true);
@@ -1404,7 +1415,7 @@
       }
     }
     /* the whole reachable space was searched: unreachable under the model */
-    this.planExhausted = !open.length;
+    this.planExhausted = !open.length && !timedOut; this.planNodes = n;
     return null;
   };
   /* the latent state at the start of the level (after a RESET) */
@@ -1447,6 +1458,7 @@
     var S = this.S;
     if (this.state === "GAME_OVER" || !S) { this.last = { a: 0 }; if (this.spec) this.spec.restart(); return { id: 0 }; }
     this.ctxSeen = this.ctxSeen || {};
+    this.deadline = Date.now() + this.cfg.thinkMs;
     var choice = null, mode = "explore", lat = this.curLat();
     /* continue a plan while its expectations hold */
     if (this.plan && this.plan.length && this.planOk !== false) { choice = this.plan.shift(); mode = this.planMode; }
@@ -1455,17 +1467,20 @@
       var cands = this.candidates(S), self = this, scored = [];
       cands.forEach(function (c) { var v = self.infoGain(S, c, lat); scored.push({ c: c, ig: v.ig, risk: v.risk }); });
       var unknown = scored.filter(function (x) { return x.ig >= 0.99 && x.risk < 1; });
-      var hs = this.cfg.goals ? this.hyps(S, lat) : [], confirmed = hs.length && this.goalConfirmed[hs[0].tkey];
+      var hs = this.hyps(S, lat), confirmed = hs.length && this.goalConfirmed[hs[0].tkey];
       var planned = null, sig = this.physV + "/" + Object.keys(this.ctxSeen).length;
       /* DISCOVERY until the program is known well enough or a goal is
          confirmed, then EXECUTION */
       if (this.cfg.plan && (confirmed || !unknown.length || !this.cfg.ig || this.levelSteps % 4 === 3)) {
-        var tried = 0, dead = 0;
-        for (var i = 0; i < Math.min(hs.length, 4) && !planned; i++) {
+        /* goals in order of belief; hypotheses already found unreachable
+           under the current model are skipped; a node budget spans them */
+        var tried = 0, dead = 0, spent = 0;
+        for (var i = 0; i < Math.min(hs.length, 10) && !planned && spent < 3 * this.cfg.maxNodes; i++) {
           if (hs[i].w < 1e-3) break;
           tried++;
           var np = this.noPlan[hs[i].key]; if (np && np.sig === sig && np.until > this.levelSteps) { if (np.exhausted) dead++; continue; }
-          var pl = this.planTo(S, hs[i], lat); if (pl && pl.length) planned = pl; else { this.noPlan[hs[i].key] = { sig: sig, until: this.levelSteps + 6, exhausted: this.planExhausted }; if (this.planExhausted) dead++; }
+          var pl = this.planTo(S, hs[i], lat); spent += this.planNodes || 0;
+          if (pl && pl.length) planned = pl; else { this.noPlan[hs[i].key] = { sig: sig, until: this.levelSteps + 6, exhausted: this.planExhausted }; if (this.planExhausted) dead++; }
         }
         /* a dead end (a crate in a corner, a spent resource): if the leading
            goal is reachable from the level's start, RESET is worth its cost */
@@ -1489,9 +1504,15 @@
             var sug = this.spec && this.isNavigation() ? this.spec.suggest() : null;
             if (sug !== null && this.simple.indexOf(sug) >= 0) { choice = { a: sug, k: -1 }; mode = "specialist"; }
             else {
-              /* nothing informative left and no plan: a safe action, varied */
-              var safe = scored.filter(function (x) { return x.risk < 1; });
-              choice = (safe[(this.levelSteps + this.trs.length) % Math.max(1, safe.length)] || scored[0]).c;
+              /* nothing informative left and no plan: the safe action whose
+                 predicted next state was visited least (unknown outcomes
+                 count as new), ties varied */
+              var safe = scored.filter(function (x) { return x.risk < 1; }), self3 = this, bestN = Infinity, pool = [];
+              (safe.length ? safe : scored).forEach(function (x) {
+                var pr = self3.predictState(S, x.c.a, x.c.k, 0, lat), v = pr ? (self3.visits[P.gkey(pr.g)] || 0) : 0;
+                if (v < bestN) { bestN = v; pool = [x]; } else if (v === bestN) pool.push(x);
+              });
+              choice = (pool[(this.levelSteps + this.trs.length) % Math.max(1, pool.length)] || scored[0]).c;
               mode = "fallback";
             }
           }
@@ -1519,9 +1540,58 @@
     this.levelSteps++;
     this.stats.modeLog.push({ explore: "x", execute: "p", experiment: "e", specialist: "s", fallback: "f", random: "r" }[mode] || "?");
     if (this.spec) this.spec.taken(choice.a);
-    return this.toAction(S, choice);
+    var act = this.toAction(S, choice);
+    if (act.id === 6) this.last.px = { x: act.x, y: act.y };
+    return act;
+  };
+  /* A failure inside the reasoning must not end the game: the step falls
+     back to a valid action (RESET after GAME_OVER) and is counted in
+     stats.errors, reported with the results. */
+  Agent.prototype.actSafe = Agent.prototype.act;
+  Agent.prototype.act = function () {
+    try { return this.actSafe(); }
+    catch (e) {
+      this.stats.errors = (this.stats.errors || 0) + 1; this.stats.lastError = String(e && e.stack || e).slice(0, 300);
+      this.plan = null;
+      if (this.state === "GAME_OVER" || !this.S) { this.last = { a: 0 }; return { id: 0 }; }
+      var a = this.simple.length ? this.simple[this.levelSteps++ % this.simple.length] : 6;
+      this.last = { a: a, k: -1, keys: [], f: {}, pred: null, frame: this.frame, under: this.under, inv: this.inv };
+      if (a !== 6) return { id: a };
+      var o = this.S.objs[this.levelSteps % Math.max(1, this.S.objs.length)], cell = o ? o.cells[0] : 0, p = this.L.pixelOf((cell / this.S.W) | 0, cell % this.S.W);
+      this.last = null; return { id: 6, x: p.x, y: p.y };
+    }
+  };
+  Agent.prototype.observeSafe = Agent.prototype.observe;
+  Agent.prototype.observe = function (obs) {
+    try { return this.observeSafe(obs); }
+    catch (e) {
+      this.stats.errors = (this.stats.errors || 0) + 1; this.stats.lastError = String(e && e.stack || e).slice(0, 300);
+      this.state = obs.state; this.last = null; this.plan = null;
+      var f = obs.frames && obs.frames.length ? obs.frames[obs.frames.length - 1] : null;
+      if ((obs.levels_completed || 0) > this.level) { this.level = obs.levels_completed; this.newLevel(); }
+      if (f) { try { this.L.add(f); this.S = this.perceive(f); this.frame = f; } catch (e2) { } }
+    }
   };
   Agent.prototype.predictLast = function () { return this.last && this.last.pred ? this.last.pred : null; };
+  /* The inferred game program, as the compact symbolic memory carried
+     across levels: per interaction context its best rule cover (or latent
+     split), the autonomous rules, the contact model, the goal beliefs and
+     the lose conditions. Colours are the game's own palette indices. */
+  Agent.prototype.program = function () {
+    var self = this, ctx = {}, keys = {};
+    function rk(r) { return M.selKey(r.sel) + " -> " + M.opKey(r.op); }
+    this.trs.forEach(function (t) { t.keys.forEach(function (k) { keys[k] = 1; }); });
+    Object.keys(keys).sort().forEach(function (k) {
+      var m = self.model(k); if (!m.n) return;
+      if (m.split) { var sp = {}; Object.keys(m.split.parts).forEach(function (v) { sp[m.split.f + "=" + v] = m.split.parts[v].covers[0].rules.map(rk); }); ctx[k] = { n: m.n, split: sp }; }
+      else { var cv = m.plain.covers[0]; ctx[k] = { n: m.n, rules: cv.rules.map(rk), complete: m.plain.complete, coverage: Math.round((cv.cov === undefined ? 1 : cv.cov) * 100) / 100, alternatives: m.plain.covers.length }; }
+    });
+    var goals = Object.keys(this.goalW).map(function (k) { return [k, self.goalW[k] * (self.goalConfirmed[k] ? 20 * self.goalConfirmed[k] : 1)]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+    return { contexts: ctx, autonomous: this.ticks().map(rk), actors: Object.keys(this.actorColors()).map(Number),
+             contact: { pass: this.phys.pass, deadly: Object.keys(this.phys.deadly).map(Number), tint: this.phys.tint, refused: this.phys.solid },
+             goals: goals.map(function (g) { return { template: g[0], weight: Math.round(g[1] * 1000) / 1000, confirmed: self.goalConfirmed[g[0]] || 0 }; }),
+             lose: Object.keys(this.lose), deadContexts: this.death };
+  };
   /* counterfactual probe: the predicted next logical grid of any action
      from the current state (null = unknown context) */
   Agent.prototype.predictAction = function (action) {

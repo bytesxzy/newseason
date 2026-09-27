@@ -107,6 +107,7 @@ function runOne(job) {
   };
   if (st) {
     out.pred = [st.correct, st.predicted];
+    out.agent_errors = st.errors || 0; if (st.lastError) out.last_error = st.lastError;
     out.byK = st.byK;
     /* actions until predictions become reliable: start of the first run of
        5 consecutive correct predictions of the agent's own steps */

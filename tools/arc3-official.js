@@ -102,9 +102,10 @@ async function main() {
       g.close();
       var r = { game: games[gi].name, game_id: g.game_id, agent: args.agents[ai], score: rec.score, levels: rec.completed_levels, nLevels: g.baselines.length, imputed_baselines: g.imputed, actions: rec.total_actions, budget: budget, resets: rec.resets,
                 think_ms: rec.think_ms, level_detail: (rec.levels || []).map(function (L) { return [L.actions, L.baseline, L.completed ? 1 : 0, Math.round((L.score || 0) * 1000) / 1000]; }), error: rec.error,
-                pred: ag.stats ? [ag.stats.correct, ag.stats.predicted] : null, modes: ag.stats ? ag.stats.modeLog.join("") : null };
+                pred: ag.stats ? [ag.stats.correct, ag.stats.predicted] : null, modes: ag.stats ? ag.stats.modeLog.join("") : null,
+                agent_errors: ag.stats ? ag.stats.errors || 0 : 0, last_error: ag.stats ? ag.stats.lastError || null : null };
       results.push(r);
-      console.log([r.agent, r.game, "score " + (r.score || 0).toFixed(3), "lv " + r.levels + "/" + r.nLevels, "act " + r.actions + "/" + budget, "rst " + r.resets, r.pred ? "pred " + r.pred[0] + "/" + r.pred[1] : "", Math.round(r.think_ms / 1000) + "s", r.error || "", args.verbose && r.modes ? r.modes.slice(0, 100) : ""].join("  "));
+      console.log([r.agent, r.game, "score " + (r.score || 0).toFixed(3), "lv " + r.levels + "/" + r.nLevels, "act " + r.actions + "/" + budget, "rst " + r.resets, r.pred ? "pred " + r.pred[0] + "/" + r.pred[1] : "", Math.round(r.think_ms / 1000) + "s", r.error || "", r.agent_errors ? "agent-errors " + r.agent_errors : "", args.verbose && r.modes ? r.modes.slice(0, 100) : ""].join("  "));
     }
   }
   args.agents.forEach(function (agn) {
