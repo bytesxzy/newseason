@@ -48,6 +48,7 @@
      opts.levelBudget   per-level cap (default 5x baseline when baselines known)
      opts.probe(game, agent, k)  optional: called before every action, for
                         counterfactual prediction probes (no env action spent)
+     opts.onStep(action, obs, prevObs, k)  optional: after every action
      Returns a record with per-level actions, completion, scores. */
   function run(agent, game, opts) {
     opts = opts || {};
@@ -64,10 +65,11 @@
       var t1 = Date.now(), a = agent.act();
       thinkMs += Date.now() - t1;
       if (!a) break;
-      var pred = agent.predictLast ? agent.predictLast() : null;
+      var pred = agent.predictLast ? agent.predictLast() : null, prevObs = obs;
       obs = game.step(a);
       total++; levelActions++;
       if (a.id === 0) resets++;
+      if (opts.onStep) opts.onStep(a, obs, prevObs, total);
       if (pred && opts.scorePrediction) rec.predictions.push(opts.scorePrediction(pred, obs, total));
       if ((obs.levels_completed || 0) > level) {
         for (var k = level; k < obs.levels_completed; k++) perLevel.push({ index: k + 1, actions: levelActions, completed: true });

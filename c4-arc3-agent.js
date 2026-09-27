@@ -83,6 +83,26 @@
      border cannot outvote the floor. */
   function background(g) {
     var H = g.length, W = g[0].length, r, c, cnt = {};
+    /* the play box: inside a uniform outer ring (the frame around the game
+       area) that does not occur inside it */
+    var f = g[0][0], ring = true, p0 = 0, p1 = H - 1, q0 = 0, q1 = W - 1;
+    /* the frame need not surround the game on all four sides (a game as
+       wide as the screen has bands above and below only) */
+    var any = false;
+    for (c = 0; c < W && !any; c++) if (g[0][c] !== f) any = true;
+    var topU = !any; any = false;
+    for (r = 0; r < H && !any; r++) if (g[r][0] !== f) any = true;
+    var leftU = !any;
+    ring = topU || leftU;
+    if (ring) {
+      var allF = function (a, b, cc0, cc1) { for (var y = a; y <= b; y++) for (var x = cc0; x <= cc1; x++) if (g[y][x] !== f) return false; return true; };
+      while (p1 > p0 && allF(p0, p0, q0, q1)) p0++;
+      while (p1 > p0 && allF(p1, p1, q0, q1)) p1--;
+      while (q1 > q0 && allF(p0, p1, q0, q0)) q0++;
+      while (q1 > q0 && allF(p0, p1, q1, q1)) q1--;
+      for (r = p0; r <= p1 && ring; r++) for (c = q0; c <= q1; c++) if (g[r][c] === f) { ring = false; break; }
+      if (!ring) { p0 = 0; p1 = H - 1; q0 = 0; q1 = W - 1; }
+    }
     var r0 = 0, r1 = H - 1, c0 = 0, c1 = W - 1, peeled = true, guard = 0;
     function uniformRow(r, a, b) { for (var x = a + 1; x <= b; x++) if (g[r][x] !== g[r][a]) return false; return true; }
     function uniformCol(c, a, b) { for (var y = a + 1; y <= b; y++) if (g[y][c] !== g[a][c]) return false; return true; }
@@ -96,7 +116,7 @@
     for (r = r0; r <= r1; r++) for (c = c0; c <= c1; c++) cnt[g[r][c]] = (cnt[g[r][c]] || 0) + 1;
     var best = -1, bn = -1;
     for (var k in cnt) if (cnt[k] > bn || (cnt[k] === bn && +k < best)) { bn = cnt[k]; best = +k; }
-    return { bg: best, frame: -1, box: [r0, c0, r1, c1] };
+    return { bg: best, frame: ring && f !== best ? f : -1, box: [p0, q0, p1, q1] };
   }
 
   function shapeKey(cells, W) {
@@ -136,7 +156,7 @@
                   shape: sk, canon: canonKey(sk) });
     }
     objs.forEach(function (o) { o.cls = o.color + "/" + o.canon; });
-    return { g: g, H: H, W: W, bg: bg, frame: bgInfo.frame, objs: objs, at: seen };
+    return { g: g, H: H, W: W, bg: bg, frame: bgInfo.frame, objs: objs, at: seen, box: bgInfo.box || [0, 0, H - 1, W - 1] };
   }
   function gkey(g) { var s = ""; for (var r = 0; r < g.length; r++) s += g[r].join(",") + "|"; return s; }
 
@@ -200,6 +220,20 @@
         if (ov * 2 >= Math.min(a5.n, b5.n) && ov > 0) { usedN[j] = 1; matched[i] = j; ev.push({ t: "reshape", p: a5, n: b5, grow: b5.n - a5.n }); break; }
       }
     }
+    /* moved AND recoloured (a crate taking another colour on a pad): same
+       shape, near; reported as the move plus a separate TINT of the arrival,
+       so a rule predicting only the move stays consistent */
+    for (i = 0; i < P.objs.length; i++) {
+      if (matched[i] >= 0) continue;
+      var a6 = P.objs[i], b6i = -1, d6 = Infinity;
+      for (j = 0; j < N.objs.length; j++) {
+        var b6 = N.objs[j];
+        if (usedN[j] || b6.shape !== a6.shape || b6.color === a6.color) continue;
+        var dd = Math.abs(b6.r0 - a6.r0) + Math.abs(b6.c0 - a6.c0);
+        if (dd > 0 && dd <= 2 && dd < d6) { d6 = dd; b6i = j; }
+      }
+      if (b6i >= 0) { var nb = N.objs[b6i]; usedN[b6i] = 1; matched[i] = b6i; ev.push({ t: "move", p: a6, n: nb, dr: nb.r0 - a6.r0, dc: nb.c0 - a6.c0, recol: nb.color }); ev.push({ t: "tint", p: a6, n: nb, from: a6.color, to: nb.color }); }
+    }
     for (i = 0; i < P.objs.length; i++) if (matched[i] < 0) ev.push({ t: "delete", p: P.objs[i] });
     for (j = 0; j < N.objs.length; j++) if (!usedN[j]) ev.push({ t: "spawn", n: N.objs[j] });
     return ev;
@@ -210,6 +244,7 @@
     if (e.t === "rotate") return "r" + e.p.r0 + "," + e.p.c0 + ">" + e.n.shape;
     if (e.t === "reshape") return "s" + e.p.r0 + "," + e.p.c0 + ">" + e.n.shape;
     if (e.t === "delete") return "d" + e.p.r0 + "," + e.p.c0;
+    if (e.t === "tint") return "t" + e.n.r0 + "," + e.n.c0 + ">" + e.to;
     return "n" + e.n.r0 + "," + e.n.c0 + ":" + e.n.color + ":" + e.n.shape;
   }
 
@@ -257,11 +292,19 @@
     });
     return out;
   }
+  /* the clicked CELL as an object: a second segmentation for clicks, whose
+     effects are often local to one cell of a larger same-coloured region */
+  function cellObj(S, cx) {
+    var c = cx.cell, W = S.W, r = (c / W) | 0, col = c % W, v = S.g[r][col];
+    return { id: -2, color: v, cells: [c], n: 1, r0: r, r1: r, c0: col, c1: col, cr: r, cc: col, shape: "0,0", canon: "0,0", cls: v + "/0,0" };
+  }
+  function objOf(S, id, cx) { return id === -2 ? cellObj(S, cx) : S.objs[id]; }
   function select(S, sel, cx) {
     var k = cx.k, o = k >= 0 ? S.objs[k] : null, lc = cx.lc >= 0 ? S.objs[cx.lc] : null;
     switch (sel.t) {
+      case "cell": return cx.cell >= 0 ? [-2] : [];
       case "clicked": return o ? [k] : [];
-      case "lastClicked": return lc ? [cx.lc] : [];
+      case "lastClicked": return lc && (sel.c === undefined || lc.color === sel.c) ? [cx.lc] : [];
       case "nbr4": return o ? S.objs.filter(function (b) { return b.id !== k && adjacent(S, o, b, false); }).map(function (b) { return b.id; }) : [];
       case "ray4": return o ? rayNbrs(S, o) : [];
       case "clickedRay4": return o ? [k].concat(rayNbrs(S, o)) : [];
@@ -274,7 +317,7 @@
     }
     return [];
   }
-  var SEL_BITS = { clicked: 1, lastClicked: 2, nbr4: 3, ray4: 3, clickedRay4: 2.5, row: 3, col: 3, sameColor: 3, sameClass: 3.5, color: 4, cls: 5 };
+  var SEL_BITS = { cell: 1.5, clicked: 1, lastClicked: 2, nbr4: 3, ray4: 3, clickedRay4: 2.5, row: 3, col: 3, sameColor: 3, sameClass: 3.5, color: 4, cls: 5 };
   function selKey(s) { return s.t + (s.c !== undefined ? ":" + s.c : "") + (s.k !== undefined ? ":" + s.k : ""); }
 
   /* ------------------------------------------------------------ operators */
@@ -294,79 +337,146 @@
       case "cycle": { var i = op.seq.indexOf(o.color); return i < 0 ? undefined : { cells: o.cells, color: op.seq[(i + 1) % op.seq.length] }; }
       case "map": { var to = op.m[o.color]; return to === undefined || to === o.color ? undefined : { cells: o.cells, color: to }; }
       case "delete": return null;
+      case "grow": case "shrink": {
+        /* extend (or cut) the object by one cell at its end in direction d:
+           bars, gauges, counters, snakes */
+        var W = S.W, ext = -1, best = -Infinity;
+        o.cells.forEach(function (c) { var s = ((c / W) | 0) * op.dr + (c % W) * op.dc; if (s > best) { best = s; ext = c; } });
+        if (op.o === "grow") {
+          var y = ((ext / W) | 0) + op.dr, x = ext % W + op.dc;
+          if (y < 0 || x < 0 || y >= S.H || x >= W || S.g[y][x] !== S.bg) return undefined;
+          return { cells: o.cells.concat([y * W + x]), color: o.color };
+        }
+        if (o.cells.length <= 1) return null;
+        return { cells: o.cells.filter(function (c) { return c !== ext; }), color: o.color };
+      }
       case "rotate": return { cells: rotateCells(o, S.W, op.k, op.anchor), color: o.color };
       case "move": case "slide": case "patrol": case "moveTo": return { move: op, cells: o.cells, color: o.color };
+      case "spawn": {
+        /* a new object of a learned shape and colour at an offset from the
+           anchor (selection markers, placed blocks, projectiles) */
+        var Ws = S.W, cells = op.shape.split(";").map(function (q) { var pq = q.split(","); return (o.r0 + op.dr + +pq[0]) * Ws + (o.c0 + op.dc + +pq[1]); });
+        return { spawn: true, cells: cells, color: op.color };
+      }
     }
     return undefined;
   }
-  var OP_BITS = { recolor: 3, swapcol: 3.5, cycle: 5, map: 4, delete: 1.5, rotate: 3, move: 3, slide: 3.5, patrol: 3, moveTo: 3, select: 1, togglevar: 2 };
-  function opKey(op) { return op.o + (op.to !== undefined ? ":" + op.to : "") + (op.a !== undefined ? ":" + op.a + "/" + op.b : "") + (op.seq ? ":" + op.seq.join("") : "") + (op.k !== undefined ? ":" + op.k + (op.anchor || "") : "") + (op.dr !== undefined ? ":" + op.dr + "," + op.dc : "") + (op.ref ? ":" + op.ref : "") + (op.m ? ":" + Object.keys(op.m).sort().map(function (k) { return k + ">" + op.m[k]; }).join(",") : ""); }
+  var OP_BITS = { recolor: 3, swapcol: 3.5, cycle: 5, map: 4, delete: 1.5, grow: 3.5, shrink: 3.5, spawn: 5, rotate: 3, move: 3, slide: 3.5, patrol: 3, moveTo: 3, select: 1, togglevar: 2 };
+  function opKey(op) { return op.o + (op.to !== undefined ? ":" + op.to : "") + (op.a !== undefined ? ":" + op.a + "/" + op.b : "") + (op.seq ? ":" + op.seq.join("") : "") + (op.k !== undefined ? ":" + op.k + (op.anchor || "") : "") + (op.dr !== undefined ? ":" + op.dr + "," + op.dc : "") + (op.ref ? ":" + op.ref : "") + (op.shape ? ":" + op.color + "@" + op.shape : "") + (op.m ? ":" + Object.keys(op.m).sort().map(function (k) { return k + ">" + op.m[k]; }).join(",") : ""); }
 
+  /* inventories: sorted arrays of collected colours */
+  function invHas(inv, need) { return !need || need.every(function (c) { return inv.indexOf(c) >= 0; }); }
+  function invAdd(inv, c) { return inv.concat([c]).sort(function (a, b) { return a - b; }); }
   /* ------------------------------------------------------------ simulate
      Next grid from a state and a set of (rule, selected objects): colour and
-     shape changes first, then moves resolved against every cell that is not
-     background and not moving (a blocked move leaves the object in place). */
+     shape changes first, then moves, resolved against a CONTACT MODEL
+     learned from experience (cx.phys.pass[colour] = {k, need, succ}):
+       hide     the mover covers it; it is remembered in the UNDERLAY and
+                shows again when the mover leaves
+       collect  the entered object vanishes into the inventory (the
+                collected colours)
+       push     the entered object moves on, if it can
+       deadly   entering it, or overlapping a mover of that colour, ends
+                the game (out.dead)
+     A passage refused before and taken later needs what was held when it
+     was taken (keys and doors, without naming either): it blocks unless
+     the inventory holds those colours. Every other colour blocks; while planning,
+     untested colours may be assumed passable (cx.optimistic). An object
+     arriving on colour v may take colour phys.tint[own>v]. Autonomous movers
+     (ticks) may overlap actors: that is a contact, not a block.
+     Results besides the grid go to cx.out: dead, contacts, into (colours
+     that blocked an actor), vel, under, inv of the next state. */
   function simulate(S, applied, cx) {
-    var H = S.H, W = S.W, g = S.g.map(function (row) { return row.slice(); }), changes = {}, moves = [], i;
+    var H = S.H, W = S.W, g = S.g.map(function (row) { return row.slice(); }), changes = {}, objs = {}, moves = [], ticks = {}, spawns = [];
+    var phys = cx.phys || {}, pass = phys.pass || {}, deadly = phys.deadly || {}, tint = phys.tint || {}, opt = cx.optimistic || {};
+    var inv = cx.inv || [], under = {}, vel = {}, out = { dead: false, contacts: [], into: [], vel: vel, under: under, inv: inv };
+    cx.out = out;
+    if (cx.under) for (var uk in cx.under) under[uk] = cx.under[uk];
+    function kind(v) { var p = pass[v]; if (p && invHas(inv, p.need)) return p.k; if (deadly[v]) return "deadly"; return opt[v] || cx.allPass ? "hide" : null; }
     applied.forEach(function (ap) {
       ap.objs.forEach(function (id) {
-        var o = S.objs[id], r = applyOp(S, o, ap.rule.op, cx);
+        var o = objOf(S, id, cx), r = applyOp(S, o, ap.rule.op, cx);
+        if (r && r.spawn) { spawns.push(r); return; }
         if (r === undefined || changes[id] !== undefined) return;
-        changes[id] = r;
+        changes[id] = r; objs[id] = o; if (ap.tick) ticks[id] = 1;
         if (r && r.move) moves.push(id);
       });
     });
-    /* erase every changed object */
-    Object.keys(changes).forEach(function (id) { S.objs[id].cells.forEach(function (c) { g[(c / W) | 0][c % W] = S.bg; }); });
-    /* paint recolours / rotations */
+    /* colour / shape changes (a deleted object uncovers what lay under it) */
+    Object.keys(changes).forEach(function (id) {
+      var r = changes[id]; if (r && r.move) return;
+      objs[id].cells.forEach(function (c) { var u = r === null ? under[c] : undefined; g[(c / W) | 0][c % W] = u !== undefined ? u : S.bg; if (u !== undefined) delete under[c]; });
+    });
     Object.keys(changes).forEach(function (id) {
       var r = changes[id]; if (!r || r.move) return;
       r.cells.forEach(function (c) { var y = (c / W) | 0, x = c % W; if (y >= 0 && y < H && x >= 0 && x < W) g[y][x] = r.color; });
     });
+    spawns.forEach(function (r) { r.cells.forEach(function (c) { var y = (c / W) | 0, x = c % W; if (c >= 0 && y < H && x >= 0 && x < W && g[y][x] === S.bg) g[y][x] = r.color; }); });
     /* moves: shift until blocked (slides), else one step */
-    var moving = {}, pushed = {}; moves.forEach(function (id) { S.objs[id].cells.forEach(function (c) { moving[c] = 1; }); });
+    var moving = {}, pushed = {}, placed = {}, collected = {};
+    moves.forEach(function (id) { objs[id].cells.forEach(function (c) { moving[c] = id; }); });
+    function place(cells, col, tr, tc, mover) {
+      /* move a set of cells by (tr, tc): uncover the vacated cells, record
+         what the arrival covers, apply contact tints, paint */
+      var dest = {}, own = {}, entered = [];
+      cells.forEach(function (c) { own[c] = 1; var y = ((c / W) | 0) + tr, x = c % W + tc; if (y >= 0 && x >= 0 && y < H && x < W) dest[y * W + x] = 1; });
+      cells.forEach(function (c) { if (dest[c] || placed[c] !== undefined) return; var u = under[c]; g[(c / W) | 0][c % W] = u !== undefined ? u : S.bg; delete under[c]; });
+      Object.keys(dest).forEach(function (ci) {
+        ci = +ci; if (own[ci]) return;
+        var v3 = g[(ci / W) | 0][ci % W];
+        if (placed[ci] !== undefined) { out.contacts.push([col, v3, !!ticks[mover], !!ticks[placed[ci]]]); if (deadly[v3] || deadly[col]) out.dead = true; return; }
+        if (v3 === S.bg) return;
+        entered.push(v3); out.contacts.push([col, v3, !!ticks[mover], false]);
+        var k = kind(v3), j = S.at[ci];
+        if (k === "deadly") { out.dead = true; under[ci] = v3; }
+        else if (k === "collect") { if (j >= 0 && !collected[j]) { collected[j] = 1; out.inv = invAdd(out.inv, v3); S.objs[j].cells.forEach(function (q) { if (q !== ci && placed[q] === undefined && g[(q / W) | 0][q % W] === v3) g[(q / W) | 0][q % W] = S.bg; }); } }
+        else if (k !== "push") under[ci] = v3;
+      });
+      var paint = col;
+      entered.forEach(function (v) { if (tint[col + ">" + v] !== undefined) paint = tint[col + ">" + v]; });
+      Object.keys(dest).forEach(function (ci) { ci = +ci; g[(ci / W) | 0][ci % W] = paint; placed[ci] = mover; });
+      return paint;
+    }
     moves.forEach(function (id) {
-      var o = S.objs[id], op = changes[id].move, dr = op.dr, dc = op.dc, steps = op.o === "slide" ? Math.max(H, W) : 1;
+      var o = objs[id], op = changes[id].move, dr = op.dr, dc = op.dc, steps = op.o === "slide" ? Math.max(H, W) : 1, own = {};
+      o.cells.forEach(function (c) { own[c] = 1; });
       if (op.o === "patrol") { var v = cx.vel && cx.vel[o.r0 + "," + o.c0 + ":" + o.color]; if (!v) { dr = 0; dc = 0; } else { dr = v[0]; dc = v[1]; } }
-      if (op.o === "moveTo") { var ref = op.ref === "clicked" ? cx.k : cx.lc; if (ref < 0) { dr = 0; dc = 0; } else { dr = S.objs[ref].r0 - o.r0; dc = S.objs[ref].c0 - o.c0; } }
-      var phys = cx.phys || {}, pass = phys.pass || {}, opt = cx.optimistic || {};
+      if (op.o === "moveTo") { var ref = op.ref === "clicked" ? cx.k : cx.lc; if (!(ref >= 0) || !S.objs[ref]) { dr = 0; dc = 0; } else { dr = S.objs[ref].r0 - o.r0; dc = S.objs[ref].c0 - o.c0; } }
+      var blockedBy = null;
       function free(ddr, ddc) {
         return o.cells.every(function (c) {
           var y = ((c / W) | 0) + ddr, x = c % W + ddc;
           if (y < 0 || x < 0 || y >= H || x >= W) return false;
           if (op.o === "moveTo") return true;
-          var v2 = g[y][x];
-          if (v2 === S.bg || moving[y * W + x] || v2 === o.color && o.cells.indexOf(y * W + x) >= 0) return true;
-          if (pass[v2] === "push") {
-            var j = S.at[y * W + x]; if (j < 0) return false;
-            var pb = S.objs[j];
-            return pb.cells.every(function (q) { var yy = ((q / W) | 0) + ddr, xx = q % W + ddc; if (yy < 0 || xx < 0 || yy >= H || xx >= W) return false; var w2 = g[yy][xx]; return w2 === S.bg || S.at[yy * W + xx] === j || (pass[w2] && pass[w2] !== "push"); });
+          var i = y * W + x, v2 = g[y][x];
+          if (own[i] || v2 === S.bg) return true;
+          if (placed[i] !== undefined) { if (!!ticks[placed[i]] !== !!ticks[id]) return true; }
+          else if (moving[i] !== undefined && moving[i] !== id) return true;
+          var k = kind(v2);
+          if (k === "push") {
+            var j = S.at[i]; if (j < 0 || pushed[j]) return false;
+            return S.objs[j].cells.every(function (q) { var yy = ((q / W) | 0) + ddr, xx = q % W + ddc; if (yy < 0 || xx < 0 || yy >= H || xx >= W) return false; var w2 = g[yy][xx], k2 = kind(w2); return w2 === S.bg || S.at[yy * W + xx] === j || (k2 && k2 !== "push" && k2 !== "deadly"); });
           }
-          return !!pass[v2] || !!opt[v2];
+          if (k) return true;
+          if (blockedBy === null) blockedBy = v2;
+          return false;
         });
       }
       var tr = 0, tc = 0;
       for (var s = 0; s < steps; s++) { if (free(tr + dr, tc + dc)) { tr += dr; tc += dc; } else break; }
       if (op.o === "patrol" && !tr && !tc && (dr || dc) && free(-dr, -dc)) { tr = -dr; tc = -dc; }
-      var under = cx.under || {};
-      o.cells.forEach(function (c) { if (g[(c / W) | 0][c % W] === o.color && moving[c]) g[(c / W) | 0][c % W] = under[c] !== undefined ? under[c] : S.bg; });
-      /* what the mover enters: pushed objects move on, collected ones vanish,
-         deadly ones end the game */
+      if (!tr && !tc && blockedBy !== null && !ticks[id]) out.into.push(blockedBy);
+      /* pushed objects go first, one step along */
       if (tr || tc) o.cells.forEach(function (c) {
         var y = ((c / W) | 0) + tr, x = c % W + tc; if (y < 0 || x < 0 || y >= H || x >= W) return;
-        var v3 = g[y][x], j = S.at[y * W + x];
-        if (v3 === S.bg || v3 === o.color) return;
-        if ((cx.phys || {}).deadly && cx.phys.deadly[v3]) cx.dead = true;
-        if (pass[v3] === "push" && j >= 0 && !pushed[j]) {
-          pushed[j] = 1;
-          var pb = S.objs[j];
-          pb.cells.forEach(function (q) { g[(q / W) | 0][q % W] = S.bg; });
-          pb.cells.forEach(function (q) { var yy = ((q / W) | 0) + tr, xx = q % W + tc; if (yy >= 0 && xx >= 0 && yy < H && xx < W) g[yy][xx] = pb.color; });
-        } else if (pass[v3] === "collect" && j >= 0) {
-          S.objs[j].cells.forEach(function (q) { if (q !== y * W + x) g[(q / W) | 0][q % W] = S.bg; });
-        }
+        var i = y * W + x, j = S.at[i];
+        if (own[i] || placed[i] !== undefined || j < 0 || pushed[j] || kind(g[y][x]) !== "push") return;
+        pushed[j] = 1; out.pushed = (out.pushed || 0) + 1;
+        var pb = S.objs[j], pc = place(pb.cells, pb.color, Math.sign(tr), Math.sign(tc), -3 - j);
+        vel[(pb.r0 + Math.sign(tr)) + "," + (pb.c0 + Math.sign(tc)) + ":" + pc] = [Math.sign(tr), Math.sign(tc)];
       });
-      o.cells.forEach(function (c) { var y = ((c / W) | 0) + tr, x = c % W + tc; if (y >= 0 && x >= 0 && y < H && x < W) g[y][x] = o.color; });
+      var col = place(o.cells, o.color, tr, tc, id);
+      if (tr || tc) vel[(o.r0 + tr) + "," + (o.c0 + tc) + ":" + col] = [Math.sign(tr), Math.sign(tc)];
     });
     return g;
   }
@@ -381,7 +491,7 @@
       add({ t: "clicked" }); add({ t: "ray4" }); add({ t: "clickedRay4" }); add({ t: "nbr4" });
       add({ t: "row" }); add({ t: "col" }); add({ t: "sameColor" }); add({ t: "sameClass" });
     }
-    if (cx.lc >= 0) add({ t: "lastClicked" });
+    if (cx.lc >= 0 && S.objs[cx.lc]) { add({ t: "lastClicked" }); add({ t: "lastClicked", c: S.objs[cx.lc].color }); }
     add({ t: "color", c: o.color }); add({ t: "cls", k: o.cls });
     return out;
   }
@@ -398,6 +508,15 @@
     } else if (e.t === "rotate") {
       ops.push({ o: "rotate", k: e.k, anchor: "tl" }); ops.push({ o: "rotate", k: e.k, anchor: "center" });
     } else if (e.t === "delete") ops.push({ o: "delete" });
+    else if (e.t === "reshape") {
+      var pc = {}, nc = {};
+      e.p.cells.forEach(function (c) { pc[c] = 1; }); e.n.cells.forEach(function (c) { nc[c] = 1; });
+      var add = e.n.cells.filter(function (c) { return !pc[c]; }).length, rem = e.p.cells.filter(function (c) { return !nc[c]; }).length;
+      [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (d) {
+        if (add === 1 && !rem) ops.push({ o: "grow", dr: d[0], dc: d[1] });
+        if (rem === 1 && !add) ops.push({ o: "shrink", dr: d[0], dc: d[1] });
+      });
+    }
     return ops;
   }
   /* the events a single rule predicts on a transition's start state */
@@ -416,26 +535,40 @@
     var S1 = P.parse(g, { bg: t.S0.bg, frame: t.S0.frame });
     return P.events(t.S0, S1).map(P.evKey);
   }
-  function ruleBits(r) { return (SEL_BITS[r.sel.t] || 4) + (OP_BITS[r.op.o] || 4) + (r.pre ? 3 : 0); }
+  function ruleBits(r) { return (SEL_BITS[r.sel.t] || 4) + (r.sel.t === "lastClicked" && r.sel.c !== undefined ? 2 : 0) + (OP_BITS[r.op.o] || 4) + (r.pre ? 3 : 0); }
 
   /* One transition: the rules consistent with it (they predict only events
      that happened) and which of its events each explains. */
   function explainTransition(t) {
     if (t._ex) return t._ex;
     var keys = t.ev.map(P.evKey), keySet = new Set(keys), cands = new Map();
+    function tryRule(sel, op) {
+      var rule = { sel: sel, op: op }, rk = selKey(sel) + "|" + opKey(op);
+      if (cands.has(rk)) return;
+      var pe = predictedEvents(t, rule);
+      if (!pe.length || !pe.every(function (k) { return keySet.has(k); })) return;
+      rule.key = rk; rule.bits = ruleBits(rule); rule.covers = pe;
+      cands.set(rk, rule);
+    }
     t.ev.forEach(function (e) {
-      if (!e.p) return;
+      if (!e.p || e.t === "tint") return;
       selectorsFor(t.S0, e.p.id, t.cx).forEach(function (sel) {
-        opsFor(e, t.S0).forEach(function (op) {
-          var rule = { sel: sel, op: op }, rk = selKey(sel) + "|" + opKey(op);
-          if (cands.has(rk)) return;
-          var pe = predictedEvents(t, rule);
-          if (!pe.length || !pe.every(function (k) { return keySet.has(k); })) return;
-          rule.key = rk; rule.bits = ruleBits(rule); rule.covers = pe;
-          cands.set(rk, rule);
-        });
+        opsFor(e, t.S0).forEach(function (op) { tryRule(sel, op); });
       });
     });
+    /* appearances: a spawn anchored on the clicked or last-clicked object */
+    t.ev.forEach(function (e) {
+      if (e.t !== "spawn") return;
+      [["clicked", t.cx.k], ["lastClicked", t.cx.lc]].forEach(function (an) {
+        var a = an[1] >= 0 ? t.S0.objs[an[1]] : null; if (!a) return;
+        tryRule({ t: an[0] }, { o: "spawn", color: e.n.color, shape: e.n.shape, dr: e.n.r0 - a.r0, dc: e.n.c0 - a.c0 });
+      });
+    });
+    /* the clicked cell alone (second segmentation) */
+    if (t.cx.cell >= 0 && t.g1) {
+      var c = t.cx.cell, W = t.S0.W, v0 = t.S0.g[(c / W) | 0][c % W], v1 = t.g1[(c / W) | 0][c % W];
+      if (v0 !== v1) (v1 === t.S0.bg ? [{ o: "delete" }] : [{ o: "recolor", to: v1 }, { o: "swapcol", a: v0, b: v1 }]).forEach(function (op) { tryRule({ t: "cell" }, op); });
+    }
     t._ex = { keys: keys, cands: cands };
     return t._ex;
   }
@@ -452,13 +585,13 @@
        only when it is a function */
     var bySel = {};
     trs.forEach(function (t, i) {
-      t.ev.forEach(function (e) {
-        if (e.t !== "recolor") return;
-        ex[i].cands.forEach(function (r) {
-          if (r.op.o !== "recolor" && r.op.o !== "swapcol") return;
-          if (select(t.S0, r.sel, t.cx).indexOf(e.p.id) < 0) return;
-          var sk = selKey(r.sel), m = bySel[sk] || (bySel[sk] = { sel: r.sel, m: {}, bad: false });
-          if (m.m[e.from] !== undefined && m.m[e.from] !== e.to) m.bad = true; else m.m[e.from] = e.to;
+      ex[i].cands.forEach(function (r) {
+        if (r.op.o !== "recolor") return;
+        var sk = selKey(r.sel), m = bySel[sk] || (bySel[sk] = { sel: r.sel, m: {}, bad: false });
+        select(t.S0, r.sel, t.cx).forEach(function (id) {
+          var from = objOf(t.S0, id, t.cx).color;
+          if (from === r.op.to) return;
+          if (m.m[from] !== undefined && m.m[from] !== r.op.to) m.bad = true; else m.m[from] = r.op.to;
         });
       });
     });
@@ -467,14 +600,17 @@
       var rule = { sel: b.sel, op: { o: "map", m: b.m } }; rule.key = selKey(rule.sel) + "|" + opKey(rule.op); rule.bits = ruleBits(rule);
       if (!pool.has(rule.key)) pool.set(rule.key, rule);
     });
-    var rules = [];
+    /* a rule may be contradicted by a few transitions (unmodelled
+       exceptions, misperceived contacts): tolerated, at a description-length
+       cost, so one odd observation cannot erase a context's program */
+    var rules = [], tol = trs.length >= 4 ? Math.max(1, Math.floor(trs.length / 8)) : 0;
     pool.forEach(function (r) {
-      var ok = true, covers = [];
-      for (var i = 0; i < trs.length && ok; i++) {
+      var bad = 0, covers = [];
+      for (var i = 0; i < trs.length && bad <= tol; i++) {
         var keySet = new Set(ex[i].keys), pe = ex[i].cands.has(r.key) ? ex[i].cands.get(r.key).covers : predictedEvents(trs[i], r);
-        if (!pe.every(function (k) { return keySet.has(k); })) ok = false; else covers.push(pe);
+        if (!pe.every(function (k) { return keySet.has(k); })) { bad++; covers.push([]); } else covers.push(pe);
       }
-      if (ok) rules.push({ rule: r, covers: covers });
+      if (bad <= tol) rules.push({ rule: r, covers: covers, bad: bad });
     });
     /* greedy covers: most new events per bit; up to 3 alternatives by
        excluding the first pick of the previous cover */
@@ -486,7 +622,7 @@
         rules.forEach(function (rc) {
           if (banned.has(rc.rule.key) || chosen.indexOf(rc) >= 0) return;
           var gain = 0; rc.covers.forEach(function (pe, i) { pe.forEach(function (k) { if (left[i].has(k)) gain++; }); });
-          var sc = gain / rc.rule.bits;
+          var sc = gain / (rc.rule.bits + 4 * rc.bad);
           if (gain && sc > bs) { bs = sc; best = rc; }
         });
         if (!best) break;
@@ -494,39 +630,58 @@
       }
       var complete = left.every(function (s) { return !s.size; });
       if (!chosen.length && !complete) break;
-      var key = chosen.map(function (c) { return c.rule.key; }).sort().join("&");
-      if (!out.some(function (o) { return o.key === key; })) out.push({ key: key, rules: chosen.map(function (c) { return c.rule; }), complete: complete, bits: chosen.reduce(function (a, c) { return a + c.rule.bits; }, 0) });
+      var key = chosen.map(function (c) { return c.rule.key; }).sort().join("&"), tot = 0, unexpl = 0;
+      need.forEach(function (k, i) { tot += k.length; unexpl += left[i].size; });
+      if (!out.some(function (o) { return o.key === key; })) out.push({ key: key, rules: chosen.map(function (c) { return c.rule; }), complete: complete, cov: tot ? 1 - unexpl / tot : 1, bits: chosen.reduce(function (a, c) { return a + c.rule.bits + 4 * c.bad; }, 0) });
       if (!chosen.length) break;
       banned.add(chosen[0].rule.key);
     }
-    if (!out.length) out.push({ key: "", rules: [], complete: need.every(function (k) { return !k.length; }), bits: 0 });
+    if (!out.length) { var none = need.every(function (k) { return !k.length; }); out.push({ key: "", rules: [], complete: none, cov: none ? 1 : 0, bits: 0 }); }
     out.sort(function (a, b) { return (b.complete - a.complete) || (a.bits - b.bits); });
     return { covers: out, complete: out[0].complete };
   }
 
-  root.C4Arc3AgentModel = { select: select, simulate: simulate, applyOp: applyOp, explainTransition: explainTransition, induceContext: induceContext,
-    predictedEvents: predictedEvents, selKey: selKey, opKey: opKey, rayNbrs: rayNbrs };
+  root.C4Arc3AgentModel = { invHas: invHas, invAdd: invAdd, select: select, simulate: simulate, applyOp: applyOp, explainTransition: explainTransition, induceContext: induceContext,
+    predictedEvents: predictedEvents, selKey: selKey, opKey: opKey, rayNbrs: rayNbrs, objOf: objOf };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
 /* ================================================================== AGENT */
 (function (root) {
   "use strict";
-  var P = root.C4Arc3AgentParts, M = root.C4Arc3AgentModel;
+  var P = root.C4Arc3AgentParts, M = root.C4Arc3AgentModel, invHas = M.invHas, invAdd = M.invAdd;
+  function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
 
   /* ------------------------------------------------------- goal grammar
      Hypotheses about the level's win condition, instantiated on the state:
-       clear(c)          no cell of colour c remains (collect, cover, erase,
-                         reach: an avatar standing on the goal hides it)
+       clear(c)          no cell of colour c remains, visible or hidden
+                         under an actor (collect, erase, cover with an object)
+       reach(c)          an actor stands on colour c
+       clear2(a,b)       both colours gone (conjunctions)
+       align(ax,a,b)     the single objects of colours a and b line up on an
+                         edge or centre (gauges, counters, sliders)
+       count(a,b)        as many cells of colour a as of colour b
        match(A,B,mode)   panel B reproduces panel A: exactly, or as the mask
                          of one colour (templates, targets, patterns)
-     Panels come from separator lines (a full row/column of one colour). */
+     Actors are the objects the simple actions move; the underlay (what
+     movers cover) comes from the latent state. Panels come from separator
+     lines (a full row/column of one colour). */
+  /* separator rows / columns of the play box: uniform, not background */
+  function separators(S) {
+    if (S._seps) return S._seps;
+    var g = S.g, b = S.box, r, c, x, y, seps = { rows: [], cols: [] };
+    for (r = b[0]; r <= b[2]; r++) { var v = g[r][b[1]], ok = v !== S.bg && v !== S.frame; for (x = b[1]; x <= b[3] && ok; x++) if (g[r][x] !== v) ok = false; if (ok) seps.rows.push(r); }
+    for (c = b[1]; c <= b[3]; c++) { var u = g[b[0]][c], ok2 = u !== S.bg && u !== S.frame; for (y = b[0]; y <= b[2] && ok2; y++) if (g[y][c] !== u) ok2 = false; if (ok2) seps.cols.push(c); }
+    /* a separator splits the box: the box's own edges are not separators */
+    if (seps.rows.length === b[2] - b[0] + 1) seps.rows = [];
+    if (seps.cols.length === b[3] - b[1] + 1) seps.cols = [];
+    S._seps = seps;
+    return seps;
+  }
   function panels(S) {
-    var H = S.H, W = S.W, g = S.g, out = [], r, c, seps = { rows: [], cols: [] };
-    for (r = 0; r < H; r++) { var v = g[r][0]; if (v !== S.bg && v !== S.frame && g[r].every(function (x) { return x === v; })) seps.rows.push(r); }
-    for (c = 0; c < W; c++) { var u = g[0][c]; if (u !== S.bg && u !== S.frame && g.every(function (row) { return row[c] === u; })) seps.cols.push(c); }
-    function bands(list, n) { var b = [], s = 0; list.concat([n]).forEach(function (x) { if (x - s >= 1) b.push([s, x - 1]); s = x + 1; }); return b; }
-    if (seps.rows.length) { var br = bands(seps.rows, H); for (var i = 0; i < br.length; i++) for (var j = 0; j < br.length; j++) if (i !== j && br[i][1] - br[i][0] === br[j][1] - br[j][0]) out.push({ A: [br[i][0], 0, br[i][1], W - 1], B: [br[j][0], 0, br[j][1], W - 1] }); }
-    if (seps.cols.length) { var bc = bands(seps.cols, W); for (var i2 = 0; i2 < bc.length; i2++) for (var j2 = 0; j2 < bc.length; j2++) if (i2 !== j2 && bc[i2][1] - bc[i2][0] === bc[j2][1] - bc[j2][0]) out.push({ A: [0, bc[i2][0], H - 1, bc[i2][1]], B: [0, bc[j2][0], H - 1, bc[j2][1]] }); }
+    var b = S.box, out = [], seps = separators(S);
+    function bands(list, lo, hi) { var res = [], s = lo; list.concat([hi + 1]).forEach(function (x) { if (x - s >= 1) res.push([s, x - 1]); s = x + 1; }); return res; }
+    if (seps.rows.length) { var br = bands(seps.rows, b[0], b[2]); for (var i = 0; i < br.length; i++) for (var j = 0; j < br.length; j++) if (i !== j && br[i][1] - br[i][0] === br[j][1] - br[j][0]) out.push({ A: [br[i][0], b[1], br[i][1], b[3]], B: [br[j][0], b[1], br[j][1], b[3]] }); }
+    if (seps.cols.length) { var bc = bands(seps.cols, b[1], b[3]); for (var i2 = 0; i2 < bc.length; i2++) for (var j2 = 0; j2 < bc.length; j2++) if (i2 !== j2 && bc[i2][1] - bc[i2][0] === bc[j2][1] - bc[j2][0]) out.push({ A: [b[0], bc[i2][0], b[2], bc[i2][1]], B: [b[0], bc[j2][0], b[2], bc[j2][1]] }); }
     return out;
   }
   function regionDiff(S, A, B, mode, col) {
@@ -539,75 +694,194 @@
     return d;
   }
   function colorsOf(S) { var s = {}; S.objs.forEach(function (o) { s[o.color] = (s[o.color] || 0) + o.n; }); return s; }
-  function goalHyps(S) {
-    var hs = [], cols = colorsOf(S);
-    Object.keys(cols).forEach(function (c) { hs.push({ key: "clear:" + c, type: "clear", c: +c, prior: 1 }); });
+  var AXES = ["r0", "r1", "c0", "c1", "cr", "cc"];
+  function goalHyps(S, actors, seen) {
+    var hs = [], cols = colorsOf(S), hasActor = actors && Object.keys(actors).length;
+    /* colours seen earlier in the level count too: a goal colour may be
+       hidden, collected or gone by the time its hypothesis matters */
+    if (seen) Object.keys(seen).forEach(function (c) { cols[c] = Math.max(cols[c] || 0, seen[c]); });
+    var keys = Object.keys(cols).filter(function (c) { return !(actors && actors[c]); });
+    keys.forEach(function (c) {
+      /* smaller colour classes are likelier targets than walls and floors */
+      var pr = 1 / (1 + Math.log(1 + cols[c]) / 2);
+      hs.push({ key: "clear:" + c, type: "clear", c: +c, prior: pr });
+      if (hasActor) hs.push({ key: "reach:" + c, type: "reach", c: +c, prior: pr });
+    });
+    keys.forEach(function (a, i) { keys.slice(i + 1).forEach(function (b) {
+      hs.push({ key: "clear2:" + a + "," + b, type: "clear2", a: +a, b: +b, prior: 0.3 });
+      hs.push({ key: "count:" + a + "," + b, type: "count", a: +a, b: +b, prior: 0.1 });
+    }); });
+    var single = keys.filter(function (c) { return S.objs.filter(function (o) { return o.color === +c; }).length === 1; });
+    single.forEach(function (a, i) { single.slice(i + 1).forEach(function (b) {
+      AXES.forEach(function (ax) { hs.push({ key: "align:" + ax + ":" + a + "," + b, type: "align", ax: ax, a: +a, b: +b, prior: 0.2 }); });
+    }); });
+    /* pairs(a,b): the objects of colour b, in reading order, take the
+       shapes of the objects of colour a (templates, orientations, copies) */
+    var nObj = {}; S.objs.forEach(function (o) { nObj[o.color] = (nObj[o.color] || 0) + 1; });
+    keys.forEach(function (a) { keys.forEach(function (b) {
+      if (a === b || !nObj[a] || nObj[a] !== nObj[b]) return;
+      hs.push({ key: "pairs:" + a + "," + b, type: "pairs", a: +a, b: +b, prior: 0.6 });
+    }); });
+    /* matching: exact when both panels use the same colours; as a mask of
+       colour c when c is the workspace's own colour (absent from the
+       template) */
+    function colsIn(R) { var s = {}; for (var r = R[0]; r <= R[2]; r++) for (var c = R[1]; c <= R[3]; c++) if (S.g[r][c] !== S.bg) s[S.g[r][c]] = 1; return s; }
     panels(S).forEach(function (pp, i) {
-      hs.push({ key: "match:exact:" + pp.A + ">" + pp.B, tkey: "match:exact", type: "match", mode: "exact", A: pp.A, B: pp.B, prior: 3 });
-      Object.keys(cols).forEach(function (c) { hs.push({ key: "match:mask:" + c + ":" + pp.A + ">" + pp.B, tkey: "match:mask:" + c, type: "match", mode: "mask", col: +c, A: pp.A, B: pp.B, prior: 2 }); });
+      var ca = colsIn(pp.A), cb = colsIn(pp.B), same = Object.keys(cb).every(function (c) { return ca[c]; }) && Object.keys(ca).length > 0;
+      hs.push({ key: "match:exact:" + pp.A + ">" + pp.B, tkey: "match:exact", type: "match", mode: "exact", A: pp.A, B: pp.B, prior: same ? 3 : 0.3 });
+      Object.keys(cols).forEach(function (c) { hs.push({ key: "match:mask:" + c + ":" + pp.A + ">" + pp.B, tkey: "match:mask:" + c, type: "match", mode: "mask", col: +c, A: pp.A, B: pp.B, prior: cb[c] && !ca[c] ? 2 : 0.3 }); });
     });
     hs.forEach(function (h) { if (!h.tkey) h.tkey = h.key; });
     return hs;
   }
-  function goalDist(S, h) {
-    if (h.type === "clear") { var n = 0; S.objs.forEach(function (o) { if (o.color === h.c) n += o.n; }); return n; }
+  function cellsOf(S, c) { var n = 0; S.objs.forEach(function (o) { if (o.color === c) n += o.n; }); return n; }
+  function goalDist(S, h, lat) {
+    var under = (lat && lat.under) || {}, actors = (lat && lat.actors) || {}, W = S.W;
+    function hiddenUnderActor(c) { var n = 0; for (var i in under) if (under[i] === c && actors[S.g[(i / W) | 0][i % W]]) n++; return n; }
+    if (h.type === "clear") return cellsOf(S, h.c) + hiddenUnderActor(h.c);
+    if (h.type === "clear2") return cellsOf(S, h.a) + hiddenUnderActor(h.a) + cellsOf(S, h.b) + hiddenUnderActor(h.b);
+    if (h.type === "count") return Math.abs(cellsOf(S, h.a) - cellsOf(S, h.b));
+    if (h.type === "reach") {
+      if (hiddenUnderActor(h.c)) return 0;
+      var act = [], tgt = [], best = Infinity;
+      S.objs.forEach(function (o) { if (actors[o.color]) act = act.concat(o.cells); else if (o.color === h.c) tgt = tgt.concat(o.cells); });
+      for (var i in under) if (under[i] === h.c) tgt.push(+i);
+      if (!act.length || !tgt.length) return Infinity;
+      act.forEach(function (a) { tgt.forEach(function (b) { var d = Math.abs(((a / W) | 0) - ((b / W) | 0)) + Math.abs(a % W - b % W); if (d < best) best = d; }); });
+      return best;
+    }
+    if (h.type === "align") {
+      var A = null, B = null;
+      S.objs.forEach(function (o) { if (o.color === h.a) A = A ? false : o; else if (o.color === h.b) B = B ? false : o; });
+      if (!A || !B) return Infinity;
+      return Math.round(Math.abs(A[h.ax] - B[h.ax]));
+    }
+    if (h.type === "pairs") {
+      var As = [], Bs = [];
+      S.objs.forEach(function (o) { if (o.color === h.a) As.push(o); else if (o.color === h.b) Bs.push(o); });
+      if (As.length !== Bs.length || !As.length) return Infinity;
+      function ord(x, y) { return x.c0 - y.c0 || x.r0 - y.r0; }
+      As.sort(ord); Bs.sort(ord);
+      var dd = 0; As.forEach(function (o, i) { if (o.shape !== Bs[i].shape) dd++; });
+      return dd;
+    }
     if (h.type === "match") return regionDiff(S, h.A, h.B, h.mode, h.col);
     return Infinity;
   }
 
   /* ------------------------------------------------------------- agent */
+  /* ------------------------------------------- navigation specialist
+     The previous agent (c4-arc3-world.js: avatar, walls, goals, hazards,
+     frontier options) runs in the shadow on every frame and is consulted
+     only when the program under discovery shows actor navigation and this
+     agent has neither a plan nor an informative experiment. */
+  function NavigationSpecialist(acts) {
+    var W = root.C4Arc3World || (typeof require === "function" ? (function () { try { return require("./c4-arc3-world.js"); } catch (e) { return null; } })() : null);
+    this.ok = !!(W && acts.length); this.acts = acts;
+    if (this.ok) this.agent = new W.Agent(acts, {});
+  }
+  NavigationSpecialist.prototype.observe = function (frame, info) { if (this.ok && frame) this.agent.observe(frame, info || {}); };
+  NavigationSpecialist.prototype.nextLevel = function () { if (this.ok) this.agent.nextLevel(); };
+  NavigationSpecialist.prototype.restart = function () { if (this.ok) { this.agent.prev = null; this.agent.lastAction = null; } };
+  NavigationSpecialist.prototype.suggest = function () { if (!this.ok || !this.agent.prev) return null; var a = this.agent.act(); return typeof a === "number" ? a : null; };
+  /* the action actually taken, whoever chose it */
+  NavigationSpecialist.prototype.taken = function (id) { if (this.ok) this.agent.lastAction = this.acts.indexOf(id) >= 0 ? id : null; };
+
   function Agent(opts) {
     this.opts = opts || {};
     this.cfg = {
       ig: this.opts.ig !== false, goals: this.opts.goals !== false, memory: this.opts.memory !== false,
       plan: this.opts.plan !== false, latent: this.opts.latent !== false, ticks: this.opts.ticks !== false,
+      physics: this.opts.physics !== false, experiments: this.opts.experiments !== false, spec: this.opts.spec !== false,
       maxNodes: this.opts.maxNodes || 1500
     };
-    this.stats = { predicted: 0, correct: 0, byK: {}, contextsTried: 0, goalConfirmedAt: null, modeLog: [] };
+    this.stats = { predicted: 0, correct: 0, byK: {}, contextsTried: 0, goalConfirmedAt: null, modeLog: [], predLog: [] };
   }
+  function freshPhys() { return { pass: {}, deadly: {}, tint: {}, solid: {}, deadN: {} }; }
   Agent.prototype.start = function (info) {
     this.avail = (info.available_actions || [1, 2, 3, 4, 5, 6]).slice();
     this.simple = this.avail.filter(function (a) { return a !== 6 && a !== 0; });
     this.canClick = this.avail.indexOf(6) >= 0;
     this.trs = [];            /* all transitions of the game (every level) */
-    this.death = {};          /* context -> game-over count */
+    this.death = {};          /* context -> game-over count no contact explains */
+    this.useN = {};           /* context -> times used (whole game) */
     this.goalW = {};          /* goal template -> weight (persists across levels) */
     this.goalConfirmed = {};  /* template -> times it held at a level completion */
+    this.phys = freshPhys();  /* contact model, learned from events, kept across levels */
+    this.physV = 0;
+    this.spec = this.cfg.spec ? new NavigationSpecialist(this.simple.filter(function (a) { return a >= 1 && a <= 5; })) : null;
     this.level = 0; this.nInLevel = 0;
     this.newLevel();
   };
   Agent.prototype.newLevel = function () {
     this.L = new P.Lattice(); this.S = null; this.last = null; this.plan = null;
     this.counts = {}; this.lc = null; this.vel = {}; this.levelSteps = 0;
-    this.refuted = {};
+    this.under = {}; this.inv = []; this.levelCols = {}; this.startS = null; this.levelResets = 0;
+    this.refuted = {}; this.noPlan = {};
     this.cache = {};
-    if (!this.cfg.memory) { this.trs = []; this.goalW = {}; this.goalConfirmed = {}; this.death = {}; }
+    if (!this.cfg.memory) { this.trs = []; this.goalW = {}; this.goalConfirmed = {}; this.death = {}; this.phys = freshPhys(); this.physV++; }
   };
   Agent.prototype.perceive = function (f) {
     var lg = this.L.logical(f), bi = P.background(lg);
     return P.parse(lg, bi);
   };
   /* ---------------------------------------------------- contexts */
-  Agent.prototype.ctxKeys = function (S, a, k) {
-    if (a !== 6) return ["a:" + a];
-    if (k < 0) return ["kbg"];
-    var o = S.objs[k]; return ["k:" + o.cls, "kc:" + o.color, "k*"];
+  /* a click's context: the clicked class, colour, or any click, each also
+     within the separator band clicked (panels of one screen often behave
+     differently) */
+  Agent.prototype.region = function (S, cell) {
+    var sp = separators(S);
+    if (!sp.rows.length && !sp.cols.length) return "";
+    var y = (cell / S.W) | 0, x = cell % S.W, br = 0, bc = 0;
+    sp.rows.forEach(function (r) { if (y > r) br++; }); sp.cols.forEach(function (c) { if (x > c) bc++; });
+    return "@" + br + "," + bc;
   };
-  Agent.prototype.features = function (key) {
-    var f = { occ: (this.counts[key] || 0) % 2, sel: this.lc ? 1 : 0 };
-    var self = this; this.simple.forEach(function (a) { f["par:" + a] = (self.counts["a:" + a] || 0) % 2; });
+  Agent.prototype.ctxKeys = function (S, a, k, cell) {
+    if (a !== 6) return ["a:" + a];
+    if (k < 0) { var rb = cell >= 0 ? this.region(S, cell) : ""; return rb ? ["kbg" + rb, "kbg"] : ["kbg"]; }
+    var o = S.objs[k], rg = cell >= 0 ? this.region(S, cell) : "";
+    return rg ? ["k:" + o.cls + rg, "k:" + o.cls, "kc:" + o.color + rg, "kc:" + o.color, "k*" + rg, "k*"] : ["k:" + o.cls, "kc:" + o.color, "k*"];
+  };
+  /* latent features of a context: own occurrence parity, whether something
+     is selected, the parity of every simple action (modes, toggles) */
+  Agent.prototype.features = function (key, lat) {
+    var counts = lat ? lat.counts : this.counts, sel = lat ? !!lat.lc : !!this.lc;
+    var f = { occ: (counts[key] || 0) % 2, sel: sel ? 1 : 0 };
+    this.simple.forEach(function (a) { f["par:" + a] = (counts["a:" + a] || 0) % 2; });
     return f;
   };
   /* follow the last-clicked object through moves / rotations / recolours */
-  Agent.prototype.lcIndex = function (S) {
-    if (!this.lc) return -1;
-    var lc = this.lc, best = -1, bd = Infinity;
+  Agent.prototype.lcIndex = function (S, desc) {
+    var lc = desc === undefined ? this.lc : desc;
+    if (!lc) return -1;
+    var best = -1, bd = Infinity;
     S.objs.forEach(function (o) {
-      if (o.cls.split("/")[1] !== lc.canon && o.color !== lc.color) return;
+      if (o.canon !== lc.canon && o.color !== lc.color) return;
       var d = Math.abs(o.cr - lc.cr) + Math.abs(o.cc - lc.cc);
       if (d < bd) { bd = d; best = o.id; }
     });
     return bd <= 3 ? best : -1;
+  };
+  function lcDesc(o) { return o ? { canon: o.canon, color: o.color, cr: o.cr, cc: o.cc } : null; }
+  /* actors: colours a simple action's own rules move (not ticks, not
+     objects pushed along by contact) */
+  Agent.prototype.actorColors = function () {
+    if (this.cache.actors) return this.cache.actors;
+    var act = {}, self = this;
+    this.cache.actors = act;   /* guards re-entry while models are induced */
+    this.simple.forEach(function (a) {
+      var m = self.model("a:" + a); if (!m.n) return;
+      var covers = m.split ? Object.keys(m.split.parts).map(function (v) { return m.split.parts[v].covers[0]; }) : [m.plain.covers[0]];
+      covers.forEach(function (cv) { (cv ? cv.rules : []).forEach(function (r) {
+        if (["move", "slide", "moveTo"].indexOf(r.op.o) < 0) return;
+        if (r.sel.t === "color") act[r.sel.c] = 1; else if (r.sel.t === "cls") act[+r.sel.k.split("/")[0]] = 1;
+      }); });
+    });
+    return act;
+  };
+  /* the agent's latent state, as the planner carries it */
+  Agent.prototype.curLat = function () {
+    return { counts: this.counts, lc: this.lc, vel: this.vel, under: this.under, inv: this.inv, actors: this.actorColors(), opt: null };
   };
   Agent.prototype.velocities = function (ev) {
     var v = {};
@@ -641,7 +915,7 @@
     var tk = new Set();
     ticks.forEach(function (r) { M.predictedEvents(t, r).forEach(function (k) { tk.add(k); }); });
     if (!tk.size) return t;
-    if (!t._res || t._resN !== ticks.length) { t._res = { S0: t.S0, a: t.a, cx: t.cx, ev: t.ev.filter(function (e) { return !tk.has(P.evKey(e)); }), f: t.f, keys: t.keys, _pe: t._pe }; t._resN = ticks.length; }
+    if (!t._res || t._resN !== ticks.length) { t._res = { S0: t.S0, a: t.a, cx: t.cx, ev: t.ev.filter(function (e) { return !tk.has(P.evKey(e)); }), g1: t.g1, f: t.f, keys: t.keys, _pe: t._pe }; t._resN = ticks.length; }
     return t._res;
   };
   /* a context's model: plain covers, or a latent split when the plain
@@ -666,24 +940,42 @@
   };
   /* rules for acting in state S with action a on object k: from the most
      specific observed context; null = unknown */
-  Agent.prototype.rulesFor = function (S, a, k, alt) {
-    var keys = this.ctxKeys(S, a, k), self = this;
+  Agent.prototype.rulesFor = function (S, a, k, alt, lat, cell) {
+    var keys = this.ctxKeys(S, a, k, cell);
     for (var i = 0; i < keys.length; i++) {
       var m = this.model(keys[i]);
       if (!m.n) continue;
-      if (m.split) { var fv = this.features(keys[i])[m.split.f], part = m.split.parts[fv]; if (part) return { key: keys[i], rules: part.covers[Math.min(alt || 0, part.covers.length - 1)].rules, complete: true, split: m.split.f, alts: part.covers.length }; continue; }
-      if (m.plain.complete || i === keys.length - 1) return { key: keys[i], rules: m.plain.covers[Math.min(alt || 0, m.plain.covers.length - 1)].rules, complete: m.plain.complete, alts: m.plain.covers.length };
+      if (m.split) { var fv = this.features(keys[i], lat)[m.split.f], part = m.split.parts[fv]; if (part) { var pc = part.covers[Math.min(alt || 0, part.covers.length - 1)]; return { key: keys[i], rules: pc.rules, complete: true, cov: 1, split: m.split.f, alts: part.covers.length }; } continue; }
+      if (m.plain.complete || i === keys.length - 1) { var cv = m.plain.covers[Math.min(alt || 0, m.plain.covers.length - 1)]; return { key: keys[i], rules: cv.rules, complete: m.plain.complete, cov: cv.cov === undefined ? (m.plain.complete ? 1 : 0) : cv.cov, alts: m.plain.covers.length }; }
     }
     return null;
   };
-  /* predicted next state (grid) of one action, or null when unknown */
-  Agent.prototype.predictState = function (S, a, k, alt, ctxOverride) {
-    var rs = this.rulesFor(S, a, k, alt);
+  /* the clicked cell of a click candidate: an object's middle cell, or a
+     background cell (encoded k = -10 - cell) */
+  function clickCell(S, k) { if (k <= -10) return -10 - k; var o = S.objs[k]; return o ? o.cells[Math.floor(o.cells.length / 2)] : -1; }
+  /* Predicted next state of one action from a latent state, or null when
+     the action's context was never observed. The latent state (selection,
+     action parities, velocities, underlay, inventory) is advanced with it,
+     so plans can run through modes, selections, moving objects and
+     inventories. extra: { optimistic: {colour: 1}, allPass } */
+  Agent.prototype.predictState = function (S, a, k, alt, lat, extra) {
+    lat = lat || this.curLat();
+    var cell = a === 6 && k >= 0 ? clickCell(S, k) : -1;
+    var rs = this.rulesFor(S, a, k, alt, lat, cell);
     if (!rs) return null;
-    var cx = ctxOverride || { k: k, lc: this.lcIndex(S), vel: this.vel }, applied = [];
+    var lci = this.lcIndex(S, lat.lc);
+    var cx = { k: k, lc: lci, vel: lat.vel, cell: cell, phys: this.cfg.physics ? this.phys : null, under: lat.under, inv: lat.inv,
+               optimistic: (extra && extra.optimistic) || lat.opt, allPass: extra && extra.allPass }, applied = [];
     rs.rules.forEach(function (r) { var ids = M.select(S, r.sel, cx); if (ids.length) applied.push({ rule: r, objs: ids }); });
-    this.ticks().forEach(function (r) { var ids = M.select(S, r.sel, cx); if (ids.length) applied.push({ rule: r, objs: ids }); });
-    return { g: M.simulate(S, applied, cx), known: rs.complete, key: rs.key, alts: rs.alts };
+    this.ticks().forEach(function (r) { var ids = M.select(S, r.sel, cx); if (ids.length) applied.push({ rule: r, objs: ids, tick: true }); });
+    var g = M.simulate(S, applied, cx), out = cx.out;
+    /* the next latent state */
+    var counts = {}, key; for (key in lat.counts) counts[key] = lat.counts[key];
+    this.ctxKeys(S, a, k, cell).forEach(function (q) { counts[q] = (counts[q] || 0) + 1; });
+    var lc = lat.lc;
+    if (a === 6 && k >= 0) lc = lcDesc(S.objs[k]);
+    var lat2 = { counts: counts, lc: lc, vel: out.vel, under: out.under, inv: out.inv, actors: lat.actors, opt: lat.opt };
+    return { g: g, known: rs.complete, cov: rs.cov, key: rs.key, alts: rs.alts, lat: lat2, dead: out.dead, into: out.into, contacts: out.contacts, pushed: out.pushed || 0, cell: cell };
   };
 
   /* ---------------------------------------------------- observe */
@@ -692,176 +984,451 @@
     this.state = obs.state;
     if (!frames.length) return;
     var levelUp = (obs.levels_completed || 0) > this.level;
-    if (levelUp) {
-      /* the frame before the new level shows the winning configuration */
-      var winF = frames.length >= 2 ? frames[frames.length - 2] : null;
-      if (winF && this.S) { this.L.add(winF); this.confirmGoals(this.perceive(winF)); }
-      this.level = obs.levels_completed; this.newLevel();
-    }
     var f = frames[frames.length - 1];
+    if (levelUp) {
+      /* the frame before the new level shows the winning configuration: the
+         last action's transition is learned from it, then the goals */
+      var winF = obs.state === "WIN" ? f : frames.length >= 2 ? frames[frames.length - 2] : null;
+      if (winF && this.S) {
+        this.L.add(winF);
+        var Sw = this.perceive(winF);
+        if (this.last && this.last.a !== 0) this.record(Sw, false);
+        this.confirmGoals(Sw);
+      }
+      this.level = obs.levels_completed; this.newLevel();
+      if (this.spec) { this.spec.nextLevel(); if (obs.state !== "WIN") this.spec.observe(f, {}); }
+      if (obs.state === "WIN") return;
+    } else if (this.spec) this.spec.observe(f, { gameOver: obs.state === "GAME_OVER" });
     var relattice = this.L.add(f);
     var S = this.perceive(f);
     if (this.last && this.S && !levelUp && this.last.a !== 0) {
-      if (relattice) { this.S = this.perceive(this.last.frame); }
-      var t = { S0: this.S, a: this.last.a, cx: { k: this.last.k, lc: this.last.lc, vel: this.last.vel }, ev: P.events(this.S, S), f: this.last.f, keys: this.last.keys };
-      this.trs.push(t);
-      var cache = this.cache; t.keys.forEach(function (k) { delete cache[k]; }); delete cache.ticks;
-      if (t.ev.some(function (e) { return e.t === "move"; })) this.cache = {};
-      this.version = (this.version || 0) + 1;
-      /* prediction check */
-      if (this.last.pred) {
-        var ok = P.gkey(this.last.pred.g) === P.gkey(S.g), K = Math.min(16, this.trs.length);
-        this.stats.predicted++; if (ok) this.stats.correct++;
-        var b = this.stats.byK[K] || (this.stats.byK[K] = [0, 0]); b[1]++; if (ok) b[0]++;
-        this.lastPredOk = ok;
-      } else this.lastPredOk = null;
-      this.vel = this.velocities(t.ev);
-      /* follow the selection */
-      if (this.last.a === 6 && this.last.k >= 0) { var o = this.S.objs[this.last.k]; this.lc = { canon: o.canon, color: o.color, cr: o.cr, cc: o.cc }; }
-      var li = this.lcIndex(S); if (this.lc && li >= 0) { var lo = S.objs[li]; this.lc = { canon: lo.canon, color: lo.color, cr: lo.cr, cc: lo.cc }; }
-      if (obs.state === "GAME_OVER") this.last.keys.forEach(function (k) { this.death[k] = (this.death[k] || 0) + 1; }, this);
-      else this.refuteGoals(S);
+      if (relattice) this.S = this.perceive(this.last.frame);
+      this.record(S, obs.state === "GAME_OVER");
+      if (obs.state !== "GAME_OVER") this.refuteGoals(S);
     }
-    if (obs.state === "GAME_OVER") { this.plan = null; }
+    /* RESET restarts the level: its latent state starts over */
+    if (this.last && this.last.a === 0) {
+      this.under = {}; this.inv = []; this.counts = {}; this.lc = null; this.vel = {};
+      if (this.last.gk) this.planOk = this.last.gk === P.gkey(S.g); else this.plan = null;
+    }
+    if (!this.startS || levelUp || (this.last && this.last.a === 0)) this.startS = S;
+    if (obs.state === "GAME_OVER") this.plan = null;
+    var lc = this.levelCols, cc = colorsOf(S); Object.keys(cc).forEach(function (c) { lc[c] = Math.max(lc[c] || 0, cc[c]); });
     this.S = S; this.frame = f;
+  };
+  /* one transition: contact model first (it changes what rules predict),
+     then the rule evidence, the prediction check and the latent state */
+  Agent.prototype.record = function (S, gameOver) {
+    var L = this.last, S0 = this.S;
+    var t = { S0: S0, a: L.a, cx: { k: L.k, lc: L.lc, vel: L.vel, cell: L.cell, phys: this.cfg.physics ? this.phys : null, under: L.under, inv: L.inv },
+              ev: P.events(S0, S), g1: S.g, f: L.f, keys: L.keys };
+    if (this.cfg.physics && this.learnPhysics(t, S)) this.physChanged();
+    this.trs.push(t);
+    var cache = this.cache; t.keys.forEach(function (k) { delete cache[k]; }); delete cache.ticks; delete cache.actors; delete cache.splitF; delete cache.silent; delete cache.bgActive;
+    if (t.ev.some(function (e) { return e.t === "move"; })) this.cache = {};
+    this.version = (this.version || 0) + 1;
+    t.keys.forEach(function (k) { this.ctxSeen[k] = 1; }, this);
+    /* prediction check (the model's own prediction, before the outcome) */
+    var gk = P.gkey(S.g);
+    if (L.pred) {
+      var ok = P.gkey(L.pred.g) === gk, K = Math.min(16, this.trs.length);
+      this.stats.predicted++; if (ok) this.stats.correct++;
+      var b = this.stats.byK[K] || (this.stats.byK[K] = [0, 0]); b[1]++; if (ok) b[0]++;
+      this.stats.predLog.push(ok ? 1 : 0);
+      this.lastPredOk = ok;
+    } else { this.lastPredOk = null; this.stats.predLog.push(-1); }
+    /* a plan step carries the planner's own expectation */
+    this.planOk = L.gk ? L.gk === gk : this.lastPredOk;
+    this.vel = this.velocities(t.ev);
+    /* follow the selection */
+    if (L.a === 6 && L.k >= 0) this.lc = lcDesc(S0.objs[L.k]);
+    var li = this.lcIndex(S); if (this.lc && li >= 0) this.lc = lcDesc(S.objs[li]);
+    if (gameOver) this.attributeDeath(t, L);
+  };
+  Agent.prototype.physChanged = function () {
+    this.physV++;
+    this.trs.forEach(function (u) { u._ex = null; u._pe = null; u._res = null; });
+    this.cache = {};
+  };
+  /* The contact model, learned from events directly: for every cell a
+     moving object entered, what became of what was there. Pushed along ->
+     push; still there, partly covered, or back when the mover leaves ->
+     hide; gone for good -> collect (the inventory grows); the mover changed
+     colour on arrival -> tint. A colour an actor pressed into without
+     entering -> solid at this inventory. The underlay (what movers cover)
+     is tracked as latent state. Returns whether the model changed. */
+  Agent.prototype.learnPhysics = function (t, S1) {
+    var ph = this.phys, S0 = t.S0, W = S0.W, changed = false, self = this, held = uniq(this.inv);
+    var byObj = {}, entered = {}, covered = {}, purge = [];
+    t.ev.forEach(function (e) { if (e.p && e.t !== "tint") byObj[e.p.id] = e; });
+    /* what a passage needs: the colours held at every successful entry,
+       once the colour has also been refused (a door before its key) */
+    function setPass(v, k) {
+      var p = ph.pass[v], succ = p && p.succ ? p.succ.filter(function (c) { return held.indexOf(c) >= 0; }) : held.slice();
+      var need = ph.solid[v] !== undefined ? succ : [];
+      if (p && p.k === k && p.succ && p.succ.join() === succ.join() && (p.need || []).join() === need.join()) return;
+      ph.pass[v] = { k: k, succ: succ, need: need };
+      if (ph.deadly[v]) delete ph.deadly[v];
+      changed = true;
+    }
+    t.ev.forEach(function (e) { if (e.t === "move") e.n.cells.forEach(function (c) { covered[c] = 1; }); });
+    t.ev.forEach(function (e) {
+      if (e.t !== "move") return;
+      var own = {}, arrive = [];
+      e.p.cells.forEach(function (c) { own[c] = 1; });
+      /* what the mover leaves: the underlay shows again, or not */
+      e.p.cells.forEach(function (c) {
+        if (covered[c] || self.under[c] === undefined) return;
+        var v = self.under[c], s1 = S1.g[(c / W) | 0][c % W];
+        if (s1 === v) setPass(v, "hide");
+        else if (s1 === S1.bg && (!ph.pass[v] || ph.pass[v].k === "hide")) { setPass(v, "collect"); self.inv = invAdd(self.inv, v); purge.push(v); }
+        delete self.under[c];
+      });
+      e.n.cells.forEach(function (c) {
+        if (own[c]) return;
+        var v0 = S0.g[(c / W) | 0][c % W], j = S0.at[c];
+        if (v0 === S0.bg || v0 === e.p.color || j < 0) return;
+        entered[v0] = 1; arrive.push(v0);
+        var ej = byObj[j];
+        if (ej && ej.t === "move" && ej !== e && ej.dr === e.dr && ej.dc === e.dc) { setPass(v0, "push"); return; }
+        var gone = ej && ej.t === "delete", rest = S0.objs[j].cells.filter(function (q) { return !covered[q]; }).length;
+        if (gone && rest > 0) { setPass(v0, "collect"); self.inv = invAdd(self.inv, v0); return; }      /* its uncovered part vanished too */
+        var known = ph.pass[v0];
+        if (known && known.k === "collect" && invHas(held, known.need) && gone) { self.inv = invAdd(self.inv, v0); return; }
+        if (!known || known.k !== "collect") { if (!known) setPass(v0, "hide"); }
+        self.under[c] = v0;                                                       /* covered, as far as we know */
+      });
+      if (e.recol !== undefined && arrive.length) arrive.forEach(function (v) { var k = e.p.color + ">" + v; if (ph.tint[k] !== e.recol) { ph.tint[k] = e.recol; changed = true; } });
+    });
+    /* a colour found to be collected was never lying under anything: past
+       transitions' underlay snapshots forget it */
+    if (purge.length) this.trs.concat([t]).forEach(function (u) {
+      var un = u.cx.under; if (!un) return;
+      var bad = Object.keys(un).filter(function (c) { return purge.indexOf(un[c]) >= 0; });
+      if (bad.length) { var cp = {}; Object.keys(un).forEach(function (c) { if (bad.indexOf(c) < 0) cp[c] = un[c]; }); u.cx.under = cp; }
+    });
+    /* pressed into a colour without entering it (blocked as predicted, or
+       refused although the model expected passage): refused while holding
+       this inventory; a passage believed open is now conditional on what
+       was held when it was taken, or unexplained */
+    (this.last.into || []).concat(this.last.enter || []).forEach(function (v) {
+      if (entered[v] || v === S0.bg) return;
+      if (!ph.solid[v] || ph.solid[v].join() !== held.join()) { ph.solid[v] = held.slice(); changed = true; }
+      var p = ph.pass[v];
+      if (p && invHas(held, p.need)) {
+        if (p.succ && !invHas(held, p.succ)) p.need = p.succ.slice(); else delete ph.pass[v];
+        changed = true;
+      }
+    });
+    return changed;
+  };
+  /* GAME_OVER: blame what an actor touched (per the model's prediction of
+     the step, and of the same step with every colour passable), else the
+     action's context */
+  Agent.prototype.attributeDeath = function (t, L) {
+    var actors = this.actorColors(), ph = this.phys, blamed = {}, self = this;
+    (L.touch || []).concat(L.pred && L.pred.contacts ? L.pred.contacts : []).forEach(function (c) {
+      var a = c[0], b = c[1];
+      if (actors[a] && !actors[b]) blamed[b] = 1; else if (actors[b] && !actors[a]) blamed[a] = 1;
+    });
+    var cols = Object.keys(blamed).filter(function (v) { return !(ph.pass[v] && ph.pass[v].k === "hide" && invHas(self.inv, ph.pass[v].need)); });
+    var notSolid = cols.filter(function (v) { return ph.solid[v] === undefined; });
+    if (notSolid.length) cols = notSolid;
+    if (this.cfg.physics && cols.length) {
+      cols.forEach(function (v) { ph.deadN[v] = (ph.deadN[v] || 0) + 1; ph.deadly[v] = true; if (ph.pass[v]) delete ph.pass[v]; });
+      this.physChanged();
+    } else L.keys.forEach(function (k) { self.death[k] = (self.death[k] || 0) + 1; });
   };
 
   /* ---------------------------------------------------- goals */
-  Agent.prototype.hyps = function (S) {
-    var hs = goalHyps(S), self = this;
+  Agent.prototype.hyps = function (S, lat) {
+    lat = lat || this.curLat();
+    var hs = goalHyps(S, lat.actors, this.levelCols), self = this;
     hs.forEach(function (h) {
       var w = self.goalW[h.tkey]; h.w = (w === undefined ? h.prior : w) * (self.refuted[h.key] ? 0.01 : 1);
       if (self.goalConfirmed[h.tkey]) h.w *= 20 * self.goalConfirmed[h.tkey];
       /* a hypothesis already true that has not ended the level is not it */
-      if (goalDist(S, h) === 0) h.w *= 0.01;
+      if (goalDist(S, h, lat) === 0) h.w *= 0.01;
     });
     return hs.sort(function (a, b) { return b.w - a.w; });
   };
   Agent.prototype.refuteGoals = function (S) {
-    var self = this;
-    goalHyps(S).forEach(function (h) { if (goalDist(S, h) === 0) self.refuted[h.key] = 1; });
+    var self = this, lat = this.curLat();
+    goalHyps(S, lat.actors, this.levelCols).forEach(function (h) { if (goalDist(S, h, lat) === 0) self.refuted[h.key] = 1; });
   };
   Agent.prototype.confirmGoals = function (Wst) {
-    var self = this, hs = goalHyps(Wst), held = hs.filter(function (h) { return goalDist(Wst, h) === 0; });
+    var self = this, lat = this.curLat(), hs = goalHyps(Wst, lat.actors, this.levelCols), held = hs.filter(function (h) { return goalDist(Wst, h, lat) === 0 && !self.refuted[h.key]; });
     if (!this.cfg.goals) return;
-    hs.forEach(function (h) { self.goalW[h.tkey] = (self.goalW[h.tkey] === undefined ? h.prior : self.goalW[h.tkey]) * (goalDist(Wst, h) === 0 ? 5 : 0.05); });
+    hs.forEach(function (h) { self.goalW[h.tkey] = (self.goalW[h.tkey] === undefined ? h.prior : self.goalW[h.tkey]) * (held.indexOf(h) >= 0 ? 5 : self.refuted[h.key] ? 0.5 : 0.05); });
     held.forEach(function (h) { self.goalConfirmed[h.tkey] = (self.goalConfirmed[h.tkey] || 0) + 1; });
     if (this.stats.goalConfirmedAt === null && held.length) this.stats.goalConfirmedAt = this.trs.length;
   };
 
   /* ---------------------------------------------------- candidate actions */
-  Agent.prototype.candidates = function (S) {
+  /* simple actions, and one click per object (its middle cell): semantic
+     targets, never raw pixels */
+  Agent.prototype.candidates = function (S, forPlan) {
     var out = [], self = this;
     this.simple.forEach(function (a) { out.push({ a: a, k: -1 }); });
-    if (this.canClick) {
-      var byCls = {};
-      S.objs.forEach(function (o) { if (o.n > S.H * S.W / 3) return; (byCls[o.cls] = byCls[o.cls] || []).push(o.id); });
-      Object.keys(byCls).forEach(function (c) { byCls[c].forEach(function (id) { out.push({ a: 6, k: id }); }); });
-    }
+    if (!this.canClick) return out;
+    S.objs.forEach(function (o) { if (o.n <= S.H * S.W / 3) out.push({ a: 6, k: o.id }); });
+    /* background cells of the play box too (a board of tiles may have its
+       commonest tile colour taken for background); a sample when large, and
+       for planning only once background clicks are known to do something */
+    if (forPlan && !this.bgActive()) return out;
+    var b = S.box, cells = [];
+    for (var r = b[0]; r <= b[2]; r++) for (var c = b[1]; c <= b[3]; c++) if (S.g[r][c] === S.bg) cells.push(r * S.W + c);
+    var stride = Math.max(1, Math.ceil(cells.length / 48));
+    for (var i = 0; i < cells.length; i += stride) out.push({ a: 6, k: -10 - cells[i] });
     return out;
+  };
+  /* do background clicks ever change anything? */
+  Agent.prototype.bgActive = function () {
+    if (this.cache.bgActive !== undefined) return this.cache.bgActive;
+    var act = this.trs.some(function (t) { return t.a === 6 && t.cx.k < 0 && t.ev.length; });
+    this.cache.bgActive = act;
+    return act;
   };
   Agent.prototype.toAction = function (S, c) {
     if (c.a !== 6) return { id: c.a };
-    var o = S.objs[c.k], cell = o.cells[Math.floor(o.cells.length / 2)], p = this.L.pixelOf((cell / S.W) | 0, cell % S.W);
+    var cell = clickCell(S, c.k), p = this.L.pixelOf((cell / S.W) | 0, cell % S.W);
     return { id: 6, x: p.x, y: p.y };
   };
   /* expected information: unknown contexts are worth most; known contexts
      with competing explanations that disagree here are worth the entropy
-     of their predictions; risky contexts are penalised */
-  Agent.prototype.infoGain = function (S, c) {
-    var keys = this.ctxKeys(S, c.a, c.k), m0 = this.model(keys[0]);
-    var risk = 0, self = this; keys.forEach(function (k) { if (self.death[k]) risk += 2 * self.death[k]; });
+     of their predictions; risky contexts (and predicted deaths) are
+     penalised */
+  Agent.prototype.infoGain = function (S, c, lat) {
+    var cell = c.a === 6 ? clickCell(S, c.k) : -1, keys = this.ctxKeys(S, c.a, c.k, cell), m0 = this.model(keys[0]);
+    var risk = this.banned(keys) ? 4 : 0, self = this; keys.forEach(function (k) { if (self.death[k]) risk += 0.5 * self.death[k] / (self.useN[k] || 1); });
     if (!m0.n) {
-      var generic = c.a === 6 ? this.rulesFor(S, c.a, c.k) : null;
+      var generic = c.a === 6 ? this.rulesFor(S, c.a, c.k, 0, lat, cell) : null;
       return { ig: generic && generic.complete ? 0.4 : 1.0, risk: risk + 0.05 };
     }
-    var rs = this.rulesFor(S, c.a, c.k);
-    if (!rs || rs.alts < 2) return { ig: rs && !rs.complete ? 0.3 : 0, risk: risk };
+    var rs = this.rulesFor(S, c.a, c.k, 0, lat, cell);
+    var p0 = rs ? this.predictState(S, c.a, c.k, 0, lat) : null;
+    if (p0 && p0.dead) risk += 5;
+    /* a known context never tried in the current latent configuration
+       (something selected or not, silent toggles flipped) may behave anew */
+    var nov = this.cfg.latent && c.a !== 6 && this.latentNovel(keys[0], lat) ? 0.5 : 0;
+    /* an action seen only doing nothing may have been blocked: retry it
+       where the actors' surroundings differ from every earlier try */
+    if (c.a !== 6 && rs && !rs.rules.length && this.isNavigation()) { var nb = this.blockNovel(keys[0], S); if (nb) nov = Math.max(nov, nb); }
+    if (!rs || rs.alts < 2) return { ig: Math.max(nov, rs && !rs.complete ? 0.3 * Math.max(0, 1 - m0.n / 6) : 0), risk: risk };
     var preds = {};
-    for (var alt = 0; alt < Math.min(3, rs.alts); alt++) { var p = this.predictState(S, c.a, c.k, alt); if (p) preds[P.gkey(p.g)] = 1; }
+    if (p0) preds[P.gkey(p0.g)] = 1;
+    for (var alt = 1; alt < Math.min(3, rs.alts); alt++) { var p = this.predictState(S, c.a, c.k, alt, lat); if (p) preds[P.gkey(p.g)] = 1; }
     var n = Object.keys(preds).length;
-    return { ig: n > 1 ? Math.log2(n) * 0.6 : 0, risk: risk };
+    return { ig: Math.max(nov, n > 1 ? Math.log2(n) * 0.6 : 0), risk: risk };
+  };
+  /* the colours around every actor (4 sides), a signature of what could
+     block a move */
+  Agent.prototype.surround = function (S) {
+    var act = this.actorColors(), W = S.W, H = S.H, sig = [];
+    S.objs.forEach(function (o) {
+      if (!act[o.color]) return;
+      var own = {}; o.cells.forEach(function (c) { own[c] = 1; });
+      [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (d) {
+        var cs = {};
+        o.cells.forEach(function (c) { var y = ((c / W) | 0) + d[0], x = c % W + d[1]; if (y < 0 || x < 0 || y >= H || x >= W) cs.edge = 1; else if (!own[y * W + x]) cs[S.g[y][x]] = 1; });
+        sig.push(Object.keys(cs).sort().join("."));
+      });
+    });
+    return sig.join("|");
+  };
+  Agent.prototype.blockNovel = function (key, S) {
+    var self = this, cur = this.surround(S), seen = false, n = 0;
+    this.trs.forEach(function (t) { if (t.keys.indexOf(key) >= 0) { n++; if (!seen && self.surround(t.S0) === cur) seen = true; } });
+    return seen || n >= 4 ? 0 : 0.6 / (1 + n);
+  };
+  /* silent simple actions (no visible effect so far): candidate mode
+     switches, whose parity is latent state */
+  Agent.prototype.silent = function () {
+    if (this.cache.silent) return this.cache.silent;
+    var self = this, out = this.simple.filter(function (a) { var m = self.model("a:" + a); return m.n && m.plain && m.plain.covers[0] && !m.plain.covers[0].rules.length; });
+    this.cache.silent = out;
+    return out;
+  };
+  Agent.prototype.latentSig = function (f, selColor) { return "s" + selColor + ":" + this.silent().map(function (a) { return f["par:" + a]; }).join(""); };
+  Agent.prototype.latentNovel = function (key, lat) {
+    var self = this, cur = this.latentSig(this.features(key, lat), lat.lc ? lat.lc.color : "-"), seen = false;
+    this.trs.forEach(function (t) { if (!seen && t.keys.indexOf(key) >= 0 && self.latentSig(t.f, t.cx.lc >= 0 && t.S0.objs[t.cx.lc] ? t.S0.objs[t.cx.lc].color : "-") === cur) seen = true; });
+    return !seen;
   };
 
   /* ---------------------------------------------------- planning */
-  function stateFromGrid(S, g) { return P.parse(g, { bg: S.bg, frame: S.frame }); }
-  Agent.prototype.planTo = function (S0, h) {
-    var self = this, cap = this.cfg.maxNodes, seen = new Set([P.gkey(S0.g)]), open = [{ S: S0, path: [], g: 0, f: goalDist(S0, h) }], n = 0;
-    var saveLc = this.lc, saveVel = this.vel, saveCounts = this.counts;
-    try {
-      while (open.length && n < cap) {
-        var bi = 0; for (var i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
-        var cur = open[bi]; open.splice(bi, 1); n++;
-        var cands = this.candidates(cur.S);
-        for (var j = 0; j < cands.length; j++) {
-          var c = cands[j], keys = this.ctxKeys(cur.S, c.a, c.k);
-          if (keys.some(function (k) { return self.death[k]; })) continue;
-          var pr = this.predictState(cur.S, c.a, c.k, 0, { k: c.k, lc: -1, vel: {} });
-          if (!pr || !pr.known) continue;
-          var gk = P.gkey(pr.g); if (seen.has(gk)) continue; seen.add(gk);
-          var S2 = stateFromGrid(cur.S, pr.g), d = goalDist(S2, h), path = cur.path.concat([c]);
-          if (d === 0) return path;
-          if (path.length < 40) open.push({ S: S2, path: path, g: path.length, f: path.length + 2 * d });
-        }
+  function stateFromGrid(S, g) { return P.parse(g, { bg: S.bg, frame: S.frame, box: S.box }); }
+  /* latent features the learned splits depend on, as a state signature */
+  Agent.prototype.latSig = function (L) {
+    var self = this, sf = this.cache.splitF;
+    if (!sf) {
+      sf = [];
+      this.trs.forEach(function (t) { t.keys.forEach(function (k) { if (sf.indexOf(k) < 0) sf.push(k); }); });
+      sf = sf.map(function (k) { var m = self.model(k); return m.split ? { key: k, f: m.split.f } : null; }).filter(Boolean);
+      this.cache.splitF = sf;
+    }
+    var s = sf.map(function (x) { return x.f === "occ" ? (L.counts[x.key] || 0) % 2 : x.f.indexOf("par:") === 0 ? (L.counts["a:" + x.f.slice(4)] || 0) % 2 : ""; }).join("");
+    s += "|" + (L.lc ? Math.round(L.lc.cr) + "," + Math.round(L.lc.cc) : "") + "|" + L.inv.join(",");
+    if (this.ticks().length) s += "|" + Object.keys(L.vel || {}).sort().map(function (k) { return k + L.vel[k]; }).join(";");
+    return s;
+  };
+  /* colours never entered, and not refused while holding everything held
+     now (something new in the inventory reopens the question) */
+  Agent.prototype.untested = function (v, inv) {
+    var ph = this.phys;
+    if (v === undefined || v === null || this.actorColors()[v]) return false;
+    var p = ph.pass[v]; if (p && invHas(inv, p.need)) return false;
+    if (ph.deadly[v]) return false;
+    var s = ph.solid[v]; if (s !== undefined && invHas(s, inv)) return false;
+    return true;
+  };
+  /* Best-first search through the learned program, carrying the latent
+     state. Goal mode: reach goalDist 0 for hypothesis h (untested colours h
+     needs are assumed passable: optimism under uncertainty). Test mode
+     (opts.test): stop at the first transition the test accepts. Steps
+     carry the expected next grid, so execution can check them. */
+  Agent.prototype.planTo = function (S0, h, lat0, opts) {
+    opts = opts || {};
+    var self = this, cap = opts.cap || this.cfg.maxNodes, n = 0, opt = {};
+    if (h && this.cfg.physics) (h.type === "clear2" ? [h.a, h.b] : h.c !== undefined ? [h.c] : []).forEach(function (c) { if (self.untested(c, lat0.inv)) opt[c] = 1; });
+    var lat = {}, key; for (key in lat0) lat[key] = lat0[key]; lat.opt = opt;
+    var seen = new Set([P.gkey(S0.g) + "#" + this.latSig(lat)]), open = [{ S: S0, lat: lat, path: [], f: opts.test ? 0 : goalDist(S0, h, lat), pen: 0 }];
+    this.planExhausted = false;
+    var nTicks = this.ticks().length;
+    while (open.length && n < cap) {
+      var bi = 0; for (var i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+      var cur = open[bi]; open.splice(bi, 1); n++;
+      var cands = this.candidates(cur.S, true);
+      for (var j = 0; j < cands.length; j++) {
+        var c = cands[j], cell = c.a === 6 ? clickCell(cur.S, c.k) : -1, keys = this.ctxKeys(cur.S, c.a, c.k, cell);
+        if (this.banned(keys)) continue;
+        if (!nTicks) { var rs0 = this.rulesFor(cur.S, c.a, c.k, 0, cur.lat, cell); if (!rs0 || (!rs0.rules.length && rs0.complete)) continue; }
+        var pr = this.predictState(cur.S, c.a, c.k, 0, cur.lat);
+        if (!pr || !(pr.known || pr.cov >= 0.6) || pr.dead) continue;
+        var gk = P.gkey(pr.g), step = { a: c.a, k: c.k, gk: gk };
+        if (opts.test && opts.test(cur.S, c, pr)) return cur.path.concat([step]);
+        var sk = gk + "#" + this.latSig(pr.lat); if (seen.has(sk)) continue; seen.add(sk);
+        var S2 = stateFromGrid(cur.S, pr.g), path = cur.path.concat([step]), pen = cur.pen + (opts.test ? 4 * pr.pushed : 0), f = path.length + pen;
+        if (!opts.test) { var d = goalDist(S2, h, pr.lat); if (d === 0) return path; f += 2 * d; if (!isFinite(f)) continue; }
+        if (path.length < 40) open.push({ S: S2, lat: pr.lat, path: path, f: f, pen: pen });
       }
-    } finally { this.lc = saveLc; this.vel = saveVel; this.counts = saveCounts; }
+    }
+    /* the whole reachable space was searched: unreachable under the model */
+    this.planExhausted = !open.length;
     return null;
+  };
+  /* the latent state at the start of the level (after a RESET) */
+  Agent.prototype.startLat = function () { return { counts: {}, lc: null, vel: {}, under: {}, inv: [], actors: this.actorColors(), opt: null }; };
+  /* Experiment SEQUENCES: walk (through the known program) to where an
+     actor can press into a colour whose contact effect is untested. */
+  Agent.prototype.experimentPlan = function (S, lat) {
+    if (!this.cfg.physics || !this.simple.length || !Object.keys(lat.actors || {}).length) return null;
+    var self = this, cols = {};
+    S.objs.forEach(function (o) { if (self.untested(o.color, lat.inv)) cols[o.color] = 1; });
+    if (!Object.keys(cols).length) return null;
+    return this.planTo(S, null, lat, { cap: 800, test: function (S1, c, pr) { return c.a !== 6 && pr.into.some(function (v) { return cols[v]; }); } });
+  };
+  Agent.prototype.isNavigation = function () { return Object.keys(this.actorColors()).length > 0; };
+  /* a context's unexplained deaths ban it only when it kills most of the
+     times it is used (clicks: once suffices; simple actions: twice) */
+  Agent.prototype.banned = function (keys) {
+    var self = this;
+    return keys.some(function (k) { var d = self.death[k] || 0; if (!d) return false; var u = self.useN[k] || 1; return d / u >= 0.5 && (k.charAt(0) !== "a" || d >= 2); });
   };
 
   /* ---------------------------------------------------- act */
   Agent.prototype.act = function () {
     var S = this.S;
-    if (this.state === "GAME_OVER" || !S) { this.last = { a: 0 }; return { id: 0 }; }
-    var choice = null, mode = "explore";
-    /* continue a plan while its predictions hold */
-    if (this.plan && this.plan.length && this.lastPredOk !== false) { choice = this.plan.shift(); mode = "execute"; }
+    if (this.state === "GAME_OVER" || !S) { this.last = { a: 0 }; if (this.spec) this.spec.restart(); return { id: 0 }; }
+    this.ctxSeen = this.ctxSeen || {};
+    var choice = null, mode = "explore", lat = this.curLat();
+    /* continue a plan while its expectations hold */
+    if (this.plan && this.plan.length && this.planOk !== false) { choice = this.plan.shift(); mode = this.planMode; }
     else this.plan = null;
     if (!choice) {
       var cands = this.candidates(S), self = this, scored = [];
-      cands.forEach(function (c) { var v = self.infoGain(S, c); scored.push({ c: c, ig: v.ig, risk: v.risk }); });
+      cands.forEach(function (c) { var v = self.infoGain(S, c, lat); scored.push({ c: c, ig: v.ig, risk: v.risk }); });
       var unknown = scored.filter(function (x) { return x.ig >= 0.99 && x.risk < 1; });
-      /* one representative per unknown class: the rarest classes first */
-      var hs = this.cfg.goals ? this.hyps(S) : [], confirmed = hs.length && this.goalConfirmed[hs[0].tkey];
-      var planned = null;
-      if (this.cfg.plan && (confirmed || !unknown.length || !this.cfg.ig)) {
-        var sk = (this.version || 0) + "|" + P.gkey(S.g);
-        this.noPlan = this.noPlan || {};
+      var hs = this.cfg.goals ? this.hyps(S, lat) : [], confirmed = hs.length && this.goalConfirmed[hs[0].tkey];
+      var planned = null, sig = this.physV + "/" + Object.keys(this.ctxSeen).length;
+      /* DISCOVERY until the program is known well enough or a goal is
+         confirmed, then EXECUTION */
+      if (this.cfg.plan && (confirmed || !unknown.length || !this.cfg.ig || this.levelSteps % 4 === 3)) {
+        var tried = 0, dead = 0;
         for (var i = 0; i < Math.min(hs.length, 4) && !planned; i++) {
           if (hs[i].w < 1e-3) break;
-          var mk = sk + "|" + hs[i].key; if (this.noPlan[mk]) continue;
-          var pl = this.planTo(S, hs[i]); if (pl && pl.length) planned = pl; else this.noPlan[mk] = 1;
+          tried++;
+          var np = this.noPlan[hs[i].key]; if (np && np.sig === sig && np.until > this.levelSteps) { if (np.exhausted) dead++; continue; }
+          var pl = this.planTo(S, hs[i], lat); if (pl && pl.length) planned = pl; else { this.noPlan[hs[i].key] = { sig: sig, until: this.levelSteps + 6, exhausted: this.planExhausted }; if (this.planExhausted) dead++; }
+        }
+        /* a dead end (a crate in a corner, a spent resource): if the leading
+           goal is reachable from the level's start, RESET is worth its cost */
+        if (!planned && tried && dead === tried && this.startS && this.levelSteps > 0 && this.levelResets < 3) {
+          for (var i2 = 0; i2 < Math.min(hs.length, 2) && !planned; i2++) {
+            var pl2 = this.planTo(this.startS, hs[i2], this.startLat());
+            if (pl2 && pl2.length) planned = [{ a: 0, k: -1, gk: P.gkey(this.startS.g) }].concat(pl2);
+          }
         }
       }
-      if (planned) { this.plan = planned; choice = this.plan.shift(); mode = "execute"; }
+      if (planned) { this.plan = planned; this.planMode = "execute"; choice = this.plan.shift(); mode = "execute"; }
       else if (this.cfg.ig && scored.length) {
         scored.sort(function (a, b) { return (b.ig - b.risk) - (a.ig - a.risk) || ((a.c.k >= 0 ? S.objs[a.c.k].n : 0) - (b.c.k >= 0 ? S.objs[b.c.k].n : 0)); });
         var top = scored[0];
-        if (top.ig - top.risk <= 0) {
-          /* nothing informative left and no plan: a safe action not yet
-             repeated in this exact state */
-          var safe = scored.filter(function (x) { return x.risk < 1; });
-          top = safe[(this.levelSteps + this.trs.length) % Math.max(1, safe.length)] || scored[0];
-          mode = "fallback";
+        if (top.ig - top.risk > 0) choice = top.c;
+        else {
+          var ex = this.cfg.experiments ? this.experimentPlan(S, lat) : null;
+          if (ex && ex.length) { this.plan = ex; this.planMode = "experiment"; choice = this.plan.shift(); mode = "experiment"; }
+          else {
+            var sug = this.spec && this.isNavigation() ? this.spec.suggest() : null;
+            if (sug !== null && this.simple.indexOf(sug) >= 0) { choice = { a: sug, k: -1 }; mode = "specialist"; }
+            else {
+              /* nothing informative left and no plan: a safe action, varied */
+              var safe = scored.filter(function (x) { return x.risk < 1; });
+              choice = (safe[(this.levelSteps + this.trs.length) % Math.max(1, safe.length)] || scored[0]).c;
+              mode = "fallback";
+            }
+          }
         }
-        choice = top.c;
       } else {
         var cs = this.candidates(S); choice = cs[(this.levelSteps * 7) % cs.length]; mode = "random";
       }
     }
+    if (choice.a === 0) {
+      this.last = { a: 0, gk: choice.gk || null }; this.levelResets++;
+      this.stats.modeLog.push("R");
+      if (this.spec) this.spec.restart();
+      return { id: 0 };
+    }
     /* keep the chosen object valid in the current state */
-    if (choice.a === 6 && (choice.k < 0 || choice.k >= S.objs.length)) { this.plan = null; choice = { a: this.simple[0] || 6, k: this.simple.length ? -1 : 0 }; }
-    var keys = this.ctxKeys(S, choice.a, choice.k), self2 = this;
-    var pred = this.predictState(S, choice.a, choice.k, 0);
-    this.last = { a: choice.a, k: choice.k, lc: this.lcIndex(S), vel: this.vel, keys: keys, f: {}, pred: pred && pred.known ? pred : null, frame: this.frame };
+    if (choice.a === 6 && !(choice.k <= -10 && -10 - choice.k < S.H * S.W) && !(choice.k >= 0 && choice.k < S.objs.length)) { this.plan = null; choice = { a: this.simple[0] || 6, k: this.simple.length ? -1 : 0 }; }
+    var cell = choice.a === 6 ? clickCell(S, choice.k) : -1, keys = this.ctxKeys(S, choice.a, choice.k, cell), self2 = this;
+    var pred = this.predictState(S, choice.a, choice.k, 0, lat);
+    var touch = this.cfg.physics ? this.predictState(S, choice.a, choice.k, 0, lat, { allPass: true }) : null;
+    this.last = { a: choice.a, k: choice.k, cell: cell, lc: this.lcIndex(S), vel: this.vel, under: this.under, inv: this.inv, keys: keys, f: {},
+                  pred: pred || null, into: pred ? pred.into : [], enter: pred ? uniq(pred.contacts.filter(function (c) { return !c[2]; }).map(function (c) { return c[1]; })) : [], touch: touch ? touch.contacts : [], gk: choice.gk || null, frame: this.frame };
+    this.under = {}; for (var uk in this.last.under) this.under[uk] = this.last.under[uk];
     keys.forEach(function (k) { self2.last.f = self2.features(k); });
-    keys.forEach(function (k) { self2.counts[k] = (self2.counts[k] || 0) + 1; });
-    if (choice.a !== 6) this.counts["a:" + choice.a] = (this.counts["a:" + choice.a] || 0);
+    keys.forEach(function (k) { self2.counts[k] = (self2.counts[k] || 0) + 1; self2.useN[k] = (self2.useN[k] || 0) + 1; });
     this.levelSteps++;
-    this.stats.modeLog.push({ explore: "x", execute: "p", fallback: "f", random: "r" }[mode] || "?");
+    this.stats.modeLog.push({ explore: "x", execute: "p", experiment: "e", specialist: "s", fallback: "f", random: "r" }[mode] || "?");
+    if (this.spec) this.spec.taken(choice.a);
     return this.toAction(S, choice);
   };
   Agent.prototype.predictLast = function () { return this.last && this.last.pred ? this.last.pred : null; };
+  /* counterfactual probe: the predicted next logical grid of any action
+     from the current state (null = unknown context) */
+  Agent.prototype.predictAction = function (action) {
+    var S = this.S; if (!S) return null;
+    var k = -1;
+    if (action.id === 6) {
+      var cl = this.L.cellOf(action.x, action.y);
+      if (cl.r >= 0 && cl.c >= 0 && cl.r < S.H && cl.c < S.W) { k = S.at[cl.r * S.W + cl.c]; if (k < 0) k = -10 - (cl.r * S.W + cl.c); }
+      if (k >= 0 && clickCell(S, k) !== cl.r * S.W + cl.c) return null;   /* probes click middle cells only */
+    }
+    var pr = this.predictState(S, action.id, k, 0);
+    return pr ? { g: pr.g, known: pr.known } : null;
+  };
 
-  root.C4Arc3Agent = { Agent: Agent, goalHyps: goalHyps, goalDist: goalDist, panels: panels };
-  if (typeof module !== "undefined" && module.exports) module.exports = { Agent: Agent, parts: P, model: M, goalHyps: goalHyps, goalDist: goalDist, panels: panels };
+  root.C4Arc3Agent = { Agent: Agent, NavigationSpecialist: NavigationSpecialist, goalHyps: goalHyps, goalDist: goalDist, panels: panels };
+  if (typeof module !== "undefined" && module.exports) module.exports = { Agent: Agent, NavigationSpecialist: NavigationSpecialist, parts: P, model: M, goalHyps: goalHyps, goalDist: goalDist, panels: panels };
 })(typeof globalThis !== "undefined" ? globalThis : this);
