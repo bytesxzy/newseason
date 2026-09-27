@@ -70,3 +70,21 @@ sha256 of the official game files (must be unchanged at evaluation time):
 
 sha256 over all 252 game `.py` files (sorted `sha256sum` list):
 `850632c86997ee941e7178e9a18946c5eae671aa0f06305cdd74564e373525ca`.
+
+## Freeze record (appended after the evaluation; nothing above was changed)
+
+* Architecture frozen at commit `6353398236c9fc32afed167bfce7e85848437544`
+  ("Freeze the ARC-3 architecture for the held-out evaluation"). No held-out
+  synthetic family, held-out community game or official game had been run by
+  the agent before it.
+* Integrity at evaluation time: the six official file hashes above matched,
+  and so did the aggregate hash over all 252 game files
+  (`sha256sum environment_files/*/*/*.py | sha256sum`).
+* Runs executed once each on that commit (the tools refuse held-out and
+  official sets unless HEAD is the frozen commit and the agent sources are
+  unmodified), with outputs in `arc3-results/`:
+  * `node tools/arc3-bench.js --set holdout --frozen 6353398236c9 --seeds 1-5 --agents new,<ablations>,legacy,random --probe` -> `holdout-synth.json`
+  * `node tools/arc3-official.js --set heldout --frozen 6353398236c9 --agents new,legacy --max-wall-min 4` (4 shards) -> `heldout-community.json`
+  * `node tools/arc3-official.js --set official --frozen 6353398236c9 --agents new,legacy --max-wall-min 30` -> `official.json`
+  * dev sets on the same commit, for the report's tables: `dev-frozen.json`, `dev-community-frozen.json`
+* No change was made to the agent after any of these runs.
