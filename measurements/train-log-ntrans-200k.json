@@ -1,0 +1,161 @@
+{
+ "log": [
+  {
+   "step": 0,
+   "seen": 32,
+   "loss": 2.3587,
+   "val": {
+    "exact": 0.003,
+    "gate_coverage": 0,
+    "gate_precision": null
+   },
+   "sec": 13
+  },
+  {
+   "step": 500,
+   "seen": 16032,
+   "loss": 1.2904,
+   "val": {
+    "exact": 0.13,
+    "gate_coverage": 0.04,
+    "gate_precision": 1
+   },
+   "sec": 174
+  },
+  {
+   "step": 1000,
+   "seen": 32032,
+   "loss": 0.8494,
+   "val": {
+    "exact": 0.143,
+    "gate_coverage": 0.033,
+    "gate_precision": 0.9
+   },
+   "sec": 333
+  },
+  {
+   "step": 1500,
+   "seen": 48032,
+   "loss": 0.8017,
+   "val": {
+    "exact": 0.14,
+    "gate_coverage": 0.013,
+    "gate_precision": 1
+   },
+   "sec": 492
+  },
+  {
+   "step": 2000,
+   "seen": 64032,
+   "loss": 0.7891,
+   "val": {
+    "exact": 0.137,
+    "gate_coverage": 0.033,
+    "gate_precision": 1
+   },
+   "sec": 650
+  },
+  {
+   "step": 2500,
+   "seen": 80032,
+   "loss": 0.7527,
+   "val": {
+    "exact": 0.133,
+    "gate_coverage": 0.02,
+    "gate_precision": 0.833
+   },
+   "sec": 809
+  },
+  {
+   "step": 3000,
+   "seen": 96032,
+   "loss": 0.7371,
+   "val": {
+    "exact": 0.13,
+    "gate_coverage": 0.033,
+    "gate_precision": 0.7
+   },
+   "sec": 968
+  },
+  {
+   "step": 3500,
+   "seen": 112032,
+   "loss": 0.7376,
+   "val": {
+    "exact": 0.123,
+    "gate_coverage": 0.013,
+    "gate_precision": 1
+   },
+   "sec": 1126
+  },
+  {
+   "step": 4000,
+   "seen": 128032,
+   "loss": 0.7188,
+   "val": {
+    "exact": 0.13,
+    "gate_coverage": 0.023,
+    "gate_precision": 0.857
+   },
+   "sec": 1285
+  },
+  {
+   "step": 4500,
+   "seen": 144032,
+   "loss": 0.709,
+   "val": {
+    "exact": 0.13,
+    "gate_coverage": 0.02,
+    "gate_precision": 0.833
+   },
+   "sec": 1445
+  },
+  {
+   "step": 5000,
+   "seen": 160032,
+   "loss": 0.6976,
+   "val": {
+    "exact": 0.123,
+    "gate_coverage": 0.02,
+    "gate_precision": 0.833
+   },
+   "sec": 1606
+  },
+  {
+   "step": 5500,
+   "seen": 176032,
+   "loss": 0.6941,
+   "val": {
+    "exact": 0.13,
+    "gate_coverage": 0.023,
+    "gate_precision": 0.714
+   },
+   "sec": 1766
+  },
+  {
+   "step": 6000,
+   "seen": 192032,
+   "loss": 0.6875,
+   "val": {
+    "exact": 0.133,
+    "gate_coverage": 0.023,
+    "gate_precision": 0.714
+   },
+   "sec": 1925
+  },
+  {
+   "step": 6249,
+   "seen": 200000,
+   "loss": 0.6732,
+   "val": {
+    "exact": 0.137,
+    "gate_coverage": 0.023,
+    "gate_precision": 0.714
+   },
+   "sec": 2009
+  }
+ ],
+ "examples": 200000,
+ "seed": 2,
+ "mode": null
+}

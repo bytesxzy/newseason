@@ -105,3 +105,139 @@ from search-engine summaries and are marked (s).
 | NVARC (s) | 10^6 synthetic puzzles by concept mixing, validated; Qwen-4B with TTT; 8 geometric x colour-permutation augmentations; TRM ensemble | 24% ARC-2 private | whole-task D4 and colour augmentation are exact; mixing generators |
 | ARChitects 2025 (s) | LLaDA-8B masked diffusion, 2D RoPE, 102 recursive soft-mask refinement steps, perspective (augmentation) scoring | 16.5% ARC-2 | iterative refinement of a whole output grid; score candidates across augmentations |
 | ARCANA, 2607.09059 (s, unverified) | slot-attention scene graphs, cVAE latent program policy, symbolic execution traces, counterfactual credit assignment, learned meta-controller | no numbers found | not used beyond the general loop |
+
+## 4. The vertical slice: execution-guided transformation policy
+
+```
+task demonstrations (x_i, y_i), test input t
+        |
+        v
+  best-first search over EXECUTED states (73-egsearch.js)
+    node = (S_i = P(x_i) for every demonstration, P(t))
+    free exact finishers at every node: S_i == y_i, one colour map S_i -> y_i
+        |  expand: ask the policy
+        v
+  transformation policy (72-policy.js), 63k parameters, trained from scratch
+    per demonstration:  pair tower over [S one-hot, y one-hot, S != y, bg masks,
+                        x != S, x != y]  (conv 3x3, dilations 1, 2, 4)
+                        single tower over S and over y (shared)
+                        16 scalars (sizes, ratios, residual fraction, palettes)
+    demonstrations pooled as a SET (mean, max) -> 128
+    heads: next step type (80 types) + colour pointer (colour-equivariant)
+        |  top-6 proposals (p >= 0.01), colour args: top-2 colours
+        v
+  step language (70-steps.js): legacy grid primitives made explicit
+    geometry, crops/selections, compressions, colour edits, drawing/repair,
+    scaling/tiling/mirroring, gravity/shifts/sorting, split-and-combine,
+    FIN_SKETCH = hand the remaining gap to entity-level synthesis (63-sketch.js)
+        |
+        v
+  every step executed on every grid; invalid, no-op, already-seen states dropped
+  a program is returned only if it reproduces EVERY demonstration exactly
+```
+
+Training data (`tools/arc-steps-lib.js`): rules sampled from the step
+language (depth 1-3, optionally closed by a colour map or a sampled entity
+program), each executed on inputs from one of five generators (ARC-AGI-1
+training-split inputs, random object scenes, sparse noise, tiled/mirrored
+motifs, separator panels). Pairs are kept only when every step changes the
+state and no state repeats. Every prefix state of every task is one
+supervised example: (x_i, S_i, y_i over the demonstrations) -> next step.
+400,000 examples, generated on the fly by 4 workers; exact colour-permutation
+augmentation; 39 minutes on 4 CPU cores.
+
+Held out from training by STRUCTURE, never by rendering: 10% of ordered
+step-type adjacencies (A -> B never adjacent while A and B each appear), six
+ordered group adjacencies (e.g. geometry -> colour edit), 10% of exact step
+sequences, and every 4-step program.
+
+## 5. Synthetic out-of-distribution results
+
+Frozen before any model was evaluated on it: `c4-arc-steps-ood.js`, 200
+tasks per split, 3 demonstrations + 1 query each, inputs from the test side
+of every generator. Same search, same execution budget; only the proposal
+distribution differs. Top-1 = the first program found solves the query.
+(`measurements/egp-ood-v1.json`, `measurements/egp-ood-template.json`)
+
+| split (200 each) | policy on executed state | template: same net, no executed state | bigram P(step given previous) | uniform |
+|---|---|---|---|---|
+| **300 executions** | | | | |
+| in-distribution | **121** | 105 | 13 | 10 |
+| held-out programs | **123** | 105 | 4 | 1 |
+| held-out type-pair compositions | **73** | 42 | 4 | 3 |
+| held-out group-pair compositions | **59** | 35 | 13 | 7 |
+| depth 4 (never trained) | **15** | 9 | 4 | 2 |
+| **1500 executions** | | | | |
+| in-distribution | **130** | 114 | 30 | 21 |
+| held-out programs | **133** | 110 | 24 | 15 |
+| held-out type-pair compositions | **96** | 55 | 11 | 5 |
+| held-out group-pair compositions | **81** | 47 | 24 | 12 |
+| depth 4 (never trained) | **26** | 11 | 8 | 2 |
+
+The defining test ("does it solve a novel composition because it
+understands the intermediate state?") comes out yes, within this language:
+
+* Against the identical network trained without the executed state, the
+  advantage is +14% in distribution and +72-75% on held-out compositions,
+  +136% at an unseen depth. The template model has to infer from tokens what
+  the program did; that inference is what breaks on compositions it never
+  saw. This reproduces Ouellette's finding (EG-NPS vs program-space
+  learning) with a different model, DSL and search.
+* Held-out exact programs are solved as often as trained ones (133 vs 130):
+  no memorisation of sequences.
+* Blind and bigram search at the same budget solve 1-15% of these tasks.
+  The learned proposal is worth roughly two orders of magnitude of
+  executions.
+* It is not solved: held-out compositions reach 40-48%, depth 4 only 13%.
+  Composition still degrades with novelty and depth.
+
+Next-step prediction on the training distribution (validation, 600 steps):
+top-1 32.8% / top-5 68.5% with the executed state, 28.3% / 62.3% without.
+Next-step accuracy understates search value (several next steps are often
+equally valid; see the set-valued labels in 72-policy.js).
+
+## 6. On real ARC tasks (development split)
+
+**Search alone** (`tools/arc-egs-arc.js`, 1 s per task, trained policy):
+100 of 400 development tasks get a demonstration-exact step program, 84 are
+right at top-1, 88 have a right program among those found. Only 1 is a task
+the full engine did not already solve at top-1 (`arc1_f5b8619d`: tile 2x2,
+then entity-level rays). The policy guides rather than being brute-forced:
+over the 73 steps of the 60 step-program solutions, the winning step was the
+policy's first choice 36 times, 2nd-3rd 24 times, 4th-6th 12 times, lower
+once. Trained only on synthetic tasks, it ranks real ARC transformations
+well, when they are in its language.
+
+**Inside the portfolio** (`tools/arc-stage2-runs.sh`, same 3 s harness):
+
+| run | top-1 | top-2 | oracle | task seconds |
+|---|---|---|---|---|
+| previous frozen engine (dev-final) | 260 | 268 | 270 | 1013 |
+| + egpolicy + ntrans (dev-new) | 260 | 268 | 270 | 1045 |
+
+One gain (`arc1_f5b8619d`, egpolicy), one regression (`arc1_239be575`,
+the bidirectional family did not reach its program in the shared time). The
+policy branch produces the correct output on 68 development tasks, 62 of them
+also produced by legacy families; the union of all branches stays at 270.
+On the split the step language was assembled from, the new branch adds no
+generation. Whether its composition ability reaches unseen ARC tasks can only
+be measured on the held-out split.
+
+## 7. Neural transduction branch (74-ntrans.js)
+
+61k parameters, trained from scratch on 200,000 same-shape synthetic tasks
+(70% step and entity programs, 30% random cellular automata), whole-task D4
+and colour-permutation augmentation, 34 minutes on 4 cores.
+
+| measurement | result |
+|---|---|
+| synthetic validation (test-side generators), query painted exactly | 13.7% |
+| leave-one-demonstration-out gate: coverage / precision | 2.3% / 71% |
+| ARC development, 262 same-shape tasks, painted exactly (no gate) | 2 |
+| admitted by the gate / correct / new-only | 2 / 2 / 0 |
+
+It is a weak branch: a 61k-parameter CNN trained on this synthetic mix
+does not learn ARC transformations the program families lack. It is kept
+because it is cheap (about 40 ms per task), conservative (gate precision
+100% on development) and its held-out overlap is measured below; by the
+brief's own criterion (only duplicate solves) it has not earned its cost.

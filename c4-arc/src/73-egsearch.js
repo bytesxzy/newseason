@@ -227,7 +227,11 @@ var EGS = (function () {
         return h;
       });
     }
-    defSolver("egpolicy", "egpolicy", generate, 1, 1.0);
+    /* no leave-one-out refit: a search re-run on fewer demonstrations
+       usually reaches a different first program, which the refit would
+       count as a failure of a correct one; description length and the
+       consensus of independent families rank these instead */
+    defSolver("egpolicy", "egpolicy", generate, 1, 1.0).NO_LOO = true;
   })();
   return { search: search, searchTTT: searchTTT, run: run, progKey: progKey, cmap: cmap };
 })();
