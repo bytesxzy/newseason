@@ -91,5 +91,12 @@
   "67-controller.js",
   "67a-controller-weights.js",
   "69-transduce.js",
+  "70-steps.js",
+  "71-nn.js",
+  "72-policy.js",
+  "72a-policy-weights.js",
+  "73-egsearch.js",
+  "74-ntrans.js",
+  "74a-ntrans-weights.js",
   "90-engine.js"
 ]

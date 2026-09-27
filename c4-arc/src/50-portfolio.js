@@ -28,7 +28,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "tiling", "blocks", "selfstamp", "extend", "select", "locate", "regions",
   "counting", "cellwise", "objects_map", "objproc", "relproc", "tally", "motion",
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
-  "sketch", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
+  "sketch", "egpolicy", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
   "enumerate_dsl", "represent", "typed"];
 

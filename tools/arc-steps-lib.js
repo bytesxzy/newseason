@@ -188,13 +188,32 @@ function makeTask(rule, R, which, nDemo, nQuery) {
 }
 /* supervised transformation steps of one task: at every prefix state the
    next step; FIN_SKETCH before a sketch finisher */
-function stepExamples(task) {
+/* every step type (and colour) that turns the demonstrations' S_k into
+   exactly the same S_k+1: equivalent next steps, all correct labels */
+function equivalentSteps(task, k) {
+  const alts = [], next = task.runs.map(r => r.states[k + 1]);
+  for (const t of STEPS.TYPES) {
+    if (!t.run) continue;
+    const cols = t.colorArg ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] : [null];
+    for (const c of cols) {
+      let same = true;
+      for (let i = 0; i < task.runs.length && same; i++) {
+        const g = STEPS.apply(t, task.runs[i].states[k], task.bg, c);
+        same = !!g && E.G.gEq(g, next[i]);
+      }
+      if (same) { alts.push(t.id); break; }
+    }
+  }
+  return alts;
+}
+function stepExamples(task, withAlts) {
   const out = [], n = task.rule.steps.length, bg = task.bg;
   for (let k = 0; k <= n; k++) {
     let lab = null;
     if (k < n) lab = { type: task.rule.steps[k][0], color: task.rule.steps[k][1] === null ? undefined : task.rule.steps[k][1] };
     else if (task.rule.fin && task.rule.fin.kind === 'sketch') lab = { type: STEPS.FIN_SKETCH };
     if (!lab) continue;
+    if (withAlts && k < n) lab.alts = equivalentSteps(task, k);
     out.push({ bg, demos: task.runs.map(r => ({ x: r.x, S: r.states[k], y: r.y })), label: lab, k, prevSteps: task.rule.steps.slice(0, k).map(s => s[0]) });
   }
   return out;
@@ -208,4 +227,55 @@ function sampleTrainingTask(R) {
   }
   return null;
 }
-module.exports = { sampleRule, makeTask, stepExamples, sampleTrainingTask, category, allowedInTraining, fingerprint, HO_GROUP_PAIRS, HO_TYPE_PAIRS, rng, E, STEPS, GROUPS };
+/* ------------------------------------------------ non-DSL generators
+   Tasks the step language cannot express, so a model trained on them has
+   different strengths than the symbolic branches: random outer-totalistic
+   cellular automata (1-3 iterations), where a cell's next colour is a random
+   function of its own colour and how many of its 8 neighbours are
+   foreground. Same-shape only. */
+function sampleCARule(R) {
+  const table = {}, iters = ri(R, 1, 3), fg = ri(R, 1, 9), out = [ri(R, 1, 9), ri(R, 1, 9)];
+  for (const own of [0, 1]) for (let k = 0; k <= 8; k++) table[own + ':' + k] = R() < 0.25 ? (R() < 0.5 ? 0 : pick(R, out)) : (own ? -1 : 0);
+  return { iters, table, fg };
+}
+function runCA(rule, g) {
+  let cur = g;
+  for (let it = 0; it < rule.iters; it++) {
+    const H = cur.length, W = cur[0].length, nx = cur.map(r => r.slice());
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+      let k = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { if (!dr && !dc) continue; const a = r + dr, b = c + dc; if (a >= 0 && b >= 0 && a < H && b < W && cur[a][b] !== 0) k++; }
+      const own = cur[r][c] !== 0 ? 1 : 0, v = rule.table[own + ':' + k];
+      nx[r][c] = v === -1 ? cur[r][c] : v;
+    }
+    cur = nx;
+  }
+  return cur;
+}
+function makeCATask(R, which, nDemo, nQuery) {
+  const rule = sampleCARule(R), runs = [];
+  for (let a = 0; a < 20 && runs.length < nDemo + nQuery; a++) {
+    const x = pick(R, ['noise', 'objects', 'dev']) === 'dev' ? sampleInput(R, 'dev', which) : (R() < 0.5 ? genNoise(R) : genObjects(R));
+    if (E.G.background(x) !== 0) continue;
+    const y = runCA(rule, x);
+    if (E.G.gEq(x, y)) continue;
+    runs.push({ x, states: [x], y, bg: 0 });
+  }
+  if (runs.length < nDemo + nQuery) return null;
+  return { rule: { ca: rule, steps: [], fin: null, gen: 'ca' }, runs: runs.slice(0, nDemo), queries: runs.slice(nDemo), bg: 0 };
+}
+/* a same-shape task for direct output prediction: step programs (allowed
+   in training), sketch programs, or cellular automata */
+function sampleSameShapeTask(R, which, nDemo, nQuery, allowAll) {
+  const useCA = R() < 0.3;   /* family chosen once per task: ~30% automata */
+  for (let a = 0; a < 400; a++) {
+    if (useCA) { const t = makeCATask(R, which, nDemo, nQuery); if (t) return t; continue; }
+    const rule = sampleRule(R);
+    if (!rule || (!allowAll && !allowedInTraining(rule))) continue;
+    const t = makeTask(rule, R, which, nDemo, nQuery);
+    if (t && t.runs.concat(t.queries).every(r => r.x.length === r.y.length && r.x[0].length === r.y[0].length)) return t;
+  }
+  return null;
+}
+module.exports = { sampleRule, makeTask, stepExamples, sampleTrainingTask, category, allowedInTraining, fingerprint, HO_GROUP_PAIRS, HO_TYPE_PAIRS, rng, E, STEPS, GROUPS,
+  sampleSameShapeTask, makeCATask };

@@ -1,0 +1,370 @@
+{
+ "categories": {
+  "shape:larger": {
+   "dev": [
+    25,
+    36
+   ],
+   "eval": [
+    17,
+    35
+   ]
+  },
+  "size:<=10": {
+   "dev": [
+    146,
+    192
+   ],
+   "eval": [
+    41,
+    83
+   ]
+  },
+  "objects:3-6": {
+   "dev": [
+    108,
+    151
+   ],
+   "eval": [
+    48,
+    150
+   ]
+  },
+  "newColour:no new colour": {
+   "dev": [
+    165,
+    267
+   ],
+   "eval": [
+    75,
+    282
+   ]
+  },
+  "changed:n/a": {
+   "dev": [
+    97,
+    138
+   ],
+   "eval": [
+    58,
+    130
+   ]
+  },
+  "demos:4+": {
+   "dev": [
+    76,
+    107
+   ],
+   "eval": [
+    54,
+    137
+   ]
+  },
+  "shape:same": {
+   "dev": [
+    163,
+    262
+   ],
+   "eval": [
+    57,
+    270
+   ]
+  },
+  "size:11-20": {
+   "dev": [
+    95,
+    165
+   ],
+   "eval": [
+    53,
+    218
+   ]
+  },
+  "objects:7-15": {
+   "dev": [
+    56,
+    91
+   ],
+   "eval": [
+    30,
+    107
+   ]
+  },
+  "newColour:new colour": {
+   "dev": [
+    95,
+    133
+   ],
+   "eval": [
+    40,
+    118
+   ]
+  },
+  "changed:5-20%": {
+   "dev": [
+    83,
+    139
+   ],
+   "eval": [
+    28,
+    145
+   ]
+  },
+  "objects:0-2": {
+   "dev": [
+    70,
+    109
+   ],
+   "eval": [
+    15,
+    53
+   ]
+  },
+  "demos:3": {
+   "dev": [
+    145,
+    237
+   ],
+   "eval": [
+    53,
+    218
+   ]
+  },
+  "demos:2": {
+   "dev": [
+    39,
+    56
+   ],
+   "eval": [
+    8,
+    45
+   ]
+  },
+  "size:>20": {
+   "dev": [
+    19,
+    43
+   ],
+   "eval": [
+    21,
+    99
+   ]
+  },
+  "shape:smaller": {
+   "dev": [
+    72,
+    101
+   ],
+   "eval": [
+    40,
+    94
+   ]
+  },
+  "changed:>=20%": {
+   "dev": [
+    66,
+    102
+   ],
+   "eval": [
+    24,
+    99
+   ]
+  },
+  "objects:>15": {
+   "dev": [
+    26,
+    49
+   ],
+   "eval": [
+    22,
+    90
+   ]
+  },
+  "changed:<5%": {
+   "dev": [
+    14,
+    21
+   ],
+   "eval": [
+    5,
+    26
+   ]
+  },
+  "shape:mixed": {
+   "dev": [
+    0,
+    1
+   ],
+   "eval": [
+    1,
+    1
+   ]
+  }
+ },
+ "families": {
+  "tiling": {
+   "dev": 13,
+   "eval": 8
+  },
+  "objects": {
+   "dev": 32,
+   "eval": 11
+  },
+  "bidirectional": {
+   "dev": 5,
+   "eval": 4
+  },
+  "cellwise": {
+   "dev": 41,
+   "eval": 14
+  },
+  "partition": {
+   "dev": 21,
+   "eval": 19
+  },
+  "sketch": {
+   "dev": 64,
+   "eval": 21
+  },
+  "select": {
+   "dev": 9,
+   "eval": 4
+  },
+  "symmetry": {
+   "dev": 10,
+   "eval": 14
+  },
+  "sequence": {
+   "dev": 8,
+   "eval": 2
+  },
+  "typed": {
+   "dev": 7,
+   "eval": 1
+  },
+  "geometry": {
+   "dev": 32,
+   "eval": 14
+  },
+  "reductions": {
+   "dev": 1,
+   "eval": 0
+  },
+  "represent": {
+   "dev": 2,
+   "eval": 1
+  },
+  "squareholes": {
+   "dev": 1,
+   "eval": 0
+  },
+  "globalclass": {
+   "dev": 1,
+   "eval": 0
+  },
+  "compose": {
+   "dev": 3,
+   "eval": 0
+  },
+  "colormap": {
+   "dev": 2,
+   "eval": 0
+  },
+  "satelliterays": {
+   "dev": 1,
+   "eval": 0
+  },
+  "bridge": {
+   "dev": 1,
+   "eval": 0
+  },
+  "relpalette": {
+   "dev": 1,
+   "eval": 0
+  },
+  "counting": {
+   "dev": 1,
+   "eval": 0
+  },
+  "edgeparity": {
+   "dev": 1,
+   "eval": 0
+  },
+  "dispersedcolor": {
+   "dev": 1,
+   "eval": 0
+  },
+  "fanfill": {
+   "dev": 1,
+   "eval": 0
+  },
+  "enumerate": {
+   "dev": 1,
+   "eval": 0
+  },
+  "popsearch": {
+   "dev": 0,
+   "eval": 1
+  },
+  "repair": {
+   "dev": 0,
+   "eval": 1
+  }
+ },
+ "reasons": {
+  "GENERATIVE_OP_MISSING": {
+   "dev": 26,
+   "eval": 50
+  },
+  "CONDITIONAL_REQUIRED": {
+   "dev": 7,
+   "eval": 20
+  },
+  "WRONG_PROGRAM_FITS": {
+   "dev": 37,
+   "eval": 79
+  },
+  "OBJECT_CORRESPONDENCE_FAILURE": {
+   "dev": 16,
+   "eval": 44
+  },
+  "OUTPUT_SHAPE_UNKNOWN": {
+   "dev": 10,
+   "eval": 18
+  },
+  "SIZE_CHANGE_UNEXPLAINED": {
+   "dev": 27,
+   "eval": 44
+  },
+  "RELATION_NOT_EXPRESSIBLE": {
+   "dev": 7,
+   "eval": 21
+  },
+  "RANKING": {
+   "dev": 10,
+   "eval": 7
+  },
+  "CORRECT_STRUCTURE_WRONG_PARAMETERS": {
+   "dev": 0,
+   "eval": 2
+  }
+ },
+ "transfer": {
+  "dev": {
+   "with_new": 260,
+   "without_new": 233,
+   "gain": 27,
+   "failure_pool": 167,
+   "fixed_fraction": 0.162
+  },
+  "eval": {
+   "with_new": 115,
+   "without_new": 104,
+   "gain": 11,
+   "failure_pool": 296,
+   "fixed_fraction": 0.037
+  },
+  "ratio_absolute": 0.41,
+  "ratio_of_fixed_fraction": 0.23
+ }
+}

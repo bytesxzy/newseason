@@ -17179,7 +17179,7 @@ var MODULE_ORDER = ["geometry", "colormap", "relpalette", "bridge", "globalclass
   "tiling", "blocks", "selfstamp", "extend", "select", "locate", "regions",
   "counting", "cellwise", "objects_map", "objproc", "relproc", "tally", "motion",
   "substitute", "sequence", "paint", "patterns", "assemble", "analogy", "compose",
-  "sketch", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
+  "sketch", "egpolicy", "panelabs", "panelwise", "objwise", "objchain", "rewrite", "cascade", "refine",
   "conditional", "celltree", "canvastree", "paneltree",
   "enumerate_dsl", "represent", "typed"];
 
@@ -27546,6 +27546,1044 @@ var TRANSDUCE = (function () {
 
   return { model: model, run: run, lodo: lodo, train: train, predict: predict };
 })();
+/* ===== src/70-steps.js ===== */
+/* The step language of execution-guided synthesis.
+ *
+ * A program here is a SEQUENCE of whole-grid steps, each executed on every
+ * demonstration input and on the test input, so after every step the search
+ * holds the executed intermediate state S_i = P(x_i) next to the target y_i.
+ * The steps are not new transformations: they are the legacy enumerator's
+ * primitives (04-enum.js and the hooks registered by 12-16) with their
+ * arguments made explicit, so a learned policy can name them. What is new is
+ * how they are chosen: from the executed state and the residual to the
+ * target, one step at a time (72-policy.js, 73-egsearch.js).
+ *
+ * A step type has an id, a group, whether it takes a colour argument, and
+ * run(g, bg, c) -> grid | null. Terminal "finishers" close the remaining gap
+ * with an exact solver instead of a fixed step:
+ *   FIN_SKETCH  entity-level synthesis (63-sketch.js) on S_i -> y_i
+ * (identity and the colour-map finisher are checked at every state for free,
+ * 73-egsearch.js).
+ */
+var STEPS = (function () {
+  var T = [], BY = {};
+  function add(name, group, colorArg, run) {
+    var t = { id: T.length, name: name, group: group, colorArg: colorArg, run: run };
+    T.push(t); BY[name] = t; return t;
+  }
+  function keepColor(g, c, bg) {
+    return g.map(function (row) { return row.map(function (v) { return v === c ? c : bg; }); });
+  }
+  function paintAll(g, c, bg) {
+    return g.map(function (row) { return row.map(function (v) { return v !== bg ? c : bg; }); });
+  }
+  /* split in two equal halves (a middle separator line is dropped);
+     G.subgrid takes INCLUSIVE end indices */
+  function halves(g, axis) {
+    var H = g.length, W = g[0].length, a, b, n;
+    if (axis === "v") {
+      if (W < 2) return null;
+      n = W % 2 === 0 ? W / 2 : (W - 1) / 2;
+      a = G.subgrid(g, 0, 0, H - 1, n - 1); b = G.subgrid(g, 0, W - n, H - 1, W - 1);
+    } else {
+      if (H < 2) return null;
+      n = H % 2 === 0 ? H / 2 : (H - 1) / 2;
+      a = G.subgrid(g, 0, 0, n - 1, W - 1); b = G.subgrid(g, H - n, 0, H - 1, W - 1);
+    }
+    return a && b && a.length && a[0].length ? [a, b] : null;
+  }
+
+  /* geometry */
+  add("rot90", "geom", false, function (g) { return G.rot90(g); });
+  add("rot180", "geom", false, function (g) { return G.rot180(g); });
+  add("rot270", "geom", false, function (g) { return G.rot270(g); });
+  add("flipH", "geom", false, function (g) { return G.flipH(g); });
+  add("flipV", "geom", false, function (g) { return G.flipV(g); });
+  add("transpose", "geom", false, function (g) { return G.transpose(g); });
+  add("antitranspose", "geom", false, function (g) { return G.antiTranspose(g); });
+  /* crops and selections */
+  add("crop", "crop", false, function (g, bg) { return G.cropToContent(g, bg); });
+  add("crop_c", "crop", true, function (g, bg, c) { return G.cropToContent(g, c); });
+  add("trim", "crop", false, function (g) { return G.trimBorder(g, 1); });
+  ["top", "bottom", "left", "right"].forEach(function (w) {
+    add("half_" + w, "crop", false, function (g) { return G.half(g, w); });
+  });
+  [0, 1, 2, 3].forEach(function (q) { add("quad" + q, "crop", false, function (g) { return G.quadrant(g, q); }); });
+  add("largest8", "select", false, function (g, bg) { return _enExtreme(g, "c8", bg, true); });
+  add("smallest8", "select", false, function (g, bg) { return _enExtreme(g, "c8", bg, false); });
+  add("largest4", "select", false, function (g, bg) { return _enExtreme(g, "c4", bg, true); });
+  add("uniq_shape", "select", false, function (g, bg) { return _enUniq(g, "c8", bg); });
+  add("keep_big", "select", false, function (g, bg) { return _enKeepBig(g, bg, true); });
+  add("drop_big", "select", false, function (g, bg) { return _enKeepBig(g, bg, false); });
+  add("denoise", "select", false, function (g, bg) { return _enDenoise(g, bg); });
+  /* compressions */
+  add("compress", "compress", false, function (g, bg) { return _enCompress(g, bg); });
+  add("dedup", "compress", false, function (g) { return G.dedup(g); });
+  add("dedup_r", "compress", false, function (g) { return G.dedupRows(g); });
+  add("dedup_c", "compress", false, function (g) { return G.dedupCols(g); });
+  add("motif", "compress", false, function (g) { return HOOKS.motif ? HOOKS.motif(g) : null; });
+  add("dnx2", "compress", false, function (g) { return G.downscale(g, 2, 2); });
+  add("dnx3", "compress", false, function (g) { return G.downscale(g, 3, 3); });
+  add("nzx2", "compress", false, function (g, bg) { return G.blockReduceNonbg(g, 2, 2, bg); });
+  add("nzx3", "compress", false, function (g, bg) { return G.blockReduceNonbg(g, 3, 3, bg); });
+  /* colour edits (colour argument) */
+  add("del_c", "color", true, function (g, bg, c) { return c === bg ? null : G.replaceColor(g, c, bg); });
+  add("keep_c", "color", true, function (g, bg, c) { return c === bg ? null : keepColor(g, c, bg); });
+  add("paint_c", "color", true, function (g, bg, c) { return c === bg ? null : paintAll(g, c, bg); });
+  add("fill_c", "color", true, function (g, bg, c) { return G.fillHoles(g, c, bg); });
+  add("halo_c", "draw", true, function (g, bg, c) { return HOOKS.halo ? HOOKS.halo(g, bg, c, false, false) : null; });
+  add("rect_c", "draw", true, function (g, bg, c) { return HOOKS.markedRect ? HOOKS.markedRect(g, bg, c, false) : null; });
+  /* drawing / repair */
+  add("outline", "draw", false, function (g, bg) { return HOOKS.halo ? HOOKS.halo(g, bg, null, false, false) : null; });
+  add("connect", "draw", false, function (g, bg) { return HOOKS.connect ? HOOKS.connect(g, bg, null, false) : null; });
+  add("bbox_fill", "draw", false, function (g, bg) { return _enBboxFill(g, bg); });
+  add("sym_repair", "draw", false, function (g, bg) { return HOOKS.repair ? HOOKS.repair(g, bg, true) : null; });
+  add("sym_complete", "draw", false, function (g, bg) { return HOOKS.repairBounded ? HOOKS.repairBounded(g, bg, false, 0.0, 2, 0) : null; });
+  add("frame_in", "crop", false, function (g, bg) { return HOOKS.frameInterior ? HOOKS.frameInterior(g, bg, "largest") : null; });
+  add("frame_all", "crop", false, function (g, bg) { return HOOKS.frameContent ? HOOKS.frameContent(g, bg, "largest") : null; });
+  /* scaling and tiling */
+  add("upx2", "scale", false, function (g) { return G.upscale(g, 2, 2); });
+  add("upx3", "scale", false, function (g) { return G.upscale(g, 3, 3); });
+  add("tile2", "scale", false, function (g) { return G.tile(g, 2, 2); });
+  add("tile_h", "scale", false, function (g) { return G.hconcat(g, g); });
+  add("tile_v", "scale", false, function (g) { return G.vconcat(g, g); });
+  add("mirror_h", "scale", false, function (g) { return G.hconcat(g, G.flipH(g)); });
+  add("mirror_v", "scale", false, function (g) { return G.vconcat(g, G.flipV(g)); });
+  add("mirror_4", "scale", false, function (g) { var t = G.hconcat(g, G.flipH(g)); return G.vconcat(t, G.flipV(t)); });
+  add("pad1", "scale", false, function (g, bg) { return G.pad(g, 1, bg); });
+  /* motion */
+  ["down", "up", "left", "right"].forEach(function (d) {
+    add("grav_" + d, "move", false, function (g, bg) { return G.gravity(g, bg, d); });
+  });
+  [[0, 1, "r"], [0, -1, "l"], [1, 0, "d"], [-1, 0, "u"]].forEach(function (s) {
+    add("shift_" + s[2], "move", false, function (g, bg) { return G.translate(g, s[0], s[1], bg); });
+    add("wrap_" + s[2], "move", false, function (g) { return G.wrapTranslate(g, s[0], s[1]); });
+  });
+  add("sortrows", "move", false, function (g) { return sortGridRows(g); });
+  add("sortcols", "move", false, function (g) { return G.transpose(sortGridRows(G.transpose(g))); });
+  /* split in halves and combine (panel logic) */
+  ["v", "h"].forEach(function (ax) {
+    ["and", "or", "xor", "diff"].forEach(function (op) {
+      add("halves_" + op + "_" + ax, "combine", false, function (g, bg) {
+        var p = halves(g, ax); return p ? _logOp(p[0], p[1], op, bg) : null;
+      });
+    });
+  });
+  /* finishers: an exact solver closes the remaining gap */
+  var FIN_SKETCH = add("FIN_SKETCH", "finish", false, null);
+
+  var NAMES = T.map(function (t) { return t.name; });
+  var COLOR_TYPES = T.filter(function (t) { return t.colorArg; }).map(function (t) { return t.id; });
+  /* execute one step on a grid; null when invalid or oversized */
+  function apply(t, g, bg, c) {
+    var r;
+    try { r = t.run(g, bg, c); } catch (e) { return null; }
+    if (!r || !r.length || !r[0] || !r[0].length || r.length > 30 || r[0].length > 30 || !G.valid(r)) return null;
+    return r;
+  }
+  return { TYPES: T, BY: BY, NAMES: NAMES, COLOR_TYPES: COLOR_TYPES, FIN_SKETCH: FIN_SKETCH.id, apply: apply, N: T.length };
+})();
+/* ===== src/71-nn.js ===== */
+/* A small neural-network library: exactly what the transformation policy
+ * (72-policy.js) needs, with hand-written backward passes, in plain
+ * JavaScript on Float32Arrays. No external model and no dependency: the
+ * weights are trained by tools/arc-policy-train.js on synthetic tasks and
+ * shipped as a generated file.
+ *
+ * Tensors are flat Float32Arrays, feature maps are channel-major (C x H x W).
+ * Every layer keeps what its backward pass needs in a per-call cache object,
+ * so one forward/backward pair per example is re-entrant.
+ *
+ *   NN.param(n, scale)            parameter {w, g, m, v} (He-scaled init)
+ *   NN.conv(P, x, cin, H, W, cout, dil)          3x3 'same' convolution
+ *   NN.convBack(P, x, cin, H, W, cout, dil, dy)  -> dx, accumulates P.g
+ *   NN.dense(P, x, nin, nout) / NN.denseBack(P, x, nin, nout, dy) -> dx
+ *   NN.relu(y) in place / NN.reluBack(y, dy) in place
+ *   NN.pool(x, C, HW) -> [mean(C), max(C)] + argmax / NN.poolBack
+ *   NN.adam(params, lr, t)        one Adam step, clears gradients
+ */
+var NN = (function () {
+  var seed = 12345;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  function gauss() { var u = rnd() || 1e-9, v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function param(n, fanIn, zero) {
+    var w = new Float32Array(n), s = Math.sqrt(2 / Math.max(1, fanIn)), i;
+    if (!zero) for (i = 0; i < n; i++) w[i] = gauss() * s;
+    return { w: w, g: new Float32Array(n), m: new Float32Array(n), v: new Float32Array(n), n: n };
+  }
+  /* 3x3 convolution with dilation, zero padding, output same size.
+     P.w layout [cout][cin][3][3], bias in P.b */
+  function conv(P, B, x, cin, H, W, cout, dil) {
+    var HW = H * W, y = new Float32Array(cout * HW), co, ci, ky, kx, r, c, w, dr, dc, r0, r1, c0, c1, yo, xo, wo;
+    for (co = 0; co < cout; co++) {
+      var bb = B.w[co]; yo = co * HW;
+      for (r = 0; r < HW; r++) y[yo + r] = bb;
+      for (ci = 0; ci < cin; ci++) {
+        xo = ci * HW; wo = (co * cin + ci) * 9;
+        for (ky = 0; ky < 3; ky++) {
+          dr = (ky - 1) * dil; r0 = Math.max(0, -dr); r1 = Math.min(H, H - dr);
+          for (kx = 0; kx < 3; kx++) {
+            w = P.w[wo + ky * 3 + kx];
+            if (w === 0) continue;
+            dc = (kx - 1) * dil; c0 = Math.max(0, -dc); c1 = Math.min(W, W - dc);
+            for (r = r0; r < r1; r++) {
+              var yr = yo + r * W, xr = xo + (r + dr) * W + dc;
+              for (c = c0; c < c1; c++) y[yr + c] += w * x[xr + c];
+            }
+          }
+        }
+      }
+    }
+    return y;
+  }
+  function convBack(P, B, x, cin, H, W, cout, dil, dy, needDx) {
+    var HW = H * W, dx = needDx ? new Float32Array(cin * HW) : null, co, ci, ky, kx, r, c, w, dr, dc, r0, r1, c0, c1, yo, xo, wo, s;
+    for (co = 0; co < cout; co++) {
+      yo = co * HW; s = 0;
+      for (r = 0; r < HW; r++) s += dy[yo + r];
+      B.g[co] += s;
+      for (ci = 0; ci < cin; ci++) {
+        xo = ci * HW; wo = (co * cin + ci) * 9;
+        for (ky = 0; ky < 3; ky++) {
+          dr = (ky - 1) * dil; r0 = Math.max(0, -dr); r1 = Math.min(H, H - dr);
+          for (kx = 0; kx < 3; kx++) {
+            dc = (kx - 1) * dil; c0 = Math.max(0, -dc); c1 = Math.min(W, W - dc);
+            w = P.w[wo + ky * 3 + kx]; s = 0;
+            for (r = r0; r < r1; r++) {
+              var yr = yo + r * W, xr = xo + (r + dr) * W + dc;
+              if (dx) for (c = c0; c < c1; c++) { s += dy[yr + c] * x[xr + c]; dx[xr + c] += w * dy[yr + c]; }
+              else for (c = c0; c < c1; c++) s += dy[yr + c] * x[xr + c];
+            }
+            P.g[wo + ky * 3 + kx] += s;
+          }
+        }
+      }
+    }
+    return dx;
+  }
+  function dense(P, B, x, nin, nout) {
+    var y = new Float32Array(nout), o, i, s, wo;
+    for (o = 0; o < nout; o++) {
+      s = B.w[o]; wo = o * nin;
+      for (i = 0; i < nin; i++) s += P.w[wo + i] * x[i];
+      y[o] = s;
+    }
+    return y;
+  }
+  function denseBack(P, B, x, nin, nout, dy, needDx) {
+    var dx = needDx ? new Float32Array(nin) : null, o, i, d, wo;
+    for (o = 0; o < nout; o++) {
+      d = dy[o]; if (d === 0) continue;
+      B.g[o] += d; wo = o * nin;
+      for (i = 0; i < nin; i++) { P.g[wo + i] += d * x[i]; if (dx) dx[i] += d * P.w[wo + i]; }
+    }
+    return dx;
+  }
+  function relu(y) { for (var i = 0; i < y.length; i++) if (y[i] < 0) y[i] = 0; return y; }
+  function reluBack(y, dy) { for (var i = 0; i < y.length; i++) if (y[i] <= 0) dy[i] = 0; return dy; }
+  /* global mean and max per channel */
+  function pool(x, C, HW) {
+    var out = new Float32Array(2 * C), arg = new Int32Array(C), c, i, s, m, mi, o;
+    for (c = 0; c < C; c++) {
+      o = c * HW; s = 0; m = -Infinity; mi = 0;
+      for (i = 0; i < HW; i++) { var v = x[o + i]; s += v; if (v > m) { m = v; mi = i; } }
+      out[c] = s / HW; out[C + c] = m; arg[c] = mi;
+    }
+    return { y: out, arg: arg };
+  }
+  function poolBack(pc, C, HW, dy) {
+    var dx = new Float32Array(C * HW), c, i, o, d;
+    for (c = 0; c < C; c++) {
+      o = c * HW; d = dy[c] / HW;
+      if (d !== 0) for (i = 0; i < HW; i++) dx[o + i] = d;
+      dx[o + pc.arg[c]] += dy[C + c];
+    }
+    return dx;
+  }
+  /* mean over the cells of a mask (per channel); empty mask -> zeros */
+  function maskPool(x, C, HW, mask) {
+    var out = new Float32Array(C), n = 0, c, i;
+    for (i = 0; i < HW; i++) if (mask[i]) n++;
+    if (!n) return { y: out, n: 0 };
+    for (c = 0; c < C; c++) { var s = 0, o = c * HW; for (i = 0; i < HW; i++) if (mask[i]) s += x[o + i]; out[c] = s / n; }
+    return { y: out, n: n };
+  }
+  function maskPoolBack(dx, C, HW, mask, n, dy) {
+    if (!n) return;
+    for (var c = 0; c < C; c++) { var d = dy[c] / n, o = c * HW; if (d === 0) continue; for (var i = 0; i < HW; i++) if (mask[i]) dx[o + i] += d; }
+  }
+  function softmax(z) {
+    var m = -Infinity, i, s = 0, p = new Float32Array(z.length);
+    for (i = 0; i < z.length; i++) if (z[i] > m) m = z[i];
+    for (i = 0; i < z.length; i++) { p[i] = Math.exp(z[i] - m); s += p[i]; }
+    for (i = 0; i < z.length; i++) p[i] /= s;
+    return p;
+  }
+  function adam(params, lr, t, b1, b2, eps, wd) {
+    b1 = b1 || 0.9; b2 = b2 || 0.999; eps = eps || 1e-8; wd = wd || 0;
+    var c1 = 1 - Math.pow(b1, t), c2 = 1 - Math.pow(b2, t);
+    params.forEach(function (P) {
+      for (var i = 0; i < P.n; i++) {
+        var g = P.g[i] + wd * P.w[i];
+        P.m[i] = b1 * P.m[i] + (1 - b1) * g;
+        P.v[i] = b2 * P.v[i] + (1 - b2) * g * g;
+        P.w[i] -= lr * (P.m[i] / c1) / (Math.sqrt(P.v[i] / c2) + eps);
+        P.g[i] = 0;
+      }
+    });
+  }
+  function setSeed(s) { seed = s >>> 0 || 1; }
+  return { param: param, conv: conv, convBack: convBack, dense: dense, denseBack: denseBack, relu: relu, reluBack: reluBack,
+           pool: pool, poolBack: poolBack, maskPool: maskPool, maskPoolBack: maskPoolBack, softmax: softmax, adam: adam, setSeed: setSeed };
+})();
+/* ===== src/72-policy.js ===== */
+/* The transformation policy: P(next step | input, EXECUTED state, target).
+ *
+ * The model never infers what a partial program did from its tokens; it is
+ * shown the executed state S_i = P(x_i) of every demonstration next to the
+ * target y_i, and asked which step closes the gap. Per demonstration:
+ *
+ *   pair tower   (only when S_i and y_i have the same size) over 25 channels:
+ *                S one-hot (10), y one-hot (10), S != y, S == bg, y == bg,
+ *                x != S, x != y   -- conv3x3 d1, d2, d4 (16 ch), mean+max pool
+ *   single tower over S_i and over y_i (shared weights), 11 channels:
+ *                one-hot (10), == bg  -- conv3x3 d1, d2 (16 ch), mean+max pool
+ *   16 scalars   sizes, size ratios, residual fraction, palette sizes, ...
+ *   -> dense 112 -> 96 (ReLU)
+ * The demonstrations are a SET: mean and max over them -> dense 192 -> 128.
+ * Heads:
+ *   type    128 -> K logits over STEPS.TYPES (70-steps.js)
+ *   colour  a pointer over colours: for each colour c, its statistics
+ *           (8, averaged over demonstrations) and the pair-tower features
+ *           pooled over the cells where y == c and where S == c, with the
+ *           task vector z -> 32 -> one score per colour-taking step type.
+ *           Colours are compared by what they DO in the demonstrations,
+ *           not by their names, so the head is colour-permutation equivariant.
+ *
+ * mode "template" is the ablation Ouellette calls learning the program
+ * space: the same network sees the INPUT instead of the executed state and,
+ * in addition, the steps already taken (a bag and the last step). It must
+ * infer from tokens what the partial program did.
+ */
+var POLICY = (function () {
+  var K = STEPS.N, NCT = STEPS.COLOR_TYPES.length, CT = {}, C1 = 16, PIN = 25, SIN = 11, NSC = 16, NCS = 8;
+  STEPS.COLOR_TYPES.forEach(function (id, j) { CT[id] = j; });
+  var DIN = 6 * C1 + NSC, DH = 96, DZ = 128, DC = NCS + 2 * C1 + DZ, DCH = 32;
+
+  function create(mode) {
+    var NU = 2 * DH + (mode === "template" ? 2 * K : 0);
+    var p = {
+      pc1: NN.param(PIN * C1 * 9, PIN * 9), pb1: NN.param(C1, 1, true),
+      pc2: NN.param(C1 * C1 * 9, C1 * 9), pb2: NN.param(C1, 1, true),
+      pc3: NN.param(C1 * C1 * 9, C1 * 9), pb3: NN.param(C1, 1, true),
+      sc1: NN.param(SIN * C1 * 9, SIN * 9), sb1: NN.param(C1, 1, true),
+      sc2: NN.param(C1 * C1 * 9, C1 * 9), sb2: NN.param(C1, 1, true),
+      d1: NN.param(DIN * DH, DIN), e1: NN.param(DH, 1, true),
+      d2: NN.param(NU * DZ, NU), e2: NN.param(DZ, 1, true),
+      d3: NN.param(DZ * K, DZ), e3: NN.param(K, 1, true),
+      c1: NN.param(DC * DCH, DC), f1: NN.param(DCH, 1, true),
+      c2: NN.param(DCH * NCT, DCH), f2: NN.param(NCT, 1, true)
+    };
+    var order = ["pc1", "pb1", "pc2", "pb2", "pc3", "pb3", "sc1", "sb1", "sc2", "sb2", "d1", "e1", "d2", "e2", "d3", "e3", "c1", "f1", "c2", "f2"];
+    return { mode: mode || "full", p: p, order: order, list: order.map(function (k) { return p[k]; }), NU: NU };
+  }
+
+  /* ---------------------------------------------------------- features */
+  function palMask(g) { var m = 0; for (var r = 0; r < g.length; r++) for (var c = 0; c < g[r].length; c++) m |= 1 << g[r][c]; return m; }
+  function single(g, bg) {
+    var H = g.length, W = g[0].length, HW = H * W, x = new Float32Array(SIN * HW), r, c, v;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) { v = g[r][c]; x[v * HW + r * W + c] = 1; if (v === bg) x[10 * HW + r * W + c] = 1; }
+    return { x: x, H: H, W: W };
+  }
+  function demoFeats(x, S, y, bg) {
+    var HS = S.length, WS = S[0].length, Hy = y.length, Wy = y[0].length, same = HS === Hy && WS === Wy;
+    var xs = x.length === HS && x[0].length === WS, xy = x.length === Hy && x[0].length === Wy;
+    var f = { same: same, sS: single(S, bg), sY: single(y, bg), pair: null, H: Hy, W: Wy, sc: new Float32Array(NSC), cs: new Float32Array(10 * NCS), yMask: null, sMask: null };
+    var HW = Hy * Wy, r, c, resid = 0, i;
+    if (same) {
+      var P = new Float32Array(PIN * HW); f.yMask = new Uint8Array(HW); f.sMask = new Uint8Array(HW);
+      for (r = 0; r < Hy; r++) for (c = 0; c < Wy; c++) {
+        i = r * Wy + c; var sv = S[r][c], yv = y[r][c];
+        P[sv * HW + i] = 1; P[(10 + yv) * HW + i] = 1;
+        if (sv !== yv) { P[20 * HW + i] = 1; resid++; }
+        if (sv === bg) P[21 * HW + i] = 1;
+        if (yv === bg) P[22 * HW + i] = 1;
+        if (xs && x[r][c] !== sv) P[23 * HW + i] = 1;
+        if (xy && x[r][c] !== yv) P[24 * HW + i] = 1;
+        f.yMask[i] = yv; f.sMask[i] = sv;
+      }
+      f.pair = P;
+    }
+    var pS = palMask(S), pY = palMask(y), pX = palMask(x), nS = HS * WS, nY = HW, nX = x.length * x[0].length;
+    var cS = new Float32Array(10), cY = new Float32Array(10), cX = new Float32Array(10), rS = new Float32Array(10), rY = new Float32Array(10);
+    for (r = 0; r < HS; r++) for (c = 0; c < WS; c++) cS[S[r][c]]++;
+    for (r = 0; r < Hy; r++) for (c = 0; c < Wy; c++) { cY[y[r][c]]++; if (same && S[r][c] !== y[r][c]) { rS[S[r][c]]++; rY[y[r][c]]++; } }
+    for (r = 0; r < x.length; r++) for (c = 0; c < x[0].length; c++) cX[x[r][c]]++;
+    for (c = 0; c < 10; c++) {
+      var o = c * NCS;
+      f.cs[o] = cS[c] / nS; f.cs[o + 1] = cY[c] / nY; f.cs[o + 2] = cX[c] / nX;
+      f.cs[o + 3] = resid ? rS[c] / resid : 0; f.cs[o + 4] = resid ? rY[c] / resid : 0;
+      f.cs[o + 5] = c === bg ? 1 : 0; f.cs[o + 6] = (pY >> c & 1) && !(pS >> c & 1) ? 1 : 0; f.cs[o + 7] = (pS >> c & 1) && !(pY >> c & 1) ? 1 : 0;
+    }
+    var s = f.sc, nc = function (m) { var k = 0; while (m) { k += m & 1; m >>= 1; } return k; };
+    s[0] = HS / 30; s[1] = WS / 30; s[2] = Hy / 30; s[3] = Wy / 30; s[4] = same ? 1 : 0;
+    s[5] = Math.min(4, Hy / HS) / 4; s[6] = Math.min(4, Wy / WS) / 4; s[7] = same ? resid / HW : 1;
+    s[8] = nc(pS) / 10; s[9] = nc(pY) / 10; s[10] = cS[bg] / nS; s[11] = cY[bg] / nY;
+    s[12] = same && !resid ? 1 : 0; s[13] = xs ? 1 : 0; s[14] = xs && G.gEq(x, S) ? 1 : 0; s[15] = Hy <= HS && Wy <= WS ? 1 : 0;
+    f.pal = pS | pY | pX;
+    return f;
+  }
+
+  /* ------------------------------------------------------ forward pass */
+  function tower(m, sx, H, W, keep) {
+    var P = m.p, HW = H * W;
+    var a1 = NN.relu(NN.conv(P.sc1, P.sb1, sx, SIN, H, W, C1, 1));
+    var a2 = NN.relu(NN.conv(P.sc2, P.sb2, a1, C1, H, W, C1, 2));
+    var pl = NN.pool(a2, C1, HW);
+    return keep ? { x: sx, a1: a1, a2: a2, pl: pl, H: H, W: W } : { pl: pl };
+  }
+  function forward(m, ex, keep) {
+    var P = m.p, nd = ex.demos.length, D = [], hs = [], d, i, j;
+    for (d = 0; d < nd; d++) {
+      var dm = ex.demos[d], S = m.mode === "template" ? dm.x : dm.S;
+      var f = demoFeats(dm.x, S, dm.y, ex.bg), c = { f: f };
+      var pv = new Float32Array(2 * C1);
+      if (f.same) {
+        var H = f.H, W = f.W, HW = H * W;
+        c.a1 = NN.relu(NN.conv(P.pc1, P.pb1, f.pair, PIN, H, W, C1, 1));
+        c.a2 = NN.relu(NN.conv(P.pc2, P.pb2, c.a1, C1, H, W, C1, 2));
+        c.a3 = NN.relu(NN.conv(P.pc3, P.pb3, c.a2, C1, H, W, C1, 4));
+        c.pp = NN.pool(c.a3, C1, HW); pv = c.pp.y;
+      }
+      c.ts = tower(m, f.sS.x, f.sS.H, f.sS.W, keep);
+      c.ty = (!keep && dm._ty) ? dm._ty : tower(m, f.sY.x, f.sY.H, f.sY.W, keep);
+      if (!keep) dm._ty = c.ty;
+      var in1 = new Float32Array(DIN);
+      in1.set(pv, 0); in1.set(c.ts.pl.y, 2 * C1); in1.set(c.ty.pl.y, 4 * C1); in1.set(f.sc, 6 * C1);
+      c.in1 = in1; c.h = NN.relu(NN.dense(P.d1, P.e1, in1, DIN, DH));
+      D.push(c); hs.push(c.h);
+    }
+    var u = new Float32Array(m.NU), am = new Int32Array(DH);
+    for (j = 0; j < DH; j++) {
+      var s = 0, mx = -Infinity, ai = 0;
+      for (d = 0; d < nd; d++) { s += hs[d][j]; if (hs[d][j] > mx) { mx = hs[d][j]; ai = d; } }
+      u[j] = s / nd; u[DH + j] = mx; am[j] = ai;
+    }
+    if (m.mode === "template" && ex.prev) u.set(ex.prev, 2 * DH);
+    var z = NN.relu(NN.dense(P.d2, P.e2, u, m.NU, DZ));
+    var logits = NN.dense(P.d3, P.e3, z, DZ, K);
+    /* colour pointer */
+    var pal = 0; D.forEach(function (c) { pal |= c.f.pal; });
+    var col = [];
+    for (var cc = 0; cc < 10; cc++) {
+      if (!(pal >> cc & 1)) { col.push(null); continue; }
+      var fc = new Float32Array(DC), ny = 0, ns = 0;
+      for (d = 0; d < nd; d++) {
+        var f2 = D[d].f;
+        for (i = 0; i < NCS; i++) fc[i] += f2.cs[cc * NCS + i] / nd;
+        if (f2.same) {
+          var HW2 = f2.H * f2.W, my = new Uint8Array(HW2), ms = new Uint8Array(HW2);
+          for (i = 0; i < HW2; i++) { my[i] = f2.yMask[i] === cc ? 1 : 0; ms[i] = f2.sMask[i] === cc ? 1 : 0; }
+          var py = NN.maskPool(D[d].a3, C1, HW2, my), ps = NN.maskPool(D[d].a3, C1, HW2, ms);
+          for (i = 0; i < C1; i++) { fc[NCS + i] += py.y[i] / nd; fc[NCS + C1 + i] += ps.y[i] / nd; }
+          if (keep) { D[d]["my" + cc] = my; D[d]["ms" + cc] = ms; D[d]["ny" + cc] = py.n; D[d]["ns" + cc] = ps.n; }
+        }
+      }
+      fc.set(z, NCS + 2 * C1);
+      var hc = NN.relu(NN.dense(P.c1, P.f1, fc, DC, DCH));
+      var sc = NN.dense(P.c2, P.f2, hc, DCH, NCT);
+      col.push({ fc: fc, hc: hc, s: sc });
+    }
+    return { D: D, u: u, am: am, z: z, logits: logits, col: col, nd: nd };
+  }
+
+  /* -------------------------------------------- loss and backward pass */
+  function lossBack(m, ex, fw, lab) {
+    var P = m.p, nd = fw.nd, d, i, j;
+    var pT = NN.softmax(fw.logits), loss, dlog = new Float32Array(K);
+    if (lab.alts && lab.alts.length > 1) {
+      /* set-valued label: every equivalent next step is correct; maximise
+         their total probability, -log sum_A p, dL/dz_i = p_i - [i in A] p_i / sum_A p */
+      var inA = new Uint8Array(K), sA = 0;
+      lab.alts.forEach(function (t) { inA[t] = 1; }); inA[lab.type] = 1;
+      for (i = 0; i < K; i++) if (inA[i]) sA += pT[i];
+      loss = -Math.log(Math.max(1e-9, sA));
+      for (i = 0; i < K; i++) dlog[i] = pT[i] - (inA[i] ? pT[i] / Math.max(1e-9, sA) : 0);
+    } else {
+      loss = -Math.log(Math.max(1e-9, pT[lab.type]));
+      for (i = 0; i < K; i++) dlog[i] = pT[i] - (i === lab.type ? 1 : 0);
+    }
+    var dz = NN.denseBack(P.d3, P.e3, fw.z, DZ, K, dlog, true);
+    var dfcD = null;
+    if (CT[lab.type] !== undefined && lab.color !== undefined && fw.col[lab.color]) {
+      var jj = CT[lab.type], cand = [], cc;
+      for (cc = 0; cc < 10; cc++) if (fw.col[cc]) cand.push(cc);
+      var zc = new Float32Array(cand.length);
+      cand.forEach(function (c, k) { zc[k] = fw.col[c].s[jj]; });
+      var pc = NN.softmax(zc), kk = cand.indexOf(lab.color);
+      loss += -Math.log(Math.max(1e-9, pc[kk]));
+      dfcD = [];
+      cand.forEach(function (c, k) {
+        var ds = new Float32Array(NCT); ds[jj] = pc[k] - (k === kk ? 1 : 0);
+        var e = fw.col[c], dh = NN.denseBack(P.c2, P.f2, e.hc, DCH, NCT, ds, true);
+        NN.reluBack(e.hc, dh);
+        var dfc = NN.denseBack(P.c1, P.f1, e.fc, DC, DCH, dh, true);
+        for (i = 0; i < DZ; i++) dz[i] += dfc[NCS + 2 * C1 + i];
+        dfcD.push([c, dfc]);
+      });
+    }
+    NN.reluBack(fw.z, dz);
+    var du = NN.denseBack(P.d2, P.e2, fw.u, m.NU, DZ, dz, true);
+    for (d = 0; d < nd; d++) {
+      var c = fw.D[d], f = c.f, dh2 = new Float32Array(DH);
+      for (j = 0; j < DH; j++) { dh2[j] = du[j] / nd; if (fw.am[j] === d) dh2[j] += du[DH + j]; }
+      NN.reluBack(c.h, dh2);
+      var din = NN.denseBack(P.d1, P.e1, c.in1, DIN, DH, dh2, true);
+      if (f.same) {
+        var H = f.H, W = f.W, HW = H * W;
+        var da3 = NN.poolBack(c.pp, C1, HW, din.subarray(0, 2 * C1));
+        if (dfcD) dfcD.forEach(function (e) {
+          var cc2 = e[0], dfc2 = e[1];
+          NN.maskPoolBack(da3, C1, HW, c["my" + cc2], c["ny" + cc2], dfc2.subarray(NCS, NCS + C1).map(function (v) { return v / nd; }));
+          NN.maskPoolBack(da3, C1, HW, c["ms" + cc2], c["ns" + cc2], dfc2.subarray(NCS + C1, NCS + 2 * C1).map(function (v) { return v / nd; }));
+        });
+        NN.reluBack(c.a3, da3);
+        var da2 = NN.convBack(P.pc3, P.pb3, c.a2, C1, H, W, C1, 4, da3, true);
+        NN.reluBack(c.a2, da2);
+        var da1 = NN.convBack(P.pc2, P.pb2, c.a1, C1, H, W, C1, 2, da2, true);
+        NN.reluBack(c.a1, da1);
+        NN.convBack(P.pc1, P.pb1, f.pair, PIN, H, W, C1, 1, da1, false);
+      }
+      [[c.ts, 2 * C1], [c.ty, 4 * C1]].forEach(function (tt) {
+        var t = tt[0], HW3 = t.H * t.W, da = NN.poolBack(t.pl, C1, HW3, din.subarray(tt[1], tt[1] + 2 * C1));
+        NN.reluBack(t.a2, da);
+        var d1 = NN.convBack(P.sc2, P.sb2, t.a1, C1, t.H, t.W, C1, 2, da, true);
+        NN.reluBack(t.a1, d1);
+        NN.convBack(P.sc1, P.sb1, t.x, SIN, t.H, t.W, C1, 1, d1, false);
+      });
+    }
+    return loss;
+  }
+
+  /* ---------------------------------------------------------- inference */
+  function predict(m, ex) {
+    var fw = forward(m, ex, false), pT = NN.softmax(fw.logits);
+    function colours(typeId) {
+      var jj = CT[typeId]; if (jj === undefined) return [];
+      var cand = [], z = [];
+      fw.col.forEach(function (e, c) { if (e) { cand.push(c); z.push(e.s[jj]); } });
+      var p = NN.softmax(Float32Array.from(z));
+      return cand.map(function (c, k) { return [c, p[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+    }
+    return { p: pT, colours: colours };
+  }
+  /* ------------------------------------------ task-time adaptation (heads)
+     The convolutional towers and the per-demonstration layer stay frozen;
+     their outputs for an example (the set vector u and the colour features)
+     are computed once, and only the heads (d2, d3, c1, c2) are fine-tuned on
+     a clone. headCache is the frozen part, headLoss the trainable part. */
+  function headCache(m, ex) {
+    var fw = forward(m, ex, false);
+    return { u: fw.u, fc: fw.col.map(function (e) { return e ? e.fc.slice(0, NCS + 2 * C1) : null; }) };
+  }
+  var HEADS = ["d2", "e2", "d3", "e3", "c1", "f1", "c2", "f2"];
+  function cloneHeads(m) {
+    var c = { mode: m.mode, NU: m.NU, p: {} };
+    for (var k in m.p) c.p[k] = HEADS.indexOf(k) >= 0 ? { w: m.p[k].w.slice(), g: new Float32Array(m.p[k].n), m: new Float32Array(m.p[k].n), v: new Float32Array(m.p[k].n), n: m.p[k].n } : m.p[k];
+    c.order = m.order; c.list = m.order.map(function (k) { return c.p[k]; });
+    c.heads = HEADS.map(function (k) { return c.p[k]; });
+    return c;
+  }
+  function headLoss(c, hc, lab, back) {
+    var P = c.p, z = NN.relu(NN.dense(P.d2, P.e2, hc.u, c.NU, DZ)), logits = NN.dense(P.d3, P.e3, z, DZ, K), pT = NN.softmax(logits), i;
+    var loss = -Math.log(Math.max(1e-9, pT[lab.type]));
+    if (!back) return loss;
+    var dl = new Float32Array(K); for (i = 0; i < K; i++) dl[i] = pT[i] - (i === lab.type ? 1 : 0);
+    var dz = NN.denseBack(P.d3, P.e3, z, DZ, K, dl, true);
+    if (CT[lab.type] !== undefined && lab.color !== undefined && hc.fc[lab.color]) {
+      var jj = CT[lab.type], cand = [], hs = [], zc = [];
+      hc.fc.forEach(function (f, cc) {
+        if (!f) return;
+        var fc = new Float32Array(DC); fc.set(f, 0); fc.set(z, NCS + 2 * C1);
+        var hh = NN.relu(NN.dense(P.c1, P.f1, fc, DC, DCH)), s = NN.dense(P.c2, P.f2, hh, DCH, NCT);
+        cand.push([cc, fc, hh]); zc.push(s[jj]);
+      });
+      var pc = NN.softmax(Float32Array.from(zc)), kk = cand.findIndex(function (e) { return e[0] === lab.color; });
+      loss += -Math.log(Math.max(1e-9, pc[kk]));
+      cand.forEach(function (e, k) {
+        var ds = new Float32Array(NCT); ds[jj] = pc[k] - (k === kk ? 1 : 0);
+        var dh = NN.denseBack(P.c2, P.f2, e[2], DCH, NCT, ds, true); NN.reluBack(e[2], dh);
+        var dfc = NN.denseBack(P.c1, P.f1, e[1], DC, DCH, dh, true);
+        for (i = 0; i < DZ; i++) dz[i] += dfc[NCS + 2 * C1 + i];
+      });
+    }
+    NN.reluBack(z, dz);
+    NN.denseBack(P.d2, P.e2, hc.u, c.NU, DZ, dz, false);
+    return loss;
+  }
+  function prevVec(steps) {
+    var v = new Float32Array(2 * K);
+    steps.forEach(function (s) { v[s] = 1; });
+    if (steps.length) v[K + steps[steps.length - 1]] = 1;
+    return v;
+  }
+
+  /* ------------------------------------------------ weights (de)serialise */
+  function dump(m) {
+    var n = 0; m.list.forEach(function (P) { n += P.n; });
+    var all = new Float32Array(n), o = 0;
+    m.list.forEach(function (P) { all.set(P.w, o); o += P.n; });
+    return { mode: m.mode, names: STEPS.NAMES.join(","), n: n, w: Buffer.from(all.buffer).toString("base64") };
+  }
+  function load(m, W) {
+    if (!W || W.names !== STEPS.NAMES.join(",") || W.mode !== m.mode) return false;
+    var bin = typeof Buffer !== "undefined" ? Buffer.from(W.w, "base64") : Uint8Array.from(atob(W.w), function (ch) { return ch.charCodeAt(0); });
+    var all = new Float32Array(bin.buffer, bin.byteOffset, bin.byteLength / 4), o = 0;
+    if (all.length !== W.n) return false;
+    var ok = true; m.list.forEach(function (P) { if (o + P.n > all.length) ok = false; else P.w.set(all.subarray(o, o + P.n)); o += P.n; });
+    return ok && o === all.length;
+  }
+  var shipped = null;
+  function base() {
+    if (shipped === null) {
+      shipped = false;
+      if (typeof POLICY_WEIGHTS !== "undefined" && POLICY_WEIGHTS) { var m = create("full"); if (load(m, POLICY_WEIGHTS)) shipped = m; }
+    }
+    return shipped || null;
+  }
+  return { create: create, forward: forward, lossBack: lossBack, predict: predict, prevVec: prevVec, dump: dump, load: load, base: base,
+           demoFeats: demoFeats, K: K, CT: CT, headCache: headCache, cloneHeads: cloneHeads, headLoss: headLoss };
+})();
+/* ===== src/72a-policy-weights.js ===== */
+/* GENERATED by tools/arc-policy-train.js --write. Trained only on synthetic
+ * tasks built from the step language (tools/arc-steps-gen.js); no ARC
+ * evaluation data. null = the egpolicy family is inactive. */
+var POLICY_WEIGHTS = null;
+/* ===== src/73-egsearch.js ===== */
+/* Execution-guided search over step programs (70-steps.js).
+ *
+ * A node is an EXECUTED state: the grids P(x_i) of every demonstration and
+ * P(t) of the test input(s). Expansion asks a proposal distribution which
+ * step closes the gap to the targets y_i, executes the proposed steps on
+ * every grid, drops invalid, no-op and already-seen states (observational
+ * equivalence), and pushes the children by cumulative log-probability. At
+ * every node two exact finishers are free:
+ *   identity    S_i == y_i for every demonstration
+ *   colour map  one colour function maps every S_i onto y_i
+ * and the proposal may ask for the entity-level synthesiser (63-sketch.js)
+ * as a finisher on (S_i -> y_i). Every returned program reproduces every
+ * demonstration exactly; nothing here reads a test output.
+ *
+ * Proposals (opts.mode):
+ *   full      the transformation policy on (x, executed S, y)  (72-policy.js)
+ *   template  the same network on (x, y) + the steps taken so far
+ *   bigram    P(step | previous step) counted over training programs
+ *   uniform   every step equally likely (breadth-first enumeration)
+ */
+var EGS = (function () {
+  function key(st) { var s = ""; for (var i = 0; i < st.length; i++) s += G.gkey(st[i]) + "|"; return s; }
+  function Heap() { this.a = []; }
+  Heap.prototype.push = function (n) {
+    var a = this.a; a.push(n); var i = a.length - 1;
+    while (i > 0) { var p = (i - 1) >> 1; if (a[p].pri >= a[i].pri) break; var t = a[p]; a[p] = a[i]; a[i] = t; i = p; }
+  };
+  Heap.prototype.pop = function () {
+    var a = this.a, top = a[0], last = a.pop();
+    if (a.length) {
+      a[0] = last; var i = 0;
+      for (;;) {
+        var l = 2 * i + 1, r = l + 1, m = i;
+        if (l < a.length && a[l].pri > a[m].pri) m = l;
+        if (r < a.length && a[r].pri > a[m].pri) m = r;
+        if (m === i) break; var t = a[m]; a[m] = a[i]; a[i] = t; i = m;
+      }
+    }
+    return top;
+  };
+  /* exact colour function from every S_i onto y_i, or null */
+  function cmap(S, Y) {
+    var f = new Int8Array(10).fill(-1), i, r, c, changed = false;
+    for (i = 0; i < S.length; i++) {
+      if (S[i].length !== Y[i].length || S[i][0].length !== Y[i][0].length) return null;
+      for (r = 0; r < S[i].length; r++) for (c = 0; c < S[i][r].length; c++) {
+        var a = S[i][r][c], b = Y[i][r][c];
+        if (f[a] === -1) f[a] = b; else if (f[a] !== b) return null;
+        if (a !== b) changed = true;
+      }
+    }
+    return changed ? f : null;
+  }
+  function applyMap(f, g) { return g.map(function (row) { return row.map(function (v) { return f[v] >= 0 ? f[v] : v; }); }); }
+  function allEq(S, Y) { for (var i = 0; i < S.length; i++) if (!G.gEq(S[i], Y[i])) return false; return true; }
+  function run(prog, g, bg) {
+    for (var i = 0; i < prog.steps.length; i++) {
+      g = STEPS.apply(STEPS.TYPES[prog.steps[i][0]], g, bg, prog.steps[i][1]);
+      if (!g) return null;
+    }
+    if (!prog.fin) return g;
+    if (prog.fin.kind === "cmap") return applyMap(prog.fin.f, g);
+    if (prog.fin.kind === "sketch") return SKETCH.run(prog.fin.p, g);
+    return null;
+  }
+  function progKey(prog) {
+    return prog.steps.map(function (s) { return STEPS.NAMES[s[0]] + (s[1] === null || s[1] === undefined ? "" : "#" + s[1]); }).join(">") +
+      (prog.fin ? (prog.fin.kind === "cmap" ? "|cmap" : "|sk:" + SKETCH.progKey(prog.fin.p)) : "");
+  }
+  /* proposals for one node: [[type, colour|null, logp]] best first */
+  function propose(node, ctx, opts) {
+    var out = [], K = STEPS.N, t, j;
+    if (opts.mode === "uniform") {
+      var pal = node.pal, lp = -Math.log(K);
+      for (t = 0; t < K; t++) {
+        var T = STEPS.TYPES[t];
+        if (T.colorArg) { var cs = []; for (j = 0; j < 10; j++) if (pal >> j & 1) cs.push(j); cs.forEach(function (c) { out.push([t, c, lp - Math.log(cs.length)]); }); }
+        else out.push([t, null, lp]);
+      }
+      return out;
+    }
+    var p;
+    if (opts.mode === "bigram") {
+      var prev = node.steps.length ? node.steps[node.steps.length - 1][0] : K;
+      p = opts.bigram[prev];
+    } else {
+      var ex = { bg: node.bg, demos: node.demos, prev: opts.mode === "template" ? POLICY.prevVec(node.steps.map(function (s) { return s[0]; })) : null };
+      var pr = POLICY.predict(opts.model, ex); p = pr.p; node._colours = pr.colours;
+    }
+    var idx = []; for (t = 0; t < K; t++) idx.push(t);
+    idx.sort(function (a, b) { return p[b] - p[a]; });
+    for (j = 0; j < idx.length && out.length < opts.topK * 2; j++) {
+      t = idx[j]; if (p[t] < opts.pmin && j >= 1) break;
+      if (STEPS.TYPES[t].colorArg) {
+        var cl = node._colours ? node._colours(t) : null;
+        if (!cl || !cl.length) { cl = []; for (var c2 = 0; c2 < 10; c2++) if (node.pal >> c2 & 1) cl.push([c2, 1]); cl = cl.map(function (e) { return [e[0], 1 / cl.length]; }); }
+        cl.slice(0, 2).forEach(function (e) { out.push([t, e[0], Math.log(p[t] + 1e-9) + Math.log(e[1] + 1e-9)]); });
+      } else out.push([t, null, Math.log(p[t] + 1e-9)]);
+    }
+    return out.sort(function (a, b) { return b[2] - a[2]; }).slice(0, opts.topK);
+  }
+  function palOf(st) { var m = 0; st.forEach(function (g) { g.forEach(function (row) { row.forEach(function (v) { m |= 1 << v; }); }); }); return m; }
+
+  function search(ctx, deadline, opts) {
+    opts = opts || {};
+    opts.mode = opts.mode || "full"; opts.topK = opts.topK || 6; opts.pmin = opts.pmin === undefined ? 0.01 : opts.pmin;
+    var maxDepth = opts.maxDepth || 4, maxSol = opts.maxSolutions || 6, maxExp = opts.maxExpansions || Infinity, st = opts.stats || {};
+    var maxRun = opts.maxExecutions || Infinity;
+    if ((opts.mode === "full" || opts.mode === "template") && !opts.model) opts.model = POLICY.base();
+    if ((opts.mode === "full" || opts.mode === "template") && !opts.model) return [];
+    var X = ctx.train.map(function (p) { return p[0]; }), Y = ctx.train.map(function (p) { return p[1]; });
+    var bg = ctx.bg(), sols = [], seenSol = new Set();
+    st.expanded = 0; st.executed = 0; st.firstSolutionAt = null;
+    var ypal = palOf(Y) | palOf(X);
+    function mk(S, T, steps, lp, parent) {
+      var demos = S.map(function (s, i) { return { x: X[i], S: s, y: Y[i], _ty: rootDemos ? rootDemos[i]._ty : undefined }; });
+      var n = { S: S, T: T, steps: steps, lp: lp, pri: lp - 0.05 * steps.length, demos: demos, bg: bg, pal: ypal | palOf(S), parent: parent || null };
+      if (opts.explored) opts.explored.push(n);
+      return n;
+    }
+    var rootDemos = null, root = mk(X, ctx.test_inputs, [], 0); rootDemos = root.demos;
+    var heap = new Heap(), seen = new Set([key(root.S.concat(root.T))]);
+    heap.push(root);
+    function found(steps, fin) {
+      var prog = { steps: steps, fin: fin, bg: bg }, k = progKey(prog);
+      if (seenSol.has(k)) return;
+      seenSol.add(k); sols.push(prog);
+      if (st.firstSolutionAt === null) st.firstSolutionAt = st.expanded;
+    }
+    while (heap.a.length && sols.length < maxSol && st.expanded < maxExp && st.executed < maxRun && nowMs() < deadline) {
+      var node = heap.pop(); st.expanded++;
+      if (node.steps.length && allEq(node.S, Y)) { found(node.steps, null); continue; }
+      var f = cmap(node.S, Y);
+      if (f) found(node.steps, { kind: "cmap", f: f });
+      if (node.steps.length >= maxDepth) continue;
+      var props = propose(node, ctx, opts);
+      for (var i = 0; i < props.length && st.executed < maxRun && nowMs() < deadline; i++) {
+        var t = props[i][0], col = props[i][1], lp = props[i][2];
+        if (t === STEPS.FIN_SKETCH) {
+          if (opts.noSketch || !node.S.every(function (s, k) { return s.length === Y[k].length && s[0].length === Y[k][0].length; })) continue;
+          var sub = new Ctx(node.S.map(function (s, k) { return [s, Y[k]]; }), node.T, null), ps = [];
+          try { ps = SKETCH.synthesize(sub, Math.min(deadline, nowMs() + (opts.sketchMs || 200)), { mode: "pure", noStage2: true, maxExec: opts.sketchExec || 150 }); } catch (e) { ps = []; }
+          /* an entity-level synthesis costs about as much as 50 step executions */
+          st.executed += 50; st.sketchCalls = (st.sketchCalls || 0) + 1;
+          ps.sort(function (a, b) { return EMDL.cost(a) - EMDL.cost(b); }).slice(0, 2).forEach(function (p) { found(node.steps, { kind: "sketch", p: p }); });
+          continue;
+        }
+        var T = STEPS.TYPES[t], S2 = [], T2 = [], ok = true, k2;
+        for (k2 = 0; k2 < node.S.length && ok; k2++) { var g = STEPS.apply(T, node.S[k2], bg, col); if (!g) ok = false; else S2.push(g); }
+        for (k2 = 0; k2 < node.T.length && ok; k2++) { var h = STEPS.apply(T, node.T[k2], bg, col); if (!h) ok = false; else T2.push(h); }
+        st.executed++;
+        if (!ok) continue;
+        var kk = key(S2.concat(T2));
+        if (seen.has(kk)) continue;
+        seen.add(kk);
+        heap.push(mk(S2, T2, node.steps.concat([[t, col]]), node.lp + lp, node));
+      }
+    }
+    return sols;
+  }
+
+  /* Task-time adaptation: search -> learn -> search inside ONE task.
+     Every state the first phase executed is the correct output of the step
+     path that produced it, on THIS task's own inputs (hindsight). Those paths
+     become supervised examples (x_i, S_k, S_node) -> step k+1; the policy's
+     heads are fine-tuned on a clone (towers frozen, features cached) and the
+     second phase searches with the clone. The execution budget is split,
+     not added. Demonstration outputs are used exactly as in plain search:
+     as targets; test outputs never. */
+  function hindsight(explored, X, bg, maxEx) {
+    var cands = explored.filter(function (n) { return n.steps.length >= 1; });
+    /* prefer deeper and diverse paths: at most 2 nodes per step-type prefix */
+    var per = {}, out = [];
+    cands.sort(function (a, b) { return b.steps.length - a.steps.length || b.lp - a.lp; });
+    for (var i = 0; i < cands.length && out.length < maxEx; i++) {
+      var n = cands[i], key0 = n.steps.map(function (s) { return s[0]; }).join(">");
+      if ((per[key0] = (per[key0] || 0) + 1) > 2) continue;
+      var path = [], m = n; while (m) { path.unshift(m); m = m.parent; }
+      for (var k = 0; k + 1 < path.length && out.length < maxEx; k++) {
+        var st = n.steps[k];
+        out.push({ bg: bg, demos: X.map(function (x, d) { return { x: x, S: path[k].S[d], y: n.S[d] }; }), label: { type: st[0], color: st[1] === null ? undefined : st[1] } });
+      }
+    }
+    return out;
+  }
+  function adapt(model, exs, iters, lr) {
+    var c = POLICY.cloneHeads(model), hcs = exs.map(function (e) { return POLICY.headCache(model, e); }), t = 0;
+    for (var it = 0; it < iters; it++) for (var j = 0; j < exs.length; j++) {
+      POLICY.headLoss(c, hcs[j], exs[j].label, true); t++;
+      if (t % 8 === 0) NN.adam(c.heads, lr, t / 8);
+    }
+    return c;
+  }
+  function searchTTT(ctx, deadline, opts) {
+    var st1 = {}, st2 = {}, explored = [], B = opts.maxExecutions || Infinity, now = nowMs();
+    var o1 = {}; for (var k in opts) o1[k] = opts[k];
+    o1.maxExecutions = B === Infinity ? Infinity : Math.floor(B * (opts.tttSplit || 0.4));
+    o1.stats = st1; o1.explored = explored;
+    var d1 = B === Infinity ? now + (deadline - now) * (opts.tttSplit || 0.4) : deadline;
+    var sols = search(ctx, d1, o1);
+    if (sols.length >= (opts.maxSolutions || 6) || nowMs() >= deadline) { if (opts.stats) { opts.stats.expanded = st1.expanded; opts.stats.executed = st1.executed; opts.stats.firstSolutionAt = st1.firstSolutionAt; } return sols; }
+    var X = ctx.train.map(function (p) { return p[0]; });
+    var exs = hindsight(explored, X, ctx.bg(), opts.tttExamples || 48);
+    var model = o1.model || POLICY.base(), adapted = exs.length ? adapt(model, exs, opts.tttIters || 4, opts.tttLr || 3e-4) : model;
+    var o2 = {}; for (k in opts) o2[k] = opts[k];
+    o2.model = adapted; o2.stats = st2; o2.maxExecutions = B === Infinity ? Infinity : B - st1.executed;
+    var more = search(ctx, deadline, o2), keys = new Set(sols.map(progKey));
+    more.forEach(function (p) { if (!keys.has(progKey(p))) sols.push(p); });
+    if (opts.stats) {
+      opts.stats.expanded = st1.expanded + st2.expanded; opts.stats.executed = st1.executed + st2.executed;
+      opts.stats.firstSolutionAt = st1.firstSolutionAt !== null ? st1.firstSolutionAt : (st2.firstSolutionAt !== null ? st1.expanded + st2.firstSolutionAt : null);
+      opts.stats.tttExamples = exs.length;
+    }
+    return sols;
+  }
+
+  /* the family inside the portfolio */
+  (function () {
+    function generate(ctx) {
+      if (!POLICY.base()) return [];
+      var sols = search(ctx, ctx.deadline, { mode: "full", maxDepth: 4, topK: 6, maxSolutions: 6 });
+      return sols.map(function (prog) {
+        var bits = prog.steps.length + (prog.fin ? (prog.fin.kind === "cmap" ? 1 : EMDL.bits(prog.fin.p) / 8) : 0);
+        var h = new Hyp("eg:" + progKey(prog), function (g) { return run(prog, g, prog.bg); }, 1.4 + 0.4 * bits, "egpolicy");
+        h.egprog = prog;
+        return h;
+      });
+    }
+    defSolver("egpolicy", "egpolicy", generate, 1, 1.0);
+  })();
+  return { search: search, searchTTT: searchTTT, run: run, progKey: progKey, cmap: cmap };
+})();
+/* ===== src/74-ntrans.js ===== */
+/* Neural transduction: predict the test output grid directly.
+ *
+ * An independent branch with different inductive biases from every program
+ * family: no program is formed. A network trained on synthetic same-shape
+ * tasks -- step programs, entity programs AND random cellular automata that
+ * no DSL here can express -- reads the demonstrations and paints the output.
+ *
+ *   task encoder  per demonstration (x_i, y_i): 23 channels (x one-hot, y
+ *                 one-hot, x != y, x == bg, y == bg), conv3x3 d1, d2, d4
+ *                 (24 ch), mean+max pool, dense 48 -> 96; the demonstrations
+ *                 are a set: mean+max -> dense 192 -> 96 = z
+ *   transitions   T[c][c'] = share of cells of colour c that became c'
+ *   decoder       conv3x3 d1, d2, d4 over the test input (11 ch -> 24 ch);
+ *                 per cell [features, own colour one-hot, T[own colour], z]
+ *                 -> 64 (ReLU) -> 10 colour logits
+ * Admission is LEAVE-ONE-DEMONSTRATION-OUT, as for 69-transduce.js: encoded
+ * without demonstration j, the model must repaint demonstration j exactly,
+ * for every j. Only then is its test prediction a candidate. The portfolio
+ * treats it as family "ntrans".
+ */
+var NTRANS = (function () {
+  var C = 24, PIN = 23, SIN = 11, DD = 96, DZ = 96, DI = C + 20, DH = 64;
+  function create() {
+    var p = {
+      a1: NN.param(PIN * C * 9, PIN * 9), ab1: NN.param(C, 1, true),
+      a2: NN.param(C * C * 9, C * 9), ab2: NN.param(C, 1, true),
+      a3: NN.param(C * C * 9, C * 9), ab3: NN.param(C, 1, true),
+      e1: NN.param(2 * C * DD, 2 * C), eb1: NN.param(DD, 1, true),
+      e2: NN.param(2 * DD * DZ, 2 * DD), eb2: NN.param(DZ, 1, true),
+      b1: NN.param(SIN * C * 9, SIN * 9), bb1: NN.param(C, 1, true),
+      b2: NN.param(C * C * 9, C * 9), bb2: NN.param(C, 1, true),
+      b3: NN.param(C * C * 9, C * 9), bb3: NN.param(C, 1, true),
+      h1: NN.param(DI * DH, DI + DZ), hz: NN.param(DZ * DH, DI + DZ), hb1: NN.param(DH, 1, true),
+      h2: NN.param(DH * 10, DH), hb2: NN.param(10, 1, true)
+    };
+    var order = Object.keys(p);
+    return { p: p, order: order, list: order.map(function (k) { return p[k]; }) };
+  }
+  function pairIn(x, y, bg) {
+    var H = x.length, W = x[0].length, HW = H * W, P = new Float32Array(PIN * HW), r, c, i;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) {
+      i = r * W + c; var a = x[r][c], b = y[r][c];
+      P[a * HW + i] = 1; P[(10 + b) * HW + i] = 1;
+      if (a !== b) P[20 * HW + i] = 1; if (a === bg) P[21 * HW + i] = 1; if (b === bg) P[22 * HW + i] = 1;
+    }
+    return P;
+  }
+  function singleIn(x, bg) {
+    var H = x.length, W = x[0].length, HW = H * W, P = new Float32Array(SIN * HW), r, c;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) { P[x[r][c] * HW + r * W + c] = 1; if (x[r][c] === bg) P[10 * HW + r * W + c] = 1; }
+    return P;
+  }
+  function trans(pairs) {
+    var T = new Float32Array(100), n = new Float32Array(10), i, r, c;
+    pairs.forEach(function (pr) { for (r = 0; r < pr[0].length; r++) for (c = 0; c < pr[0][r].length; c++) { T[pr[0][r][c] * 10 + pr[1][r][c]]++; n[pr[0][r][c]]++; } });
+    for (i = 0; i < 100; i++) if (n[(i / 10) | 0]) T[i] /= n[(i / 10) | 0];
+    return T;
+  }
+  function conv3(m, pre, x, cin, H, W) {
+    var P = m.p;
+    var a = NN.relu(NN.conv(P[pre + "1"], P[pre + "b1"], x, cin, H, W, C, 1));
+    var b = NN.relu(NN.conv(P[pre + "2"], P[pre + "b2"], a, C, H, W, C, 2));
+    var c = NN.relu(NN.conv(P[pre + "3"], P[pre + "b3"], b, C, H, W, C, 4));
+    return { x: x, a: a, b: b, c: c, cin: cin, H: H, W: W };
+  }
+  function conv3Back(m, pre, t, dc) {
+    var P = m.p;
+    NN.reluBack(t.c, dc);
+    var db = NN.convBack(P[pre + "3"], P[pre + "b3"], t.b, C, t.H, t.W, C, 4, dc, true); NN.reluBack(t.b, db);
+    var da = NN.convBack(P[pre + "2"], P[pre + "b2"], t.a, C, t.H, t.W, C, 2, db, true); NN.reluBack(t.a, da);
+    NN.convBack(P[pre + "1"], P[pre + "b1"], t.x, t.cin, t.H, t.W, C, 1, da, false);
+  }
+  /* encode the demonstrations -> z */
+  function encode(m, pairs, bg) {
+    var P = m.p, D = [], hs = [], j, d;
+    pairs.forEach(function (pr) {
+      var H = pr[0].length, W = pr[0][0].length, t = conv3(m, "a", pairIn(pr[0], pr[1], bg), PIN, H, W);
+      var pl = NN.pool(t.c, C, H * W), h = NN.relu(NN.dense(P.e1, P.eb1, pl.y, 2 * C, DD));
+      D.push({ t: t, pl: pl, h: h }); hs.push(h);
+    });
+    var u = new Float32Array(2 * DD), am = new Int32Array(DD);
+    for (j = 0; j < DD; j++) {
+      var s = 0, mx = -Infinity, ai = 0;
+      for (d = 0; d < hs.length; d++) { s += hs[d][j]; if (hs[d][j] > mx) { mx = hs[d][j]; ai = d; } }
+      u[j] = s / hs.length; u[DD + j] = mx; am[j] = ai;
+    }
+    var z = NN.relu(NN.dense(P.e2, P.eb2, u, 2 * DD, DZ));
+    return { D: D, u: u, am: am, z: z, T: trans(pairs) };
+  }
+  /* paint the output for x given the encoding */
+  function decode(m, enc, x, bg) {
+    var P = m.p, H = x.length, W = x[0].length, HW = H * W, t = conv3(m, "b", singleIn(x, bg), SIN, H, W);
+    var hz = NN.dense(P.hz, P.hb1, enc.z, DZ, DH), cells = [], logits = new Float32Array(10 * HW), i, k, j;
+    for (i = 0; i < HW; i++) {
+      var v = x[(i / W) | 0][i % W], inp = new Float32Array(DI);
+      for (k = 0; k < C; k++) inp[k] = t.c[k * HW + i];
+      inp[C + v] = 1;
+      for (k = 0; k < 10; k++) inp[C + 10 + k] = enc.T[v * 10 + k];
+      var h = new Float32Array(DH);
+      for (j = 0; j < DH; j++) { var s = hz[j], wo = j * DI; for (k = 0; k < DI; k++) s += P.h1.w[wo + k] * inp[k]; h[j] = s > 0 ? s : 0; }
+      var lg = NN.dense(P.h2, P.hb2, h, DH, 10);
+      for (k = 0; k < 10; k++) logits[k * HW + i] = lg[k];
+      cells.push({ inp: inp, h: h });
+    }
+    return { t: t, cells: cells, logits: logits, H: H, W: W };
+  }
+  function predictGrid(dec) {
+    var H = dec.H, W = dec.W, HW = H * W, out = [], r, c, k;
+    for (r = 0; r < H; r++) {
+      var row = [];
+      for (c = 0; c < W; c++) { var i = r * W + c, b = 0, bv = -Infinity; for (k = 0; k < 10; k++) if (dec.logits[k * HW + i] > bv) { bv = dec.logits[k * HW + i]; b = k; } row.push(b); }
+      out.push(row);
+    }
+    return out;
+  }
+  /* cross-entropy over the target cells; backward through decoder and encoder */
+  function lossBack(m, enc, dec, y) {
+    var P = m.p, H = dec.H, W = dec.W, HW = H * W, loss = 0, i, k, j;
+    var dF = new Float32Array(C * HW), dz = new Float32Array(DZ), dhzSum = new Float32Array(DH);
+    for (i = 0; i < HW; i++) {
+      var lg = new Float32Array(10); for (k = 0; k < 10; k++) lg[k] = dec.logits[k * HW + i];
+      var p = NN.softmax(lg), tgt = y[(i / W) | 0][i % W];
+      loss -= Math.log(Math.max(1e-9, p[tgt]));
+      var dl = new Float32Array(10); for (k = 0; k < 10; k++) dl[k] = (p[k] - (k === tgt ? 1 : 0)) / HW;
+      var cell = dec.cells[i], dh = NN.denseBack(P.h2, P.hb2, cell.h, DH, 10, dl, true);
+      NN.reluBack(cell.h, dh);
+      for (j = 0; j < DH; j++) {
+        var d = dh[j]; if (d === 0) continue;
+        dhzSum[j] += d; var wo = j * DI;
+        for (k = 0; k < DI; k++) { P.h1.g[wo + k] += d * cell.inp[k]; if (k < C) dF[k * HW + i] += d * P.h1.w[wo + k]; }
+      }
+    }
+    var dzv = NN.denseBack(P.hz, P.hb1, enc.z, DZ, DH, dhzSum, true);
+    for (k = 0; k < DZ; k++) dz[k] = dzv[k];
+    conv3Back(m, "b", dec.t, dF);
+    NN.reluBack(enc.z, dz);
+    var du = NN.denseBack(P.e2, P.eb2, enc.u, 2 * DD, DZ, dz, true), nd = enc.D.length;
+    enc.D.forEach(function (D, d) {
+      var dh2 = new Float32Array(DD);
+      for (j = 0; j < DD; j++) { dh2[j] = du[j] / nd; if (enc.am[j] === d) dh2[j] += du[DD + j]; }
+      NN.reluBack(D.h, dh2);
+      var dpl = NN.denseBack(P.e1, P.eb1, D.pl.y, 2 * C, DD, dh2, true);
+      conv3Back(m, "a", D.t, NN.poolBack(D.pl, C, D.t.H * D.t.W, dpl));
+    });
+    return loss / HW;
+  }
+  /* LODO-gated prediction for a task: null unless every demonstration is
+     repainted exactly from the others */
+  function solve(m, ctx) {
+    var tr = ctx.train, bg = ctx.bg(), j;
+    if (tr.length < 2) return null;
+    for (j = 0; j < tr.length; j++) if (tr[j][0].length !== tr[j][1].length || tr[j][0][0].length !== tr[j][1][0].length) return null;
+    for (j = 0; j < tr.length; j++) {
+      var rest = tr.filter(function (_, k) { return k !== j; });
+      if (!G.gEq(predictGrid(decode(m, encode(m, rest, bg), tr[j][0], bg)), tr[j][1])) return null;
+    }
+    var enc = encode(m, tr, bg);
+    return function (g) { return predictGrid(decode(m, enc, g, bg)); };
+  }
+  function dump(m) {
+    var n = 0; m.list.forEach(function (P) { n += P.n; });
+    var all = new Float32Array(n), o = 0; m.list.forEach(function (P) { all.set(P.w, o); o += P.n; });
+    return { n: n, w: Buffer.from(all.buffer).toString("base64") };
+  }
+  function load(m, W) {
+    if (!W) return false;
+    var bin = typeof Buffer !== "undefined" ? Buffer.from(W.w, "base64") : Uint8Array.from(atob(W.w), function (ch) { return ch.charCodeAt(0); });
+    var all = new Float32Array(bin.buffer, bin.byteOffset, bin.byteLength / 4), o = 0;
+    if (all.length !== W.n) return false;
+    m.list.forEach(function (P) { P.w.set(all.subarray(o, o + P.n)); o += P.n; });
+    return true;
+  }
+  var shipped = null;
+  function base() {
+    if (shipped === null) { shipped = false; if (typeof NTRANS_WEIGHTS !== "undefined" && NTRANS_WEIGHTS) { var m = create(); if (load(m, NTRANS_WEIGHTS)) shipped = m; } }
+    return shipped || null;
+  }
+  (function () {
+    function generate(ctx) {
+      var m = base(); if (!m) return [];
+      var f = null; try { f = solve(m, ctx); } catch (e) { f = null; }
+      return f ? [new Hyp("ntrans", f, 6.5, "ntrans")] : [];
+    }
+    var mod = defSolver("ntrans", "ntrans", generate, 2, 0.6);
+    mod.NO_LOO = true;
+  })();
+  return { create: create, encode: encode, decode: decode, predictGrid: predictGrid, lossBack: lossBack, solve: solve, dump: dump, load: load, base: base };
+})();
+/* ===== src/74a-ntrans-weights.js ===== */
+/* GENERATED by tools/arc-ntrans-train.js --write (synthetic tasks only). null = inactive. */
+var NTRANS_WEIGHTS = null;
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
 
@@ -27620,6 +28658,7 @@ var ENGINE = {
   CANON: CANON, REPRESENT: REPRESENT, CANDIDATES: CANDIDATES, POPSEARCH: POPSEARCH, TESTTIME: TESTTIME,
   MACROS: MACROS, PASS2: PASS2,
   SCN: SCN, CORR: CORR, SKETCH: SKETCH, EMDL: EMDL, EXPR: EXPR, GEN: GEN, EXTRACT: EXTRACT, ENCODE: ENCODE, SCHEMA: SCHEMA, TAXON: TAXON, SEARCH: SEARCH, CONTROL: CONTROL, TRANSDUCE: TRANSDUCE,
+  STEPS: STEPS, NN: NN, POLICY: POLICY, EGS: EGS, NTRANS: NTRANS,
   TILING: TILING, SYMM: SYMM, REGIONS: REGIONS, SEQ: SEQ,
   Ctx: Ctx, Hyp: Hyp, Result: Result,
   SOLVER_PRIOR: SOLVER_PRIOR, SOLVER_MODULES: SOLVER_MODULES,
