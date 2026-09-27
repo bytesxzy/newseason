@@ -1,0 +1,81 @@
+{
+ "baseline": {
+  "n": 400,
+  "top1": 115,
+  "top2": 120,
+  "oracle_retained": 122,
+  "oracle_generated": 122,
+  "task_seconds": 1094,
+  "failures": {
+   "SOLVED": 115,
+   "RIGHT_OUTPUT_OUTRANKED": 7,
+   "NO_CANDIDATE": 199,
+   "NO_CORRECT_RETAINED_PREDICTION": 79
+  },
+  "reasons": {
+   "RANKING": 7,
+   "OBJECT_CORRESPONDENCE_FAILURE": 44,
+   "UNKNOWN": 79,
+   "SIZE_CHANGE_UNEXPLAINED": 44,
+   "GENERATIVE_OP_MISSING": 50,
+   "OUTPUT_SHAPE_UNKNOWN": 18,
+   "CONDITIONAL_REQUIRED": 20,
+   "RELATION_NOT_EXPRESSIBLE": 21,
+   "CORRECT_STRUCTURE_WRONG_PARAMETERS": 2
+  }
+ },
+ "final": {
+  "n": 400,
+  "top1": 116,
+  "top2": 122,
+  "oracle_retained": 124,
+  "oracle_generated": 124,
+  "task_seconds": 1108,
+  "failures": {
+   "SOLVED": 116,
+   "RIGHT_OUTPUT_OUTRANKED": 8,
+   "NO_CANDIDATE": 193,
+   "NO_CORRECT_RETAINED_PREDICTION": 82,
+   "SCHEDULER_STARVED": 1
+  },
+  "reasons": {
+   "RANKING": 8,
+   "OBJECT_CORRESPONDENCE_FAILURE": 44,
+   "UNKNOWN": 82,
+   "SIZE_CHANGE_UNEXPLAINED": 42,
+   "GENERATIVE_OP_MISSING": 49,
+   "OUTPUT_SHAPE_UNKNOWN": 18,
+   "CONDITIONAL_REQUIRED": 19,
+   "RELATION_NOT_EXPRESSIBLE": 19,
+   "TIMEOUT": 1,
+   "CORRECT_STRUCTURE_WRONG_PARAMETERS": 2
+  }
+ },
+ "regressions": [
+  {
+   "id": "arc1eval_5b526a93",
+   "now": "NO_CORRECT_RETAINED_PREDICTION",
+   "before": "cellwise:treeD[pos,5]"
+  }
+ ],
+ "unique_gains": [
+  {
+   "id": "arc1eval_bf699163",
+   "subsystem": "sketch+egpolicy+typed+compose+enumerate+v2",
+   "author": "extract",
+   "program": "sketch:x:col|inside|patch"
+  },
+  {
+   "id": "arc1eval_bf89d739",
+   "subsystem": "popsearch",
+   "author": "old:popsearch",
+   "program": "popsearch:pop:cmap_x(connect_c(connect($),3),{2/0>3})"
+  }
+ ],
+ "branches": {
+  "old_only": 93,
+  "new_only": 10,
+  "both": 21,
+  "union": 124
+ }
+}

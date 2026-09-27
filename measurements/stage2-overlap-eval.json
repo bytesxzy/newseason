@@ -1,0 +1,77 @@
+{
+ "sizes": {
+  "egpolicy": 24,
+  "legacy": 108,
+  "sketch": 29,
+  "transduce": 1
+ },
+ "pairs": [
+  {
+   "A": "egpolicy",
+   "B": "legacy",
+   "a": 24,
+   "b": 108,
+   "inter": 19,
+   "union": 113,
+   "jaccard": 0.168,
+   "b_minus_a": 89,
+   "a_minus_b": 5
+  },
+  {
+   "A": "egpolicy",
+   "B": "sketch",
+   "a": 24,
+   "b": 29,
+   "inter": 7,
+   "union": 46,
+   "jaccard": 0.152,
+   "b_minus_a": 22,
+   "a_minus_b": 17
+  },
+  {
+   "A": "egpolicy",
+   "B": "transduce",
+   "a": 24,
+   "b": 1,
+   "inter": 0,
+   "union": 25,
+   "jaccard": 0,
+   "b_minus_a": 1,
+   "a_minus_b": 24
+  },
+  {
+   "A": "legacy",
+   "B": "sketch",
+   "a": 108,
+   "b": 29,
+   "inter": 14,
+   "union": 123,
+   "jaccard": 0.114,
+   "b_minus_a": 15,
+   "a_minus_b": 94
+  },
+  {
+   "A": "legacy",
+   "B": "transduce",
+   "a": 108,
+   "b": 1,
+   "inter": 1,
+   "union": 108,
+   "jaccard": 0.009,
+   "b_minus_a": 0,
+   "a_minus_b": 107
+  },
+  {
+   "A": "sketch",
+   "B": "transduce",
+   "a": 29,
+   "b": 1,
+   "inter": 0,
+   "union": 30,
+   "jaccard": 0,
+   "b_minus_a": 1,
+   "a_minus_b": 29
+  }
+ ],
+ "union": 124
+}

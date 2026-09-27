@@ -1,0 +1,122 @@
+{
+ "sizes": {
+  "egpolicy": 68,
+  "legacy": 240,
+  "ntrans": 2,
+  "sketch": 109,
+  "transduce": 13
+ },
+ "pairs": [
+  {
+   "A": "egpolicy",
+   "B": "legacy",
+   "a": 68,
+   "b": 240,
+   "inter": 62,
+   "union": 246,
+   "jaccard": 0.252,
+   "b_minus_a": 178,
+   "a_minus_b": 6
+  },
+  {
+   "A": "egpolicy",
+   "B": "ntrans",
+   "a": 68,
+   "b": 2,
+   "inter": 2,
+   "union": 68,
+   "jaccard": 0.029,
+   "b_minus_a": 0,
+   "a_minus_b": 66
+  },
+  {
+   "A": "egpolicy",
+   "B": "sketch",
+   "a": 68,
+   "b": 109,
+   "inter": 36,
+   "union": 141,
+   "jaccard": 0.255,
+   "b_minus_a": 73,
+   "a_minus_b": 32
+  },
+  {
+   "A": "egpolicy",
+   "B": "transduce",
+   "a": 68,
+   "b": 13,
+   "inter": 6,
+   "union": 75,
+   "jaccard": 0.08,
+   "b_minus_a": 7,
+   "a_minus_b": 62
+  },
+  {
+   "A": "legacy",
+   "B": "ntrans",
+   "a": 240,
+   "b": 2,
+   "inter": 2,
+   "union": 240,
+   "jaccard": 0.008,
+   "b_minus_a": 0,
+   "a_minus_b": 238
+  },
+  {
+   "A": "legacy",
+   "B": "sketch",
+   "a": 240,
+   "b": 109,
+   "inter": 80,
+   "union": 269,
+   "jaccard": 0.297,
+   "b_minus_a": 29,
+   "a_minus_b": 160
+  },
+  {
+   "A": "legacy",
+   "B": "transduce",
+   "a": 240,
+   "b": 13,
+   "inter": 13,
+   "union": 240,
+   "jaccard": 0.054,
+   "b_minus_a": 0,
+   "a_minus_b": 227
+  },
+  {
+   "A": "ntrans",
+   "B": "sketch",
+   "a": 2,
+   "b": 109,
+   "inter": 2,
+   "union": 109,
+   "jaccard": 0.018,
+   "b_minus_a": 107,
+   "a_minus_b": 0
+  },
+  {
+   "A": "ntrans",
+   "B": "transduce",
+   "a": 2,
+   "b": 13,
+   "inter": 2,
+   "union": 13,
+   "jaccard": 0.154,
+   "b_minus_a": 11,
+   "a_minus_b": 0
+  },
+  {
+   "A": "sketch",
+   "B": "transduce",
+   "a": 109,
+   "b": 13,
+   "inter": 8,
+   "union": 114,
+   "jaccard": 0.07,
+   "b_minus_a": 5,
+   "a_minus_b": 101
+  }
+ ],
+ "union": 270
+}

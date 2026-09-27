@@ -1,0 +1,42 @@
+{
+ "engine_sha256": "8cd8a7ad62cb1c9e9e5c3633b2079659300fba6de84f0f95ef966255fd765a78",
+ "corpus_sha256": "b724c5cf5136fb826bc1263326c5479758bbd08dcdffe0d15d075413a9fb9cb5",
+ "policy_sha256": null,
+ "budget": 3,
+ "jobs": 3,
+ "start": 0,
+ "end": 400,
+ "without": [],
+ "ids": [],
+ "node": "v22.22.2",
+ "prefix": "arc1eval_",
+ "policy_mode": "none",
+ "ablate": [],
+ "note": "no planner",
+ "n": 400,
+ "top1": 116,
+ "top2": 122,
+ "oracle_retained": 124,
+ "oracle_generated": 124,
+ "task_seconds": 1107.6000000000006,
+ "wall_seconds": 372.401,
+ "failures": {
+  "SOLVED": 116,
+  "RIGHT_OUTPUT_OUTRANKED": 8,
+  "NO_CANDIDATE": 193,
+  "NO_CORRECT_RETAINED_PREDICTION": 82,
+  "SCHEDULER_STARVED": 1
+ },
+ "failure_reasons": {
+  "RANKING": 8,
+  "OBJECT_CORRESPONDENCE_FAILURE": 44,
+  "UNKNOWN": 82,
+  "SIZE_CHANGE_UNEXPLAINED": 42,
+  "GENERATIVE_OP_MISSING": 49,
+  "OUTPUT_SHAPE_UNKNOWN": 18,
+  "CONDITIONAL_REQUIRED": 19,
+  "RELATION_NOT_EXPRESSIBLE": 19,
+  "TIMEOUT": 1,
+  "CORRECT_STRUCTURE_WRONG_PARAMETERS": 2
+ }
+}

@@ -1,0 +1,71 @@
+{
+ "baseline": {
+  "n": 400,
+  "top1": 260,
+  "top2": 268,
+  "oracle_retained": 270,
+  "oracle_generated": 270,
+  "task_seconds": 1013,
+  "failures": {
+   "SOLVED": 260,
+   "NO_CANDIDATE": 93,
+   "NO_CORRECT_RETAINED_PREDICTION": 37,
+   "RIGHT_OUTPUT_OUTRANKED": 10
+  },
+  "reasons": {
+   "GENERATIVE_OP_MISSING": 26,
+   "CONDITIONAL_REQUIRED": 7,
+   "UNKNOWN": 37,
+   "OBJECT_CORRESPONDENCE_FAILURE": 16,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 27,
+   "RELATION_NOT_EXPRESSIBLE": 7,
+   "RANKING": 10
+  }
+ },
+ "final": {
+  "n": 400,
+  "top1": 260,
+  "top2": 268,
+  "oracle_retained": 270,
+  "oracle_generated": 270,
+  "task_seconds": 1045,
+  "failures": {
+   "SOLVED": 260,
+   "NO_CANDIDATE": 93,
+   "NO_CORRECT_RETAINED_PREDICTION": 37,
+   "RIGHT_OUTPUT_OUTRANKED": 10
+  },
+  "reasons": {
+   "GENERATIVE_OP_MISSING": 25,
+   "CONDITIONAL_REQUIRED": 8,
+   "UNKNOWN": 37,
+   "OBJECT_CORRESPONDENCE_FAILURE": 16,
+   "OUTPUT_SHAPE_UNKNOWN": 10,
+   "SIZE_CHANGE_UNEXPLAINED": 27,
+   "RELATION_NOT_EXPRESSIBLE": 7,
+   "RANKING": 10
+  }
+ },
+ "regressions": [
+  {
+   "id": "arc1_239be575",
+   "now": "NO_CORRECT_RETAINED_PREDICTION",
+   "before": "bidirectional:bidi[latent](reductions:render(row,count(filter(square&color:2,m4)),0,8)(half:left))"
+  }
+ ],
+ "unique_gains": [
+  {
+   "id": "arc1_f5b8619d",
+   "subsystem": "egpolicy",
+   "author": "old:egpolicy",
+   "program": "egpolicy:eg:tile2|sk:c8||keep|g:all>ray:edge:ud:hit{c8}"
+  }
+ ],
+ "branches": {
+  "old_only": 156,
+  "new_only": 24,
+  "both": 90,
+  "union": 270
+ }
+}

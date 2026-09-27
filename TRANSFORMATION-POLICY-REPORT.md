@@ -241,3 +241,155 @@ does not learn ARC transformations the program families lack. It is kept
 because it is cheap (about 40 ms per task), conservative (gate precision
 100% on development) and its held-out overlap is measured below; by the
 brief's own criterion (only duplicate solves) it has not earned its cost.
+
+## 8. Task-time adaptation (TTT) of the policy
+
+Per task: clone the policy, search with 40% of the budget, relabel every
+state that search executed as the correct output of the path that produced it
+on THIS task's inputs (hindsight), fine-tune the heads on those paths (towers
+frozen, features cached), search the remaining 60% with the adapted clone.
+Demonstration outputs are used only as search targets; test outputs never.
+
+| setting | before adaptation | after adaptation |
+|---|---|---|
+| synthetic OOD, 1500 executions (iid / prog / comp-type / comp-group / depth4) | 130 / 133 / 96 / 81 / 26 | 132 / 136 / 97 / 83 / 28 |
+| synthetic OOD, 300 executions | 121 / 123 / 73 / 59 / 15 | 111 / 123 / 67 / 57 / 15 |
+| ARC development, policy search alone, 1 s per task: top-1 / any / new vs engine | 84 / 88 / 1 | 86 / 91 / 1 |
+
+A small, consistent gain when the budget is large enough for two phases
+(+1 to +3 per split, +2 top-1 on ARC development), a loss when it is not.
+It creates no new capability (the new-vs-engine count is unchanged), which
+matches Ouellette's finding that test-time fine-tuning mostly re-elicits
+in-distribution knowledge. The portfolio keeps plain search.
+
+## 9. Held-out ARC-AGI-1 evaluation (frozen stage-2 engine, one run)
+
+Engine frozen at commit 1e55d16 (sha256 `8cd8a7ad62cb1c9e...`) before the
+run; same harness (3 s per task, 3 workers). Scored independently against
+the official task files (`tools/arc-verify.js`).
+
+| engine | top-1 | top-2 | oracle generated = retained | official pass@2 | task seconds |
+|---|---|---|---|---|---|
+| previous stage (frozen) | 115 | 120 | 122 | 120.5 | 1094 |
+| **stage 2: + egpolicy + ntrans** | **116 (29.0%)** | **122 (30.5%)** | **124 (31.0%)** | **122.5 (30.6%)** | 1108 |
+
+Every task whose outcome changed:
+
+| task | before -> after | cause |
+|---|---|---|
+| arc1eval_bbb1b8b6 | not generated -> correct at rank 2 | **new generation by egpolicy** (`halves_or_v`, then entity recolouring) |
+| arc1eval_bf699163 | rank 2 -> rank 1 | **ranking**: egpolicy agrees with 5 other families (consensus term) |
+| arc1eval_bf89d739 | not generated -> top-1 | legacy population search, timing |
+| arc1eval_9def23fe | not generated -> rank 2 | legacy cellwise, timing |
+| arc1eval_5b526a93 | top-1 -> lost | legacy cellwise, timing |
+
+So the new branches contributed exactly one new generated output (a
+second-guess solve) and one ranking fix; neural transduction contributed
+nothing. The +1 / +2 / +2 is within what timing moves between runs.
+
+## 10. Branch overlap
+
+Tasks whose correct output each branch produced (`tools/arc-overlap.js`):
+
+| split | legacy | sketch | egpolicy | transduce (69) | ntrans (74) | union |
+|---|---|---|---|---|---|---|
+| development | 240 | 109 | 68 | 13 | 2 | 270 |
+| evaluation | 108 | 29 | 24 | 1 | 0 | 124 |
+
+| pair (evaluation) | A n B | Jaccard | only B | only A |
+|---|---|---|---|---|
+| legacy / egpolicy | 19 | 0.168 | 5 | 89 |
+| sketch / egpolicy | 7 | 0.152 | 17 | 22 |
+| legacy / sketch | 14 | 0.114 | 15 | 94 |
+
+egpolicy's 24 correct evaluation outputs: 23 are tasks other branches
+already solve at top-1; 1 (bbb1b8b6) is produced by no other branch.
+
+## 11. Transfer ratios (evaluation change / development change)
+
+| subsystem | development | evaluation | transfer |
+|---|---|---|---|
+| previous stage's families (sketch, extract, encode, transduce) | +27 top-1 | +11 top-1 | 0.41 |
+| egpolicy, correct outputs produced (branch size) | 68 | 24 | 0.35 |
+| egpolicy, demo-exact programs found in the portfolio | 77 | 32 | 0.42 |
+| egpolicy, unique oracle contribution | +2 (258 -> 260, noise level) | +1 | ~0.5 of almost nothing |
+| ntrans | +1 (noise) | 0 | 0 |
+
+## 12. Milestones
+
+| milestone | target | reached |
+|---|---|---|
+| A: evaluation oracle > 35% (140) | 140 | no: 124 (31.0%) |
+| B: evaluation top-1 > 35% | 140 | no: 116 (29.0%) |
+| C-I (45% ... 90%) | | no |
+
+## 13. Diagnosis
+
+1. **The mechanism works; the space is too small.** On held-out
+   compositions of its own language the execution-guided policy is 72-75%
+   better than the same network without the executed state and two orders
+   of magnitude more efficient than blind search. On real ARC tasks it
+   ranks the right next step first half the time. On the evaluation split
+   it still produces only 24 correct outputs, 23 of them already found by
+   other families. The step language is the legacy primitives made
+   explicit, and those primitives were already searched (bottom-up) by the
+   legacy enumerator. A better navigator of the same space adds almost no
+   new ARC solutions. Coverage, not navigation, bounds ARC generation.
+2. **Composition still degrades with novelty.** 65% in distribution, 40-48%
+   on held-out compositions, 13% at an unseen depth. Even inside its
+   language the policy is far from reliable composition.
+3. **Neural transduction at this scale does not transfer.** A 61k-parameter
+   CNN trained on synthetic tasks paints 2 of 262 same-shape development
+   tasks and none of the evaluation tasks. The systems that make direct
+   prediction work on ARC (ARChitects, NVARC, TTT) use pretrained models of
+   billions of parameters and GPU hours per task. That is outside this
+   engine's CPU/3 s constraint.
+4. **The failures that dominate evaluation are untouched by this stage:**
+   "a program fits every demonstration and is wrong" (82), created cells no
+   operator explains (49), object correspondence (44), size change
+   unexplained (42).
+
+## 14. Not done (and why)
+
+| requested | status |
+|---|---|
+| Explorer/definer split with ABANDON_HYPOTHESIS | partial: the policy proposes step types, exact finishers bind them; no explicit abandon/re-explore loop was built, because the first measurement showed coverage, not search control, is the ARC bottleneck |
+| value function, PUCT / MCTS | not built (same reason) |
+| adversarial task generator at the competence edge | not built |
+| concept memory with synthetic-variant validation | not built (the previous stage's library found no concept with support >= 2) |
+| NCA / per-task tiny networks | not built: CompressARC-style per-task training costs minutes of GPU per task; nothing close fits 3 s on a CPU |
+| learned router | not built; the portfolio's measured-value scheduler is unchanged |
+| masked-denoising refinement in the neural branch | not built (single-pass decoder) |
+| offline LLM teacher | not used (no external model, by design) |
+
+## 15. The most plausible next path (not attempted here)
+
+Keep the policy and the search: they are the part of this stage that
+demonstrably generalises. Put them to work in a much larger transformation
+space: entity-level rules as INTERMEDIATE steps (not only as a finisher),
+region and panel operations, and the transferable families' transformations
+(symmetry, partition, tiling transferred at 0.62-1.4 in section 2) as steps.
+Generate training data from all of them, and grow the space by mining
+repeated residuals of near-misses into candidate primitives that must pass
+synthetic held-out tests before admission. The policy's own held-out
+composition results say it can navigate a larger language. Section 2 says
+the language, not the navigator, is what fails on unseen ARC tasks.
+
+## 16. Reproduction
+
+```
+node c4-arc/build.js && node c4-arc/policy-test.js          # gradient checks, search sanity
+node tools/arc-verify.js ARC-AGI/data/evaluation arc1eval_ results/final/eval-final
+node tools/arc-gap.js ARC-AGI/data results/final --out measurements/arc-gap.json
+node tools/arc-policy-train.js --mode full --examples 400000 --seed 1 --out full.json
+node tools/arc-policy-train.js --mode template --examples 400000 --seed 1 --out template.json
+node tools/arc-policy-eval.js --bigram-build bigram.json
+node tools/arc-policy-eval.js --variants full,fullttt,template,bigram,uniform \
+     --full full.json --template template.json --bigram bigram.json --exec 300,1500
+node tools/arc-egs-arc.js --full full.json --ms 1000 --against results/final/dev-final [--ttt]
+node tools/arc-ntrans-train.js --examples 200000 --seed 2 --out ntrans.json
+sh tools/arc-stage2-runs.sh results/stage2
+node c4-arc/bench.js --policy-mode none --budget 3 --jobs 3 --corpus c4-arc-eval-tasks.js \
+     --prefix arc1eval_ --out results/stage2/eval-new           # once, after freezing
+node tools/arc-overlap.js results/stage2/eval-new
+```
