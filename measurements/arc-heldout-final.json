@@ -1,0 +1,95 @@
+{
+ "note": "3 s per task, 3 workers, single runs. train = ARC-AGI-1 public TRAINING split (the engine was developed on it). e1A = even-indexed half of the ARC-AGI-1 public EVALUATION split (studied while building machines). e1B = odd-indexed half, SEALED: never inspected task by task, only scored in aggregate. e2 = ARC-AGI-2 public evaluation (120 tasks, never inspected). t2new = ARC-AGI-2 training tasks whose ids are in neither ARC-1 split (233). Wall-clock scheduling moves individual knife-edge tasks by about +-3 per 400.",
+ "baseline_engine": "commit aba35b7",
+ "results": {
+  "train": {
+   "n": 400,
+   "baseline_top1": 222,
+   "baseline_top2": 228,
+   "final_top1": 236,
+   "final_top2": 239,
+   "gained": 15,
+   "lost": 1,
+   "gained_ids": [
+    "22168020",
+    "253bf280",
+    "25d487eb",
+    "2bee17df",
+    "3bd67248",
+    "3eda0437",
+    "40853293",
+    "41e4d17e",
+    "6455b5f5",
+    "83302e8f",
+    "8d510a79",
+    "941d9a10",
+    "9edfc990",
+    "a3df8b1e",
+    "d4f3cd78"
+   ],
+   "lost_ids": [
+    "1bfc4729"
+   ]
+  },
+  "e1A": {
+   "n": 200,
+   "baseline_top1": 55,
+   "baseline_top2": 56,
+   "final_top1": 68,
+   "final_top2": 70,
+   "gained": 13,
+   "lost": 0,
+   "gained_ids": [
+    "0692e18c",
+    "2b01abd0",
+    "2c737e39",
+    "3b4c2228",
+    "4364c1c4",
+    "55059096",
+    "705a3229",
+    "817e6c09",
+    "8e2edd66",
+    "d37a1ef5",
+    "e69241bd",
+    "e88171ec",
+    "e9b4f6fc"
+   ],
+   "lost_ids": []
+  },
+  "e1B": {
+   "n": 200,
+   "baseline_top1": 41,
+   "baseline_top2": 45,
+   "final_top1": 47,
+   "final_top2": 50,
+   "gained": 6,
+   "lost": 0
+  },
+  "e2": {
+   "n": 120,
+   "baseline_top1": 1,
+   "baseline_top2": 1,
+   "final_top1": 1,
+   "final_top2": 1,
+   "gained": 0,
+   "lost": 0
+  },
+  "t2new": {
+   "n": 233,
+   "baseline_top1": 14,
+   "baseline_top2": 16,
+   "final_top1": 14,
+   "final_top2": 17,
+   "gained": 2,
+   "lost": 2,
+   "gained_ids": [
+    "9968a131",
+    "9f8de559"
+   ],
+   "lost_ids": [
+    "825aa9e9",
+    "fc10701f"
+   ]
+  }
+ }
+}

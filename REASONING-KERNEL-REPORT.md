@@ -513,3 +513,67 @@ LM test runs (CPU contention under a wall-clock budget).
     node tools/reason-synth.js --heldout --n 160 --seed 9
     npm run arc3:synth
     npm run arc:curriculum
+
+## 15. Follow-up: a held-out ARC measurement, and what a 2x would take
+
+**The earlier ARC numbers are development scores.** The 400 bundled `arc1_` tasks are the ARC-AGI-1
+public *training* split and the engine was built against them. Sections 6 and 14 measured 222-225/400
+there. To get a score on data the engine never saw, I cloned the public ARC-AGI-1 *evaluation* split
+(400 tasks) and the public ARC-AGI-2 data, split the evaluation tasks into a half that may be studied
+(`e1A`, even-indexed) and a SEALED half (`e1B`, odd-indexed) that was never viewed task by task and is
+only ever scored in aggregate, and ran the unchanged bench harness (`tools/arc-pack.js`).
+
+| baseline engine (commit aba35b7), 3 s per task | top-1 |
+|---|---|
+| ARC-AGI-1 training (developed on) | 222/400 = 55.5% |
+| ARC-AGI-1 evaluation, all 400 | **96/400 = 24.0%** (top-2 101) |
+| - half A / sealed half B | 55/200 / 41/200 |
+| ARC-AGI-2 public evaluation | 1/120 = 0.8% |
+| ARC-AGI-2 training tasks not in ARC-1 (233) | 14/233 = 6.0% |
+
+The gap between 55.5% and 24.0% is the size of the development-set effect; the 59.25% quoted in
+`GPT-ARC-IMPROVEMENTS.md` is a training-split projection, not a held-out expectation.
+Doubling the evaluation score (24% -> 48%) is not reachable with this kind of engine in one sitting,
+and doubling the training score is arithmetically impossible (55.5% x 2 > 100%).
+
+**What was added** (details in `c4-arc/README.md`): one module, `c4-arc/src/60-concepts.js`, with
+29 small exact machines (rays and anchored primitives, fill between marks, flood from seeds,
+region tables, frames and rings, biggest empty rectangle, reflection with colour swap, template stamped
+onto markers, legend recolour, mirror copies, wall alignment, count rendering, Kronecker tiling,
+stripes, lattice cells, per-class object moves), a fixed-background frame for tasks whose background
+colour changes between grids, and leave-one-out evidence on every machine's cost. The module is
+flagged `PRE`: it runs first for at most 0.4 s and is kept out of the planner's pool, so the planner
+schedules the old families as before. Total task-seconds are unchanged.
+
+**Result, same harness, single runs** (raw: `measurements/arc-heldout-final.json`):
+
+| split | before | after |
+|---|---|---|
+| ARC-AGI-1 evaluation, all 400 | 96 (24.0%) | **115 (28.75%)**; top-2 101 -> 120 (30.0%) |
+| - half A (studied while building) | 55 | 68 |
+| - half B (SEALED) | 41 | **47** |
+| ARC-AGI-1 training (developed on) | 222 | 236 |
+| ARC-AGI-2 public evaluation | 1 | 1 |
+| ARC-AGI-2 training tasks not in ARC-1 | 14 | 14 |
+
+That is +19 tasks (+20% relative) on the ARC-AGI-1 evaluation split and +6 (+15% relative) on the
+sealed half, where none of the machines was designed against a task. It is not 2x. Half A is
+contaminated by construction (each machine was designed after looking at failing tasks there), which
+is why its gain (+13) is larger than the sealed half's (+6); the sealed half is the honest estimate.
+ARC-AGI-2 did not move: its tasks compose several concepts, and none of these machines composes.
+
+**What did not help.** Time: 12 s per task instead of 3 s solved 56 of half A instead of 55. A
+generic select-an-object/apply-an-action machine (recolour, delete, halo, shift, slide, flip) found
+nothing the old families had not: the engine already covers simple object rules. Synthetic concept
+audit (`tools/concept-suite.js`, 72 parametric families, no ARC data, 5 seeded tasks each; whole engine 311/360 = 86.4% before, 343/360 = 95.3% after): the
+missing primitives it exposed (rays by colour with crossing priority, mirror copies, template stamping,
+reflection with colour swap, biggest empty rectangle) are now covered, and on real tasks they added at most a couple of
+development-set tasks, which suggests that what remains unsolved is mostly not clean single
+concepts but tasks that combine several or carry quirks.
+
+**Measured noise.** Wall-clock scheduling moves individual knife-edge tasks: rerunning with only
+timing differences flipped 1-3 tasks per 400. Every comparison above is a single run.
+
+**Not done, stated plainly.** No ARC-AGI-3 environment is available here, so nothing about ARC-AGI-3
+was measured or changed. No language-model benchmark (HLE, MMLU, GSM8K) data is in the project and the
+language stack was not modified in this round; its suites still pass (`npm test`).

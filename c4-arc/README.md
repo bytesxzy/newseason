@@ -130,12 +130,12 @@ their cost lowered by one bit; ones that cannot have it raised by one.
 
 ```sh
 node c4-arc/concepts-test.js          # in `npm test`: machines alone on seeded parametric tasks
-node tools/concept-suite.js --n 5     # 60+ synthetic concept families, whole engine
+node tools/concept-suite.js --n 5     # 72 synthetic concept families, whole engine
 node tools/concept-suite.js --n 5 --module concepts --only between_hv --show 0   # dump one task
 ```
 
 `tools/concept-suite.js` generates its own tasks (no ARC data). Whole engine, 5 seeded tasks
-per family: 260/305 (85.2%) before this module, 292/305 (95.7%) after it (first 61 families).
+per family (72 families): 311/360 (86.4%) before this module, 343/360 (95.3%) after it.
 
 ### Held-out measurement
 
@@ -154,13 +154,14 @@ Measured (3 s per task, single runs; wall-clock scheduling moves knife-edge task
 
 | split | tasks | before | after |
 |---|---|---|---|
-| ARC-AGI-1 public training (developed on) | 400 | 222 (55.5%) | 237 (59.3%) |
-| ARC-AGI-1 public evaluation, half A (studied) | 200 | 55 | 67 |
-| ARC-AGI-1 public evaluation, half B (SEALED, aggregate only) | 200 | 41 (20.5%) | 45 (22.5%) |
-| ARC-AGI-1 public evaluation, all | 400 | 96 (24.0%) | 112 (28.0%) |
+| ARC-AGI-1 public training (developed on) | 400 | 222 (55.5%) | 236 (59.0%) |
+| ARC-AGI-1 public evaluation, half A (studied) | 200 | 55 | 68 |
+| ARC-AGI-1 public evaluation, half B (SEALED, aggregate only) | 200 | 41 (20.5%) | 47 (23.5%) |
+| ARC-AGI-1 public evaluation, all | 400 | 96 (24.0%) | 115 (28.75%) |
 | ARC-AGI-2 public evaluation | 120 | 1 | 1 |
-| ARC-AGI-2 training tasks not in ARC-1 | 233 | 14 | 15 |
+| ARC-AGI-2 training tasks not in ARC-1 | 233 | 14 | 14 |
 
-Top-2 (the official two-attempt metric) on the full ARC-AGI-1 evaluation: 101 -> 118.
+Top-2 (the official two-attempt metric) on the full ARC-AGI-1 evaluation: 101 -> 120 (25.25% -> 30.0%).
+Total task-seconds are unchanged (evaluation 1337 -> 1324, training 1187 -> 1177).
 Raising the budget from 3 s to 12 s moved half A by one task (55 -> 56): the limit is the
 coverage of the program space, not search time.

@@ -1,0 +1,154 @@
+# Concept suite (tools/concept-suite.js --n 5 --budget 3), whole engine, 72 parametric families, 5 seeded tasks each
+
+## baseline engine (commit aba35b7), first 61 families
+ray_fixed_dir              5/5    
+ray_cross                  5/5    
+ray_by_color               1/5    missed 0,1,2,3
+between_hv                 5/5    
+halo8                      5/5    
+stamp_plus                 5/5    
+fill_rect_interior         5/5    
+fill_holes_by_size         4/5    missed 4
+flood_enclosed_seed        3/5    missed 1,3
+bbox_ring                  5/5    
+diag_from_corners          0/5    missed 0,1,2,3,4
+recolor_largest            5/5    
+recolor_by_size_rank       5/5    
+recolor_by_holes           5/5    
+recolor_touch_border       5/5    
+swap_two_colors            5/5    
+remove_color               5/5    
+keep_largest_object        4/5    missed 3
+denoise_isolated           5/5    
+gravity_cells              5/5    
+gravity_objects            5/5    
+shift_all                  5/5    
+flip_objects_h             5/5    
+symmetrize_h               5/5    
+outline_hollow             5/5    
+sort_bars                  5/5    
+crop_largest_object        5/5    
+crop_unique_color          4/5    missed 2
+count_objects_bar          5/5    
+majority_color_1x1         5/5    
+upscale_k                  5/5    
+kaleidoscope_2x2           5/5    
+panel_or                   5/5    
+panel_xor                  5/5    
+crop_inside_frame          5/5    
+periodic_inpaint           4/5    missed 0
+symmetric_inpaint          5/5    
+template_stamp_marker      0/5    missed 0,1,2,3,4
+reflect_across_line        0/5    missed 0,1,2,3,4
+count_colors_hist          5/5    
+fill_between_diag          5/5    
+draw_border                5/5    
+concentric_rings           3/5    missed 1,4
+extend_to_wall             5/5    
+connect_L_path             5/5    
+recolor_by_half            5/5    
+fill_bbox_gaps             5/5    
+pattern_row_extend         5/5    
+mirror_beside              0/5    missed 0,1,2,3,4
+overlay_panels             5/5    
+compare_counts_color       3/5    missed 1,4
+nearest_color_recolor      1/5    missed 0,2,3,4
+move_to_corner             5/5    
+fill_row_if_marker         5/5    
+color_by_column_marker     5/5    
+draw_box_around_pair       5/5    
+quadrant_color_count       5/5    
+tile_3x3                   5/5    
+invert_binary              5/5    
+largest_rect_fill          0/5    missed 0,1,2,3,4
+holes_count_color          3/5    missed 0,2
+TOTAL 260/305 85.2%
+
+## baseline engine, 11 output-shape-changing families added later
+panel_summary              4/5    missed 0
+select_panel_most_cells    5/5    
+select_odd_panel           5/5    
+crop_most_common_shape     4/5    missed 4
+crop_odd_shape             5/5    
+colors_by_size_column      5/5    
+quadrant_with_marker       4/5    missed 2
+crop_bbox_of_color         5/5    
+panel_and3                 4/5    missed 4
+left_half                  5/5    
+distinct_color_count_grid  5/5    
+TOTAL 51/55 92.7%
+
+## final engine, all 72 families
+ray_fixed_dir              5/5    
+ray_cross                  5/5    
+ray_by_color               4/5    missed 1
+between_hv                 5/5    
+halo8                      5/5    
+stamp_plus                 5/5    
+fill_rect_interior         5/5    
+fill_holes_by_size         4/5    missed 4
+flood_enclosed_seed        3/5    missed 1,3
+bbox_ring                  5/5    
+diag_from_corners          5/5    
+recolor_largest            5/5    
+recolor_by_size_rank       5/5    
+recolor_by_holes           5/5    
+recolor_touch_border       5/5    
+swap_two_colors            5/5    
+remove_color               5/5    
+keep_largest_object        4/5    missed 3
+denoise_isolated           5/5    
+gravity_cells              5/5    
+gravity_objects            5/5    
+shift_all                  5/5    
+flip_objects_h             5/5    
+symmetrize_h               5/5    
+outline_hollow             5/5    
+sort_bars                  5/5    
+crop_largest_object        5/5    
+crop_unique_color          4/5    missed 2
+count_objects_bar          5/5    
+majority_color_1x1         5/5    
+upscale_k                  5/5    
+kaleidoscope_2x2           5/5    
+panel_or                   5/5    
+panel_xor                  5/5    
+crop_inside_frame          5/5    
+periodic_inpaint           4/5    missed 0
+symmetric_inpaint          5/5    
+template_stamp_marker      5/5    
+reflect_across_line        5/5    
+count_colors_hist          5/5    
+fill_between_diag          5/5    
+draw_border                5/5    
+concentric_rings           3/5    missed 1,4
+extend_to_wall             5/5    
+connect_L_path             5/5    
+recolor_by_half            5/5    
+fill_bbox_gaps             5/5    
+pattern_row_extend         5/5    
+mirror_beside              5/5    
+overlay_panels             5/5    
+compare_counts_color       3/5    missed 1,4
+nearest_color_recolor      4/5    missed 0
+move_to_corner             5/5    
+fill_row_if_marker         5/5    
+color_by_column_marker     5/5    
+draw_box_around_pair       5/5    
+quadrant_color_count       5/5    
+tile_3x3                   5/5    
+invert_binary              5/5    
+largest_rect_fill          5/5    
+holes_count_color          4/5    missed 2
+panel_summary              4/5    missed 0
+select_panel_most_cells    5/5    
+select_odd_panel           5/5    
+crop_most_common_shape     4/5    missed 4
+crop_odd_shape             5/5    
+colors_by_size_column      5/5    
+quadrant_with_marker       4/5    missed 2
+crop_bbox_of_color         5/5    
+panel_and3                 4/5    missed 4
+left_half                  5/5    
+distinct_color_count_grid  5/5    
+TOTAL 343/360 95.3%
