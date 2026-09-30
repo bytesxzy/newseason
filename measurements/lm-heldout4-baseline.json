@@ -1,0 +1,4824 @@
+{
+  "total": 438,
+  "all": {
+    "n": 438,
+    "pass": 202,
+    "honest": 123,
+    "wrong": 113,
+    "accuracy_pct": 46.1,
+    "by_category": {
+      "geography": {
+        "n": 30,
+        "pass": 23,
+        "honest": 3,
+        "wrong": 4
+      },
+      "science": {
+        "n": 42,
+        "pass": 22,
+        "honest": 11,
+        "wrong": 9
+      },
+      "history": {
+        "n": 28,
+        "pass": 6,
+        "honest": 14,
+        "wrong": 8
+      },
+      "arts": {
+        "n": 20,
+        "pass": 4,
+        "honest": 15,
+        "wrong": 1
+      },
+      "tech": {
+        "n": 20,
+        "pass": 13,
+        "honest": 3,
+        "wrong": 4
+      },
+      "arith": {
+        "n": 30,
+        "pass": 27,
+        "honest": 3,
+        "wrong": 0
+      },
+      "word": {
+        "n": 47,
+        "pass": 10,
+        "honest": 19,
+        "wrong": 18
+      },
+      "algebra": {
+        "n": 40,
+        "pass": 22,
+        "honest": 4,
+        "wrong": 14
+      },
+      "logic": {
+        "n": 30,
+        "pass": 10,
+        "honest": 13,
+        "wrong": 7
+      },
+      "units": {
+        "n": 20,
+        "pass": 16,
+        "honest": 4,
+        "wrong": 0
+      },
+      "language": {
+        "n": 26,
+        "pass": 6,
+        "honest": 16,
+        "wrong": 4
+      },
+      "common": {
+        "n": 25,
+        "pass": 8,
+        "honest": 5,
+        "wrong": 12
+      },
+      "abstain": {
+        "n": 25,
+        "pass": 13,
+        "honest": 2,
+        "wrong": 10
+      },
+      "chat": {
+        "n": 15,
+        "pass": 11,
+        "honest": 0,
+        "wrong": 4
+      },
+      "code": {
+        "n": 20,
+        "pass": 8,
+        "honest": 2,
+        "wrong": 10
+      },
+      "multi": {
+        "n": 20,
+        "pass": 3,
+        "honest": 9,
+        "wrong": 8
+      }
+    }
+  },
+  "dev": {
+    "n": 312,
+    "pass": 137,
+    "honest": 91,
+    "wrong": 84,
+    "accuracy_pct": 43.9,
+    "by_category": {
+      "geography": {
+        "n": 21,
+        "pass": 16,
+        "honest": 2,
+        "wrong": 3
+      },
+      "science": {
+        "n": 29,
+        "pass": 12,
+        "honest": 9,
+        "wrong": 8
+      },
+      "history": {
+        "n": 23,
+        "pass": 4,
+        "honest": 11,
+        "wrong": 8
+      },
+      "arts": {
+        "n": 9,
+        "pass": 1,
+        "honest": 7,
+        "wrong": 1
+      },
+      "tech": {
+        "n": 15,
+        "pass": 8,
+        "honest": 3,
+        "wrong": 4
+      },
+      "arith": {
+        "n": 18,
+        "pass": 17,
+        "honest": 1,
+        "wrong": 0
+      },
+      "word": {
+        "n": 32,
+        "pass": 6,
+        "honest": 16,
+        "wrong": 10
+      },
+      "algebra": {
+        "n": 30,
+        "pass": 17,
+        "honest": 4,
+        "wrong": 9
+      },
+      "logic": {
+        "n": 25,
+        "pass": 9,
+        "honest": 9,
+        "wrong": 7
+      },
+      "units": {
+        "n": 15,
+        "pass": 13,
+        "honest": 2,
+        "wrong": 0
+      },
+      "language": {
+        "n": 21,
+        "pass": 4,
+        "honest": 13,
+        "wrong": 4
+      },
+      "common": {
+        "n": 20,
+        "pass": 8,
+        "honest": 4,
+        "wrong": 8
+      },
+      "abstain": {
+        "n": 21,
+        "pass": 11,
+        "honest": 2,
+        "wrong": 8
+      },
+      "chat": {
+        "n": 8,
+        "pass": 7,
+        "honest": 0,
+        "wrong": 1
+      },
+      "code": {
+        "n": 13,
+        "pass": 3,
+        "honest": 2,
+        "wrong": 8
+      },
+      "multi": {
+        "n": 12,
+        "pass": 1,
+        "honest": 6,
+        "wrong": 5
+      }
+    }
+  },
+  "sealed": {
+    "n": 126,
+    "pass": 65,
+    "honest": 32,
+    "wrong": 29,
+    "accuracy_pct": 51.6,
+    "by_category": {
+      "geography": {
+        "n": 9,
+        "pass": 7,
+        "honest": 1,
+        "wrong": 1
+      },
+      "science": {
+        "n": 13,
+        "pass": 10,
+        "honest": 2,
+        "wrong": 1
+      },
+      "history": {
+        "n": 5,
+        "pass": 2,
+        "honest": 3,
+        "wrong": 0
+      },
+      "arts": {
+        "n": 11,
+        "pass": 3,
+        "honest": 8,
+        "wrong": 0
+      },
+      "tech": {
+        "n": 5,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 0
+      },
+      "arith": {
+        "n": 12,
+        "pass": 10,
+        "honest": 2,
+        "wrong": 0
+      },
+      "word": {
+        "n": 15,
+        "pass": 4,
+        "honest": 3,
+        "wrong": 8
+      },
+      "algebra": {
+        "n": 10,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 5
+      },
+      "logic": {
+        "n": 5,
+        "pass": 1,
+        "honest": 4,
+        "wrong": 0
+      },
+      "units": {
+        "n": 5,
+        "pass": 3,
+        "honest": 2,
+        "wrong": 0
+      },
+      "language": {
+        "n": 5,
+        "pass": 2,
+        "honest": 3,
+        "wrong": 0
+      },
+      "common": {
+        "n": 5,
+        "pass": 0,
+        "honest": 1,
+        "wrong": 4
+      },
+      "abstain": {
+        "n": 4,
+        "pass": 2,
+        "honest": 0,
+        "wrong": 2
+      },
+      "chat": {
+        "n": 7,
+        "pass": 4,
+        "honest": 0,
+        "wrong": 3
+      },
+      "code": {
+        "n": 7,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 2
+      },
+      "multi": {
+        "n": 8,
+        "pass": 2,
+        "honest": 3,
+        "wrong": 3
+      }
+    }
+  },
+  "latency": {
+    "p50": 48,
+    "p90": 107,
+    "max": 242
+  },
+  "rows": [
+    {
+      "cat": "geography",
+      "q": "What is the capital of Australia?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The capital of Australia is Canberra. It is in Oceania.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 80
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Canada?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Ottawa is the capital of Canada. Canada is in North America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 20
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Brazil?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Brazil's capital is Brasília. It is in South America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 16
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Egypt?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Egypt has Cairo as its capital. It is in North Africa.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 12
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Kenya?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Kenya has Nairobi as its capital. It is in East Africa.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 12
+    },
+    {
+      "cat": "geography",
+      "q": "Which country has the largest area in the world?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Toyota is a Japanese car manufacturer, among the largest in the world. It dates to 1937.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 72
+    },
+    {
+      "cat": "geography",
+      "q": "What is the highest mountain above sea level?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Mount Everest is the highest mountain above sea level, on the border of Nepal and Tibet.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 78
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "q": "What is the smallest country in the world?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "In the world, a country is a nation with its own government. That is the general sense of the word — I don't hold a separate world meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 48
+    },
+    {
+      "cat": "geography",
+      "q": "Which continent is Egypt in?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Egypt's continent is North Africa.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 10
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Japan?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The capital of Japan is Tokyo. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 12
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Switzerland?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Switzerland has Bern as its capital. It is in Central Europe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 9
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "q": "What is the currency of Japan?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Japan's currency is the yen. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 11
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "q": "On which continent is Brazil?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Brazil's continent is South America.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 11
+    },
+    {
+      "cat": "geography",
+      "q": "Which river flows through Paris?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Jordan is a river in the Levant that flows into the Dead Sea.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 53
+    },
+    {
+      "cat": "geography",
+      "q": "Which sea lies between Europe and Africa?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A continent is one of Earth's large continuous landmasses. It is made up of Africa, Antarctica, Asia, Australia, Europe, North America and South America.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 71
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of South Korea?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "South Korea's capital is Seoul. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 13
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Norway?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Norway has Oslo as its capital. It is in Northern Europe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 9
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Poland?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Poland has Warsaw as its capital. It is in Central Europe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 13
+    },
+    {
+      "cat": "geography",
+      "q": "What is the capital of Thailand?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Thailand's capital is Bangkok. It is in Southeast Asia.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 14
+    },
+    {
+      "cat": "geography",
+      "q": "What language do people mainly speak in Brazil?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The language of Brazil is Portuguese. It is in South America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 98
+    },
+    {
+      "cat": "geography",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geography",
+      "q": "Which country is shaped like a boot?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on country is shaped like a boot. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 115
+    },
+    {
+      "cat": "science",
+      "q": "What is the chemical symbol for gold?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Gold has the chemical symbol Au.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 17
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "What is the atomic number of carbon?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Carbon is a chemical element with the symbol C and atomic number 6. It forms the backbone of organic chemistry.",
+      "route": "knowledge",
+      "conf": 0.75,
+      "ms": 48
+    },
+    {
+      "cat": "science",
+      "q": "How many chromosomes do humans have?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Apollo 11 was the mission that first landed humans on the Moon, in July 1969.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 74
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "science",
+      "q": "What is the hardest natural substance?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on hardest natural substance. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 67
+    },
+    {
+      "cat": "science",
+      "q": "Which planet is known as the Red Planet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Mars is the fourth planet from the Sun. It is a cold desert world often called the Red Planet. It is in the Solar System.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 48
+    },
+    {
+      "cat": "science",
+      "q": "What is the largest planet in the solar system?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Jupiter is the largest planet in the Solar System, a gas giant more than 300 times Earth's mass.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 57
+    },
+    {
+      "cat": "science",
+      "q": "What force keeps the planets in orbit around the Sun?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Sun is the star at the centre of the Solar System. It is also a ball of hot plasma powered by nuclear fusion. It dates to about 4.6 billion years old.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 77
+    },
+    {
+      "cat": "science",
+      "q": "At what temperature does water freeze in Celsius?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Water freezes at 0 °C (32 °F).",
+      "route": "knowledge",
+      "conf": 0.75,
+      "ms": 64
+    },
+    {
+      "cat": "science",
+      "q": "What is the pH of pure water?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It consists of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 54
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "What does DNA stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "DNA is deoxyribonucleic acid, the double-helix molecule that stores the genetic instructions of living organisms. It is used for storing hereditary information.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "Which subatomic particle has a negative charge?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Magnetism is the force arising from moving electric charges and the intrinsic spin of particles.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 93
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "What kind of chemical bond shares electrons between atoms?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on chemical bond shares electrons between atoms. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 52
+    },
+    {
+      "cat": "science",
+      "q": "How many bones are in an adult human body?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The human body has 206 bones in an adult. It is made up of skeletal, muscular, nervous, circulatory, respiratory, digestive and immune systems.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 43
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "What is the unit of electrical resistance?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "Of electrical resistance, an unit is a fixed quantity used as a standard of measurement. That is the general sense of the word — I don't hold a separate electrical resistance meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 59
+    },
+    {
+      "cat": "science",
+      "q": "What is the most abundant gas in Earth's atmosphere?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "In Earth's atmosphere, gas is a substance with no fixed shape that expands to fill its container. That is the general sense of the word — I don't hold a separate earth's atmosphere meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 77
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "What is the largest organ of the human body?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The human body is the physical structure of a person, organised into cells, tissues, organs and systems. It consists of skeletal, muscular, nervous, circulatory, respiratory, digestive and immune systems.",
+      "route": "knowledge",
+      "conf": 0.88,
+      "ms": 25
+    },
+    {
+      "cat": "science",
+      "q": "What is the chemical symbol for iron?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Iron has the chemical symbol Fe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 15
+    },
+    {
+      "cat": "science",
+      "q": "What is the main element in the Sun?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Sun's size is 1.39 million km in diameter. It dates to about 4.6 billion years old.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 52
+    },
+    {
+      "cat": "science",
+      "q": "What is absolute zero in Celsius?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Celsius. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 73
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "science",
+      "q": "What is the chemical formula of water?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "water's chemical symbol is H2O.",
+      "route": "knowledge",
+      "conf": 0.75,
+      "ms": 59
+    },
+    {
+      "cat": "science",
+      "q": "Which vitamin does the body make from sunlight?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on vitamin body make. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 78
+    },
+    {
+      "cat": "science",
+      "q": "Which blood cells carry oxygen?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Oxygen is a chemical element with the symbol O and atomic number 8. It is essential for respiration and combustion.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 75
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "Which planet has the most prominent rings?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Saturn is the sixth planet from the Sun. It is a gas giant famous for its ring system. It is in the Solar System.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 43
+    },
+    {
+      "cat": "science",
+      "q": "What is the speed of light in a vacuum?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The speed of speed of light is 299,792,458 m/s.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 38
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "science",
+      "q": "What is the freezing point of water in Fahrenheit?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Water freezes at 0 °C. That is 32 °F.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 54
+    },
+    {
+      "cat": "science",
+      "q": "Which part of the plant absorbs water from the soil?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on plant absorbs water from the soil. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 64
+    },
+    {
+      "cat": "science",
+      "q": "What do we call animals that eat only plants?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A we call animals eat only plants is a living organism that makes its food from light.",
+      "route": "compose",
+      "conf": 0.72,
+      "ms": 81
+    },
+    {
+      "cat": "science",
+      "q": "What is the process by which plants make food from sunlight?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on process plants make. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 98
+    },
+    {
+      "cat": "science",
+      "q": "What is the nearest galaxy to the Milky Way that is a large spiral?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Milky Way. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 106
+    },
+    {
+      "cat": "science",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "history",
+      "q": "Who was the first president of the United States?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "George Washington was a general and statesman and the first President of the United States.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 32
+    },
+    {
+      "cat": "history",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "history",
+      "q": "Who painted the Mona Lisa?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Leonardo da Vinci created Mona Lisa.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 13
+    },
+    {
+      "cat": "history",
+      "q": "Who discovered penicillin?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Who discovered penicillin. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "history",
+      "q": "In what year did humans first land on the Moon?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Apollo 11 was the mission that first landed humans on the Moon, in July 1969. It dates to July 1969.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 111
+    },
+    {
+      "cat": "history",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "history",
+      "q": "In what year did the French Revolution begin?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Industrial Revolution was the shift to machine manufacturing, beginning in Britain in the late 18th century. It dates to from about 1760.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 63
+    },
+    {
+      "cat": "history",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "history",
+      "q": "Which empire built the Colosseum?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Colosseum. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 65
+    },
+    {
+      "cat": "history",
+      "q": "Who was the British prime minister for most of World War II?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "World War II was the global conflict fought from 1939 to 1945 between the Allied and Axis powers. It dates to 1939 to 1945, ending on 2 September 1945.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 150
+    },
+    {
+      "cat": "history",
+      "q": "Who invented the telephone?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on telephone. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 50
+    },
+    {
+      "cat": "history",
+      "q": "In what year did the Berlin Wall fall?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Berlin is the capital city of Germany.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 84
+    },
+    {
+      "cat": "history",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "history",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "history",
+      "q": "Who developed the theory of evolution by natural selection?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Evolution was described by Charles Darwin. It is caused by variation, inheritance and differential survival.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 76
+    },
+    {
+      "cat": "history",
+      "q": "Who was the first emperor of Rome?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Rome. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 122
+    },
+    {
+      "cat": "history",
+      "q": "In what year did Columbus first sail to the Americas?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "United States was founded in 1776. It was created by the Founding Fathers.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 120
+    },
+    {
+      "cat": "history",
+      "q": "Who wrote the 95 Theses?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "These are the **local public development environments**, run offline through the official 0.9.9 SDK with sockets blocked before the SDK is constructed (`network_attempts` is reported in every record and is 0).",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 50
+    },
+    {
+      "cat": "history",
+      "q": "Who led India's nonviolent independence movement?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on led india's nonviolent independence movement. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 124
+    },
+    {
+      "cat": "history",
+      "q": "In what year was the Magna Carta signed?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on magna carta signed. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 102
+    },
+    {
+      "cat": "history",
+      "q": "Who composed the Ninth Symphony with the Ode to Joy?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Ninth Symphony. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 107
+    },
+    {
+      "cat": "history",
+      "q": "Who invented the movable-type printing press in Europe?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Europe. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 110
+    },
+    {
+      "cat": "history",
+      "q": "Who was the leader of the Soviet Union during the Cuban Missile Crisis?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Cold War was the geopolitical rivalry between the United States and the Soviet Union from 1947 to 1991. It dates to 1947 to 1991.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 137
+    },
+    {
+      "cat": "history",
+      "q": "Which ancient civilization built the pyramids of Giza?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Giza. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 117
+    },
+    {
+      "cat": "history",
+      "q": "In what year did the American Civil War begin?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The United States is a federal republic of fifty states in North America. It was created by the Founding Fathers.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 83
+    },
+    {
+      "cat": "history",
+      "q": "Who was the first Chancellor of the German Empire?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Chancellor of the German Empire. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 107
+    },
+    {
+      "cat": "history",
+      "q": "Who was the ruler of the Mongol Empire who founded it?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Mongol Empire. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 79
+    },
+    {
+      "cat": "history",
+      "q": "Which war was fought between the North and South of the United States?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The United States is a federal republic of fifty states in North America. It was created by the Founding Fathers.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 91
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arts",
+      "q": "Who wrote the Odyssey?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Homer wrote The Odyssey.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 50
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "q": "Who composed The Four Seasons?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Seasons are the yearly cycle of climate changes caused by Earth's axial tilt. It is caused by Earth's 23.5-degree axial tilt.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 90
+    },
+    {
+      "cat": "arts",
+      "q": "Who sculpted the statue of David?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on state of David. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 71
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "q": "Who wrote Frankenstein?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Frankenstein. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 49
+    },
+    {
+      "cat": "arts",
+      "q": "Who wrote the Harry Potter books?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Harry Potter books. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 42
+    },
+    {
+      "cat": "arts",
+      "q": "Who wrote The Divine Comedy?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Divine Comedy. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 70
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "q": "Who wrote Crime and Punishment?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Crime and Punishment. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 60
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "q": "Who wrote Les Misérables?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Les Misérables. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 74
+    },
+    {
+      "cat": "arts",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arts",
+      "q": "Who painted Guernica?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Guernica. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 45
+    },
+    {
+      "cat": "tech",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "tech",
+      "q": "What does HTML stand for?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on HTML. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 20
+    },
+    {
+      "cat": "tech",
+      "q": "What does RAM stand for?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "RAM, random-access memory, is the fast volatile memory a computer uses for data in active use; its contents disappear when power is lost. It is used for holding running programs and their working data.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 12
+    },
+    {
+      "cat": "tech",
+      "q": "Who created the Linux kernel?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Linus Torvalds created Linux. Linux dates to 1991.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 30
+    },
+    {
+      "cat": "tech",
+      "q": "What is the binary number 1010 in decimal?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Binary is base-2 notation, in which every value is written with the digits 0 and 1.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 66
+    },
+    {
+      "cat": "tech",
+      "q": "What is the decimal value of binary 1101?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Binary is base-2 notation, in which every value is written with the digits 0 and 1.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 73
+    },
+    {
+      "cat": "tech",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "tech",
+      "q": "What language is used to style web pages?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "JavaScript is a dynamically typed programming language that runs in web browsers and, through Node.js, on servers. It is used for scripting web pages and building servers and tools.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 101
+    },
+    {
+      "cat": "tech",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "tech",
+      "q": "What is 255 in hexadecimal?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on 255 in hexadecimal. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 42
+    },
+    {
+      "cat": "tech",
+      "q": "How many bits are in a byte?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The byte has eight bits.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 16
+    },
+    {
+      "cat": "tech",
+      "q": "What does GPU stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A GPU, graphics processing unit, runs thousands of simple operations in parallel, which suits graphics and matrix maths. It is used for parallel arithmetic for graphics and machine learning.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "tech",
+      "q": "What does USB stand for?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on USB. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 9
+    },
+    {
+      "cat": "tech",
+      "q": "What does AI stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Artificial intelligence is the field concerned with building systems that perform tasks normally requiring human intelligence. It consists of search, knowledge representation, reasoning, machine learning and perception.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "tech",
+      "q": "Who founded Microsoft?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Microsoft was created by Bill Gates and Paul Allen. It dates to 1975.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 45
+    },
+    {
+      "cat": "tech",
+      "q": "Who co-founded Apple with Steve Wozniak?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "An apple is the edible fruit of the apple tree, Malus domestica.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 71
+    },
+    {
+      "cat": "tech",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "tech",
+      "q": "What is recursion in programming?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Recursion is a function calling itself on a smaller input until it reaches a base case. It consists of a base case and a recursive case.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 32
+    },
+    {
+      "cat": "tech",
+      "q": "What is a compiler?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A compiler translates source code in one language into another form — typically machine code — before the program runs. It is used for turning source code into executable form.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "tech",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "What is 347 plus 589?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "347 + 589 works out to 936.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 11
+    },
+    {
+      "cat": "arith",
+      "q": "What is 1000 minus 387?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1000 - 387 works out to 613.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 11
+    },
+    {
+      "cat": "arith",
+      "q": "What is 48 times 12?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "48 * 12 works out to 576.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 18
+    },
+    {
+      "cat": "arith",
+      "q": "What is 144 divided by 12?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "144 / 12 = 12.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 18
+    },
+    {
+      "cat": "arith",
+      "q": "What is 15% of 240?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That comes to 36.",
+      "route": "compute",
+      "conf": 0.75,
+      "ms": 12
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "What is the square root of 169?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "13 (sqrt(169)). Checked by 2 independent methods (exact rational arithmetic, floating point).",
+      "route": "reason",
+      "conf": 0.8,
+      "ms": 17
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "What is 25 percent of 80?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That is 20.",
+      "route": "compute",
+      "conf": 0.75,
+      "ms": 13
+    },
+    {
+      "cat": "arith",
+      "q": "What is 12 cubed?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12 ^ 3 works out to 1728.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 8
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "What is 3/4 plus 1/8?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3/4 + 1/8 equals 0.875.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 8
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "What is 13 times 14?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "13 * 14 comes to 182.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 11
+    },
+    {
+      "cat": "arith",
+      "q": "What is a third of 90?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "30 (1/3 × 90). Checked by 2 independent methods (exact rational arithmetic, floating point).",
+      "route": "reason",
+      "conf": 0.8,
+      "ms": 9
+    },
+    {
+      "cat": "arith",
+      "q": "What is 15 minus 27?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "15 - 27 comes to -12.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 11
+    },
+    {
+      "cat": "arith",
+      "q": "What is 5 cubed?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "5 ^ 3 comes to 125.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 9
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "Is 91 a prime number?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "no. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor.",
+      "route": "reason",
+      "conf": 0.973,
+      "ms": 9
+    },
+    {
+      "cat": "arith",
+      "q": "What is 9 squared minus 4 squared?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "9 ^ 2 - 4 ^ 2 comes to 65.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 20
+    },
+    {
+      "cat": "arith",
+      "q": "What is 0.25 as a fraction?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "Floating-point arithmetic represents numbers as a sign, a significand and an exponent in binary, which is why some decimal fractions cannot be stored exactly.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 44
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "arith",
+      "q": "What is (8 + 2) * (7 - 4)?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "(8 + 2) * (7 - 4) equals 30.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 8
+    },
+    {
+      "cat": "arith",
+      "q": "What is 1,000,000 divided by 1,000?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1000000 / 1000 equals 1000.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 18
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "word",
+      "q": "Sara has 40 dollars and spends 15. How much does she have left?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on she have left. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 84
+    },
+    {
+      "cat": "word",
+      "q": "A train travels 60 miles per hour for 2.5 hours. How far does it go?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "It travels 150 miles.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 36
+    },
+    {
+      "cat": "word",
+      "q": "24 cookies are shared equally among 6 children. How many does each child get?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on 24 cookies. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 125
+    },
+    {
+      "cat": "word",
+      "q": "A rectangle is 8 meters long and 5 meters wide. What is its area?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 116
+    },
+    {
+      "cat": "word",
+      "q": "A rectangle is 10 units by 3 units. What is its perimeter?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 86
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "John reads 20 pages a day. How many pages does he read in a week?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "140 pages — 20 pages a day × a week.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 56
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "word",
+      "q": "Pencils are 3 for a dollar. How much do 12 pencils cost?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on 12 pencils cost. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "word",
+      "q": "If 3 pens cost 4.50 dollars, how much do 5 pens cost?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "4.5 dollars — 4.50 dollars.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 41
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "A car uses 8 liters of fuel per 100 km. How many liters does it use for 250 km?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "8 liters — 8 liters.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 49
+    },
+    {
+      "cat": "word",
+      "q": "5 workers build a wall in 10 days. How many days would 10 workers need?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "10 days — 10 days.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 56
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "What is the median of 3, 9, 1, 7 and 5?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The median is the middle value when the data are sorted.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 18
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "A jacket costs 80 dollars and is 30% off. What is the sale price?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The new price comes to $56.",
+      "route": "compute",
+      "conf": 0.75,
+      "ms": 38
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "How many days are in 9 weeks?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That's 63 days.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 17
+    },
+    {
+      "cat": "word",
+      "q": "A pizza has 8 slices and Ben eats 3. What fraction of the pizza is left?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Ben. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 116
+    },
+    {
+      "cat": "word",
+      "q": "Dan saves 15 dollars a week. How many weeks to save 135 dollars?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "9 weeks — 135 dollars ÷ 15 dollars a week.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 47
+    },
+    {
+      "cat": "word",
+      "q": "A bag has 4 red and 6 blue marbles. What is the probability of picking a red one?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "15. Checked by 3 independent methods (multiplicative formula, Pascal's triangle, factorial definition); verified by symmetry C(n,k)=C(n,n-k), bound C(n,k) <= 2^n.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 47
+    },
+    {
+      "cat": "word",
+      "q": "What is the probability of rolling an even number on a fair six-sided die?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Probability measures how likely an event is, as a number from 0 (impossible) to 1 (certain).",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 113
+    },
+    {
+      "cat": "word",
+      "q": "How many minutes are in 3.5 hours?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That comes to 210 minutes.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 25
+    },
+    {
+      "cat": "word",
+      "q": "A farm has 12 cows and 8 chickens. How many legs do the animals have in total?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on How. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 102
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "The ratio of boys to girls in a class is 3 to 2 and there are 30 students. How many girls are there?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on girls. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 51
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "Jack is 3 times as old as Jill and together they are 40. How old is Jill?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Jill. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 127
+    },
+    {
+      "cat": "word",
+      "q": "Two consecutive integers add up to 37. What are they?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "An integer is a whole number, positive, negative or zero.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 68
+    },
+    {
+      "cat": "word",
+      "q": "What is a 15% tip on a 60 dollar bill?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on 15 tip 60. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 60
+    },
+    {
+      "cat": "word",
+      "q": "A square has a side of 7. What is its area?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Area means a region, or the extent of a surface.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 63
+    },
+    {
+      "cat": "word",
+      "q": "A circle has a radius of 3. What is its area in terms of pi?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 91
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "word",
+      "q": "What is the sum of the interior angles of a triangle?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on sum interior angles. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 77
+    },
+    {
+      "cat": "word",
+      "q": "How many faces does a cube have?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on faces does a cube have. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 50
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did she sell altogether in April and May?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Natalia. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 206
+    },
+    {
+      "cat": "word",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "word",
+      "q": "A store has 120 shirts. It sells a quarter of them on Monday and half of the rest on Tuesday. How many shirts are left?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on It. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 169
+    },
+    {
+      "cat": "word",
+      "q": "Maria buys 4 notebooks at 2.50 dollars each and a pen for 1.75. How much does she pay in total?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "2.5 dollars — 2.50 dollars.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 49
+    },
+    {
+      "cat": "word",
+      "q": "A movie starts at 7:30 pm and lasts 2 hours 15 minutes. When does it end?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on When. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 109
+    },
+    {
+      "cat": "word",
+      "q": "Ali has 3 boxes with 14 candies each and gives away 10 candies. How many candies does he have left?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "14 candies — 14 candies.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 54
+    },
+    {
+      "cat": "algebra",
+      "q": "Solve 2x + 3 = 11.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = 4. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 97
+    },
+    {
+      "cat": "algebra",
+      "q": "Solve x^2 = 49.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -7 or x = 7. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 99
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the derivative of x^3?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3x^2. Derived by symbolic (power rule); verified by numeric differentiation, reverse: integrate back.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 12
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the derivative of e^x?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A derivative is the instantaneous rate of change of a function.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 20
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "Factor x^2 - 9.",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "2 - 9 = -7.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 17
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "What is log base 10 of 1000?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Binary is base-2 notation, in which every value is written with the digits 0 and 1.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 50
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the natural log of e?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A sparse multinomial log-linear model over an action vocabulary of 34 hypothesis families plus two control actions (`deepen`, `stop`): ``` P(a | s) = softmax_a( w_a · φ(s) ) ``` `φ(s)` is the **reasoning state**, not just a description of t",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 46
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the slope of the line y = 3x + 2?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3. Derived by symbolic (power rule); verified by numeric differentiation, reverse: integrate back.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 18
+    },
+    {
+      "cat": "algebra",
+      "q": "What is 5 choose 2?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "10. Checked by 3 independent methods (multiplicative formula, Pascal's triangle, factorial definition); verified by symmetry C(n,k)=C(n,n-k), bound C(n,k) <= 2^n.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 9
+    },
+    {
+      "cat": "algebra",
+      "q": "In how many ways can 4 books be arranged on a shelf?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "24. Checked by 2 independent methods (n!/(n-k)!, falling product); verified by P(n,k) = C(n,k) k.",
+      "route": "reason",
+      "conf": 0.973,
+      "ms": 25
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the derivative of x^2 + 3x?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "2x + 3. Derived by symbolic (power rule); verified by numeric differentiation, reverse: integrate back.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 15
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the integral of x from 0 to 2?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "2. Checked by 2 independent methods (antiderivative (fundamental theorem), Simpson's rule); verified by independent quadrature, sign bound.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 14
+    },
+    {
+      "cat": "algebra",
+      "q": "Solve x^2 + 2x - 8 = 0.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -4 or x = 2. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 115
+    },
+    {
+      "cat": "algebra",
+      "q": "What is sin of 90 degrees?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on sin of 90 degrees. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 35
+    },
+    {
+      "cat": "algebra",
+      "q": "What is cosine of 0?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on cosine of 0. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 14
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the 10th Fibonacci number if the sequence starts 1, 1, 2, 3?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Fibonacci. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 92
+    },
+    {
+      "cat": "algebra",
+      "q": "What is 2^10 mod 7?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "2. Checked by 2 independent methods (square-and-multiply, repeated multiplication); verified by range 0 <= r < m, Fermat/Euler reduction.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 9
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "Solve 5(x - 2) = 20.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = 6. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 80
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the absolute value of -7?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "-7 works out to -7.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 17
+    },
+    {
+      "cat": "algebra",
+      "q": "Solve x/4 = 9.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = 36. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 63
+    },
+    {
+      "cat": "algebra",
+      "q": "Expand (x + 2)^2.",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Big Bang is the leading model for the origin of the universe: an extremely hot, dense early state that has been expanding for about 13.8 billion years.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 103
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the probability of getting two heads when flipping two fair coins?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1/4 (0.25). Checked by 2 independent methods (binomial formula, enumerate sequences); verified by probability in [0,1], distribution sums to 1. Assuming the coin is fair and flips are independent.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 52
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the expected value of a fair six-sided die roll?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on fair six-sided die roll. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 123
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the sum of the integers from 1 to 100?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "5050. Checked by 2 independent methods (Gauss pairing formula, direct summation); verified by mean times count, bounds.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 19
+    },
+    {
+      "cat": "algebra",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebra",
+      "q": "Solve 4x + 9 = 3x - 2.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -11. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 120
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the value of 3! + 4!?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "+ 4 = 4.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 8
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the sum of the roots of x^2 - 7x + 10 = 0?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "x = 2 or x = 5. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 148
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the product of the roots of x^2 - 7x + 10 = 0?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "x = 2 or x = 5. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 195
+    },
+    {
+      "cat": "algebra",
+      "q": "Is 221 a prime number?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "no. Checked by 2 independent methods (trial division, Miller-Rabin (deterministic bases)); verified by witness factor.",
+      "route": "reason",
+      "conf": 0.973,
+      "ms": 12
+    },
+    {
+      "cat": "algebra",
+      "q": "What is the smallest prime number greater than 50?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A prime number is a whole number greater than 1 divisible only by 1 and itself.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 66
+    },
+    {
+      "cat": "logic",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "logic",
+      "q": "All birds have wings. A penguin is a bird. Does a penguin have wings?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A bird is a warm-blooded vertebrate with feathers, wings and a beak.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 58
+    },
+    {
+      "cat": "logic",
+      "q": "If it rains the ground gets wet. The ground is not wet. Did it rain?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Rain is liquid water falling from clouds once droplets grow heavy enough. It results from condensation of water vapour followed by droplet growth.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 104
+    },
+    {
+      "cat": "logic",
+      "q": "Alice is taller than Bob and Bob is taller than Carl. Who is the tallest?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Alice. Ordering the statements gives Alice > Bob > Carl.",
+      "route": "reason",
+      "conf": 0.75,
+      "ms": 43
+    },
+    {
+      "cat": "logic",
+      "q": "Alice is taller than Bob and Bob is taller than Carl. Who is the shortest?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Carl. Ordering the statements gives Alice > Bob > Carl.",
+      "route": "reason",
+      "conf": 0.75,
+      "ms": 48
+    },
+    {
+      "cat": "logic",
+      "q": "All roses are flowers and some flowers fade quickly. Must some roses fade quickly?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Must. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 123
+    },
+    {
+      "cat": "logic",
+      "q": "Tom is older than Sam and Sam is older than Ray. Is Tom older than Ray?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Tom. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 131
+    },
+    {
+      "cat": "logic",
+      "q": "What number comes next: 2, 4, 8, 16?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "32. In 2, 4, 8, 16, each term multiplies by 2.",
+      "route": "reason",
+      "conf": 0.923,
+      "ms": 25
+    },
+    {
+      "cat": "logic",
+      "q": "What number comes next: 1, 4, 9, 16?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "25. In 1, 4, 9, 16, the terms are consecutive squares.",
+      "route": "reason",
+      "conf": 0.923,
+      "ms": 27
+    },
+    {
+      "cat": "logic",
+      "q": "What number comes next: 3, 6, 9, 12?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "15. In 3, 6, 9, 12, each term adds 3.",
+      "route": "reason",
+      "conf": 0.923,
+      "ms": 26
+    },
+    {
+      "cat": "logic",
+      "q": "Which one does not belong: apple, banana, carrot, grape?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "An apple is the edible fruit of the apple tree, Malus domestica.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 124
+    },
+    {
+      "cat": "logic",
+      "q": "If today is Monday, what day will it be in 10 days?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "There are seven days in a week.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 65
+    },
+    {
+      "cat": "logic",
+      "q": "If yesterday was Friday, what day is tomorrow?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Friday. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 70
+    },
+    {
+      "cat": "logic",
+      "q": "A is the mother of B and B is the mother of C. What is A to C?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on What. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 43
+    },
+    {
+      "cat": "logic",
+      "q": "How many months of the year have 28 days?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "That depends on a rate per unit of time, which the question doesn't say: number of months = 28 days × rate per unit of time. Give me a rate per unit of time and I can work it out.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 24
+    },
+    {
+      "cat": "logic",
+      "q": "What weighs more, a pound of feathers or a pound of bricks?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on weighs pound feathers. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 97
+    },
+    {
+      "cat": "logic",
+      "q": "If 5 machines make 5 widgets in 5 minutes, how long would 100 machines take to make 100 widgets?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "5 minutes — 5 minutes.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 50
+    },
+    {
+      "cat": "logic",
+      "q": "A bat and a ball cost 1.10 dollars together and the bat costs 1 dollar more than the ball. How much is the ball?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Sun is the star at the centre of the Solar System, a ball of hot plasma powered by nuclear fusion. It dates to about 4.6 billion years old.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 146
+    },
+    {
+      "cat": "logic",
+      "q": "If some doctors are tall and all tall people are healthy, are some doctors healthy?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Not necessarily. The premises do not force that conclusion either way.",
+      "route": "reason",
+      "conf": 0.75,
+      "ms": 45
+    },
+    {
+      "cat": "logic",
+      "q": "Are all squares rectangles?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Are all squares rectangles. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 48
+    },
+    {
+      "cat": "logic",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "logic",
+      "q": "Anna sits left of Ben and Ben sits left of Cara. Who sits in the middle?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Anna. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 171
+    },
+    {
+      "cat": "logic",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "logic",
+      "q": "What is the angle between the hands of a clock at 3:00?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on angle hands clock. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 59
+    },
+    {
+      "cat": "logic",
+      "q": "What number comes next: 1, 1, 2, 3, 5, 8?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "13. In 1, 1, 2, 3, 5, 8, each term is the sum of the two before it.",
+      "route": "reason",
+      "conf": 0.75,
+      "ms": 23
+    },
+    {
+      "cat": "logic",
+      "q": "What number comes next: 100, 50, 25?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12.5. In 100, 50, 25, each term multiplies by 0.5.",
+      "route": "reason",
+      "conf": 0.923,
+      "ms": 46
+    },
+    {
+      "cat": "logic",
+      "q": "If all bloops are razzies and all razzies are lazzies, are all bloops lazzies?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes. Every bloop is in a category that is itself contained in lazzies, so the containment carries through.",
+      "route": "reason",
+      "conf": 0.75,
+      "ms": 75
+    },
+    {
+      "cat": "logic",
+      "q": "Five people are in a race. Kim finishes before Lee and after Max. Who is faster, Kim or Max?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Five. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 182
+    },
+    {
+      "cat": "logic",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "logic",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "units",
+      "q": "How many centimeters are in a meter?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "100 centimeters — a meter.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 15
+    },
+    {
+      "cat": "units",
+      "q": "How many grams are in a kilogram?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1000 grams — a kilogram.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 18
+    },
+    {
+      "cat": "units",
+      "q": "Convert 5 kilometers to meters.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That is 5000 meters.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 13
+    },
+    {
+      "cat": "units",
+      "q": "How many ounces are in a pound?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "16 ounces — a pound.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 18
+    },
+    {
+      "cat": "units",
+      "q": "How many minutes are in 2 hours?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That is 120 minutes.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 19
+    },
+    {
+      "cat": "units",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "units",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "units",
+      "q": "How many feet are in a mile?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "5280 feets — a mile.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 16
+    },
+    {
+      "cat": "units",
+      "q": "How many inches are in a foot?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12 inches — a foot.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 18
+    },
+    {
+      "cat": "units",
+      "q": "How many seconds are in a day?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "86400 seconds — a day.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 18
+    },
+    {
+      "cat": "units",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "units",
+      "q": "How many milliliters are in a liter?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1000 milliliters — a liter.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 20
+    },
+    {
+      "cat": "units",
+      "q": "About how many kilometers is 3 miles?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "4.83 kilometers — 3 miles.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 16
+    },
+    {
+      "cat": "units",
+      "q": "How many weeks are in a year?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "52.18 weeks — a year.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 20
+    },
+    {
+      "cat": "units",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "units",
+      "q": "How many kilograms are in 500 grams?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That's 0.5 kilograms.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 18
+    },
+    {
+      "cat": "units",
+      "q": "How long is a marathon in kilometers?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on marathon in kilometers. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 69
+    },
+    {
+      "cat": "units",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "units",
+      "q": "How many hours are in a week?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "168 hours — a week.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 16
+    },
+    {
+      "cat": "units",
+      "q": "How many square meters are in a hectare?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on hectare. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 62
+    },
+    {
+      "cat": "language",
+      "q": "What does the word benevolent mean?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on word benevolent. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 52
+    },
+    {
+      "cat": "language",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "language",
+      "q": "What is a synonym for happy?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on synonym for happy. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 45
+    },
+    {
+      "cat": "language",
+      "q": "What is the opposite of ancient?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on opposite of ancient. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 41
+    },
+    {
+      "cat": "language",
+      "q": "What does ephemeral mean?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on ephemeral. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 19
+    },
+    {
+      "cat": "language",
+      "q": "What is an oxymoron?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on oxymoron. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 22
+    },
+    {
+      "cat": "language",
+      "q": "What is a noun?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on noun. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 7
+    },
+    {
+      "cat": "language",
+      "q": "What is a verb?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on verb. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 9
+    },
+    {
+      "cat": "language",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "language",
+      "q": "What is democracy?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on democracy. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 20
+    },
+    {
+      "cat": "language",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "language",
+      "q": "What is a metaphor?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on metaphor. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 15
+    },
+    {
+      "cat": "language",
+      "q": "What does pragmatic mean?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on pragmatic. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 20
+    },
+    {
+      "cat": "language",
+      "q": "What is an adjective?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on adjective. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 21
+    },
+    {
+      "cat": "language",
+      "q": "What does verbose mean?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on verbose. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 20
+    },
+    {
+      "cat": "language",
+      "q": "What is the plural of mouse?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Mouse has more than one sense: a hand-held device for moving a pointer on a screen; a small rodent with a long tail.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 42
+    },
+    {
+      "cat": "language",
+      "q": "What is the past tense of the verb run?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Run means as a verb, to move fast on foot, or to operate.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 52
+    },
+    {
+      "cat": "language",
+      "q": "What is a haiku?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on haiku. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 11
+    },
+    {
+      "cat": "language",
+      "q": "What is an ecosystem?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on ecosystem. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 22
+    },
+    {
+      "cat": "language",
+      "q": "What does GDP stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "GDP, gross domestic product, is the total market value of the goods and services an economy produces in a period. It is used for measuring the size of an economy.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 15
+    },
+    {
+      "cat": "language",
+      "q": "What is an atom?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "An atom is the smallest unit of an element. It is also a nucleus of protons and neutrons surrounded by electrons. It consists of protons, neutrons and electrons.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 14
+    },
+    {
+      "cat": "language",
+      "q": "What is a prime number?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A prime number is a whole number greater than 1 divisible only by 1 and itself.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 14
+    },
+    {
+      "cat": "language",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "language",
+      "q": "What does the prefix 'un' mean in unhappy?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The United Nations is an intergovernmental organisation founded in 1945 to maintain international peace and cooperation. It dates to 1945.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 75
+    },
+    {
+      "cat": "language",
+      "q": "What is the plural of child?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Child means a young human.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 49
+    },
+    {
+      "cat": "language",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "common",
+      "q": "Why do people wear coats in winter?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on people wear coats. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 91
+    },
+    {
+      "cat": "common",
+      "q": "What do you use an umbrella for?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on you use an umbrella for. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 58
+    },
+    {
+      "cat": "common",
+      "q": "What happens to ice left in the sun?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Sun is the star at the centre of the Solar System, a ball of hot plasma powered by nuclear fusion. It dates to about 4.6 billion years old.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 67
+    },
+    {
+      "cat": "common",
+      "q": "Why do people brush their teeth?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Why do people brush their teeth. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 60
+    },
+    {
+      "cat": "common",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "common",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "common",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "common",
+      "q": "Why do living things need water?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Water is a compound of two hydrogen atoms and one oxygen atom, written H2O. It is made up of hydrogen and oxygen.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 67
+    },
+    {
+      "cat": "common",
+      "q": "What season comes after winter?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The four seasons are spring, summer, autumn and winter. It consists of spring, summer, autumn and winter.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 47
+    },
+    {
+      "cat": "common",
+      "q": "What color is the sky on a clear day?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The sky looks blue because air scatters short-wavelength light more strongly than long-wavelength light. It is caused by Rayleigh scattering of sunlight by air molecules.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 72
+    },
+    {
+      "cat": "common",
+      "q": "What do you call a baby dog?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A dog is a domesticated descendant of the wolf, kept as a companion and working animal.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 66
+    },
+    {
+      "cat": "common",
+      "q": "What do you call a baby cat?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A cat is a small domesticated carnivorous mammal.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 56
+    },
+    {
+      "cat": "common",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "common",
+      "q": "Which is heavier, a car or a bicycle?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A car is a road vehicle with an engine, usually four wheels, built to carry a few people. It is used for carrying people by road.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 66
+    },
+    {
+      "cat": "common",
+      "q": "How many days are in a week?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "7 days — a week.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 21
+    },
+    {
+      "cat": "common",
+      "q": "What do plants need to grow?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Grow means as a verb, to increase in size or develop.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 64
+    },
+    {
+      "cat": "common",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "common",
+      "q": "What color do you get by mixing red and blue?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The primary colours of light are red, green and blue; in pigment they are traditionally red, yellow and blue. It is made up of red, green and blue for light.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 96
+    },
+    {
+      "cat": "common",
+      "q": "Why is the sky blue?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Air molecules scatter sunlight in all directions, and Rayleigh scattering is far stronger at short wavelengths — approximately as one over wavelength to the fourth power. Blue light is therefore scattered across the whole sky while red ligh",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 29
+    },
+    {
+      "cat": "common",
+      "q": "Why do we have seasons?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Earth's axis is tilted about 23.5 degrees. As Earth orbits the Sun, each hemisphere leans toward the Sun for part of the year and away for the rest, changing how directly sunlight strikes the surface and how long the day lasts. Distance fro",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 12
+    },
+    {
+      "cat": "common",
+      "q": "What is the difference between weather and climate?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Climate means the typical weather conditions of an area. I could not reach a live source just now, so that is from local knowledge and may be out of date.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 27
+    },
+    {
+      "cat": "common",
+      "q": "Why does ice float on water?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Colliding ice and water particles in a thundercloud separate charge, building an enormous voltage difference.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 54
+    },
+    {
+      "cat": "common",
+      "q": "What makes a rainbow?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A rainbow is an arc of colour produced when sunlight is refracted, reflected and dispersed by water droplets. Light entering a raindrop slows and bends, reflects off the back of the drop and bends again on the way out. Different wavelengths",
+      "route": "explanation",
+      "conf": 0.85,
+      "ms": 45
+    },
+    {
+      "cat": "common",
+      "q": "Why do we sleep?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on Why do we sleep. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 11
+    },
+    {
+      "cat": "common",
+      "q": "How do airplanes stay in the air?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "They are computed from the *raw* displacement rather than the clamped pair `seed_dr` and `seed_dc` use, because the point is to stay exact far from the seed — which is exactly where a clamped offset stops distinguishing one diagonal from th",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 63
+    },
+    {
+      "cat": "abstain",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstain",
+      "q": "Who won the 2087 World Cup?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on won. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 68
+    },
+    {
+      "cat": "abstain",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the weather right now in Paris?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Paris is the capital city of France. I could not reach a live source just now, so that is from local knowledge and may be out of date.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 37
+    },
+    {
+      "cat": "abstain",
+      "q": "Who is the president of Mars?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Mars is the fourth planet from the Sun. It is a cold desert world often called the Red Planet. It is in the Solar System.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 77
+    },
+    {
+      "cat": "abstain",
+      "q": "How many moons does Planet Zog have?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The Solar System is the Sun and everything gravitationally bound to it, including eight planets. It is made up of the Sun, eight planets, dwarf planets, moons, asteroids and comets.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 70
+    },
+    {
+      "cat": "abstain",
+      "q": "What does the word flibbertigibbetxq mean?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on word flibbertigibbetxq. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 51
+    },
+    {
+      "cat": "abstain",
+      "q": "Why did Einstein win the Nobel Prize for relativity?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "He received the 1921 Nobel Prize in Physics for his explanation of the photoelectric effect.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 104
+    },
+    {
+      "cat": "abstain",
+      "q": "When did Napoleon land on the Moon?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Apollo 11 was the mission that first landed humans on the Moon, in July 1969.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 90
+    },
+    {
+      "cat": "abstain",
+      "q": "What color is the number seven?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on What color is the number seven. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 84
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the square root of a banana?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Of a banana, a root is the top directory of a file system, or full administrative access. That is the general sense of the word — I don't hold a separate banana meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 88
+    },
+    {
+      "cat": "abstain",
+      "q": "What will the stock market do tomorrow?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A stock market is a venue where shares in companies are issued and traded. I could not reach a live source just now, so that is from local knowledge and may be out of date.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 18
+    },
+    {
+      "cat": "abstain",
+      "q": "What is my name?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't know your name — you haven't mentioned it.",
+      "route": "memory",
+      "ms": 0
+    },
+    {
+      "cat": "abstain",
+      "q": "How tall is Mount Xyzzyplex?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on Mount Xyzzyplex. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 67
+    },
+    {
+      "cat": "abstain",
+      "q": "Who was the 60th president of the United States?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The United States is a federal republic of fifty states in North America. It was created by the Founding Fathers.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 86
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the largest prime number?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A prime number is a whole number greater than 1 divisible only by 1 and itself.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 28
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the last digit of pi?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on last digit of pi. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 65
+    },
+    {
+      "cat": "abstain",
+      "q": "What is 5 divided by 0?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "That expression divides by zero.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 11
+    },
+    {
+      "cat": "abstain",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the population of Qwertyland?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on Qwertyland. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 50
+    },
+    {
+      "cat": "abstain",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "abstain",
+      "q": "Who will win the next election?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on Who will win the next election. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 105
+    },
+    {
+      "cat": "abstain",
+      "q": "How much does a snorflax weigh?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on snorflax weigh. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 53
+    },
+    {
+      "cat": "abstain",
+      "q": "What is the boiling point of the metal vexonium?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on metal vexonium. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 36
+    },
+    {
+      "cat": "abstain",
+      "q": "Which came first, the chicken or the egg?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on came first chicken. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 89
+    },
+    {
+      "cat": "chat",
+      "q": "Hello",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Hey. Ask me something.",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 4
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chat",
+      "q": "Who are you?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information.",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 5
+    },
+    {
+      "cat": "chat",
+      "q": "What can you do?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information.",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 16
+    },
+    {
+      "cat": "chat",
+      "q": "I'm feeling sad today",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Got it. What would you like me to work out?",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 69
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "chat",
+      "q": "Can you help me?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Help means as a verb, to make it easier for someone to do something.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 13
+    },
+    {
+      "cat": "chat",
+      "q": "Good morning",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Hi — what would you like to know?",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 17
+    },
+    {
+      "cat": "chat",
+      "q": "What time is it?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "It is 11:29 PM on Wednesday, September 30, 2026, by this device's clock.",
+      "route": "compute",
+      "conf": 0.5,
+      "ms": 75
+    },
+    {
+      "cat": "chat",
+      "q": "Tell me a joke",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on joke. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 16
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chat",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "q": "Write a Python function that adds two numbers.",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library. It was created by Guido van Rossum.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 142
+    },
+    {
+      "cat": "code",
+      "q": "How do I print hello world in Python?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library. It was created by Guido van Rossum.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 98
+    },
+    {
+      "cat": "code",
+      "q": "How do I reverse a string in Python?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library. It was created by Guido van Rossum.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 68
+    },
+    {
+      "cat": "code",
+      "q": "What does len do in Python?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library. It was created by Guido van Rossum.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 61
+    },
+    {
+      "cat": "code",
+      "q": "How do I declare a variable in JavaScript?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A variable is a named place a program stores a value it can read and change.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 58
+    },
+    {
+      "cat": "code",
+      "q": "What is the difference between == and === in JavaScript?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "JavaScript and JavaScript differ in one respect. JavaScript is a dynamically typed programming language that runs in web browsers and, through Node.js, on servers, while JavaScript is a dynamically typed programming language that runs in we",
+      "route": "comparison",
+      "conf": 0.7,
+      "ms": 30
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "q": "What does JSON stand for?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on JSON. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 25
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "q": "How do I sort a list in Python?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library. It was created by Guido van Rossum.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 27
+    },
+    {
+      "cat": "code",
+      "q": "What is the average time complexity of quicksort?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on quicksort. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 46
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "q": "What is an API?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "An API, or application programming interface, is a defined contract that lets one piece of software call another. It is used for letting programs use each other's functionality without sharing internals.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 6
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "q": "What is the difference between a list and a tuple in Python?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Array and Python differ in one respect. Array is An array is an ordered collection of values addressed by position, while Python is a high-level, dynamically typed programming language known for readable syntax and a large standard library.",
+      "route": "comparison",
+      "conf": 0.7,
+      "ms": 31
+    },
+    {
+      "cat": "code",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "code",
+      "q": "What is a variable?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A variable is a named place a program stores a value it can read and change.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 7
+    },
+    {
+      "cat": "code",
+      "q": "What is an if statement?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "That is why the last several rounds of work went into new hypothesis families rather than into tuning, and it is the honest statement of where the ceiling currently sits.",
+      "route": "knowledge",
+      "conf": 0.7,
+      "ms": 17
+    },
+    {
+      "cat": "multi",
+      "q": "Which of the following is a mammal? A) shark B) dolphin C) trout D) eel",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on following mammal shark. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 151
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "multi",
+      "q": "Which is the largest number? A) 0.5 B) 0.45 C) 0.55 D) 0.05",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on largest number 0.5. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 97
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multi",
+      "q": "What is the capital of the country where the Eiffel Tower stands?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The capital of France is Paris.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 70
+    },
+    {
+      "cat": "multi",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "multi",
+      "q": "How many legs do 3 spiders have in total?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The spider has eight legs.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 76
+    },
+    {
+      "cat": "multi",
+      "q": "If today is Wednesday, what day will it be 100 days from now?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "There are seven days in a week.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 120
+    },
+    {
+      "cat": "multi",
+      "q": "How many letters are in the word elephant?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on word elephant. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 83
+    },
+    {
+      "cat": "multi",
+      "q": "Spell the word cat backwards.",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "A cat is a small domesticated carnivorous mammal.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 100
+    },
+    {
+      "cat": "multi",
+      "q": "What is the third letter of the alphabet?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Google is an American technology company known for its search engine, Android and cloud services, owned by Alphabet Inc. It was created by Larry Page and Sergey Brin.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 70
+    },
+    {
+      "cat": "multi",
+      "q": "How many vowels are in the word education?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on vowels. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 72
+    },
+    {
+      "cat": "multi",
+      "q": "What month comes after March?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "I don't have anything reliable on March. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 103
+    },
+    {
+      "cat": "multi",
+      "q": "What is the capital of the country that has the city of Kyoto?",
+      "sealed": false,
+      "pass": false,
+      "honest": true,
+      "wrong": false,
+      "text": "Of Kyoto, a city is a large town. That is the general sense of the word — I don't hold a separate kyoto meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 98
+    },
+    {
+      "cat": "multi",
+      "q": "How many sides do two triangles have in total?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Tides are the regular rise and fall of sea level caused mainly by the Moon's gravity.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 149
+    }
+  ]
+}
