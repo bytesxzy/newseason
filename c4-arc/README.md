@@ -98,3 +98,69 @@ Failure labels report directly observed conditions, not speculative diagnoses of
 `corpus-provenance.json` records that all 400 bundled ARC-1 identifiers match the upstream training split and none match evaluation. Neither those tasks nor the supplied pretrained planner constitute a clean unseen evaluation. New primitives were designed using synthetic examples and the first 80 tasks' demonstrations. A subsequent full development run exposed budget interference and informed the final general scheduling guard. All reported scores are therefore development measurements, with no claim of untouched held-out evaluation.
 
 See `../ARC-UPGRADE-REPORT.md` for actual measured results and limitations.
+
+## Concept machines (`60-concepts.js`) and held-out measurement
+
+`60-concepts.js` is one module holding small, exact parameter searches for concepts the
+other families did not cover. Every machine enumerates a few discrete choices (which
+cells are sources, which directions, what stops a line, which colour) and keeps a
+hypothesis only if it reproduces every demonstration cell for cell:
+
+- rays and anchored primitives (stencil cells and rays from mark classes, greedy cover, colour
+  priority where rays cross, directions relative to a divider line / nearest edge / component
+  centre, bouncing rays); the anchored learner is validated leave-one-out
+- fill between mark pairs (row, column, both diagonals), connect marks with an overlay colour map
+- flood from seeds, region tables (size rank, border, parity), ring fill inside frames, frame
+  fill with a keep-out box, biggest empty rectangle / square (any "empty" colour)
+- reflection across a divider with a per-grid colour swap, mirror copies beside objects, objects
+  to a wall or corner, per-class object shift / slide
+- template stamped onto lone marker pixels, legend (colour key) recolour, recolour by relation
+  (touching, nearest, marker inside), keep-one-and-recolour, rank-parity recolour
+- count-to-rendering (fill order, bars), Kronecker self-tiling, self-concatenation with a learned
+  colour map, stripes from mark period, lattice cells by first/middle/last position
+- when the background colour differs between grids the machines learn in a fixed-background
+  frame and map each grid in and out of it
+
+The module is flagged `PRE`: it runs first, outside the planner's module pool, for at most
+0.4 s, so the planner divides the remaining time among the old families exactly as before.
+Hypotheses that can be recovered from all but one demonstration and still predict it have
+their cost lowered by one bit; ones that cannot have it raised by one.
+
+### Tests and audit
+
+```sh
+node c4-arc/concepts-test.js          # in `npm test`: machines alone on seeded parametric tasks
+node tools/concept-suite.js --n 5     # 60+ synthetic concept families, whole engine
+node tools/concept-suite.js --n 5 --module concepts --only between_hv --show 0   # dump one task
+```
+
+`tools/concept-suite.js` generates its own tasks (no ARC data). Whole engine, 5 seeded tasks
+per family: 260/305 (85.2%) before this module, 292/305 (95.7%) after it (first 61 families).
+
+### Held-out measurement
+
+The 400 bundled `arc1_` tasks are the ARC-AGI-1 public TRAINING split (`corpus-provenance.json`);
+the engine and its planner were developed against it, so it is not a clean score. To score on
+data the engine was never developed on:
+
+```sh
+node tools/arc-pack.js <ARC-AGI/data/evaluation> /tmp/e1A --every 2 --offset 0   # half to study
+node tools/arc-pack.js <ARC-AGI/data/evaluation> /tmp/e1B --every 2 --offset 1   # sealed half
+node c4-arc/bench.js --root /tmp/e1B --budget 3 --jobs 3 --out results/e1B
+```
+
+Measured (3 s per task, single runs; wall-clock scheduling moves knife-edge tasks by about
++-3 per 400). Raw numbers: `../measurements/arc-heldout-final.json`.
+
+| split | tasks | before | after |
+|---|---|---|---|
+| ARC-AGI-1 public training (developed on) | 400 | 222 (55.5%) | 237 (59.3%) |
+| ARC-AGI-1 public evaluation, half A (studied) | 200 | 55 | 67 |
+| ARC-AGI-1 public evaluation, half B (SEALED, aggregate only) | 200 | 41 (20.5%) | 45 (22.5%) |
+| ARC-AGI-1 public evaluation, all | 400 | 96 (24.0%) | 112 (28.0%) |
+| ARC-AGI-2 public evaluation | 120 | 1 | 1 |
+| ARC-AGI-2 training tasks not in ARC-1 | 233 | 14 | 15 |
+
+Top-2 (the official two-attempt metric) on the full ARC-AGI-1 evaluation: 101 -> 118.
+Raising the budget from 3 s to 12 s moved half A by one task (55 -> 56): the limit is the
+coverage of the program space, not search time.

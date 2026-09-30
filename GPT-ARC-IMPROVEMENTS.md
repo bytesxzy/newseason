@@ -40,3 +40,11 @@ The newest result documented inside the supplied project is 227/400 ARC-AGI-1 to
 A complete 400-task, 20-second-per-task rerun was attempted but the container killed the highly parallel run for resource pressure. A reduced-budget full-corpus screening run improved rather than regressed, and the added modules are deliberately tiny; nevertheless, 59.25% is marked projected rather than presented as a fresh full-corpus measurement.
 
 The requested 75% was not reached. Getting from roughly 59% to 75% would require about 63 additional ARC-1 tasks beyond this modified version, which is a substantially larger architecture/research step rather than a safe ranking tweak.
+
+## Note added later: what 56.75% / 59.25% measures
+
+The 400 bundled `arc1_` tasks are the ARC-AGI-1 public *training* split, and the families listed
+above were written while looking at individual failing tasks of that split. Scored on the public
+*evaluation* split, which the engine was never developed on, the same code solved 96/400 (24.0%)
+at 3 s per task (see `c4-arc/README.md`, "Held-out measurement"). Treat the training-split figure
+as a development measurement, not as the expected score on unseen tasks.

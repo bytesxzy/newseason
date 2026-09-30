@@ -357,6 +357,53 @@ fam('holes_count_color', () => { const cs = colors(3); return () => {
   for (let i = 0; i < k; i++) { const p = place(g, 3, 3, 1); if (!p) continue; rect(g, p[0], p[1], 3, 3, 5, true); n++; }
   return [g, [[cs[Math.min(n, 3) - 1]]]]; }; });
 
+
+function lattice(nr, nc, ph, pw, fill, sepCol = 5) {
+  const H = nr * ph + (nr - 1), W = nc * pw + (nc - 1), g = G(H, W);
+  for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) for (let r = 0; r < ph; r++) for (let c = 0; c < pw; c++) g[i * (ph + 1) + r][j * (pw + 1) + c] = fill(i, j, r, c);
+  for (let i = 1; i < nr; i++) for (let c = 0; c < W; c++) g[i * (ph + 1) - 1][c] = sepCol;
+  for (let j = 1; j < nc; j++) for (let r = 0; r < H; r++) g[r][j * (pw + 1) - 1] = sepCol;
+  return g;
+}
+fam('panel_summary', () => { const cs = colors(3); return () => {
+  const nr = ri(2, 3), nc = ri(2, 3), dom = Array.from({ length: nr }, () => Array.from({ length: nc }, () => pick(cs)));
+  const g = lattice(nr, nc, 3, 3, (i, j) => R() < 0.75 ? dom[i][j] : 0); return [g, dom]; }; });
+fam('select_panel_most_cells', () => { const col = colors(1)[0]; return () => {
+  const n = ri(3, 4), counts = shuffle([1, 2, 3, 4, 5, 6, 7, 8]).slice(0, n); const panels = counts.map(k => { const p = G(3, 3); shuffle(Array.from({ length: 9 }, (_, i) => i)).slice(0, k).forEach(i => { p[Math.floor(i / 3)][i % 3] = col; }); return p; });
+  const g = lattice(1, n, 3, 3, (i, j, r, c) => panels[j][r][c]); const best = counts.indexOf(Math.max(...counts)); return [g, panels[best]]; }; });
+fam('select_odd_panel', () => { const col = colors(1)[0]; return () => {
+  const n = ri(3, 4), base = G(3, 3); for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) base[r][c] = R() < 0.5 ? col : 0;
+  const odd = copy(base); const rr = ri(0, 2), cc = ri(0, 2); odd[rr][cc] = odd[rr][cc] ? 0 : col; const oi = ri(0, n - 1);
+  const g = lattice(1, n, 3, 3, (i, j, r, c) => (j === oi ? odd : base)[r][c]); return [g, odd]; }; });
+fam('crop_most_common_shape', () => { const cs = colors(2); return () => {
+  const g = G(ri(12, 16), ri(12, 16)); const A = blob(4, 3, 3), B = blob(4, 3, 3); const norm = bl => { const r0 = Math.min(...bl.map(x => x[0])), c0 = Math.min(...bl.map(x => x[1])); return bl.map(([r, c]) => [r - r0, c - c0]).sort().join(); };
+  if (norm(A) === norm(B)) return null; const nA = 3, nB = 1; const placedA = [];
+  for (let k = 0; k < nA + nB; k++) { const bl = k < nA ? A : B, p = place(g, 3, 3, 1); if (!p) return null; putBlob(g, bl, p[0], p[1], cs[k < nA ? 0 : 1]); }
+  const r0 = Math.min(...A.map(x => x[0])), c0 = Math.min(...A.map(x => x[1])); const cells = A.map(([r, c]) => [r - r0, c - c0]); const h = Math.max(...cells.map(x => x[0])) + 1, w = Math.max(...cells.map(x => x[1])) + 1; const o = G(h, w); cells.forEach(([r, c]) => { o[r][c] = cs[0]; }); return [g, o]; }; });
+fam('crop_odd_shape', () => { const col = colors(1)[0]; return () => {
+  const g = G(ri(12, 16), ri(12, 16)); const A = blob(4, 3, 3), B = blob(5, 3, 3); const norm = bl => { const r0 = Math.min(...bl.map(x => x[0])), c0 = Math.min(...bl.map(x => x[1])); return bl.map(([r, c]) => [r - r0, c - c0]).sort().join(); };
+  if (norm(A) === norm(B)) return null; for (let k = 0; k < 4; k++) { const p = place(g, 3, 3, 1); if (!p) return null; putBlob(g, k === 0 ? B : A, p[0], p[1], col); }
+  const r0 = Math.min(...B.map(x => x[0])), c0 = Math.min(...B.map(x => x[1])); const cells = B.map(([r, c]) => [r - r0, c - c0]); const h = Math.max(...cells.map(x => x[0])) + 1, w = Math.max(...cells.map(x => x[1])) + 1; const o = G(h, w); cells.forEach(([r, c]) => { o[r][c] = col; }); return [g, o]; }; });
+fam('colors_by_size_column', () => { const cs = colors(3); return () => {
+  const g = G(ri(10, 14), ri(10, 14)); const sizes = shuffle([1, 2, 3, 4, 5, 6]).slice(0, 3); const items = [];
+  sizes.forEach((n, i) => { const bl = blob(n, 3, 3), p = place(g, 3, 3, 1); if (!p) return; putBlob(g, bl, p[0], p[1], cs[i]); items.push({ n, col: cs[i] }); });
+  if (items.length < 3) return null; items.sort((a, b) => b.n - a.n); return [g, items.map(x => [x.col])]; }; });
+fam('quadrant_with_marker', () => { const [a, m] = colors(2); return () => {
+  const n = ri(3, 4), g = G(n * 2, n * 2); for (let r = 0; r < n * 2; r++) for (let c = 0; c < n * 2; c++) g[r][c] = R() < 0.4 ? a : 0;
+  const q = ri(0, 3), r0 = (q >> 1) * n, c0 = (q & 1) * n; const o = G(n, n); for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) o[r][c] = g[r0 + r][c0 + c]; const mr = ri(0, n - 1), mc = ri(0, n - 1); g[r0 + mr][c0 + mc] = m; o[mr][mc] = m; return [g, o]; }; });
+fam('crop_bbox_of_color', () => { const [a, m, z] = colors(3); return () => {
+  const g = G(ri(10, 14), ri(10, 14)); for (let r = 0; r < g.length; r++) for (let c = 0; c < g[0].length; c++) g[r][c] = R() < 0.3 ? z : 0;
+  const bh = ri(3, 5), bw = ri(3, 5), r0 = ri(0, g.length - bh), c0 = ri(0, g[0].length - bw); g[r0][c0] = m; g[r0 + bh - 1][c0 + bw - 1] = m; g[r0][c0 + bw - 1] = m; g[r0 + bh - 1][c0] = m;
+  for (let r = 0; r < g.length; r++) for (let c = 0; c < g[0].length; c++) if (g[r][c] === m && !((r === r0 || r === r0 + bh - 1) && (c === c0 || c === c0 + bw - 1))) g[r][c] = 0;
+  const o = G(bh, bw); for (let r = 0; r < bh; r++) for (let c = 0; c < bw; c++) o[r][c] = g[r0 + r][c0 + c]; return [g, o]; }; });
+fam('panel_and3', () => { const [a, o1] = colors(2); return () => {
+  const n = 3, ps = []; for (let k = 0; k < n; k++) { const p = G(3, 3); for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) p[r][c] = R() < 0.7 ? a : 0; ps.push(p); }
+  const g = lattice(1, n, 3, 3, (i, j, r, c) => ps[j][r][c]); const o = G(3, 3); for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) o[r][c] = ps.every(p => p[r][c]) ? o1 : 0; return [g, o]; }; });
+fam('left_half', () => { return () => { const h = ri(3, 6), w = ri(3, 5) * 2, g = G(h, w); for (const r of g) for (let c = 0; c < w; c++) r[c] = pick([0, 1, 2, 3]); return [g, g.map(r => r.slice(0, w / 2))]; }; });
+fam('distinct_color_count_grid', () => { const cs = colors(4); return () => {
+  const g = G(ri(6, 9), ri(6, 9)); const use = shuffle(cs).slice(0, ri(1, 4)); for (let r = 0; r < g.length; r++) for (let c = 0; c < g[0].length; c++) g[r][c] = R() < 0.3 ? pick(use) : 0;
+  const present = new Set(); g.forEach(row => row.forEach(v => { if (v) present.add(v); })); return [g, [[...present].length ? Array.from({ length: present.size }, () => 1) : [0]]]; }; });
+
 /* ------------------------------------------------------------ runner */
 function makeTask(f) {
   const sample = f(); const pairs = []; let guard = 0;

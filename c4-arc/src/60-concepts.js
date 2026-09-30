@@ -201,7 +201,7 @@
       for (r = 0; r < a.length; r++) for (c = 0; c < a[0].length; c++) if (a[r][c] !== b[r][c]) seen |= 1 << b[r][c];
     }
     cols = G.csList(seen);
-    if (cols.length > 3) return [];
+    if (cols.length > 3) cols = [];   /* many colours: only the mark's own colour makes sense */
     var cacheSrc = [];
     for (si = 0; si < RAY_SOURCES.length; si++) {
       var perTrain = [], any = false;
@@ -686,6 +686,15 @@
     if (prim.kind === "st") {
       r = a.r + prim.dr; c = a.c + prim.dc;
       if (inb(g, r, c) && g[r][c] === bg) out.push([r, c, prim.mode === "src" ? a.v : prim.color]);
+    } else if (prim.kind === "hit") {
+      /* dir 100: look along all four axes, tag the first thing seen in each */
+      var dl = prim.dir === 100 ? D4 : [prim.dir >= 0 ? D8[prim.dir] : relDir(g, bg, a, prim.dir)], di2;
+      for (di2 = 0; di2 < dl.length; di2++) {
+        d = dl[di2]; if (!d) continue;
+        r = a.r + d[0]; c = a.c + d[1];
+        while (inb(g, r, c) && g[r][c] === bg) { r += d[0]; c += d[1]; }
+        if (inb(g, r, c)) out.push([r, c, prim.mode === "src" ? a.v : prim.color]);
+      }
     } else if (prim.kind === "bounce") {
       d = D8[prim.dir]; r = a.r; c = a.c; var dr2 = d[0], dc2 = d[1], steps = 0, hh = g.length, ww = g[0].length;
       while (steps++ < 200) {
@@ -722,7 +731,8 @@
     for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++)
       if (train[t][0][r][c] !== train[t][1][r][c]) { need[t * 4096 + r * 64 + c] = 1; needN++; seenCols |= 1 << train[t][1][r][c]; }
     var colors = G.csList(seenCols);
-    if (colors.length > 4 || needN > 3000) return null;
+    if (needN > 3000) return null;
+    if (colors.length > 4) colors = [];   /* many colours: only 'the mark's own colour' is a sensible choice */
     var R = 3, cands = [], classes = [];
     for (si = 0; si < RAY_SOURCES.length; si++) {
       if (ctx.timed_out()) return null;
@@ -739,7 +749,7 @@
             var want = train[tt][1][ps[kk][0]][ps[kk][1]];
             if (want !== ps[kk][2]) {
               /* another mark may have drawn over this cell: tolerated, but it explains nothing */
-              if (want !== bg) continue;
+              if (want !== bg && prim.kind !== "hit") continue;
               ok = false; break;
             }
             covers.push(tt * 4096 + ps[kk][0] * 64 + ps[kk][1]);
@@ -754,6 +764,9 @@
       }
       for (i = 0; i < dirCodes.length; i++) for (st = 0; st < 2; st++) for (mi = 0; mi < modes.length; mi++)
         tryPrim({ kind: "ray", dir: dirCodes[i], stop: st ? "block" : "pass", mode: modes[mi][0], color: modes[mi][1] });
+      for (i = 0; i < dirCodes.length; i++) for (mi = 0; mi < modes.length; mi++)
+        tryPrim({ kind: "hit", dir: dirCodes[i], mode: modes[mi][0], color: modes[mi][1] });
+      for (mi = 0; mi < modes.length; mi++) tryPrim({ kind: "hit", dir: 100, mode: modes[mi][0], color: modes[mi][1] });
       for (i = 4; i < 8; i++) for (mi = 0; mi < modes.length; mi++) {
         tryPrim({ kind: "bounce", dir: i, wall: "v", stop: "pass", mode: modes[mi][0], color: modes[mi][1] });
         tryPrim({ kind: "bounce", dir: i, wall: "h", stop: "pass", mode: modes[mi][0], color: modes[mi][1] });
@@ -802,7 +815,7 @@
     return null;
   }
   GENS.push(function anchoredGen(ctx) {
-    if (!paintOnly(ctx)) return [];
+    if (!ctx.same_shape() || changedCells(ctx) === 0) return [];
     var bg = ctx.bg(), train = ctx.train, h = learnAnchored(train, bg, ctx), i, sub;
     if (!h) return [];
     /* the learning procedure itself must generalise: leave one pair out */
@@ -1063,7 +1076,7 @@
       /* split into segments separated by immovable cells, settle each */
       var res = line.slice(), segStart = 0;
       for (k = 0; k <= len; k++) {
-        var fixedHere = k === len || (mover >= 0 && line[k] !== bg && line[k] !== mover);
+        var fixedHere = k === len || (line[k] !== bg && (mover >= 10 ? line[k] === mover - 10 : (mover >= 0 && line[k] !== mover)));
         if (fixedHere) {
           var seg = []; for (var q = segStart; q < k; q++) seg.push(line[q]);
           var movers = seg.filter(function (v) { return v !== bg; }), pad = seg.length - movers.length, arr = [];
@@ -1081,7 +1094,7 @@
   GENS.push(function settleGen(ctx) {
     if (!ctx.same_shape()) return [];
     var bg = ctx.bg(), train = ctx.train, out = [], t, di, mv, movers = [-1];
-    var cs = G.csList(ctx.in_palette() & ~(1 << bg)); cs.forEach(function (k) { movers.push(k); });
+    var cs = G.csList(ctx.in_palette() & ~(1 << bg)); cs.forEach(function (k) { movers.push(k); }); cs.forEach(function (k) { movers.push(10 + k); });
     for (di = 0; di < 4; di++) for (mv = 0; mv < movers.length; mv++) {
       var ok = true;
       for (t = 0; t < train.length; t++) if (!same(settleCells(train[t][0], bg, di, movers[mv]), train[t][1])) { ok = false; break; }
@@ -1783,6 +1796,120 @@
     return out;
   });
 
+
+  /* ------------------------------------------ frames, rings and legends */
+
+  /* hollow rectangles: an 8-connected object whose bounding box border is all its own */
+  function frames(g, bg) {
+    var os = objsOf(g, bg, "c8"), out = [], i, o, r, c, ok;
+    for (i = 0; i < os.length; i++) {
+      o = os[i]; if (o.r1 - o.r0 < 2 || o.c1 - o.c0 < 2) continue;
+      ok = true;
+      for (r = o.r0; r <= o.r1 && ok; r++) for (c = o.c0; c <= o.c1; c++) {
+        var edge = r === o.r0 || r === o.r1 || c === o.c0 || c === o.c1;
+        if (edge && g[r][c] !== o.color) { ok = false; break; }
+      }
+      if (ok) out.push(o);
+    }
+    return out;
+  }
+  function ringFill(g, bg, cycle) {
+    var fs = frames(g, bg), out = copy(g), i, f, r, c, d;
+    if (!fs.length) return null;
+    for (i = 0; i < fs.length; i++) {
+      f = fs[i];
+      for (r = f.r0 + 1; r < f.r1; r++) for (c = f.c0 + 1; c < f.c1; c++) {
+        if (g[r][c] !== bg) continue;
+        d = Math.min(r - f.r0, f.r1 - r, c - f.c0, f.c1 - c);
+        var col = cycle[(d - 1) % cycle.length];
+        if (col === -1) col = f.color;
+        out[r][c] = col;
+      }
+    }
+    return out;
+  }
+  GENS.push(function ringFillGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, p, L, r, c;
+    var fs0 = frames(train[0][0], bg);
+    if (!fs0.length) return [];
+    /* read the layer colours off the first demonstration, innermost last */
+    var f = fs0[0], layers = [], maxD = Math.floor((Math.min(f.r1 - f.r0, f.c1 - f.c0)) / 2);
+    for (var d = 1; d <= maxD; d++) {
+      var v = train[0][1][f.r0 + d][f.c0 + d];
+      layers.push(v === f.color ? -1 : v);
+    }
+    for (p = 1; p <= Math.min(4, layers.length); p++) {
+      var cyc = layers.slice(0, p), ok = true;
+      for (t = 0; t < train.length && ok; t++) { var q = ringFill(train[t][0], bg, cyc); if (!q || !same(q, train[t][1])) ok = false; }
+      if (ok) { out.push(_h("rings_p" + p, (function (cy) { return function (g) { return ringFill(g, bg, cy); }; })(cyc), 4.0 + 0.2 * p)); break; }
+    }
+    return out;
+  });
+
+  function fillFrame(g, bg, color, skipBox) {
+    var fs = frames(g, bg), out = copy(g), i, f, r, c, rr, cc;
+    if (!fs.length) return null;
+    for (i = 0; i < fs.length; i++) {
+      f = fs[i];
+      var br0 = 99, bc0 = 99, br1 = -1, bc1 = -1;
+      if (skipBox) for (r = f.r0 + 1; r < f.r1; r++) for (c = f.c0 + 1; c < f.c1; c++) if (g[r][c] !== bg) { br0 = Math.min(br0, r); br1 = Math.max(br1, r); bc0 = Math.min(bc0, c); bc1 = Math.max(bc1, c); }
+      for (r = f.r0 + 1; r < f.r1; r++) for (c = f.c0 + 1; c < f.c1; c++) {
+        if (g[r][c] !== bg) continue;
+        if (skipBox && r >= br0 && r <= br1 && c >= bc0 && c <= bc1) continue;
+        out[r][c] = color;
+      }
+    }
+    return out;
+  }
+  GENS.push(function fillFrameGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, r, c, seen = 0, sb;
+    for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++) if (train[t][0][r][c] !== train[t][1][r][c]) seen |= 1 << train[t][1][r][c];
+    var cols = G.csList(seen); if (cols.length !== 1) return [];
+    for (sb = 0; sb < 2; sb++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) { var p = fillFrame(train[t][0], bg, cols[0], sb === 1); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+      if (ok) out.push(_h("fillframe" + (sb ? "_skipbox" : ""), (function (b2) { return function (g) { return fillFrame(g, bg, cols[0], b2 === 1) || copy(g); }; })(sb), 4.0));
+    }
+    return out;
+  });
+
+  /* colour pairs written out as a key, applied to the main object */
+  function legendPairs(g, bg) {
+    var os = objsOf(g, bg, "m8"), pairs = [], main = null, i, o;
+    for (i = 0; i < os.length; i++) {
+      o = os[i];
+      if (o.n === 2 && o.multi) {
+        var a = o.cells[0], b = o.cells[1];
+        pairs.push({ a: g[a[0]][a[1]], b: g[b[0]][b[1]], cells: o.cells });
+      } else if (!main || o.n > main.n) main = o;
+    }
+    return { pairs: pairs, main: main, os: os };
+  }
+  function legendApply(g, bg, dir, crop, dropKey) {
+    var L = legendPairs(g, bg);
+    if (!L.pairs.length || !L.main) return null;
+    var map = {}, i;
+    for (i = 0; i < L.pairs.length; i++) { var pr = L.pairs[i]; if (dir === 0) map[pr.b] = pr.a; else map[pr.a] = pr.b; }
+    var out = copy(g), m = L.main, j;
+    for (j = 0; j < m.cells.length; j++) { var v = g[m.cells[j][0]][m.cells[j][1]]; if (map[v] !== undefined) out[m.cells[j][0]][m.cells[j][1]] = map[v]; }
+    if (dropKey) for (i = 0; i < L.pairs.length; i++) for (j = 0; j < L.pairs[i].cells.length; j++) out[L.pairs[i].cells[j][0]][L.pairs[i].cells[j][1]] = bg;
+    if (crop) return G.subgrid(out, m.r0, m.c0, m.r1, m.c1);
+    return out;
+  }
+  GENS.push(function legendGen(ctx) {
+    var bg = ctx.bg(), train = ctx.train, out = [], t, dir, crop, dk;
+    if (!legendPairs(train[0][0], bg).pairs.length) return [];
+    for (dir = 0; dir < 2; dir++) for (crop = 0; crop < 2; crop++) for (dk = 0; dk < 2; dk++) {
+      if (crop && dk) continue;
+      var ok = true;
+      for (t = 0; t < train.length; t++) { var p = legendApply(train[t][0], bg, dir, crop === 1, dk === 1); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+      if (ok) out.push(_h("legend_" + dir + (crop ? "_crop" : "") + (dk ? "_drop" : ""), (function (d2, c2, k2) { return function (g) { return legendApply(g, bg, d2, c2 === 1, k2 === 1); }; })(dir, crop, dk), 4.0));
+    }
+    return out;
+  });
+
   //@@END-MACHINES
 
   /* exchange two colours throughout a grid */
@@ -1797,7 +1924,7 @@
     return out;
   }
   var ORDER = ["raysGen", "betweenGen", "anchoredGen", "countRenderGen", "reflectGen", "templateStampGen", "floodGen", "symObjGen",
-    "settleGen", "denoiseGen", "kronGen", "selfConcatGen", "connectGen", "mirrorBesideGen", "wallsGen", "emptyRectGen", "blockFillGen", "emptyLinesGen", "regionTableGen", "connectCentersGen", "recolorSelectedGen", "stripesGen", "latticeClassGen", "relRecolorGen", "keepRecolorGen", "objMoveGen"];
+    "settleGen", "denoiseGen", "kronGen", "selfConcatGen", "connectGen", "mirrorBesideGen", "wallsGen", "emptyRectGen", "blockFillGen", "emptyLinesGen", "regionTableGen", "connectCentersGen", "recolorSelectedGen", "stripesGen", "latticeClassGen", "ringFillGen", "fillFrameGen", "legendGen", "relRecolorGen", "keepRecolorGen", "objMoveGen"];
   GENS.sort(function (a, b) {
     var ia = ORDER.indexOf(a.name), ib = ORDER.indexOf(b.name);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
@@ -1807,7 +1934,7 @@
     for (i = 0; i < GENS.length; i++) {
       if (ctx.timed_out()) break;
       var t0 = nowMs();
-      try { got = GENS[i](ctx); } catch (e) { got = []; }
+      try { got = GENS[i](ctx); } catch (e) { got = []; if (root.C4ConceptsErrors) { var ek = (GENS[i].name || i) + ": " + String(e && e.message || e).slice(0, 80); root.C4ConceptsErrors[ek] = (root.C4ConceptsErrors[ek] || 0) + 1; } }
       if (root.C4ConceptsProfile) { var nm = GENS[i].name || ("g" + i); root.C4ConceptsProfile[nm] = (root.C4ConceptsProfile[nm] || 0) + (nowMs() - t0); }
       if (got && got.length) out = out.concat(got);
     }
