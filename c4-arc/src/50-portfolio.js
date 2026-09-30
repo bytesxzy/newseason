@@ -424,12 +424,22 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
 
   /* Cheap modules donate unused time to later search. Reserve enough budget to
      evaluate test predictions and to refit rather than silently skip LOO. */
+  /* cheap exact machines flagged PRE run first, outside the planner's pool, so
+     they neither change how the planner divides time among the other families
+     nor wait behind a slice someone else is using */
+  var preMods = [];
+  mods = mods.filter(function (m) { if (m.PRE) { preMods.push(m); return false; } return true; });
   var reserve = (loo && ctx.train.length >= 3) ? Math.min(3000, timeBudget * 1000 * 0.15) : 0.0;
   var generationEnd = deadline - reserve - Math.min(200, timeBudget * 1000 * 0.03);
   var phase1 = [], phase2 = [];
   for (i = 0; i < mods.length; i++) ((mods[i].PHASE === 2) ? phase2 : phase1).push(mods[i]);
-  var reservoir = new _MinHeap(_itemCmp), order = 0;
+  var reservoir = new _MinHeap(_itemCmp), order = 0, now0;
   ctx._nearSink = REFINEMENT.newSink();
+  for (i = 0; i < preMods.length; i++) {
+    now0 = nowMs();
+    if (now0 >= generationEnd) break;
+    order = _harvest(preMods[i], ctx, Math.min(generationEnd, now0 + (preMods[i].MAX_SLICE || 0.5) * 1000), bias, reservoir, order, res);
+  }
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
     order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);

@@ -16054,12 +16054,22 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
 
   /* Cheap modules donate unused time to later search. Reserve enough budget to
      evaluate test predictions and to refit rather than silently skip LOO. */
+  /* cheap exact machines flagged PRE run first, outside the planner's pool, so
+     they neither change how the planner divides time among the other families
+     nor wait behind a slice someone else is using */
+  var preMods = [];
+  mods = mods.filter(function (m) { if (m.PRE) { preMods.push(m); return false; } return true; });
   var reserve = (loo && ctx.train.length >= 3) ? Math.min(3000, timeBudget * 1000 * 0.15) : 0.0;
   var generationEnd = deadline - reserve - Math.min(200, timeBudget * 1000 * 0.03);
   var phase1 = [], phase2 = [];
   for (i = 0; i < mods.length; i++) ((mods[i].PHASE === 2) ? phase2 : phase1).push(mods[i]);
-  var reservoir = new _MinHeap(_itemCmp), order = 0;
+  var reservoir = new _MinHeap(_itemCmp), order = 0, now0;
   ctx._nearSink = REFINEMENT.newSink();
+  for (i = 0; i < preMods.length; i++) {
+    now0 = nowMs();
+    if (now0 >= generationEnd) break;
+    order = _harvest(preMods[i], ctx, Math.min(generationEnd, now0 + (preMods[i].MAX_SLICE || 0.5) * 1000), bias, reservoir, order, res);
+  }
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
     order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);
@@ -20247,7 +20257,12 @@ var REFRAME = (function () {
         for (tt = 0; tt < train.length && ok; tt++) for (aa = 0; aa < anchors[tt].length && ok; aa++) {
           ps = primPaints(train[tt][0], bg, anchors[tt][aa], prim);
           for (kk = 0; kk < ps.length; kk++) {
-            if (train[tt][1][ps[kk][0]][ps[kk][1]] !== ps[kk][2]) { ok = false; break; }
+            var want = train[tt][1][ps[kk][0]][ps[kk][1]];
+            if (want !== ps[kk][2]) {
+              /* another mark may have drawn over this cell: tolerated, but it explains nothing */
+              if (want !== bg) continue;
+              ok = false; break;
+            }
             covers.push(tt * 4096 + ps[kk][0] * 64 + ps[kk][1]);
           }
         }
@@ -20284,20 +20299,28 @@ var REFRAME = (function () {
     var byClass = {}, k2;
     for (k2 = 0; k2 < chosen.length; k2++) (byClass[chosen[k2].cls] = byClass[chosen[k2].cls] || []).push(chosen[k2]);
     var groups = Object.keys(byClass).map(function (k) { return [RAY_SOURCES[+k][1], byClass[k]]; });
-    function apply(g) {
-      var o = copy(g), gi, as, ai, pi, ps, ki;
-      for (gi = 0; gi < groups.length; gi++) {
-        as = groups[gi][0](g, bg);
-        for (ai = 0; ai < as.length; ai++) for (pi = 0; pi < groups[gi][1].length; pi++) {
-          ps = primPaints(g, bg, as[ai], groups[gi][1][pi]);
-          for (ki = 0; ki < ps.length; ki++) o[ps[ki][0]][ps[ki][1]] = ps[ki][2];
-        }
-      }
-      return o;
-    }
-    for (t = 0; t < train.length; t++) if (!same(apply(train[t][0]), train[t][1])) return null;
     if (chosen.length > 10 || groups.length > 2) return null;
-    return { apply: apply, np: chosen.length, ng: groups.length };
+    /* where two classes draw over one another the later one wins: try both orders */
+    var orders = groups.length === 2 ? [[0, 1], [1, 0]] : [[0]], oi;
+    for (oi = 0; oi < orders.length; oi++) {
+      var apply = (function (ord) {
+        return function (g) {
+          var o = copy(g), gi, as, ai, pi, ps, ki, grp;
+          for (gi = 0; gi < ord.length; gi++) {
+            grp = groups[ord[gi]]; as = grp[0](g, bg);
+            for (ai = 0; ai < as.length; ai++) for (pi = 0; pi < grp[1].length; pi++) {
+              ps = primPaints(g, bg, as[ai], grp[1][pi]);
+              for (ki = 0; ki < ps.length; ki++) o[ps[ki][0]][ps[ki][1]] = ps[ki][2];
+            }
+          }
+          return o;
+        };
+      })(orders[oi]);
+      var good = true;
+      for (t = 0; t < train.length; t++) if (!same(apply(train[t][0]), train[t][1])) { good = false; break; }
+      if (good) return { apply: apply, np: chosen.length, ng: groups.length };
+    }
+    return null;
   }
   GENS.push(function anchoredGen(ctx) {
     if (!paintOnly(ctx)) return [];
@@ -20370,13 +20393,14 @@ var REFRAME = (function () {
     }
     return n === 1 ? last : -1;
   }
-  function nearestColor(o, os, g) {
+  function nearestColor(o, os, g, metric) {
     var best = -1, bd = 1e9, i, j, k, q;
     for (i = 0; i < os.length; i++) {
       q = os[i]; if (q === o || q.color === o.color) continue;
       var dmin = 1e9;
       for (j = 0; j < o.cells.length; j++) for (k = 0; k < q.cells.length; k++) {
-        var dd = Math.max(Math.abs(o.cells[j][0] - q.cells[k][0]), Math.abs(o.cells[j][1] - q.cells[k][1]));
+        var ddr = Math.abs(o.cells[j][0] - q.cells[k][0]), ddc = Math.abs(o.cells[j][1] - q.cells[k][1]);
+        var dd = metric === "l1" ? ddr + ddc : metric === "l2" ? ddr * ddr + ddc * ddc : Math.max(ddr, ddc);
         if (dd < dmin) dmin = dd;
       }
       if (dmin < bd) { bd = dmin; best = q.color; } else if (dmin === bd && q.color !== best) best = -2;
@@ -20396,7 +20420,9 @@ var REFRAME = (function () {
   var RELATIONS = [
     ["touch4", function (o, os, g, bg) { return touchingColor(o, g, bg, false); }],
     ["touch8", function (o, os, g, bg) { return touchingColor(o, g, bg, true); }],
-    ["nearest", function (o, os, g, bg) { return nearestColor(o, os, g); }],
+    ["nearest", function (o, os, g, bg) { return nearestColor(o, os, g, "linf"); }],
+    ["nearest_l1", function (o, os, g, bg) { return nearestColor(o, os, g, "l1"); }],
+    ["nearest_l2", function (o, os, g, bg) { return nearestColor(o, os, g, "l2"); }],
     ["inside", function (o, os, g, bg) { return markerInside(o, g, bg); }]
   ];
   function relRecolor(g, bg, mode, rel, target, removeSrc) {
@@ -20454,6 +20480,7 @@ var REFRAME = (function () {
   GENS.push(function keepRecolorGen(ctx) {
     if (!ctx.same_shape()) return [];
     var bg = ctx.bg(), train = ctx.train, out = [], t, mi, si, ri, rels = ["major", "minor", "self"], modes = ["c8", "m8"];
+    for (t = 0; t < train.length; t++) if (objsOf(train[t][0], bg, "c8").length > 40) return [];
     for (mi = 0; mi < modes.length; mi++) {
       var seenVec = {};
       for (si = 0; si < SELECTORS.length; si++) {
@@ -20478,19 +20505,877 @@ var REFRAME = (function () {
     return out;
   });
 
+
+  /* --------------------------------------------- flood, symmetrise, settle */
+
+  /* seeds spread through the background region they touch */
+  function floodSeeds(g, bg, srcFn, conn8, colorMode, fixed, stopAtBorder) {
+    var as = srcFn(g, bg), out = copy(g), h = g.length, w = g[0].length, i, d, nb = conn8 ? D8 : D4, filled = new Uint8Array(h * w), st, p, nr, nc;
+    for (i = 0; i < as.length; i++) {
+      var col = colorMode === "src" ? as[i].v : fixed;
+      st = [];
+      for (d = 0; d < 4; d++) {
+        nr = as[i].r + D4[d][0]; nc = as[i].c + D4[d][1];
+        if (inb(g, nr, nc) && g[nr][nc] === bg && !filled[nr * w + nc]) { filled[nr * w + nc] = 1; st.push([nr, nc]); }
+      }
+      var region = [], escapes = false;
+      while (st.length) {
+        p = st.pop(); region.push(p);
+        if (p[0] === 0 || p[1] === 0 || p[0] === h - 1 || p[1] === w - 1) escapes = true;
+        for (d = 0; d < nb.length; d++) {
+          nr = p[0] + nb[d][0]; nc = p[1] + nb[d][1];
+          if (inb(g, nr, nc) && g[nr][nc] === bg && !filled[nr * w + nc]) { filled[nr * w + nc] = 1; st.push([nr, nc]); }
+        }
+      }
+      if (stopAtBorder && escapes) continue;
+      for (d = 0; d < region.length; d++) out[region[d][0]][region[d][1]] = col;
+    }
+    return out;
+  }
+  GENS.push(function floodGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, r, c, seen = 0, si, cn, sb, ci;
+    for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++)
+      if (train[t][0][r][c] !== train[t][1][r][c]) seen |= 1 << train[t][1][r][c];
+    var cols = G.csList(seen), modes = [["src", 0]].concat(cols.map(function (k) { return ["fix", k]; }));
+    for (si = 0; si < RAY_SOURCES.length; si++) for (cn = 0; cn < 2; cn++) for (sb = 0; sb < 2; sb++) for (ci = 0; ci < modes.length; ci++) {
+      if (ctx.timed_out()) return out;
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(floodSeeds(train[t][0], bg, RAY_SOURCES[si][1], cn === 1, modes[ci][0], modes[ci][1], sb === 1), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("flood_" + RAY_SOURCES[si][0] + (cn ? "_8" : "_4") + (sb ? "_enclosed" : "") + "_" + modes[ci][0] + modes[ci][1],
+        (function (sf, c8, e, cm, fx) { return function (g) { return floodSeeds(g, bg, sf, c8, cm, fx, e); }; })(RAY_SOURCES[si][1], cn === 1, sb === 1, modes[ci][0], modes[ci][1]), 4.0));
+    }
+    return out;
+  });
+
+  /* every object becomes symmetric about its own bounding box */
+  function symmetriseObjects(g, bg, mode, axes, mask) {
+    var os = objsOf(g, bg, mode), out = copy(g), i, j, o, p, cand, k;
+    for (i = 0; i < os.length; i++) {
+      o = os[i]; if (o.n < 2) continue;
+      for (j = 0; j < o.cells.length; j++) {
+        p = o.cells[j]; cand = [];
+        if (axes.indexOf("h") >= 0) cand.push([p[0], o.c0 + o.c1 - p[1]]);
+        if (axes.indexOf("v") >= 0) cand.push([o.r0 + o.r1 - p[0], p[1]]);
+        if (axes.indexOf("b") >= 0) cand.push([o.r0 + o.r1 - p[0], o.c0 + o.c1 - p[1]]);
+        if (axes.indexOf("t") >= 0 && o.r1 - o.r0 === o.c1 - o.c0) cand.push([o.r0 + (p[1] - o.c0), o.c0 + (p[0] - o.r0)]);
+        for (k = 0; k < cand.length; k++) if (inb(g, cand[k][0], cand[k][1]) && g[cand[k][0]][cand[k][1]] === bg) out[cand[k][0]][cand[k][1]] = g[p[0]][p[1]];
+      }
+    }
+    return out;
+  }
+  GENS.push(function symObjGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, mi, ai, modes = ["c8", "m8", "c4"], axesList = ["h", "v", "hv", "hvb", "b", "hvbt"];
+    for (mi = 0; mi < modes.length; mi++) for (ai = 0; ai < axesList.length; ai++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(symmetriseObjects(train[t][0], bg, modes[mi], axesList[ai]), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("symobj_" + modes[mi] + "_" + axesList[ai], (function (m, a) { return function (g) { return symmetriseObjects(g, bg, m, a); }; })(modes[mi], axesList[ai]), 3.5));
+    }
+    return out;
+  });
+
+  /* cells settle against a wall, optionally only one colour moving */
+  function settleCells(g, bg, dir, mover) {
+    var h = g.length, w = g[0].length, out = copy(g), r, c, i, line, vals, k;
+    var vertical = dir === 0 || dir === 1, n = vertical ? w : h, len = vertical ? h : w;
+    for (i = 0; i < n; i++) {
+      line = []; for (k = 0; k < len; k++) line.push(vertical ? g[k][i] : g[i][k]);
+      /* split into segments separated by immovable cells, settle each */
+      var res = line.slice(), segStart = 0;
+      for (k = 0; k <= len; k++) {
+        var fixedHere = k === len || (mover >= 0 && line[k] !== bg && line[k] !== mover);
+        if (fixedHere) {
+          var seg = []; for (var q = segStart; q < k; q++) seg.push(line[q]);
+          var movers = seg.filter(function (v) { return v !== bg; }), pad = seg.length - movers.length, arr = [];
+          var before = dir === 0 || dir === 2;
+          for (var z = 0; z < pad; z++) arr.push(bg);
+          arr = before ? movers.concat(arr) : arr.concat(movers);
+          for (q = 0; q < seg.length; q++) res[segStart + q] = arr[q];
+          segStart = k + 1;
+        }
+      }
+      for (k = 0; k < len; k++) { if (vertical) out[k][i] = res[k]; else out[i][k] = res[k]; }
+    }
+    return out;
+  }
+  GENS.push(function settleGen(ctx) {
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, di, mv, movers = [-1];
+    var cs = G.csList(ctx.in_palette() & ~(1 << bg)); cs.forEach(function (k) { movers.push(k); });
+    for (di = 0; di < 4; di++) for (mv = 0; mv < movers.length; mv++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(settleCells(train[t][0], bg, di, movers[mv]), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("settle_" + di + "_m" + movers[mv], (function (d, m) { return function (g) { return settleCells(g, bg, d, m); }; })(di, movers[mv]), 3.0 + (movers[mv] >= 0 ? 0.5 : 0)));
+    }
+    return out;
+  });
+
+  /* isolated pixels are noise */
+  function denoise(g, bg, minSize, conn8, how) {
+    var os = objsOf(g, bg, conn8 ? "c8" : "c4"), out = copy(g), i, j, o, cnt, d, nr, nc, v, best, bn;
+    for (i = 0; i < os.length; i++) {
+      o = os[i]; if (o.n > minSize) continue;
+      if (how === "bg") { for (j = 0; j < o.cells.length; j++) out[o.cells[j][0]][o.cells[j][1]] = bg; continue; }
+      for (j = 0; j < o.cells.length; j++) {
+        cnt = {}; best = bg; bn = 0;
+        for (d = 0; d < 8; d++) {
+          nr = o.cells[j][0] + D8[d][0]; nc = o.cells[j][1] + D8[d][1];
+          if (!inb(g, nr, nc)) continue;
+          v = g[nr][nc]; if (v === g[o.cells[j][0]][o.cells[j][1]]) continue;
+          cnt[v] = (cnt[v] || 0) + 1; if (cnt[v] > bn) { bn = cnt[v]; best = v; }
+        }
+        out[o.cells[j][0]][o.cells[j][1]] = best;
+      }
+    }
+    return out;
+  }
+  GENS.push(function denoiseGen(ctx) {
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, ms, cn, hw;
+    for (ms = 1; ms <= 4; ms++) for (cn = 0; cn < 2; cn++) for (hw = 0; hw < 2; hw++) {
+      var ok = true, hows = ["bg", "majority"];
+      for (t = 0; t < train.length; t++) if (!same(denoise(train[t][0], bg, ms, cn === 1, hows[hw]), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("denoise_" + ms + (cn ? "_8_" : "_4_") + hows[hw], (function (m, c, h2) { return function (g) { return denoise(g, bg, m, c, h2); }; })(ms, cn === 1, hows[hw]), 3.0));
+    }
+    return out;
+  });
+
+
+  /* --------------------------------- objects move by a rule of their class */
+
+  function moveObjects(g, bg, mode, table, keyFn, slide) {
+    var os = objsOf(g, bg, mode), out = copy(g), i, j, o, mv, moved = [], key;
+    addRanks(os);
+    for (i = 0; i < os.length; i++) {
+      o = os[i]; key = keyFn(o);
+      mv = table[key];
+      if (!mv) continue;
+      moved.push([o, mv]);
+    }
+    if (!moved.length) return out;
+    /* lift every mover, then place them one by one */
+    for (i = 0; i < moved.length; i++) for (j = 0; j < moved[i][0].cells.length; j++) out[moved[i][0].cells[j][0]][moved[i][0].cells[j][1]] = bg;
+    if (slide) {
+      /* nearest to the destination wall first so a stack keeps its order */
+      moved.sort(function (a, b) {
+        var da = a[1], db = b[1], pa = (da[0] > 0 ? a[0].r1 : da[0] < 0 ? -a[0].r0 : 0) + (da[1] > 0 ? a[0].c1 : da[1] < 0 ? -a[0].c0 : 0);
+        var pb = (db[0] > 0 ? b[0].r1 : db[0] < 0 ? -b[0].r0 : 0) + (db[1] > 0 ? b[0].c1 : db[1] < 0 ? -b[0].c0 : 0);
+        return pb - pa;
+      });
+    }
+    for (i = 0; i < moved.length; i++) {
+      o = moved[i][0]; mv = moved[i][1];
+      var cells = o.cells.map(function (p) { return [p[0], p[1], g[p[0]][p[1]]]; });
+      if (slide) {
+        var step = 0, ok = true;
+        while (step++ < 60) {
+          for (j = 0; j < cells.length; j++) {
+            var r = cells[j][0] + mv[0], c = cells[j][1] + mv[1];
+            if (!inb(g, r, c) || out[r][c] !== bg) { ok = false; break; }
+          }
+          if (!ok) break;
+          for (j = 0; j < cells.length; j++) { cells[j][0] += mv[0]; cells[j][1] += mv[1]; }
+        }
+      } else for (j = 0; j < cells.length; j++) { cells[j][0] += mv[0]; cells[j][1] += mv[1]; }
+      for (j = 0; j < cells.length; j++) if (inb(g, cells[j][0], cells[j][1])) out[cells[j][0]][cells[j][1]] = cells[j][2];
+    }
+    return out;
+  }
+  var OBJ_KEYS = [
+    ["color", function (o) { return o.color; }],
+    ["shape", function (o) { return shapeKey(o); }],
+    ["size", function (o) { return o.n; }],
+    ["toprank", function (o) { return o.rank_r; }],
+    ["leftrank", function (o) { return o.rank_c; }]
+  ];
+  /* ordinal position among the objects of the grid (ties share a rank) */
+  function addRanks(os) {
+    if (os.length && os[0].rank_r !== undefined) return;
+    var rs = os.map(function (o) { return o.r0; }).sort(function (a, b) { return a - b; });
+    var cs = os.map(function (o) { return o.c0; }).sort(function (a, b) { return a - b; });
+    os.forEach(function (o) { o.rank_r = rs.indexOf(o.r0); o.rank_c = cs.indexOf(o.c0); });
+  }
+  GENS.push(function objMoveGen(ctx) {
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, mi, ki, slideMode, modes = ["c8", "m8", "c4"];
+    /* an object cannot have moved if the input and output differ nowhere */
+    if (changedCells(ctx) === 0) return [];
+    for (t = 0; t < train.length; t++) if (objsOf(train[t][0], bg, "m8").length > 14) return [];
+    var R = 3, dirs = [];
+    var dr, dc;
+    for (dr = -R; dr <= R; dr++) for (dc = -R; dc <= R; dc++) dirs.push([dr, dc]);
+    for (mi = 0; mi < modes.length; mi++) for (ki = 0; ki < OBJ_KEYS.length; ki++) for (slideMode = 0; slideMode < 2; slideMode++) {
+      if (ctx.timed_out()) return out;
+      var keyFn = OBJ_KEYS[ki][1];
+      /* candidate movement per class: intersect what each object of the class can explain */
+      var cand = {};     /* key -> array of feasible moves (as strings) */
+      var bad = false;
+      var moves = slideMode ? [[-1, 0], [1, 0], [0, -1], [0, 1]] : dirs;
+      var o1, j, q;
+      for (t = 0; t < train.length && !bad; t++) {
+        var os = objsOf(train[t][0], bg, modes[mi]), gin = train[t][0], gout = train[t][1];
+        addRanks(os);
+        for (var oi = 0; oi < os.length; oi++) {
+          o1 = os[oi]; var k = keyFn(o1), feas = [];
+          /* 'stay' */
+          var stays = true;
+          for (j = 0; j < o1.cells.length; j++) if (gout[o1.cells[j][0]][o1.cells[j][1]] !== gin[o1.cells[j][0]][o1.cells[j][1]]) { stays = false; break; }
+          if (stays) feas.push("0,0");
+          if (!slideMode) {
+            for (q = 0; q < moves.length; q++) {
+              if (!moves[q][0] && !moves[q][1]) continue;
+              var good = true;
+              for (j = 0; j < o1.cells.length; j++) {
+                var rr = o1.cells[j][0] + moves[q][0], cc = o1.cells[j][1] + moves[q][1];
+                if (!inb(gin, rr, cc) || gout[rr][cc] !== gin[o1.cells[j][0]][o1.cells[j][1]]) { good = false; break; }
+              }
+              if (good) feas.push(moves[q][0] + "," + moves[q][1]);
+            }
+          } else {
+            /* a slide's length is decided by the world; accept a direction if the object left its cell */
+            for (q = 0; q < moves.length; q++) feas.push(moves[q][0] + "," + moves[q][1]);
+          }
+          if (!feas.length) { bad = true; break; }
+          if (!cand[k]) cand[k] = feas;
+          else cand[k] = cand[k].filter(function (x) { return feas.indexOf(x) >= 0; });
+          if (!cand[k].length) { bad = true; break; }
+        }
+      }
+      if (bad) continue;
+      /* build tables from the first feasible move per class, preferring 'stay' last */
+      var keys = Object.keys(cand), table = {}, anyMove = false;
+      var variants = [0, 1];
+      var ok = true;
+      /* enumerate choices for classes with several candidates (bounded) */
+      var combos = [{}], ki2;
+      for (ki2 = 0; ki2 < keys.length; ki2++) {
+        var nxt = [], opts = cand[keys[ki2]].slice(0, 6);
+        for (var ci = 0; ci < combos.length; ci++) for (var oo = 0; oo < opts.length; oo++) {
+          var cp = {}; for (var kk in combos[ci]) cp[kk] = combos[ci][kk];
+          cp[keys[ki2]] = opts[oo]; nxt.push(cp);
+        }
+        combos = nxt.slice(0, 64);
+      }
+      for (var cb = 0; cb < combos.length; cb++) {
+        table = {}; anyMove = false;
+        for (var kk2 in combos[cb]) { var sv = combos[cb][kk2].split(",").map(Number); if (sv[0] || sv[1]) { table[kk2] = sv; anyMove = true; } }
+        if (!anyMove) continue;
+        ok = true;
+        for (t = 0; t < train.length; t++) if (!same(moveObjects(train[t][0], bg, modes[mi], table, keyFn, slideMode === 1), train[t][1])) { ok = false; break; }
+        if (ok) {
+          out.push(_h("objmove_" + modes[mi] + "_" + OBJ_KEYS[ki][0] + (slideMode ? "_slide" : "_shift"),
+            (function (m, tb, kf, sl) { return function (g) { return moveObjects(g, bg, m, tb, kf, sl); }; })(modes[mi], table, keyFn, slideMode === 1), 4.0 + (Object.keys(table).length > 3 ? 1 : 0) + 1.5));
+          break;
+        }
+      }
+    }
+    return out;
+  });
+
+  /* ------------------------------------ marks joined by lines, with overlay */
+
+  function connectMarks(g, bg, c, dirNames, table) {
+    var C = comps8(g, bg), marks = [], i, out = copy(g), d, di, k;
+    for (i = 0; i < C.list.length; i++) if (C.list[i].length === 1 && g[C.list[i][0][0]][C.list[i][0][1]] === c) marks.push(C.list[i][0]);
+    if (marks.length < 2) return null;
+    for (di = 0; di < dirNames.length; di++) {
+      d = LINE_DIRS[dirNames[di]];
+      for (i = 0; i < marks.length; i++) {
+        /* the next mark along this direction */
+        var r = marks[i][0] + d[0], cc = marks[i][1] + d[1], path = [];
+        while (inb(g, r, cc)) {
+          if (g[r][cc] === c && C.id[r][cc] >= 0 && C.list[C.id[r][cc]].length === 1) {
+            for (k = 0; k < path.length; k++) {
+              var old = g[path[k][0]][path[k][1]], nv = table[old];
+              out[path[k][0]][path[k][1]] = nv === undefined ? old : nv;
+            }
+            break;
+          }
+          path.push([r, cc]); r += d[0]; cc += d[1];
+        }
+      }
+    }
+    return out;
+  }
+  GENS.push(function connectGen(ctx) {
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, c, subset, i, names = ["h", "v", "d1", "d2"];
+    if (changedCells(ctx) === 0) return [];
+    for (c = 0; c < 10; c++) {
+      if (c === bg) continue;
+      /* learn old -> new on the cells the demonstrations changed under a line between marks */
+      for (subset = 1; subset < 16; subset++) {
+        var dn = []; for (i = 0; i < 4; i++) if (subset & (1 << i)) dn.push(names[i]);
+        var base = connectMarks(train[0][0], bg, c, dn, {});
+        if (!base) continue;
+        var table = {}, bad = false, r, cc;
+        for (t = 0; t < train.length && !bad; t++) {
+          var b2 = connectMarks(train[t][0], bg, c, dn, { __all: 0 });
+          /* cells a line would cover: mark them with a sentinel table that changes everything */
+          var probe = connectMarks(train[t][0], bg, c, dn, (function () { var m = {}, v; for (v = 0; v < 10; v++) m[v] = 10; return m; })());
+          if (!probe) { bad = true; break; }
+          for (r = 0; r < probe.length && !bad; r++) for (cc = 0; cc < probe[0].length; cc++) {
+            if (probe[r][cc] === 10) {
+              var old = train[t][0][r][cc], nv = train[t][1][r][cc];
+              if (table[old] !== undefined && table[old] !== nv) { bad = true; break; }
+              table[old] = nv;
+            }
+          }
+        }
+        if (bad) continue;
+        var ok = true;
+        for (t = 0; t < train.length; t++) { var p = connectMarks(train[t][0], bg, c, dn, table); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+        if (ok) out.push(_h("connect_c" + c + "_" + dn.join(""), (function (cc2, dd, tb) { return function (g) { return connectMarks(g, bg, cc2, dd, tb); }; })(c, dn, table), 4.0));
+      }
+    }
+    return out;
+  });
+
+
+  /* ----------------------------------------- a grid built from its own cells */
+
+  var DIH = G.DIHEDRAL;
+  function tileKron(g, bg, sel, opIdx, colorMode, fgInvert) {
+    var h = g.length, w = g[0].length;
+    if (h * h > 60 || w * w > 60) return null;
+    var T = DIH[opIdx][1](g);
+    if (T.length !== h || T[0].length !== w) return null;
+    var out = G.constGrid(h * h, w * w, bg), i, j, r, c, v, col;
+    /* the two colours of the pattern, for inversion */
+    var cs = G.csList(G.palette(g)), other = -1;
+    if (fgInvert) { if (cs.length !== 2) return null; }
+    for (i = 0; i < h; i++) for (j = 0; j < w; j++) {
+      v = g[i][j];
+      var on = sel === "fg" ? v !== bg : v === bg;
+      if (!on) continue;
+      for (r = 0; r < h; r++) for (c = 0; c < w; c++) {
+        col = T[r][c];
+        if (fgInvert) col = col === cs[0] ? cs[1] : cs[0];
+        if (colorMode === "cell" && col !== bg) col = v;
+        out[i * h + r][j * w + c] = col;
+      }
+    }
+    return out;
+  }
+  GENS.push(function kronGen(ctx) {
+    var ratio = ctx.shape_ratio();
+    if (!ratio) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, si, oi, cm, inv, sels = ["fg", "bg"];
+    for (si = 0; si < 2; si++) for (oi = 0; oi < 8; oi++) for (cm = 0; cm < 2; cm++) for (inv = 0; inv < 2; inv++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) {
+        var p = tileKron(train[t][0], bg, sels[si], oi, cm ? "cell" : "keep", inv === 1);
+        if (!p || !same(p, train[t][1])) { ok = false; break; }
+      }
+      if (ok) out.push(_h("kron_" + sels[si] + "_" + DIH[oi][0] + (cm ? "_cellcolor" : "") + (inv ? "_inv" : ""),
+        (function (s2, o2, c2, i2) { return function (g) { return tileKron(g, bg, s2, o2, c2 ? "cell" : "keep", i2 === 1); }; })(sels[si], oi, cm, inv), 3.5));
+    }
+    return out;
+  });
+
+  /* the grid next to a transformed, recoloured copy of itself */
+  function selfConcat(g, arr, opIdx, cmap) {
+    var T = DIH[opIdx][1](g);
+    if (cmap) T = G.applyCmap(T, cmap);
+    var horiz = arr.charAt(0) === "h", first = arr.charAt(1) === "a";
+    var A = first ? g : T, B = first ? T : g;
+    if (horiz) { if (A.length !== B.length) return null; return A.map(function (row, i) { return row.concat(B[i]); }); }
+    if (A[0].length !== B[0].length) return null;
+    return A.concat(B);
+  }
+  GENS.push(function selfConcatGen(ctx) {
+    var train = ctx.train, out = [], t, ai, oi, arrs = ["ha", "hb", "va", "vb"], ok;
+    for (t = 0; t < train.length; t++) {
+      var a = train[t][0], b = train[t][1];
+      if (!((b.length === a.length && b[0].length === 2 * a[0].length) || (b.length === 2 * a.length && b[0].length === a[0].length))) return [];
+    }
+    for (ai = 0; ai < arrs.length; ai++) for (oi = 0; oi < 8; oi++) {
+      var geo = selfConcat(train[0][0], arrs[ai], oi, null);
+      if (!geo || geo.length !== train[0][1].length || geo[0].length !== train[0][1][0].length) continue;
+      /* derive the colour map from every pair, on the transformed half only */
+      var cmap = {}, bad = false, r, c;
+      for (t = 0; t < train.length && !bad; t++) {
+        var g0 = train[t][0], o0 = train[t][1], Tg = DIH[oi][1](g0), h = g0.length, w = g0[0].length, horiz = arrs[ai].charAt(0) === "h", firstA = arrs[ai].charAt(1) === "a";
+        var r0 = horiz ? 0 : (firstA ? h : 0), c0 = horiz ? (firstA ? w : 0) : 0;
+        if (Tg.length !== h || Tg[0].length !== w) { bad = true; break; }
+        for (r = 0; r < h && !bad; r++) for (c = 0; c < w; c++) {
+          var src = Tg[r][c], dst = o0[r0 + r][c0 + c];
+          if (cmap[src] !== undefined && cmap[src] !== dst) { bad = true; break; }
+          cmap[src] = dst;
+        }
+      }
+      if (bad) continue;
+      ok = true;
+      for (t = 0; t < train.length; t++) { var p = selfConcat(train[t][0], arrs[ai], oi, cmap); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+      if (ok) out.push(_h("selfconcat_" + arrs[ai] + "_" + DIH[oi][0], (function (a2, o2, m2) { return function (g) { return selfConcat(g, a2, o2, m2); }; })(arrs[ai], oi, cmap), 3.5));
+    }
+    return out;
+  });
+
+
+  /* ------------------------------ mirror copies, walls, empty rectangles */
+
+  function mirrorObjects(g, bg, mode, sides) {
+    var os = objsOf(g, bg, mode), out = copy(g), i, j, o, s, p, hasH, hasV, nr, nc;
+    for (i = 0; i < os.length; i++) {
+      o = os[i];
+      for (j = 0; j < o.cells.length; j++) {
+        p = o.cells[j];
+        var v = g[p[0]][p[1]];
+        var rr = {}, list = [];
+        if (sides.indexOf("r") >= 0) list.push([p[0], 2 * o.c1 + 1 - p[1]]);
+        if (sides.indexOf("l") >= 0) list.push([p[0], 2 * o.c0 - 1 - p[1]]);
+        if (sides.indexOf("d") >= 0) list.push([2 * o.r1 + 1 - p[0], p[1]]);
+        if (sides.indexOf("u") >= 0) list.push([2 * o.r0 - 1 - p[0], p[1]]);
+        var hs = sides.indexOf("r") >= 0 ? 2 * o.c1 + 1 - p[1] : sides.indexOf("l") >= 0 ? 2 * o.c0 - 1 - p[1] : null;
+        var vs = sides.indexOf("d") >= 0 ? 2 * o.r1 + 1 - p[0] : sides.indexOf("u") >= 0 ? 2 * o.r0 - 1 - p[0] : null;
+        if (hs !== null && vs !== null && sides.length > 2) list.push([vs, hs]);
+        for (s = 0; s < list.length; s++) if (inb(g, list[s][0], list[s][1]) && out[list[s][0]][list[s][1]] === bg) out[list[s][0]][list[s][1]] = v;
+      }
+    }
+    return out;
+  }
+  GENS.push(function mirrorBesideGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, mi, sub, modes = ["c8", "m8"], i;
+    var names = ["r", "l", "d", "u"];
+    for (mi = 0; mi < modes.length; mi++) for (sub = 1; sub < 16; sub++) {
+      var sd = ""; for (i = 0; i < 4; i++) if (sub & (1 << i)) sd += names[i];
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(mirrorObjects(train[t][0], bg, modes[mi], sd), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("mirror_" + modes[mi] + "_" + sd, (function (m, sdd) { return function (g) { return mirrorObjects(g, bg, m, sdd); }; })(modes[mi], sd), 3.5 + 0.2 * sd.length));
+    }
+    return out;
+  });
+
+  /* objects travel to a wall (or corner) of the grid */
+  function toWalls(g, bg, mode, dirs) {
+    var os = objsOf(g, bg, mode), out = G.constGrid(g.length, g[0].length, bg), i, j, o, dr, dc, h = g.length, w = g[0].length;
+    for (i = 0; i < os.length; i++) {
+      o = os[i]; dr = 0; dc = 0;
+      if (dirs.indexOf("u") >= 0) dr = -o.r0;
+      if (dirs.indexOf("d") >= 0) dr = h - 1 - o.r1;
+      if (dirs.indexOf("l") >= 0) dc = -o.c0;
+      if (dirs.indexOf("r") >= 0) dc = w - 1 - o.c1;
+      for (j = 0; j < o.cells.length; j++) out[o.cells[j][0] + dr][o.cells[j][1] + dc] = g[o.cells[j][0]][o.cells[j][1]];
+    }
+    return out;
+  }
+  GENS.push(function wallsGen(ctx) {
+    if (!ctx.same_shape() || changedCells(ctx) === 0) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, mi, dsl = ["u", "d", "l", "r", "ul", "ur", "dl", "dr"], di, modes = ["c8", "m8"];
+    for (t = 0; t < train.length; t++) if (objsOf(train[t][0], bg, "m8").length > 6) return [];
+    for (mi = 0; mi < modes.length; mi++) for (di = 0; di < dsl.length; di++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(toWalls(train[t][0], bg, modes[mi], dsl[di]), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("walls_" + modes[mi] + "_" + dsl[di], (function (m, d) { return function (g) { return toWalls(g, bg, m, d); }; })(modes[mi], dsl[di]), 4.0));
+    }
+    return out;
+  });
+
+  /* the biggest rectangle (or square) of background */
+  function biggestEmpty(g, bg, square, color, allTies, shrink, minSide) {
+    shrink = shrink || 0; minSide = minSide || 1;
+    var h = g.length, w = g[0].length;
+    if (h * w > 900) return null;
+    var P = [], r, c;
+    for (r = 0; r <= h; r++) P.push(new Int32Array(w + 1));
+    for (r = 0; r < h; r++) for (c = 0; c < w; c++) P[r + 1][c + 1] = P[r][c + 1] + P[r + 1][c] - P[r][c] + (g[r][c] !== bg ? 1 : 0);
+    var best = 0, rects = [], r1, c1, r2, c2;
+    for (r1 = 0; r1 < h; r1++) for (c1 = 0; c1 < w; c1++) {
+      if (g[r1][c1] !== bg) continue;
+      for (r2 = r1; r2 < h; r2++) {
+        if (g[r2][c1] !== bg) break;
+        for (c2 = c1; c2 < w; c2++) {
+          if (P[r2 + 1][c2 + 1] - P[r1][c2 + 1] - P[r2 + 1][c1] + P[r1][c1] !== 0) break;
+          if (square && r2 - r1 !== c2 - c1) continue;
+          if (Math.min(r2 - r1, c2 - c1) + 1 < minSide) continue;
+          var ar = (r2 - r1 + 1) * (c2 - c1 + 1);
+          if (ar > best) { best = ar; rects = [[r1, c1, r2, c2]]; } else if (ar === best) rects.push([r1, c1, r2, c2]);
+        }
+      }
+    }
+    if (!best || (rects.length > 1 && !allTies)) return null;
+    var out = copy(g), k;
+    for (k = 0; k < rects.length; k++) {
+      if (rects[k][0] + shrink > rects[k][2] - shrink || rects[k][1] + shrink > rects[k][3] - shrink) return null;
+      for (r = rects[k][0] + shrink; r <= rects[k][2] - shrink; r++) for (c = rects[k][1] + shrink; c <= rects[k][3] - shrink; c++) out[r][c] = color;
+    }
+    return out;
+  }
+  /* the colour a region is "empty" in need not be the grid background: learn it
+     from what the demonstrations painted over */
+  function paintedOver(ctx) {
+    var train = ctx.train, t, r, c, from = -1, to = -1;
+    if (!ctx.same_shape()) return null;
+    for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++)
+      if (train[t][0][r][c] !== train[t][1][r][c]) {
+        if (from < 0) { from = train[t][0][r][c]; to = train[t][1][r][c]; }
+        else if (from !== train[t][0][r][c] || to !== train[t][1][r][c]) return null;
+      }
+    return from < 0 ? null : { from: from, to: to };
+  }
+  GENS.push(function emptyRectGen(ctx) {
+    var po = paintedOver(ctx);
+    if (!po) return [];
+    var train = ctx.train, out = [], t, sq;
+    for (sq = 0; sq < 2; sq++) for (var sh = 0; sh < 2; sh++) for (var ms = 1; ms <= 2; ms++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) { var p = biggestEmpty(train[t][0], po.from, sq === 1, po.to, false, sh, ms); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+      if (ok) out.push(_h("emptyrect_" + (sq ? "square" : "rect") + (sh ? "_inner" : "") + (ms > 1 ? "_min" + ms : ""), (function (s2, h2, m2) { return function (g) { return biggestEmpty(g, po.from, s2 === 1, po.to, false, h2, m2); }; })(sq, sh, ms), 4.0 + sh * 0.3 + (ms > 1 ? 0.3 : 0)));
+    }
+    return out;
+  });
+
+  /* every empty cell lying in an all-empty block of at least kh x kw */
+  function blockCells(g, e, kh, kw, color) {
+    var h = g.length, w = g[0].length, out = copy(g), r, c, i, j, ok;
+    for (r = 0; r + kh <= h; r++) for (c = 0; c + kw <= w; c++) {
+      ok = true;
+      for (i = 0; i < kh && ok; i++) for (j = 0; j < kw; j++) if (g[r + i][c + j] !== e) { ok = false; break; }
+      if (ok) for (i = 0; i < kh; i++) for (j = 0; j < kw; j++) out[r + i][c + j] = color;
+    }
+    return out;
+  }
+  GENS.push(function blockFillGen(ctx) {
+    var po = paintedOver(ctx);
+    if (!po) return [];
+    var train = ctx.train, out = [], t, kh, kw;
+    for (kh = 2; kh <= 4; kh++) for (kw = kh; kw <= 4; kw++) {
+      if (ctx.timed_out()) return out;
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(blockCells(train[t][0], po.from, kh, kw, po.to), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("blocks_" + kh + "x" + kw, (function (a, b2) { return function (g) { return blockCells(g, po.from, a, b2, po.to); }; })(kh, kw), 4.0));
+      if (kw !== kh) {
+        ok = true;
+        for (t = 0; t < train.length; t++) if (!same(blockCells(train[t][0], po.from, kw, kh, po.to), train[t][1])) { ok = false; break; }
+        if (ok) out.push(_h("blocks_" + kw + "x" + kh, (function (a, b2) { return function (g) { return blockCells(g, po.from, a, b2, po.to); }; })(kw, kh), 4.0));
+      }
+    }
+    return out;
+  });
+
+  /* rows / columns that are empty from wall to wall */
+  function emptyLines(g, bg, rows, cols, color) {
+    var h = g.length, w = g[0].length, out = copy(g), r, c, ok, n;
+    if (rows) for (r = 0; r < h; r++) {
+      ok = true; n = 0;
+      for (c = 1; c < w - 1; c++) if (g[r][c] !== bg) { ok = false; break; }
+      if (ok && g[r][0] !== bg && g[r][w - 1] !== bg) for (c = 1; c < w - 1; c++) out[r][c] = color;
+    }
+    if (cols) for (c = 0; c < w; c++) {
+      ok = true;
+      for (r = 1; r < h - 1; r++) if (g[r][c] !== bg) { ok = false; break; }
+      if (ok && g[0][c] !== bg && g[h - 1][c] !== bg) for (r = 1; r < h - 1; r++) if (out[r][c] === bg) out[r][c] = color;
+    }
+    return out;
+  }
+  GENS.push(function emptyLinesGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, r, c, seen = 0, mode;
+    for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++) if (train[t][0][r][c] !== train[t][1][r][c]) seen |= 1 << train[t][1][r][c];
+    var cols = G.csList(seen); if (cols.length !== 1) return [];
+    for (mode = 1; mode < 4; mode++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) if (!same(emptyLines(train[t][0], bg, (mode & 1) === 1, (mode & 2) === 2, cols[0]), train[t][1])) { ok = false; break; }
+      if (ok) out.push(_h("emptylines_" + mode, (function (m) { return function (g) { return emptyLines(g, bg, (m & 1) === 1, (m & 2) === 2, cols[0]); }; })(mode), 4.0));
+    }
+    return out;
+  });
+
+
+  /* ------------------------------------ stripes and lattices */
+
+  /* marks fix a period; the pattern of their colours repeats across the grid */
+  function stripes(g, bg, axis, dirSign, full) {
+    var h = g.length, w = g[0].length, marks = [], r, c, out = copy(g), i, k;
+    for (r = 0; r < h; r++) for (c = 0; c < w; c++) if (g[r][c] !== bg) marks.push([r, c, g[r][c]]);
+    if (marks.length < 2 || marks.length > 6) return null;
+    var key = axis === "col" ? 1 : 0, ortho = 1 - key;
+    marks.sort(function (a, b) { return a[key] - b[key]; });
+    for (i = 1; i < marks.length; i++) if (marks[i][key] === marks[i - 1][key]) return null;
+    var d = marks[1][key] - marks[0][key], n = marks.length, size = axis === "col" ? w : h;
+    for (i = 1; i < n; i++) if (marks[i][key] - marks[i - 1][key] !== d) return null;
+    var start = dirSign > 0 ? marks[0][key] : marks[n - 1][key];
+    for (k = 0; ; k++) {
+      var pos = start + dirSign * d * k;
+      if (pos < 0 || pos >= size) break;
+      var col = marks[dirSign > 0 ? k % n : (n - 1 - (k % n))][2];
+      if (axis === "col") { for (r = 0; r < h; r++) if (full || g[r][pos] === bg) out[r][pos] = col; }
+      else { for (c = 0; c < w; c++) if (full || g[pos][c] === bg) out[pos][c] = col; }
+    }
+    return out;
+  }
+  GENS.push(function stripesGen(ctx) {
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, ai, di, axes = ["col", "row"], dirs = [1, -1];
+    for (ai = 0; ai < 2; ai++) for (di = 0; di < 2; di++) {
+      var ok = true;
+      for (t = 0; t < train.length; t++) { var p = stripes(train[t][0], bg, axes[ai], dirs[di], true); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+      if (ok) out.push(_h("stripes_" + axes[ai] + (dirs[di] > 0 ? "_fwd" : "_back"), (function (a, d) { return function (g) { return stripes(g, bg, a, d, true); }; })(axes[ai], dirs[di]), 4.0));
+    }
+    return out;
+  });
+
+  /* cells of a separator-ruled lattice, recoloured by where they sit (first, middle, last) */
+  function latticeCells(g, bg) {
+    var dv = dividers(g, bg), h = g.length, w = g[0].length, rowsAt = dv.rows, colsAt = dv.cols;
+    if (!rowsAt.length && !colsAt.length) return null;
+    function spans(seps, n) {
+      var out = [], start = 0, i;
+      for (i = 0; i <= seps.length; i++) { var end = i < seps.length ? seps[i] - 1 : n - 1; if (end >= start) out.push([start, end]); start = (i < seps.length ? seps[i] + 1 : n); }
+      return out;
+    }
+    var rs = spans(rowsAt, h), cs = spans(colsAt, w);
+    if (rs.length * cs.length < 4 || rs.length * cs.length > 120) return null;
+    return { rs: rs, cs: cs };
+  }
+  function posClass(i, n) { return i === 0 ? (n === 1 ? "o" : "f") : i === n - 1 ? "l" : (n % 2 === 1 && i === (n - 1) / 2 ? "m" : "x"); }
+  function latticePaint(g, bg, table, onlyEmpty) {
+    var L = latticeCells(g, bg);
+    if (!L) return null;
+    var out = copy(g), i, j, r, c;
+    for (i = 0; i < L.rs.length; i++) for (j = 0; j < L.cs.length; j++) {
+      var col = table[posClass(i, L.rs.length) + posClass(j, L.cs.length)];
+      if (col === undefined) continue;
+      for (r = L.rs[i][0]; r <= L.rs[i][1]; r++) for (c = L.cs[j][0]; c <= L.cs[j][1]; c++) if (!onlyEmpty || g[r][c] === bg) out[r][c] = col;
+    }
+    return out;
+  }
+  GENS.push(function latticeClassGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, i, j, r, c, table = {}, bad = false;
+    for (t = 0; t < train.length && !bad; t++) {
+      var L = latticeCells(train[t][0], bg);
+      if (!L) return [];
+      for (i = 0; i < L.rs.length && !bad; i++) for (j = 0; j < L.cs.length && !bad; j++) {
+        var key = posClass(i, L.rs.length) + posClass(j, L.cs.length), col = null;
+        for (r = L.rs[i][0]; r <= L.rs[i][1] && !bad; r++) for (c = L.cs[j][0]; c <= L.cs[j][1]; c++) {
+          if (train[t][0][r][c] !== bg) continue;
+          var v = train[t][1][r][c];
+          if (col === null) col = v; else if (col !== v) { bad = true; break; }
+        }
+        if (col === null) continue;
+        if (table[key] !== undefined && table[key] !== col) bad = true; else table[key] = col;
+      }
+    }
+    if (bad) return [];
+    var any = false, k; for (k in table) if (table[k] !== bg) any = true;
+    if (!any) return [];
+    for (t = 0; t < train.length; t++) { var p = latticePaint(train[t][0], bg, table, true); if (!p || !same(p, train[t][1])) return []; }
+    return [_h("lattice_class", function (g) { return latticePaint(g, bg, table, true); }, 4.5)];
+  });
+
+
+  /* ------------------------------ regions, ranks and centres */
+
+  (function () {
+    function S(name, f) { SELECTORS.push([name, f]); }
+    function rankSel(name, keyFn, wantFromEnd, parity) {
+      S(name, function (os) {
+        var idx = os.map(function (o, i) { return i; }).sort(function (a, b) { return keyFn(os[a]) - keyFn(os[b]) || a - b; });
+        var rank = new Array(os.length), i;
+        for (i = 0; i < idx.length; i++) rank[idx[i]] = wantFromEnd ? idx.length - 1 - i : i;
+        return os.map(function (o, k) { return rank[k] % 2 === parity; });
+      });
+    }
+    rankSel("col_even", function (o) { return o.c0; }, false, 0); rankSel("col_odd", function (o) { return o.c0; }, false, 1);
+    rankSel("colr_even", function (o) { return o.c0; }, true, 0); rankSel("colr_odd", function (o) { return o.c0; }, true, 1);
+    rankSel("row_even", function (o) { return o.r0; }, false, 0); rankSel("row_odd", function (o) { return o.r0; }, false, 1);
+    rankSel("rowr_even", function (o) { return o.r0; }, true, 0); rankSel("rowr_odd", function (o) { return o.r0; }, true, 1);
+  })();
+  GENS.push(function recolorSelectedGen(ctx) {
+    if (!ctx.same_shape()) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, mi, si, k, cols = [], modes = ["c8", "m8", "c4"], seen = 0, r, c;
+    for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++)
+      if (train[t][0][r][c] !== train[t][1][r][c]) { if (train[t][0][r][c] === bg) return []; seen |= 1 << train[t][1][r][c]; }
+    cols = G.csList(seen); if (cols.length !== 1 || cols[0] === bg) return [];
+    function paintSel(g, m, sf) {
+      var os = objsOf(g, bg, m), fl = sf(os, g, bg), o = copy(g), i, j;
+      for (i = 0; i < os.length; i++) if (fl[i]) for (j = 0; j < os[i].cells.length; j++) o[os[i].cells[j][0]][os[i].cells[j][1]] = cols[0];
+      return o;
+    }
+    for (mi = 0; mi < modes.length; mi++) {
+      var seenVec = {};
+      for (si = 0; si < SELECTORS.length; si++) {
+        if (ctx.timed_out()) return out;
+        var vec = "", nz = 0;
+        for (t = 0; t < train.length; t++) { var os = objsOf(train[t][0], bg, modes[mi]), fl = SELECTORS[si][1](os, train[t][0], bg), q; for (q = 0; q < fl.length; q++) { vec += fl[q] ? "1" : "0"; if (fl[q]) nz++; } vec += "|"; }
+        if (!nz || seenVec[vec]) continue; seenVec[vec] = 1;
+        var ok = true;
+        for (t = 0; t < train.length; t++) if (!same(paintSel(train[t][0], modes[mi], SELECTORS[si][1]), train[t][1])) { ok = false; break; }
+        if (ok) out.push(_h("recolorsel_" + modes[mi] + "_" + SELECTORS[si][0], (function (m, sf) { return function (g) { return paintSel(g, m, sf); }; })(modes[mi], SELECTORS[si][1]), 4.0));
+      }
+    }
+    return out;
+  });
+
+  /* background regions coloured by a property of the region */
+  function bgRegions(g, bg, conn8) {
+    var h = g.length, w = g[0].length, id = [], regs = [], r, c, d, nb = conn8 ? D8 : D4, p, nr, nc;
+    for (r = 0; r < h; r++) { id.push(new Int32Array(w).fill(-1)); }
+    for (r = 0; r < h; r++) for (c = 0; c < w; c++) {
+      if (g[r][c] !== bg || id[r][c] >= 0) continue;
+      var st = [[r, c]], cells = [], border = false; id[r][c] = regs.length;
+      while (st.length) {
+        p = st.pop(); cells.push(p);
+        if (p[0] === 0 || p[1] === 0 || p[0] === h - 1 || p[1] === w - 1) border = true;
+        for (d = 0; d < nb.length; d++) {
+          nr = p[0] + nb[d][0]; nc = p[1] + nb[d][1];
+          if (inb(g, nr, nc) && g[nr][nc] === bg && id[nr][nc] < 0) { id[nr][nc] = regs.length; st.push([nr, nc]); }
+        }
+      }
+      regs.push({ cells: cells, n: cells.length, border: border });
+    }
+    return regs;
+  }
+  var REGION_KEYS = [
+    ["sizerank", function (rg, all) { var mx = 0, mn = 1e9, i; for (i = 0; i < all.length; i++) { mx = Math.max(mx, all[i].n); mn = Math.min(mn, all[i].n); } return rg.n === mx && rg.n !== mn ? "max" : rg.n === mn && rg.n !== mx ? "min" : "mid"; }],
+    ["size", function (rg) { return rg.n; }],
+    ["border", function (rg) { return rg.border ? 1 : 0; }],
+    ["sizerank_enclosed", function (rg, all) { if (rg.border) return "b"; var mx = 0, mn = 1e9, i; for (i = 0; i < all.length; i++) if (!all[i].border) { mx = Math.max(mx, all[i].n); mn = Math.min(mn, all[i].n); } return rg.n === mx && rg.n !== mn ? "max" : rg.n === mn && rg.n !== mx ? "min" : "mid"; }],
+    ["evensize", function (rg) { return rg.n % 2; }],
+    ["rect", function (rg) { var r0 = 99, r1 = -1, c0 = 99, c1 = -1, i; for (i = 0; i < rg.cells.length; i++) { r0 = Math.min(r0, rg.cells[i][0]); r1 = Math.max(r1, rg.cells[i][0]); c0 = Math.min(c0, rg.cells[i][1]); c1 = Math.max(c1, rg.cells[i][1]); } return (r1 - r0 + 1) * (c1 - c0 + 1) === rg.n ? 1 : 0; }]
+  ];
+  GENS.push(function regionTableGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, ki, c8, i, j;
+    for (c8 = 0; c8 < 2; c8++) for (ki = 0; ki < REGION_KEYS.length; ki++) {
+      var table = {}, bad = false;
+      for (t = 0; t < train.length && !bad; t++) {
+        var regs = bgRegions(train[t][0], bg, c8 === 1);
+        for (i = 0; i < regs.length && !bad; i++) {
+          var key = REGION_KEYS[ki][1](regs[i], regs), cells = regs[i].cells, col = train[t][1][cells[0][0]][cells[0][1]];
+          for (j = 1; j < cells.length; j++) if (train[t][1][cells[j][0]][cells[j][1]] !== col) { bad = true; break; }
+          if (bad) break;
+          if (table[key] !== undefined && table[key] !== col) { bad = true; break; }
+          table[key] = col;
+        }
+      }
+      if (bad) continue;
+      var any = false, kk; for (kk in table) if (table[kk] !== bg) any = true;
+      if (!any) continue;
+      out.push(_h("regions_" + (c8 ? "8_" : "4_") + REGION_KEYS[ki][0], (function (tb, kf, c88) {
+        return function (g) {
+          var o = copy(g), regs = bgRegions(g, bg, c88), a, b, col2;
+          for (a = 0; a < regs.length; a++) {
+            col2 = tb[kf(regs[a], regs)];
+            if (col2 === undefined) continue;
+            for (b = 0; b < regs[a].cells.length; b++) o[regs[a].cells[b][0]][regs[a].cells[b][1]] = col2;
+          }
+          return o;
+        };
+      })(table, REGION_KEYS[ki][1], c8 === 1), 4.0 + (REGION_KEYS[ki][0] === "size" ? 1.0 : 0)));
+    }
+    return out;
+  });
+
+  /* line between the centres of aligned objects */
+  function connectCenters(g, bg, mode, dirNames, color, sameColor) {
+    var os = objsOf(g, bg, mode), cs = [], i, j, o, out = copy(g), di, d;
+    for (i = 0; i < os.length; i++) { o = os[i]; if ((o.r0 + o.r1) % 2 || (o.c0 + o.c1) % 2 || o.n < 2) continue; cs.push({ r: (o.r0 + o.r1) / 2, c: (o.c0 + o.c1) / 2, col: o.color }); }
+    if (cs.length < 2) return null;
+    for (i = 0; i < cs.length; i++) for (j = 0; j < cs.length; j++) {
+      if (i === j) continue;
+      for (di = 0; di < dirNames.length; di++) {
+        d = LINE_DIRS[dirNames[di]];
+        var dr = cs[j].r - cs[i].r, dc = cs[j].c - cs[i].c;
+        var steps = d[0] ? dr / d[0] : (d[1] ? dc / d[1] : 0);
+        if (steps <= 1 || dr !== d[0] * steps || dc !== d[1] * steps) continue;
+        if (sameColor && cs[i].col !== cs[j].col) continue;
+        var k;
+        for (k = 1; k < steps; k++) if (g[cs[i].r + d[0] * k][cs[i].c + d[1] * k] === bg) out[cs[i].r + d[0] * k][cs[i].c + d[1] * k] = color;
+      }
+    }
+    return out;
+  }
+  GENS.push(function connectCentersGen(ctx) {
+    if (!paintOnly(ctx)) return [];
+    var bg = ctx.bg(), train = ctx.train, out = [], t, seen = 0, r, c, subset, i, names = ["h", "v", "d1", "d2"], mi, sc, modes = ["c8", "m8"];
+    for (t = 0; t < train.length; t++) for (r = 0; r < train[t][0].length; r++) for (c = 0; c < train[t][0][0].length; c++) if (train[t][0][r][c] !== train[t][1][r][c]) seen |= 1 << train[t][1][r][c];
+    var cols = G.csList(seen); if (cols.length !== 1) return [];
+    for (mi = 0; mi < modes.length; mi++) for (subset = 1; subset < 16; subset++) for (sc = 0; sc < 2; sc++) {
+      var dn = []; for (i = 0; i < 4; i++) if (subset & (1 << i)) dn.push(names[i]);
+      var ok = true;
+      for (t = 0; t < train.length; t++) { var p = connectCenters(train[t][0], bg, modes[mi], dn, cols[0], sc === 1); if (!p || !same(p, train[t][1])) { ok = false; break; } }
+      if (ok) out.push(_h("centres_" + modes[mi] + "_" + dn.join("") + (sc ? "_same" : ""), (function (m, dd, s2) { return function (g) { return connectCenters(g, bg, m, dd, cols[0], s2 === 1) || copy(g); }; })(modes[mi], dn, sc), 4.0));
+    }
+    return out;
+  });
+
   //@@END-MACHINES
 
-  function gen(ctx) {
+  /* exchange two colours throughout a grid */
+  function swapColors(g, a, b) {
+    if (a === b) return g;
+    var out = [], r, c, row, v;
+    for (r = 0; r < g.length; r++) {
+      row = g[r].slice();
+      for (c = 0; c < row.length; c++) { v = row[c]; row[c] = v === a ? b : v === b ? a : v; }
+      out.push(row);
+    }
+    return out;
+  }
+  var ORDER = ["raysGen", "betweenGen", "anchoredGen", "countRenderGen", "reflectGen", "templateStampGen", "floodGen", "symObjGen",
+    "settleGen", "denoiseGen", "kronGen", "selfConcatGen", "connectGen", "mirrorBesideGen", "wallsGen", "emptyRectGen", "blockFillGen", "emptyLinesGen", "regionTableGen", "connectCentersGen", "recolorSelectedGen", "stripesGen", "latticeClassGen", "relRecolorGen", "keepRecolorGen", "objMoveGen"];
+  GENS.sort(function (a, b) {
+    var ia = ORDER.indexOf(a.name), ib = ORDER.indexOf(b.name);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  function runAll(ctx) {
     var out = [], i, got;
     for (i = 0; i < GENS.length; i++) {
       if (ctx.timed_out()) break;
+      var t0 = nowMs();
       try { got = GENS[i](ctx); } catch (e) { got = []; }
+      if (root.C4ConceptsProfile) { var nm = GENS[i].name || ("g" + i); root.C4ConceptsProfile[nm] = (root.C4ConceptsProfile[nm] || 0) + (nowMs() - t0); }
       if (got && got.length) out = out.concat(got);
     }
     return out;
   }
-  defSolver("concepts", "concepts", gen, 1, 0.8);
-  root.C4Concepts = { reflectAcross: reflectAcross, stampTemplates: stampTemplates, dividers: dividers, objsOf: objsOf, comps8: comps8 };
+  function learn(ctx) {
+    if (!ctx.bg_varies()) return runAll(ctx);
+    /* the background changes from grid to grid: learn in a frame where it is
+       one fixed colour, and map each grid into and out of that frame */
+    var canon = ctx.bg(), train = [], tests = [], i, b;
+    for (i = 0; i < ctx.train.length; i++) {
+      b = G.background(ctx.train[i][0]);
+      train.push([swapColors(ctx.train[i][0], b, canon), swapColors(ctx.train[i][1], b, canon)]);
+    }
+    for (i = 0; i < ctx.test_inputs.length; i++) tests.push(swapColors(ctx.test_inputs[i], G.background(ctx.test_inputs[i]), canon));
+    var sub = new Ctx(train, tests, ctx.deadline), hyps = runAll(sub);
+    return hyps.map(function (h) {
+      var f = h.fn;
+      return _h(h.name + "@bgframe", function (g) {
+        var bb = G.background(g), r = f(swapColors(g, bb, canon));
+        return r ? swapColors(r, bb, canon) : r;
+      }, h.cost + 0.3);
+    });
+  }
+  /* A rule that can be recovered from all but one demonstration and still
+     predict the one left out has generalised; one that cannot is likely a
+     coincidence of the examples. That evidence moves the cost. */
+  function gen(ctx) {
+    var hyps = learn(ctx);
+    if (!hyps.length || ctx.train.length < 3) return hyps;
+    var start = nowMs(), pass = [], i, k, n = ctx.train.length;
+    for (k = 0; k < hyps.length; k++) pass.push(true);
+    for (i = 0; i < n; i++) {
+      if (ctx.timed_out() || nowMs() - start > 250) return hyps;
+      var sub = ctx.train.slice(0, i).concat(ctx.train.slice(i + 1)), sh;
+      try { sh = learn(new Ctx(sub, [ctx.train[i][0]], ctx.deadline)); } catch (e) { sh = []; }
+      var okNames = {}, j, p;
+      for (j = 0; j < sh.length; j++) { p = sh[j].apply(ctx.train[i][0]); if (p && same(p, ctx.train[i][1])) okNames[sh[j].name] = 1; }
+      for (k = 0; k < hyps.length; k++) if (!okNames[hyps[k].name]) pass[k] = false;
+    }
+    return hyps.map(function (h, idx) {
+      return _h(h.name + (pass[idx] ? "+loo" : "-loo"), h.fn, Math.max(1.0, h.cost + (pass[idx] ? -1.0 : 1.0)));
+    });
+  }
+  var conceptsModule = defSolver("concepts", "concepts", gen, 1, 0.4);
+  conceptsModule.PRE = true;
+  root.C4Concepts = { blockCells: blockCells, paintedOver: paintedOver, moveObjects: moveObjects, OBJ_KEYS: OBJ_KEYS, reflectAcross: reflectAcross, stampTemplates: stampTemplates, dividers: dividers, objsOf: objsOf, comps8: comps8 };
 })();
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
