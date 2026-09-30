@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts;
 
   var state = {
     ready: false,
@@ -1315,7 +1315,14 @@
     statement: ["Understood — say more and I'll dig in.", "Got it. What would you like me to work out?"]
   };
 
+  var NEG_FEEL = /\b(?:i(?:'m| am| feel|'ve been| have been)|feeling|i feel|i'm feeling)\s+(?:so |really |very |a bit |kind of |pretty |quite |totally |just )?(?:sad|down|depressed|lonely|anxious|stressed|tired|exhausted|upset|angry|scared|worried|overwhelmed|miserable|hurt|frustrated|nervous|afraid|unhappy|low|awful|terrible|lost|stuck|burned out|burnt out)\b/i;
+  var POS_FEEL = /\b(?:i(?:'m| am| feel)|feeling)\s+(?:so |really |very |pretty |quite |totally |just )?(?:happy|great|excited|proud|good|fantastic|wonderful|amazing|relieved|thrilled|glad|grateful)\b/i;
   function answerConversation(frame, disc) {
+    var said = String(frame.rawText || frame.body || "");
+    if (NEG_FEEL.test(said)) return { text: "I'm sorry you're feeling that way. I'm here and I'm listening — do you want to tell me what's going on, or would you rather I help take your mind off it?",
+                                      route: "conversation", confidence: 0.75, conversational: true, sources: [] };
+    if (POS_FEEL.test(said)) return { text: "That's great to hear! What's making today feel good?",
+                                      route: "conversation", confidence: 0.75, conversational: true, sources: [] };
     var bucket = SOCIAL[frame.speechAct] || (frame.metaSelf ? SOCIAL.meta : SOCIAL.statement);
     if (frame.metaSelf) bucket = SOCIAL.meta;
     var pick = RZ.variation ? RZ.variation.choose(bucket, "social:" + (frame.metaSelf ? "meta" : frame.speechAct || "statement"))
@@ -1375,6 +1382,55 @@
     return { text: RZ.polish(p.text), route: "reason", confidence: p.confidence, sources: [], defects: [],
              derivations: p.derivations.length, verification: { agreeing: p.agreeing, eliminated: p.eliminated,
              diagnoses: p.diagnoses, calibration: p.calibration } };
+  }
+
+  /* The local fact library: declarative sentences reached by content words and
+     the kind of thing asked for. A question it covers only in part is declined,
+     so a shared word never selects an unrelated sentence. */
+  function answerFacts(frame, min, only) {
+    if (!FX || off("facts") || !FX.size()) return null;
+    if (frame.requiresList || frame.onlyValue || frame.requestedLength ||
+        (frame.requestedFormat && frame.requestedFormat !== "prose")) return null;
+    var q = frame.semanticText || frame.body || frame.rawText || "";
+    var hit = null;
+    var o = { min: min };
+    if (only === "strict") o.minStems = 2;
+    else if (FX.contentStems(q).length < 2) o.define = true;
+    try { hit = FX.answer(q, o); } catch (e) { hit = null; }
+    if (!hit) return null;
+    var named = (String(frame.rawText || frame.body || "").match(/\b[A-Z][\w-]+(?:\s+[A-Z][\w-]+)*/g) || []).filter(function (w, i) { return i > 0 || w.split(" ").length > 1; });
+    return { text: hit.text, route: "knowledge", confidence: hit.confidence, sources: ["local fact library"],
+             entity: named.length ? named[named.length - 1] : "", defects: [], fact: { coverage: hit.coverage, score: hit.score } };
+  }
+
+  /* Questions that cannot have a reliable answer from knowledge: the future,
+     things a number or a day of the week cannot be, arithmetic done on a
+     thing that is not a number. Saying so is the answer. */
+  var NUMBER_WORD = /^(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|half|quarter|third|x|y|z|n|pi|e|it|that|this|them|these|those|number|numbers|value|values|both|two)$/i;
+  function answerGuard(frame) {
+    var t = String(frame.rawText || frame.body || ""), l = t.toLowerCase(), m;
+    if (!l) return null;
+    function say(text) { return { text: text, route: "conversation", confidence: 0.8, sources: [], defects: [], guard: true }; }
+    /* the future */
+    var futureYear = (l.match(/\b(2[0-9]{3}|[3-9][0-9]{3})\b/g) || []).some(function (y) { return +y > 2027; });
+    if (((/\b(?:will|going to|gonna)\b/.test(l) &&
+          /\b(?:tomorrow|tonight|next (?:week|month|year|decade|election|season|president|world cup|olympics)|in the future|in (?:a|the next) (?:few )?(?:years?|decades?))\b/.test(l)) ||
+         /\b(?:lottery|winning numbers|jackpot)\b/.test(l) ||
+         (futureYear && /\b(?:who|what|which)\b.*\b(?:won|wins|win|winner|champion|president|happened)\b/.test(l)))) {
+      return say("I can't predict that — it depends on events that haven't happened yet, and I have no reliable way to know them. I can tell you what is known up to now, or help you reason about the possibilities.");
+    }
+    /* arithmetic on something that is not a number */
+    if ((m = l.match(/\b(square root|cube root|factorial|logarithm|sine|cosine|tangent|derivative|integral|square|cube) of (?:a |an |the |my |your )?([a-z]+)\b/)) &&
+        !NUMBER_WORD.test(m[2]) && !/^\d/.test(m[2]) && m[2].length >= 4 &&
+        !/^(?:function|expression|equation|polynomial|curve|sum|product|result|answer|difference|quotient|total|angle|degrees?|radians?|series|sequence|matrix|vector|integer|fraction|decimal|variable|constant|term|terms|square|cube|side|area|length|radius|diameter)$/.test(m[2]) &&
+        !/\b(?:function|expression|equation|polynomial|curve)\b/.test(l)) {
+      return say("That doesn't make sense as a question: a " + m[2] + " isn't a number, so it has no " + m[1] + ". If you meant a number, tell me which one.");
+    }
+    /* a property a thing cannot have */
+    if ((m = l.match(/\bwhat (colou?r|taste|smell|sound|weight|temperature) (?:is|does|are) (?:the )?(number|word|letter|idea|concept|thought|silence|monday|tuesday|wednesday|thursday|friday|saturday|sunday|friday)\b/))) {
+      return say("That doesn't really make sense: " + (/^[aeiou]/.test(m[2]) ? "an " : "a ") + m[2] + " doesn't have a " + m[1] + " in any literal sense. If you meant something figurative, say more.");
+    }
+    return null;
   }
 
   function answerReason(frame, decision) {
@@ -1494,6 +1550,7 @@
            answerListRequest(frame, decision) ||
            answerSuperlative(frame) ||
            answerFromKB(frame, decision) ||
+           answerFacts(frame, 0.6) ||
            /* A definitional question about ordinary language is answered from
               word senses before any document is consulted: "what is learning"
               is about the word, and "machine learning" is a different term
@@ -2580,6 +2637,14 @@
        is never small talk. */
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
+    var guarded = timed("guard", function () { return off("guard") ? null : answerGuard(frame); });
+    if (guarded) return Promise.resolve(finish(frame, guarded, t0, decision));
+    /* A question the fact library covers well is answered from it before the
+       general chain, whose entity matching can land on a shared word. */
+    if (frame.speechAct === "question" && !frame.requiresFreshInformation && frame.queryForm !== "whatis" && frame.queryForm !== "topic") {
+      var fx = timed("facts", function () { return answerFacts(frame, 0.75, "strict"); });
+      if (fx) return Promise.resolve(finish(frame, fx, t0, decision));
+    }
     /* A bare noun phrase is a question, whatever its conversational shape:
        "bookmark social media" is not small talk. It only falls through to
        conversation if nothing can actually answer it. */
@@ -2708,6 +2773,11 @@
         !result.conversational && !/^(?:i (?:don't|do not)|i'm not sure)/i.test(result.text)) {
       result.text = "I think " + result.text.charAt(0).toLowerCase() + result.text.slice(1) +
         " — though I'd check that one.";
+    }
+    if (result.caveat === true && /\b(?:weather|temperature|forecast|stock|share price|price of|score|news|traffic|exchange rate)\b/i.test(frame.lower || "") &&
+        /\b(?:now|today|currently|right now|tonight|latest|this (?:morning|afternoon|evening|week))\b/i.test(frame.lower || "")) {
+      result.text = "I can't look up live information like that, and I have no reliable way to know it without a live source, so I can't tell you what it is right now.";
+      result.route = "insufficient"; result.insufficient = true; result.confidence = 0.4; result.caveat = "none";
     }
     if (result.caveat === true) {
       result.text += " I could not reach a live source just now, so that is from local knowledge and may be out of date.";

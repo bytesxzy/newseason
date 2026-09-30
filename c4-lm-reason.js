@@ -884,7 +884,7 @@
           nodes: [node("OPERATION", { op: "evaluate", args: [expr.expression], value: expr.value })] }, "compute");
       }
       if (expr && expr.error) {
-        return tag({ ok: false, kind: "arithmetic", text: "That expression divides by zero.", nodes: [] }, "compute");
+        return tag({ ok: false, kind: "arithmetic", text: "Division by zero is undefined, so that expression has no value.", nodes: [] }, "compute");
       }
     } else if (!proseAboutNumbers) {
       r = solveWordProblem(frame); if (r) return tag(r, "compute");
