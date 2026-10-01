@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-01T15:20:33.266Z",
+ "generated": "2026-10-01T15:42:46.457Z",
  "passed": 73,
  "total": 73,
  "results": [
@@ -241,7 +241,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: emoji only",
@@ -251,12 +251,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "edge input: sql-ish input",
@@ -276,7 +276,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: non-latin script",
@@ -296,7 +296,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -306,7 +306,7 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "9 -> 9"
+   "detail": "9 -> 8"
   },
   {
    "name": "offline: local computation unaffected",
@@ -316,7 +316,7 @@
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -326,7 +326,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2691 ms"
+   "detail": "2665 ms"
   },
   {
    "name": "garbage source response handled",
@@ -346,7 +346,7 @@
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hi — what would you like to know?"
+   "detail": "Hi there — what are we looking into?"
   },
   {
    "name": "dialogue sequence",

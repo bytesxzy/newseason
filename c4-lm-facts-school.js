@@ -4,6 +4,11 @@
   var F = root.C4LMFacts;
   if (!F) return;
   F.add([
+    "Euler's number, e, is approximately 2.71828 and is the base of natural logarithms.",
+    "The value of e is approximately 2.71828.",
+    "The Fibonacci sequence starts 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, where each number is the sum of the two before it.",
+    "The golden ratio is approximately 1.618 and is the limit of the ratio of consecutive Fibonacci numbers.",
+    "Pi is approximately 3.14159 and is the ratio of a circle's circumference to its diameter.",
     "A fraction is a number that represents part of a whole, written as one number over another, such as 3/4.",
     "A decimal is a number written with a decimal point to show parts smaller than one, such as 0.75.",
     "A percentage is a number expressed as a part of one hundred, written with the percent sign, such as 25%.",

@@ -269,7 +269,7 @@
       if (!namesOk) continue;
       if (!carries(type, d.text, qTokens, frameWord)) continue;
       /* a bare "what is X" is answered by a sentence that defines X: X is its subject */
-      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:[a-z]+\\s+){0,2}(?:is|are|was|were|means|refers|stands|lived|combines|contains|consists|includes|has|uses|helps|works)\\b", "i")).test(d.text)) continue;
+      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:[a-z]+\\s+){0,2}(?:is|are|was|were|means|refers|stands|lived|combines|contains|consists|includes|has|uses|helps|works|starts|begins|measures|equals|produces|holds)\\b", "i")).test(d.text)) continue;
       /* a bare "what is X" is not answered by a life-event line about X */
       if (opts.define && /\b(?:died|was born) in [0-9]{1,4}(?: BCE| CE| BC| AD)?\.?$/.test(d.text) && !/\b(?:born|birth|die[ds]?|death)\b/i.test(question)) continue;
       /* a number the question states must be in the sentence: "the 2087 World Cup" is not any World Cup */

@@ -2961,6 +2961,8 @@
       var cont = null, popM = null;
       try { cont = continueArithmetic(text); } catch (eC) { cont = null; }
       if (cont) { var oC = {}, kC; for (kC in opts) oC[kC] = opts[kC]; oC.rewritten = true; return answerCore(cont, oC); }
+      var recase = String(text == null ? "" : text).match(/^\s*(?:please\s+)?(?:make|write|put|say|convert|turn|give me)\s+(?:it|that|this|the (?:answer|result))\s+(?:in\s+|into\s+|to\s+)?(upper ?case|lower ?case|all caps|title ?case|capital letters)[.!?]*\s*$/i);
+      if (recase && discourse.lastAnswer) { var oR = {}, kR; for (kR in opts) oR[kR] = opts[kR]; oR.rewritten = true; return answerCore('Convert "' + String(discourse.lastAnswer).replace(/"/g, "'") + '" to ' + recase[1], oR); }
       if ((popM = String(text == null ? "" : text).match(/^\s*how many (?:people|persons|inhabitants|humans) (?:live|reside|inhabit|are there) (?:in|at|on)\s+(?:the\s+)?(.+?)[?.!]*\s*$/i))) {
         var oP = {}, kP; for (kP in opts) oP[kP] = opts[kP]; oP.rewritten = true; return answerCore("What is the population of " + popM[1] + "?", oP);
       }

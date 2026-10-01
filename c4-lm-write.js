@@ -61,6 +61,45 @@
     return null;
   }
 
+  /* ---- text transforms and counts on a quoted or colon-introduced string */
+  function textQ(t) {
+    var m, str, q = "[\"“'‘]", Q = "[\"”'’]";
+    function grab(x) { return x.replace(new RegExp("^" + q + "|" + Q + "$", "g"), "").trim(); }
+    if ((m = t.match(new RegExp("^(?:please )?(?:convert|change|make|turn|write|put|transform)\\s+(?:the (?:text|sentence|word|phrase|string) )?[:]?\\s*(.+?)\\s+(?:(?:to|into|in|as)\\s+)?(upper ?case|lower ?case|all caps|capital letters|title ?case|sentence case)\\.?$", "i"))) && m[1].length < 200) {
+      str = grab(m[1]); if (/^(?:it|this|that|them|these|those)$/i.test(str)) return null;
+      return res(applyCase(str, m[2]), "text", 0.85);
+    }
+    if ((m = t.match(/^(?:please )?(upper ?case|lower ?case|capitali[sz]e|title ?case)\s+(?:the (?:text|sentence|word|phrase|string)[:\s]*)?(.+?)\.?$/i)) && m[2].length < 200) {
+      return res(applyCase(grab(m[2]), m[1]), "text", 0.85);
+    }
+    if ((m = t.match(/^(?:please )?(capitali[sz]e|uppercase|lowercase|title[- ]?case)\s+the (?:sentence|text|word|phrase|string)\s*[:\-]\s*(.+?)\.?$/i))) return res(applyCase(grab(m[2]), m[1]), "text", 0.85);
+    if ((m = t.match(/^(?:please )?(?:reverse|flip)\s+(?:the (?:text|word|string|phrase)\s*)?[:\s]*["“']?(.+?)["”']?\.?$/i)) && m[1].length < 120 && !/\b(?:list|array|order|sort)\b/i.test(m[1])) return res(m[1].split("").reverse().join(""), "text", 0.8);
+    if ((m = t.match(/^how many (words|characters|letters|vowels|consonants|spaces)\s+(?:are |is )?(?:there )?(?:in|does)\s+(?:the (?:text|sentence|phrase|string)\s*)?[:\s]*(.+?)(?:\s+have|\s+contain)?\??$/i)) && /["“'‘:]/.test(t)) {
+      str = grab(m[2].replace(/^[:\s]+/, ""));
+      var kind = m[1].toLowerCase(), n;
+      if (kind === "words") n = str.split(/\s+/).filter(Boolean).length;
+      else if (kind === "characters") n = str.length;
+      else if (kind === "letters") n = (str.match(/[a-z]/gi) || []).length;
+      else if (kind === "vowels") n = (str.match(/[aeiou]/gi) || []).length;
+      else if (kind === "consonants") n = (str.match(/[b-df-hj-np-tv-z]/gi) || []).length;
+      else n = (str.match(/ /g) || []).length;
+      return res(String(n), "text", 0.85);
+    }
+    if ((m = t.match(/^(?:please )?(?:remove|delete|strip) (?:all )?(?:the )?(vowels|spaces|punctuation|digits|numbers) (?:from|in)\s+["“']?(.+?)["”']?\.?$/i))) {
+      var what = m[1].toLowerCase(), src = m[2], rx = what === "vowels" ? /[aeiou]/gi : what === "spaces" ? /\s/g : what === "punctuation" ? /[^\w\s]/g : /\d/g;
+      return res(src.replace(rx, ""), "text", 0.8);
+    }
+    if ((m = t.match(/^(?:please )?replace (?:all )?["“']?(.+?)["”']? with ["“']?(.+?)["”']? in ["“']?(.+?)["”']?\.?$/i))) return res(m[3].split(m[1]).join(m[2]), "text", 0.8);
+    return null;
+  }
+  function applyCase(str, how) {
+    how = String(how).toLowerCase().replace(/\s+/g, "");
+    if (/upper|allcaps|capitalletters/.test(how)) return str.toUpperCase();
+    if (/lower/.test(how)) return str.toLowerCase();
+    if (/title/.test(how)) return str.toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); });
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
   /* ---- rhymes: words grouped by their ending sound */
   var RIMES = [
     "at|cat bat hat mat rat sat flat chat fat pat that brat splat", "an|man can fan pan plan ran tan van clan span", "ay|day say way play stay gray may pay hay lay ray tray spray",
@@ -217,7 +256,7 @@
     return res(set.map(function (x) { return x.replace("{T}", topic); }).join("\n"), "poem", 0.72);
   }
 
-  var SOLVERS = [spellQ, countQ, rhymeQ, wordsQ, haikuQ, limerickQ, acrosticQ, poemQ];
+  var SOLVERS = [textQ, spellQ, countQ, rhymeQ, wordsQ, haikuQ, limerickQ, acrosticQ, poemQ];
   function solve(text) {
     var t = clean(text);
     if (!t || t.length > 200) return null;

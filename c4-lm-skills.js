@@ -198,6 +198,10 @@
         var A = P * Math.pow(1 + r / nPer, nPer * yrs);
         return res(money(A - P) + " of interest, for a total of " + money(A) + ".", ["A = P(1 + r/n)^(nt) with n = " + nPer], "money");
       }
+      if (/\b(?:invest|invests|invested|deposit|deposited|savings?|save)\b/.test(l) && !/\bsimple\b/.test(l) && /\bhow much\b/.test(l)) {
+        var Ac = P * Math.pow(1 + r, yrs);
+        return res(money(Ac) + " with annual compounding (" + money(P * (1 + r * yrs)) + " if the interest is simple).", ["A = P(1 + r)^t = " + P + " × " + (1 + r) + "^" + fmt(yrs, 3)], "money");
+      }
       var I = P * r * yrs;
       return res(money(I) + " of simple interest, for a total of " + money(P + I) + ".", ["I = P × r × t = " + P + " × " + r + " × " + fmt(yrs, 3)], "money");
     }

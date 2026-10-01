@@ -967,6 +967,106 @@
     [/\b(?:play|played)\b[^?]*\b(?:video ?games?|playstation|xbox|nintendo)\b/, 1972, "video games"],
     [/\b(?:use|used|turn(?:ed)? on)\b[^?]*\b(?:light ?bulb|electric light)\b/, 1879, "the light bulb"]
   ];
+  /* ---- plain arithmetic phrased as a command, lists, divisors, parity, limits, exact fractions */
+  var NUMRE = "-?\\d+(?:,\\d{3})*(?:\\.\\d+)?";
+  function numsOf(t) { return (t.match(new RegExp(NUMRE, "g")) || []).map(function (x) { return parseFloat(x.replace(/,/g, "")); }); }
+  function arithVerbQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m, ns;
+    if ((m = l.match(new RegExp("^(?:please )?(?:add|sum|total|add up)(?: up)? ((?:" + NUMRE + "(?:\\s*,\\s*|\\s+and\\s+|\\s+plus\\s+|\\s+)?)+)$"))) && (ns = numsOf(m[1])).length >= 2) {
+      var t = ns.reduce(function (a, b) { return a + b; }, 0); return res(numStr(Math.round(t * 1e9) / 1e9), [ns.join(" + ") + " = " + numStr(t)], "number");
+    }
+    if ((m = l.match(new RegExp("^(?:please )?(?:what is |what's |find |calculate |compute )?(?:the )?(?:sum|total) of ((?:" + NUMRE + "(?:\\s*,\\s*|\\s+and\\s+|\\s+)?)+)$"))) && (ns = numsOf(m[1])).length >= 2) {
+      var t2 = ns.reduce(function (a, b) { return a + b; }, 0); return res(numStr(Math.round(t2 * 1e9) / 1e9), [ns.join(" + ") + " = " + numStr(t2)], "number");
+    }
+    if ((m = l.match(new RegExp("^(?:please )?(?:multiply|times) (" + NUMRE + ") (?:and|with|by) (" + NUMRE + ")$"))) || (m = l.match(new RegExp("^(?:what is |what's |find |calculate )?the product of (" + NUMRE + ") and (" + NUMRE + ")$")))) {
+      var pr = parseFloat(m[1].replace(/,/g, "")) * parseFloat(m[2].replace(/,/g, "")); return res(numStr(Math.round(pr * 1e9) / 1e9), [m[1] + " × " + m[2]], "number");
+    }
+    if ((m = l.match(new RegExp("^(?:what is |what's |find |calculate )?the (?:difference|gap) between (" + NUMRE + ") and (" + NUMRE + ")$")))) {
+      var a1 = parseFloat(m[1].replace(/,/g, "")), b1 = parseFloat(m[2].replace(/,/g, "")); return res(numStr(Math.abs(a1 - b1)), ["|" + m[1] + " − " + m[2] + "|"], "number");
+    }
+    return null;
+  }
+  function sortQ(text) {
+    var l = clean(text).replace(/[?.!]+$/, "").replace(/\b(?:alphabetically|numerically)\b\s*[:\-]?\s*/i, ""), m;
+    if (!(m = l.match(/^(?:please )?(?:sort|order|arrange|rank)\s+(?:these |the |this |following )*(numbers|values|words|items|names|letters|list)?\s*(?:from (?:smallest|lowest|least) to (?:largest|highest|greatest|biggest) |from (?:largest|highest|greatest|biggest) to (?:smallest|lowest|least) |in (?:ascending|descending|alphabetical|reverse alphabetical) order )?[:\-]?\s*(.+?)(?:\s+(?:in (?:ascending|descending|alphabetical|reverse alphabetical|increasing|decreasing) order|from (?:smallest|lowest|least) to (?:largest|highest|greatest|biggest)|from (?:largest|highest|greatest|biggest) to (?:smallest|lowest|least)|alphabetically|descending|ascending))?$/i))) return null;
+    var low = l.toLowerCase(), items = m[2].split(/\s*,\s*(?:and\s+)?|\s+and\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    if (items.length < 2) return null;
+    var desc = /descending|largest to smallest|greatest to least|highest to lowest|reverse|decreasing|biggest to smallest/.test(low) || /\bfrom (?:largest|highest|greatest|biggest)/.test(low);
+    var allNum = items.every(function (x) { return /^-?\d+(?:\.\d+)?$/.test(x); });
+    var sorted = items.slice().sort(allNum ? function (a, b) { return a - b; } : function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0; });
+    if (desc) sorted.reverse();
+    return res(sorted.join(", "), [], "list");
+  }
+  function numberFactsQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if ((m = l.match(/^(?:what are|list|find|give me|name) (?:all )?(?:the )?(?:factors|divisors) of (\d+)$/)) || (m = l.match(/^(?:what are|list|find) the factors of (\d+)$/))) {
+      var n = +m[1]; if (n < 1 || n > 1e6) return null; var f = []; for (var i = 1; i * i <= n; i++) if (n % i === 0) { f.push(i); if (i * i !== n) f.push(n / i); }
+      f.sort(function (a, b) { return a - b; }); return res(f.join(", ") + " (" + f.length + " factors)", [], "number");
+    }
+    if ((m = l.match(/^(?:what are|list|find) (?:the )?multiples of (\d+)(?: up to (\d+))?$/))) {
+      var k = +m[1], lim = m[2] ? +m[2] : k * 10, out = []; if (k < 1 || lim / k > 50) return null; for (var j = k; j <= lim; j += k) out.push(j); return res(out.join(", "), [], "number");
+    }
+    if ((m = l.match(/^is (\d+) (?:divisible|evenly divisible) by (\d+)$/)) || (m = l.match(/^does (\d+) divide (?:evenly )?by (\d+)$/))) {
+      var a = +m[1], b = +m[2]; if (!b) return null; return res((a % b === 0 ? "Yes" : "No") + " — " + a + " ÷ " + b + (a % b === 0 ? " = " + (a / b) + "." : " leaves a remainder of " + (a % b) + "."), [], "number");
+    }
+    if ((m = l.match(/^is (-?\d+) (?:odd or even|even or odd)$/)) || (m = l.match(/^is (-?\d+) (even|odd)$/))) {
+      var v = +m[1], even = v % 2 === 0, asked = m[2];
+      if (asked === "even" || asked === "odd") return res((even === (asked === "even") ? "Yes" : "No") + " — " + v + " is " + (even ? "even" : "odd") + ".", [], "number");
+      return res(v + " is " + (even ? "even" : "odd") + ".", [], "number");
+    }
+    return null;
+  }
+  function fracOpQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    var FR = "(\\d+)\\s*/\\s*(\\d+)";
+    if ((m = l.match(new RegExp("^(?:what is |what's |calculate |find |compute )?(?:the )?(?:sum of )?" + FR + " (?:\\+|plus|and) " + FR + "$"))) && /\b(?:sum|plus|\+)\b/.test(l) ||
+        (m = l.match(new RegExp("^(?:what is |what's |calculate |find |compute )?" + FR + " (?:minus|-|\\u2212) " + FR + "$"))) && (m.op = "-") ||
+        (m = l.match(new RegExp("^(?:what is |what's |calculate |find |compute )?" + FR + " (?:times|\\*|x|\\u00d7|multiplied by) " + FR + "$"))) && (m.op = "*") ||
+        (m = l.match(new RegExp("^(?:what is |what's |calculate |find |compute )?" + FR + " (?:divided by|\\u00f7|/ ) " + FR + "$"))) && (m.op = "/")) {
+      var a = +m[1], b = +m[2], c = +m[3], d = +m[4], op = m.op || "+";
+      if (!b || !d) return null;
+      var nn, dd;
+      if (op === "+") { nn = a * d + c * b; dd = b * d; } else if (op === "-") { nn = a * d - c * b; dd = b * d; } else if (op === "*") { nn = a * c; dd = b * d; } else { if (!c) return null; nn = a * d; dd = b * c; }
+      var g = gcd(nn, dd); nn /= g; dd /= g; if (dd < 0) { nn = -nn; dd = -dd; }
+      var frac = dd === 1 ? String(nn) : nn + "/" + dd, dec = nn / dd;
+      return res(frac + (dd === 1 ? "" : " (about " + numStr(Math.round(dec * 1e4) / 1e4) + ")"), [a + "/" + b + " " + op + " " + c + "/" + d], "number");
+    }
+    return null;
+  }
+  /* limits by evaluation: at infinity, or at a finite point from both sides */
+  function limitQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if (!(m = l.match(/^(?:what is |find |evaluate |compute |calculate )?(?:the )?limit of (.+?) as ([a-z]) (?:approaches|goes to|tends to|tends towards|→|->|go to) (-?infinity|∞|-∞|inf|-?\d+(?:\.\d+)?)$/))) return null;
+    var expr = m[1].replace(/\^/g, "^"), v = m[2], target = m[3], ast;
+    try { ast = parse(expr.replace(/\bx squared\b/g, "x^2")); } catch (e) { return null; }
+    function f(x) { var env = {}; env[v] = x; try { return evalAst(ast, env); } catch (e2) { return NaN; } }
+    var inf = /inf|∞/.test(target), neg = /^-/.test(target);
+    if (inf) {
+      var xs = neg ? [-1e3, -1e5, -1e7] : [1e3, 1e5, 1e7], ys = xs.map(f);
+      if (ys.some(function (y) { return !isFinite(y) && !isNaN(y); }) || ys.every(function (y) { return isNaN(y); })) return null;
+      if (Math.abs(ys[2]) > 1e6 && Math.abs(ys[2]) > Math.abs(ys[1]) * 5) return res((ys[2] > 0 ? "∞" : "-∞") + " (the expression grows without bound)", [], "limit");
+      if (Math.abs(ys[2] - ys[1]) < 1e-3 * Math.max(1, Math.abs(ys[2]))) { var r = Math.round(ys[2] * 1e4) / 1e4; return res(numStr(r), ["values at 10^3, 10^5, 10^7: " + ys.map(function (y) { return numStr(Math.round(y * 1e6) / 1e6); }).join(", ")], "limit"); }
+      return null;
+    }
+    var a = parseFloat(target), h = [1e-3, 1e-5, 1e-7], right = h.map(function (d) { return f(a + d); }), left = h.map(function (d) { return f(a - d); }), direct = f(a);
+    if (isFinite(direct) && right.concat(left).every(function (y) { return isFinite(y); }) && Math.abs(right[2] - direct) < 1e-4 * Math.max(1, Math.abs(direct))) return res(numStr(Math.round(direct * 1e6) / 1e6), ["the expression is continuous at " + a + ", so substitute"], "limit");
+    if (right.every(isFinite) && left.every(isFinite) && Math.abs(right[2] - left[2]) < 1e-3 * Math.max(1, Math.abs(right[2])) && Math.abs(right[2] - right[1]) < 1e-2 * Math.max(1, Math.abs(right[2]))) return res(numStr(Math.round(right[2] * 1e4) / 1e4), ["both one-sided values approach the same number"], "limit");
+    if (Math.abs(right[2]) > 1e5 && Math.abs(left[2]) > 1e5) return res(Math.sign(right[2]) === Math.sign(left[2]) ? (right[2] > 0 ? "∞" : "-∞") : "does not exist (the two sides go to opposite infinities)", [], "limit");
+    return null;
+  }
+  function ouncesQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if ((m = l.match(/^how many (?:fluid |fl\.? )?ounces (?:are )?in (?:a |one |1 )?(cup|pint|quart|gallon)$/))) {
+      var F = { cup: 8, pint: 16, quart: 32, gallon: 128 }[m[1]];
+      return res(F + " fluid ounces (1 " + m[1] + " = " + F + " fl oz).", [], "units");
+    }
+    if ((m = l.match(/^how many (cups|pints|quarts|gallons|tablespoons|teaspoons) (?:are )?in (?:a |one |1 )?(gallon|quart|pint|cup|tablespoon)$/))) {
+      var T = { "gallon:quarts": 4, "gallon:pints": 8, "gallon:cups": 16, "quart:pints": 2, "quart:cups": 4, "pint:cups": 2, "cup:tablespoons": 16, "tablespoon:teaspoons": 3, "cup:teaspoons": 48 }[m[2] === m[2] && m[3] + ":" + m[1]];
+      if (T) return res(T + " " + m[1] + " (1 " + m[3] + " = " + T + " " + m[1] + ").", [], "units");
+    }
+    return null;
+  }
+
   /* continents are not countries, and Australia is both */
   var CONTINENTS = ["africa", "antarctica", "asia", "australia", "europe", "north america", "south america", "oceania"];
   function continentQ(text) {
@@ -1081,7 +1181,7 @@
   }
 
   /* ----------------------------------------------------------------- solve */
-  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, continentQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
+  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, continentQ, arithVerbQ, sortQ, numberFactsQ, fracOpQ, limitQ, ouncesQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
   function solve(text, ctx) {
     var t = clean(text);
     if (!t || t.length > 600) return null;
