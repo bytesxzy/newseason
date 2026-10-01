@@ -1539,6 +1539,7 @@
     var want = /circumference|perimeter/.test(ql) ? "c" : "a", v = want === "c" ? 2 * pi * r : pi * r * r;
     var given = 1 + (pm ? 1 : 0);
     if (numbersIn(a).length !== given) return null;
+    if (/\bin terms of (?:pi|\u03c0)\b|\bexact(?:ly)?\b|\bleave (?:it )?in (?:terms of )?(?:pi|\u03c0)/.test(ql)) { var coef = want === "c" ? 2 * r : r * r; return result(coef * Math.PI, "", [(want === "c" ? "2 \u00d7 \u03c0 \u00d7 " + nice(r) : "\u03c0 \u00d7 " + nice(r) + "\u00b2") + " = " + nice(coef) + "\u03c0"], "circle", { text: nice(coef) + "\u03c0 (about " + nice(Math.round(coef * Math.PI * 100) / 100) + ")" }); }
     var txt = pm ? nice(Math.round(v * 1e4) / 1e4) : "about " + nice(Math.round(v * 100) / 100);
     return result(v, "", [want === "c" ? "2 × " + piTxt + " × " + nice(r) + " = " + txt : piTxt + " × " + nice(r) + "² = " + txt], "circle", { text: txt });
   }

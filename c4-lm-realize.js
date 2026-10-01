@@ -160,7 +160,7 @@
      it; wrapping it in another verb garbles the sentence. */
   var PARTICIPLE_BY = /^(?:[a-z]+(?:ed|en)|built|made|written|drawn|sung|done|shown|known|found)\s+by\b/i;
   function realizeRelation(plan) {
-    var subj = plan.subject, rel = plan.relationLabel || plan.relation, val = cleanClause(plan.value || "");
+    var subj = theName(plan.subject), rel = plan.relationLabel || plan.relation, val = cleanClause(plan.value || "");
     if (!val) return "";
     if (PARTICIPLE_BY.test(val) && /^(?:creator|author|artist|founder|inventor|designer)$/.test(plan.relation || "")) {
       return capitalize(subj) + " " + (isPlural(subj) ? "were" : "was") + " " + val + ".";
@@ -346,7 +346,7 @@
       if (extra && C.flatten(extra).indexOf(C.flatten(body).slice(0, 30)) < 0 &&
           C.flatten(body).indexOf(C.flatten(extra).slice(0, 30)) < 0 && !restates(body, extra)) {
         /* a template that opens with the value would give "It" the wrong antecedent */
-        if (override && override.valueFirst && /^It\b/.test(extra) && plan.subject) extra = extra.replace(/^It\b/, capitalize(plan.subject));
+        if (override && override.valueFirst && /^It\b/.test(extra) && plan.subject) extra = extra.replace(/^It\b/, capitalize(theName(plan.subject)));
         body += " " + terminate(capitalize(extra));
       }
     }
@@ -524,6 +524,12 @@
     if (PERSONISH.test(first)) { var ws = subj.trim().split(/\s+/); pron = ws[ws.length - 1]; }
     return subj + " " + m[2] + " " + head + ". " + pron + " " + m[2] + " also " + tail + m[4] + rest;
   }
+  /* country names that take "the": the Netherlands, the United States ... */
+  var THE_NAMES = /^(?:United States(?: of America)?|United Kingdom|United Arab Emirates|Netherlands|Philippines|Bahamas|Gambia|Czech Republic|Central African Republic|Maldives|Seychelles|Comoros|Marshall Islands|Solomon Islands|Democratic Republic of the Congo|Republic of the Congo|Ukraine)$/i;
+  function theName(s) {
+    s = s == null ? s : String(s);
+    return s && THE_NAMES.test(s.trim()) && !/^ukraine$/i.test(s.trim()) ? "the " + s.trim() : s;
+  }
   function surfaceVariants(t, allowSplit) {
     var out = [t], r = relativize(t), w = swapOnce(t), rw = r ? swapOnce(r) : null;
     [r, w, rw].forEach(function (x) { if (x) out.push(x); });
@@ -569,12 +575,12 @@
   function alternativeBodies(plan) {
     var out = [];
     if (plan.kind === "relation") {
-      var s = String(plan.subject || ""), v = cleanClause(plan.value || "");
+      var s = theName(String(plan.subject || "")), v = cleanClause(plan.value || "");
       if (!s || !v || /[.!?]\s+\w/.test(v) || v.split(" ").length > 25) return out;
       if (PARTICIPLE_BY.test(v)) return out;
       (RELATION_ALTS[plan.relation] || []).forEach(function (fn) {
         var r = fn(capitalize(s), v, capitalize(v), capitalize(possessiveOf(s)), s);
-        if (r && r.text) out.push({ body: terminate(deduplicate(trimDangling(r.text))), valueFirst: !!r.valueFirst });
+        if (r && r.text) out.push({ body: terminate(deduplicate(trimDangling(r.text.replace(/([a-z,]) The (?=[A-Z])/g, "$1 the ")))), valueFirst: !!r.valueFirst });
       });
     } else if (plan.kind === "comparison") {
       var base = realizeComparison(plan);

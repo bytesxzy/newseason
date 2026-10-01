@@ -33,6 +33,7 @@
 
   /* words the library treats as one. The first of each group is canonical. */
   var SYN_GROUPS = [
+    ["function", "purpose", "role", "job"],
     ["largest", "biggest", "greatest", "largest"],
     ["smallest", "tiniest", "littlest"],
     ["highest", "tallest"],
@@ -162,14 +163,20 @@
     built = false;
   }
 
+  function usTok(t) {
+    return String(t).replace(/\bU\.S\.A?\.?(?=\s|$|[,;)?!])|\bUSA\b|\bUS\b|\bUnited States(?: of America)?\b/g, "US");
+  }
+
   function build() {
     if (built) return;
     DF = Object.create(null);
     DOCS.forEach(function (d) {
-      var st = contentStems(d.text), set = Object.create(null);
+      /* "US", "U.S." and "United States" index as one token, so "state" only matches a real state */
+      var nt = usTok(d.text);
+      var st = contentStems(nt), set = Object.create(null);
       st.forEach(function (x) { set[x] = 1; });
       d.stems = set; d.n = st.length;
-      var bg = Object.create(null); bigrams(contentSeq(d.text)).forEach(function (b) { bg[b] = 1; });
+      var bg = Object.create(null); bigrams(contentSeq(nt)).forEach(function (b) { bg[b] = 1; });
       d.bi = bg;
       st.forEach(function (x) { DF[x] = (DF[x] || 0) + 1; });
     });
@@ -238,10 +245,15 @@
     opts = opts || {};
     build();
     if (!DOCS.length) return null;
-    var asList = /^\s*(?:please\s+)?(?:list|name)\s+(?:all\s+)?(?:the\s+|some\s+|a few\s+)?/i.test(question);
-    if (asList) question = String(question).replace(/^\s*(?:please\s+)?(?:list|name)\s+(?:all\s+)?(?:the\s+)?/i, "What are the ");
+    var LISTLEAD = /^\s*(?:please\s+)?(?:list|name|give me|tell me)\s+(?:all\s+)?(?:(?:the|some|a few|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)/i;
+    question = usTok(question);
+    var asList = LISTLEAD.test(question) && /^\s*(?:please\s+)?(?:list|name)\b|^\s*(?:give me|tell me)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|a few|some)\s/i.test(question);
+    if (asList) question = String(question).replace(LISTLEAD, "What are the ");
     var qs = contentStems(question);
     if (!qs.length) return null;
+    /* "World War I" and "World War II" differ only by a letter the stemmer drops */
+    var wwOne = /\bworld war (?:i|1|one)\b(?!\s*(?:i|1|two|2))/i.test(question) || /\bfirst world war\b/i.test(question);
+    var wwTwo = /\bworld war (?:ii|2|two)\b/i.test(question) || /\bsecond world war\b/i.test(question);
     if (opts.minStems && qs.filter(function (w) { return /[a-z]/.test(w); }).length < opts.minStems) return null;
     var qTokens = tokens(question), type = askType(question);
     var qw = qs.map(function (s) { return { s: s, w: idf(s) }; });
@@ -289,6 +301,9 @@
       /* a "why" question wants a reason, not a description of the same things */
       if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive)|since|(?:happens?|occurs?|forms?|appears?|arises?) when)\b/i.test(d.text) && !(howWork && /\bworks? by\b|\bby \w+ing\b|\bthrough\b|\busing\b|\bwhen\b|\bwhile\b|\bpumps?\b|\bconverts?\b|\bturns?\b/i.test(d.text))) continue;
       /* a focused sentence beats a long one that mentions the same words */
+      if (/^Simply put, /.test(d.text) !== !!opts.simple) continue;
+      if (wwOne && (!/\bworld war (?:i|one|1)\b(?!\s*i)|\b1914\b|\bfirst world war\b/i.test(d.text) || /\bworld war ii\b|\b1939\b|\bsecond world war\b/i.test(d.text) && !/\bworld war i\b(?!i)/i.test(d.text))) continue;
+      if (wwTwo && !/\bworld war ii\b|\b1939\b|\bsecond world war\b|\b1945\b/i.test(d.text)) continue;
       var focus = matched / (matched + 0.35 * Math.max(0, d.n - hits) + 1);
       var adj = 0;
       for (k = 0; k < qBi.length; k++) if (d.bi[qBi[k]]) adj++;
@@ -303,6 +318,8 @@
       if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\b(?:[^.]{0,40}?)(?:\\s(?:is|are|was|were|means|refers|stands|happens|occurs)\\b|,|:)", "i").test(d.text)) score += 0.35;
       if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;
       if (listAsk && (d.text.match(/,/g) || []).length >= 3) score += Math.min(0.6, 0.06 * (d.text.match(/,/g) || []).length + 0.1);
+      /* a sentence that settles four different questions in a row is a roll-call, not the answer to one of them */
+      if (!listAsk && (d.text.match(/\b(?:is|are)\b/g) || []).length >= 4 && (d.text.match(/,/g) || []).length >= 2 && (d.text.match(/\b(?:[a-z]+est|most|least)\b/gi) || []).length >= 3) score -= 0.55;
       /* "the longest river wholly within Brazil" is a narrower claim than "the longest river in South America" */
       if (supRe && supRe.test(d.text)) score -= 0.4;
       var cand = { text: d.text, score: score, coverage: cov, hits: hits, total: qw.length, type: type };

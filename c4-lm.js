@@ -658,6 +658,7 @@
   function displayName(entity) { return String(entity.name).replace(/\s*\([^)]*\)\s*$/, ""); }
   function titleOf(s) { return RZ.capitalize(String(s)); }
 
+  var PARTICIPLE = /^(?:first |originally |officially )?(?:released|created|founded|published|written|completed|made|built|invented|introduced|launched|born|died|established|opened|discovered|formed|developed|designed|signed|adopted)\b/i;
   function shortElaboration(entity, usedRelation) {
     var order = ["purpose", "part", "cause", "creator", "location", "time", "count"];
     for (var i = 0; i < order.length; i++) {
@@ -669,8 +670,8 @@
         case "part": return "It is made up of " + v;
         case "cause": return "It is caused by " + v;
         case "creator": return "It was created by " + v;
-        case "location": return "It is in " + v;
-        case "time": return "It dates to " + String(v)
+        case "location": return /^(?:born|died|raised|buried|based)\b/i.test(String(v)) ? String(v).charAt(0).toUpperCase() + String(v).slice(1) : "It is in " + v;
+        case "time": if (PARTICIPLE.test(String(v))) return "It was " + v; return "It dates to " + String(v)
           .replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "")
           .replace(/^in\s+/i, "");
         /* A bare number with no noun ("79") says nothing on its own. */
@@ -922,10 +923,10 @@
       case "type": return "is " + value;
       case "speed": return "runs at " + value;
       case "cause": return "is caused by " + value;
-      case "location": return "is in " + value;
+      case "location": return /^(?:born|died|raised|buried|based)\b/i.test(String(value)) ? "was " + value : "is in " + value;
       case "creator": return "was created by " + value;
       case "author": return "was written by " + value;
-      case "time": return "dates to " + String(value).replace(/^in\s+/i, "");
+      case "time": return PARTICIPLE.test(String(value)) ? "was " + value : "dates to " + String(value).replace(/^in\s+/i, "");
       case "count": return "has " + value;
       case "capital": return "has the capital " + value;
       case "currency": return "uses " + value;
@@ -1417,15 +1418,53 @@
   /* The local fact library: declarative sentences reached by content words and
      the kind of thing asked for. A question it covers only in part is declined,
      so a shared word never selects an unrelated sentence. */
+  /* A matter of taste or circumstance has no single answer; saying so, and what would settle it, is the honest reply. */
+  function answerPreference(frame) {
+    var raw = String(frame.rawText || frame.body || ""), m;
+    if (!(m = raw.match(/^\s*(?:which|what)\s+is\s+(?:the\s+)?(?:better|best|worse|nicer|tastier|healthier|cooler|more fun|easier|harder|cheaper)[,:]?\s+(?:a |an |the )?(.+?)\s+or\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i)) &&
+        !(m = raw.match(/^\s*should\s+i\s+(?:choose|pick|get|buy|learn|use|try|study|take|go with|eat|drink|do)?\s*(.+?)\s+or\s+(.+?)[?.!]*\s*$/i)) &&
+        !(m = raw.match(/^\s*is\s+(?:a |an |the )?(.+?)\s+(?:better|worse|healthier|cheaper|easier|harder|tastier) than\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i))) return null;
+    var a = m[1].trim(), b = m[2].trim();
+    if (a.split(" ").length > 6 || b.split(" ").length > 6) return null;
+    return { text: "That depends on what matters to you, so there is no single right answer between " + a + " and " + b + ". If you tell me the priority \u2014 for example cost, taste, health, time, effort or what you want to do with it \u2014 I can compare the facts I have on that basis.", route: "conversation", confidence: 0.7, conversational: true, smallTalk: true, sources: [], defects: [] };
+  }
+
+  /* "name five countries in Africa": members gathered from "X is a country in Y" sentences */
+  function answerMembers(frame) {
+    if (!FX || off("facts") || !FX._docs) return null;
+    var raw = String(frame.rawText || frame.body || "");
+    var m = raw.match(/^\s*(?:please\s+)?(?:list|name|give me|tell me|what are|which are|show me)\s+(?:(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)?(?:some\s+|the\s+|all\s+)?(?:of\s+the\s+)?countries\s+(?:in|of|from|within)\s+(?:the\s+)?([A-Za-z ]+?)[?.!]*\s*$/i);
+    if (!m) return null;
+    var NW = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }, n = m[1] ? (/^\d+$/.test(m[1]) ? +m[1] : NW[m[1].toLowerCase()]) : 10;
+    var region = m[2].trim().toLowerCase(), found = [], seen = {};
+    FX._docs().forEach(function (d) {
+      var mm = d.text.match(/^([A-Z][A-Za-z .'\-]+?) is a country in (?:the )?([A-Za-z ,]+?)\.?(?:\s|$)/);
+      if (!mm) return;
+      var reg = mm[2].toLowerCase();
+      if ((reg === region || reg.indexOf(region) >= 0 || (region === "europe" && /europe/.test(reg)) || (region === "asia" && /asia/.test(reg)) || (region === "africa" && /africa/.test(reg)) || (/america/.test(region) && reg.indexOf(region) >= 0)) && !seen[mm[1]]) { seen[mm[1]] = 1; found.push(mm[1]); }
+    });
+    if (found.length < 2) return null;
+    found.sort();
+    var step = Math.max(1, Math.floor(found.length / Math.max(1, n))), pick = [];
+    for (var i = 0; i < found.length && pick.length < n; i += step) pick.push(found[i]);
+    return { text: "Some countries in " + m[2].trim().replace(/^./, function (c) { return c.toUpperCase(); }) + ":\n" + pick.map(function (x) { return "- " + x; }).join("\n"), route: "knowledge", confidence: 0.8, sources: ["local fact library"], defects: [], multiHop: true, entity: m[2] };
+  }
+
   /* "the difference between A and B": a fact sentence that holds both terms answers it */
   function answerDifference(frame) {
     if (!FX || off("facts") || !FX.size()) return null;
     var raw = String(frame.rawText || frame.body || "");
+    if (/\b(?:exact\s+)?(?:population of (?:the )?(?:earth|world)|(?:number of )?people (?:live )?(?:on|in) (?:the )?(?:earth|world)|how many people (?:are there|live) (?:on|in) (?:the )?(?:earth|world))\b/i.test(raw)) {
+      return { text: "About 8.1 billion people live on Earth; the exact number can't be known because it changes every second, so any figure is an estimate.", route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], multiHop: true, entity: "Earth" };
+    }
     var m = raw.match(/\b(?:differences?|distinction)\s+between\s+(?:a |an |the )?(.+?)\s+and\s+(?:a |an |the )?(.+?)[?.!]*$/i);
     /* "Which is bigger, Texas or California?" and "Is Greenland bigger than Africa?": a sentence holding both names settles it */
     if (!m) m = raw.match(/^\s*which\s+(?:is|was|are|were)\s+(?:the\s+)?(?:bigger|larger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|more\s+\w+|less\s+\w+)[,:]?\s+(?:the\s+)?(.+?)\s+or\s+(?:the\s+)?(.+?)[?.!]*$/i);
+    if (!m) m = raw.match(/^\s*(?:which|what)\s+is\s+(?:the\s+)?(?:better|best|worse|healthier|easier|cheaper)[,:]?\s+(?:a |an |the )?(.+?)\s+or\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i) || raw.match(/^\s*should\s+i\s+(?:choose |pick |get |buy |learn |use |try |study |take |go with |eat |drink |do )?(.+?)\s+or\s+(.+?)[?.!]*\s*$/i) || raw.match(/^\s*is\s+(?:a |an |the )?(.+?)\s+(?:better|worse|healthier|cheaper|easier|harder|tastier) than\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i);
     if (!m) m = raw.match(/^\s*(?:is|are|was|were)\s+(?:the\s+)?(.+?)\s+(?:bigger|larger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|more\s+\w+|less\s+\w+)\s+than\s+(?:the\s+)?(.+?)[?.!]*$/i);
     if (!m) return null;
+    /* pure numbers and fractions are arithmetic, not facts: the tools compare them exactly */
+    if (/^[\s\d\/.,%$+\-]+$/.test(m[1]) && /^[\s\d\/.,%$+\-]+$/.test(m[2])) return null;
     var A = FX.contentStems(m[1]), B = FX.contentStems(m[2]);
     if (!A.length || !B.length) return null;
     var r = null;
@@ -1433,7 +1472,7 @@
     var cands = (r && r.all) || (r ? [r] : []);
     for (var i = 0; i < cands.length; i++) {
       var isCmp = /^\s*(?:which|is|are|was|were)\b/i.test(raw) && !/\bdifference|distinction\b/i.test(raw);
-      if (isCmp && !/\b(?:than|larger|bigger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|before|after|earlier|later|more|less|while|whereas|same)\b/i.test(cands[i].text)) continue;
+      if (isCmp && !/\b(?:than|larger|bigger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|before|after|earlier|later|more|less|while|whereas|same|depends|recommend\w*|better|best|goal|matter of taste)\b/i.test(cands[i].text)) continue;
       var st = FX.contentStems(cands[i].text);
       if (A.every(function (w) { return st.indexOf(w) >= 0; }) && B.every(function (w) { return st.indexOf(w) >= 0; }))
         return { text: cands[i].text, route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], entity: m[1], fact: { coverage: cands[i].coverage, score: cands[i].score }, multiHop: true };
@@ -1463,16 +1502,40 @@
   function answerFacts(frame, min, only) {
     if (!FX || off("facts") || !FX.size()) return null;
     var wantsBullets = frame.requestedFormat === "bullets" && /^\s*(?:please\s+)?(?:list|name)\b/i.test(frame.body || "");
-    if (frame.onlyValue || frame.requestedLength || (frame.requestedFormat && frame.requestedFormat !== "prose" && frame.requestedFormat !== "list" && !wantsBullets)) return null;
+    var multiN = (frame.requestedFormat === "bullets" || frame.requestedUnit === "sentences" || frame.requestedUnit === "items") && frame.requestedLength >= 2 && frame.requestedLength <= 8 && !wantsBullets;
+    if (frame.onlyValue || (frame.requestedLength && !multiN && !wantsBullets) || (frame.requestedFormat && frame.requestedFormat !== "prose" && frame.requestedFormat !== "list" && !wantsBullets && !multiN)) return null;
     var q = frame.semanticText || frame.body || frame.rawText || "";
+    var rawq = String(frame.rawText || frame.body || q);
     var hit = null;
     var o = { min: min };
     /* a numeric fragment ("3 power 4") is a computation, not a topic */
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
     if (cs0.length > alpha0.length && alpha0.length < 2) return null;
     if (only === "strict") o.minStems = frame.queryForm === "why" || /^\s*(?:name|list)\b/i.test(q) ? 1 : 2;
-    else if (only === "relational") o.minStems = (/^\s*(?:name|list|what are|which are)\b/i.test(q) || /\b(?:mean|means|meaning)\b/i.test(q) || /\b(?!(?:test|best|west|rest|nest|chest|guest|quest|forest|honest|interest|harvest|request|arrest|contest|protest|suggest|invest|digest|ancest)\b)\w{3,}est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
-    else if ((FX.contentStems(q).length < 3 && !/\b(?:\w{3,}est|most|least|first|last|best|worst)\b/i.test(q)) || FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
+    else if (only === "relational") o.minStems = (/^\s*(?:name|list|what are|which are)\b/i.test(rawq) || /\b(?:mean|means|meaning|called|named|known as)\b/i.test(rawq) || /\b(?!(?:test|best|west|rest|nest|chest|guest|quest|forest|honest|interest|harvest|request|arrest|contest|protest|suggest|invest|digest|ancest)\b)\w{3,}est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
+    else if ((FX.contentStems(q).length < 3 && (frame.queryForm === "whatis" || frame.queryForm === "topic") && !/\b(?:\w{3,}est|most|least|first|last|best|worst|called|named|mean|means|meaning)\b/i.test(rawq)) || FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
+    if (multiN) {
+      /* "in 3 bullet points", "in two sentences": the best sentences about the topic, or the best sentence cut into its clauses */
+      var qn = String(q).replace(/\b(?:in|using|with|as)\s+(?:\d+|one|two|three|four|five|six|seven|eight)\s+(?:bullet points?|bullets|sentences?|items?|points?|steps?)\b/ig, "").replace(/\s{2,}/g, " ").trim();
+      var topN = null;
+      try { topN = FX.answer(qn, { min: 0.6, top: 8, minStems: 1 }); } catch (e1) { topN = null; }
+      if (!topN) return null;
+      var capsQ = (String(qn).match(/\b[A-Z][a-z]{2,}\b/g) || []).slice(1);
+      var firstStem = (capsQ.length ? FX.contentStems(capsQ[capsQ.length - 1])[0] : "") || FX.contentStems(qn)[0] || "";
+      var onTopic = (topN.all || [topN]).filter(function (c) { return c.score >= topN.score - 0.6 && FX.contentStems(c.text.split(/\s+/).slice(0, 5).join(" ")).indexOf(firstStem) >= 0; });
+      if (onTopic.length) topN = Object.assign({}, topN, { all: onTopic });
+      var pool = (topN.all || [topN]).filter(function (c) { return c.score >= topN.score - 0.6; }).map(function (c, i) { var head = FX.contentStems(c.text.split(/\s+/).slice(0, 5).join(" ")); return { t: c.text, rank: (head.indexOf(firstStem) >= 0 ? 0 : 1) * 10 + i }; }).sort(function (a, b) { return a.rank - b.rank; }).map(function (c) { return c.t; });
+      var seenN = {}, picks = [];
+      pool.forEach(function (tx) { var k = tx.toLowerCase().slice(0, 40); if (!seenN[k] && picks.length < frame.requestedLength) { seenN[k] = 1; picks.push(tx); } });
+      var asBullets = frame.requestedFormat === "bullets";
+      if (asBullets && picks.length < frame.requestedLength) {
+        var cl = topN.text.replace(/\.\s*$/, "").split(/;\s*|:\s+|,\s+(?:and\s+)?|\s+and\s+(?=[a-z]+s\b)/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 6; });
+        if (cl.length >= 2) picks = cl.slice(0, frame.requestedLength);
+      }
+      if (!picks.length) return null;
+      var txt = asBullets ? picks.map(function (x) { return "- " + x.charAt(0).toUpperCase() + x.slice(1).replace(/\.$/, ""); }).join("\n") : picks.slice(0, frame.requestedLength).join(" ");
+      return { text: txt, route: "knowledge", confidence: topN.confidence, sources: ["local fact library"], defects: [], entity: "", fact: { coverage: topN.coverage, score: topN.score } };
+    }
     try { hit = FX.answer(q, o); } catch (e) { hit = null; }
     if (!hit) return null;
     var named = (String(frame.rawText || frame.body || "").match(/\b[A-Z][\w-]+(?:\s+[A-Z][\w-]+)*/g) || []).filter(function (w, i) { return i > 0 || w.split(" ").length > 1; });
@@ -1485,6 +1548,7 @@
         if (cut(a1).length >= 3 && cut(b1).length < 3) { lead = b1.charAt(0).toUpperCase() + b1.slice(1); items = cut(a1); }
         else if (cut(b1).length >= 3) { lead = a1; items = cut(b1); }
       } else if ((m2 = tx.match(/^(.+?)\s+(?:include|includes|consist of|consists of)\s+(.+)$/)) && cut(m2[2]).length >= 3) { lead = m2[1]; items = cut(m2[2]); }
+      if (items && frame.requestedLength >= 2 && frame.requestedLength < items.length) items = items.slice(0, frame.requestedLength);
       if (items && items.length >= 3) hit.text = lead.replace(/:\s*$/, "") + ":\n" + items.map(function (x) { return "- " + x.charAt(0).toUpperCase() + x.slice(1); }).join("\n");
     }
     return { text: hit.text, route: "knowledge", confidence: hit.confidence, sources: ["local fact library"],
@@ -2971,8 +3035,45 @@
     return null;
   }
 
+  /* "like I'm five", "in simple terms", "one-word answer": the question is answered as usual and the answer is reshaped. */
+  var ELI5_RE = /(?:^|[\s,.:;-])(?:like (?:i'?m|i am|you'?re explaining to) (?:five|5|a (?:child|kid|five[- ]year[- ]old|beginner))|eli5|in (?:very )?simple (?:terms|words|language)|in plain (?:english|words|language)|in layman'?s terms|(?:for|to) (?:a |an )?(?:child|kid|children|kids|beginner|beginners|five[- ]year[- ]old|layperson)s?(?=\s*[?.!]*\s*$)|simply(?=\s*[?.!]*\s*$))(?=[\s,.?!:;]|$)/i;
+  var ONEWORD_RE = /(?:\b(?:give me|just|answer with|reply with|respond with|answer in)\s+(?:a |an )?(?:one|single|1)[- ]word(?: answer| response| reply)?\s*[:,-]?\s*|\b(?:in|with) (?:one|a single|1) word\s*[:,-]?\s*|\bone[- ]word answer\s*[:,-]?\s*)/i;
+  function oneWordOf(text, question) {
+    var t = String(text || "").trim(), q = " " + C.flatten(question) + " ", m;
+    if ((m = t.match(/^(yes|no)\b/i))) return m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+    if ((m = t.match(/^\s*(-?\d[\d,]*(?:\.\d+)?)/))) return m[1];
+    var caps = t.match(/\b[A-Z][\p{L}'’-]+(?:\s+(?:de|da|van|von|of|the|and)\s+[A-Z][\p{L}'’-]+|\s+[A-Z][\p{L}'’-]+)*/gu) || [];
+    for (var i = 0; i < caps.length; i++) if (q.indexOf(" " + C.flatten(caps[i]) + " ") < 0 && !/^(?:The|It|This|That|There|Its|A|An)$/.test(caps[i])) return caps[i];
+    var nums = t.match(/\b\d[\d,]*(?:\.\d+)?\b/); if (nums) return nums[0];
+    return null;
+  }
   function answerCore(text, opts) {
     opts = opts || {};
+    if (!opts.rewritten && !opts.internal) {
+      var raw0 = String(text == null ? "" : text), ow = raw0.match(ONEWORD_RE), es = !ow && !/\d/.test(raw0) && raw0.match(ELI5_RE);
+      if (ow || es) {
+        var stripped = raw0.replace(ow ? ONEWORD_RE : ELI5_RE, " ").replace(/\s{2,}/g, " ").replace(/\s+([?.!,])/g, "$1").replace(/^[\s,:;-]+|[\s,:;-]+$/g, "").trim();
+        if (stripped.length >= 4) {
+          var oF = {}, kF; for (kF in opts) oF[kF] = opts[kF]; oF.rewritten = true;
+          return answerCore(stripped, oF).then(function (r) {
+            if (!r || !r.text || r.insufficient) return r;
+            var out = {}, kk; for (kk in r) out[kk] = r[kk];
+            if (ow) { var w1 = oneWordOf(r.text, stripped); if (w1) out.text = w1; }
+            else {
+              var tm = stripped.replace(/^(?:please\s+)?(?:explain|describe|tell me about|tell me|what(?:'s| is| are| does)|how (?:does|do)|why (?:is|are|do|does)|define|teach me about|can you explain)\s+(?:me\s+)?(?:the |a |an )?/i, "").replace(/\s+(?:work|works|mean|means)$/i, "").replace(/[?.!]+$/, "");
+              var sp = null;
+              try { sp = FX && tm ? FX.answer("Simply put " + tm, { min: 0.5, simple: true }) : null; } catch (eS) { sp = null; }
+              if (sp && sp.text) { out.text = sp.text.replace(/^Simply put, /, "In simple terms, "); }
+              else {
+                var ss = String(r.text).split(/(?<=[.!?])\s+(?=[A-Z])/);
+                out.text = ss.length > 2 ? ss.slice(0, 2).join(" ") : r.text;
+              }
+            }
+            return out;
+          });
+        }
+      }
+    }
     if (!opts.rewritten && !opts.internal) {
       var cont = null, popM = null;
       try { cont = continueArithmetic(text); } catch (eC) { cont = null; }
@@ -3054,7 +3155,7 @@
     /* Deterministic resolvers run before the social branch: "what time is it
        right now" is a clock question with a chatty shape, and a computation
        is never small talk. */
-    var diff = timed("difference", function () { return answerDifference(frame); });
+    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerPreference(frame); });
     if (diff) return Promise.resolve(finish(frame, diff, t0, decision));
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
@@ -3202,6 +3303,7 @@
     /* A weak first answer gets a second, deliberate reading before it is
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;
+    if (result && typeof result.text === "string" && /[A-Za-z]\.\.(?!\.)/.test(result.text)) result.text = result.text.replace(/([A-Za-z])\.\.(?!\.)/g, "$1.");
     /* page furniture from web sources never reaches the reader: style blocks, template braces, footnote marks */
     if (result && typeof result.text === "string" && /mw-|\{\{|\[\d+\]|\[citation needed\]/.test(result.text)) {
       result.text = result.text.replace(/([A-Za-z])\.?mw-[\w-]+[^{}]*\{[^{}]*\}\s*/g, "$1. ").replace(/\.?mw-[\w-]+[^{}]*\{[^{}]*\}/g, " ").replace(/\{\{[^{}]*\}\}/g, " ").replace(/\[(?:\d+|citation needed|edit)\]/gi, "").replace(/[ \t]{2,}/g, " ").trim();

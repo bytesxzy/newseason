@@ -50,11 +50,12 @@
   F.registry = F.registry || {};
   F.registry.country = COUNTRIES.map(function (r) { return r.split("|")[0]; }).filter(Boolean);
   COUNTRIES.forEach(function (row) {
-    var p = row.split("|"), n = p[0], c = p[1], k = p[2];
-    out.push("The capital of " + n + " is " + c + ".");
-    out.push(n + " is a country in " + k + ".");
-    out.push("The country of " + n + " is located on the continent of " + k + ".");
-    out.push("What is the capital city of " + n + "? It is " + c + ".");
+    var p = row.split("|"), n = p[0], c = p[1], k = p[2], d = c.replace(/\.$/, "");
+    var tn = /^(?:United States|United Kingdom|United Arab Emirates|Netherlands|Philippines|Bahamas|Gambia|Czech Republic|Central African Republic|Maldives|Seychelles|Comoros|Marshall Islands|Solomon Islands|Democratic Republic of the Congo|Republic of the Congo)$/.test(n) ? "the " + n : n;
+    out.push("The capital of " + tn + " is " + c.replace(/\.$/, "") + ".");
+    out.push(tn.replace(/^the /, "The ") + " is a country in " + k + ".");
+    out.push("The country of " + tn + " is located on the continent of " + k + ".");
+    out.push("What is the capital city of " + tn + "? It is " + d + ".");
   });
 
   /* state | capital */
@@ -66,7 +67,7 @@
    "Pennsylvania|Harrisburg;Rhode Island|Providence;South Carolina|Columbia;South Dakota|Pierre;Tennessee|Nashville;Texas|Austin;Utah|Salt Lake City;" +
    "Vermont|Montpelier;Virginia|Richmond;Washington|Olympia;West Virginia|Charleston;Wisconsin|Madison;Wyoming|Cheyenne").split(";").forEach(function (row) {
     var p = row.split("|");
-    out.push("The capital of the US state of " + p[0] + " is " + p[1] + ".");
+    out.push("The capital of the state of " + p[0] + " is " + p[1] + ".");
   });
   ("Ontario|Toronto;Quebec|Quebec City;British Columbia|Victoria;Alberta|Edmonton;Manitoba|Winnipeg;Saskatchewan|Regina;Nova Scotia|Halifax;" +
    "New Brunswick|Fredericton;Newfoundland and Labrador|St. John's;Prince Edward Island|Charlottetown").split(";").forEach(function (row) {
