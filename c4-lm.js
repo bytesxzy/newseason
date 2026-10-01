@@ -1397,8 +1397,9 @@
     /* a numeric fragment ("3 power 4") is a computation, not a topic */
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
     if (cs0.length > alpha0.length && alpha0.length < 2) return null;
-    if (only === "strict") o.minStems = 2;
-    else if (FX.contentStems(q).length < 2) o.define = true;
+    if (only === "strict") o.minStems = frame.queryForm === "why" ? 1 : 2;
+    else if (only === "relational") o.minStems = 3;
+    else if (FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
     try { hit = FX.answer(q, o); } catch (e) { hit = null; }
     if (!hit) return null;
     var named = (String(frame.rawText || frame.body || "").match(/\b[A-Z][\w-]+(?:\s+[A-Z][\w-]+)*/g) || []).filter(function (w, i) { return i > 0 || w.split(" ").length > 1; });
@@ -1410,10 +1411,62 @@
      things a number or a day of the week cannot be, arithmetic done on a
      thing that is not a number. Saying so is the answer. */
   var NUMBER_WORD = /^(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|half|quarter|third|x|y|z|n|pi|e|it|that|this|them|these|those|number|numbers|value|values|both|two)$/i;
+  /* Small talk that has a plain, honest answer. Anchored to the whole utterance, so
+     "how are you" inside a larger question is never mistaken for it. The program
+     does not claim feelings, an age, tastes or a body. */
+  var JOKES = [
+    "Why don't scientists trust atoms? Because they make up everything.",
+    "I told my computer I needed a break, and now it won't stop sending me vacation ads.",
+    "Why did the scarecrow win an award? He was outstanding in his field.",
+    "What do you call a fake noodle? An impasta.",
+    "Why was the math book sad? It had too many problems."
+  ];
+  var jokeIx = 0;
+  function answerSmallTalk(frame) {
+    var said = String(state.userText || frame.rawText || frame.body || "").trim();
+    var l = said.toLowerCase().replace(/[!.?]+$/g, "").replace(/\s+/g, " ").replace(/^(?:hey|hi|hello|ok|okay|so|well|um|please)[, ]+/, "").trim();
+    if (!l || l.length > 80) return null;
+    function say(text) { return { text: text, route: "conversation", confidence: 0.8, conversational: true, smallTalk: true, sources: [], defects: [] }; }
+    if (/^(?:how are you|how are you doing|how are you today|how are you doing today|how r u|how are u|how is it going|how's it going|how have you been|how's your day|how is your day|how do you do|what's up|whats up|sup)$/.test(l))
+      return say("I'm doing well, thanks for asking. I'm a program, so I don't have good or bad days, but I'm ready to help — what's on your mind?");
+    if (/^(?:thanks|thank you|thank you so much|thanks a lot|thx|cheers|many thanks|thanks for your help|thank you for your help|thanks for the help|much appreciated|i appreciate it)$/.test(l))
+      return say("You're welcome — glad to help. Anything else?");
+    if (/^(?:bye|goodbye|good bye|see you|see ya|see you later|talk to you later|talk later|take care|i have to go|i gotta go|gotta go|farewell)$/.test(l))
+      return say("Goodbye — take care! Come back any time.");
+    if (/^(?:good night|goodnight|night night|nighty night|sleep well)$/.test(l))
+      return say("Good night — sleep well!");
+    if (/^(?:good morning|morning)$/.test(l)) return say("Good morning! What can I help you with today?");
+    if (/^(?:good afternoon|good evening)$/.test(l)) return say(l.indexOf("evening") >= 0 ? "Good evening! What can I help you with?" : "Good afternoon! What can I help you with?");
+    if (/^(?:can|could|would|will) you (?:please )?(?:help|assist)(?: me)?(?: out)?(?: with (?:my |a |an |some |the )?(?:homework|work|project|essay|assignment|problem|problems|question|questions|task|studying|studies|code|coding|something|this|that|it))?$/.test(l))
+      return say("Yes, happy to help. Tell me what you're working on — a question, a calculation, some code, a puzzle or a bit of reasoning — and I'll take it from there.");
+    if (/^(?:i'?m|i am) (?:so |really |very )?bored$|^i'?m bored(?: today)?$|^i am bored$/.test(l))
+      return say("Let's fix that. I can set you a puzzle, tell you a surprising fact, run a quick quiz, or answer anything you're curious about — which sounds good?");
+    if (/^(?:tell me a joke|tell a joke|say a joke|give me a joke|got any jokes|do you know any jokes|make me laugh|tell me something funny)$/.test(l)) return say(JOKES[jokeIx++ % JOKES.length]);
+    if (/^(?:you(?:'re| are) (?:so |really |very )?(?:smart|great|awesome|amazing|good|helpful|clever|cool|the best|brilliant|nice))$/.test(l)) return say("Thank you — that's kind of you to say. I'll keep trying to earn it.");
+    if (/^(?:you(?:'re| are) (?:so |really |very )?(?:stupid|dumb|useless|bad|terrible|awful|wrong|annoying))$/.test(l)) return say("Sorry I fell short. Tell me what went wrong and I'll try again.");
+    if (/^(?:how old are you|what is your age|what's your age|when were you born|when were you made)$/.test(l)) return say("I'm a program, so I don't have an age in years — I simply run whenever this page is open.");
+    if (/^(?:are you|r you|are u) (?:a |an )?(?:robot|human|real|real person|person|bot|ai|machine|computer|program|chatbot|alive)$/.test(l))
+      return say(/human|person|real|alive/.test(l) ? "No — I'm a computer program, a language system that runs locally here, not a person." : "Yes — I'm a computer program, a language system that runs locally in this page.");
+    if (/^(?:what'?s|what is) your favou?rite (.+)$/.test(l)) return say("As a program I don't have personal tastes, but I can tell you about popular choices or help you decide — what are you choosing between?");
+    var like = l.match(/^do you (?:like|love|enjoy|prefer|listen to|watch|play|read|eat|drink) (?:the |a |an |to )?(.+)$/);
+    if (like) return say("I don't experience " + like[1] + " the way a person does, but I'm happy to talk about it — what would you like to know?");
+    if (/^(?:i love you|i like you)$/.test(l)) return say("That's kind of you. I'm a program, so I can't love anyone back, but I'm glad to be useful to you.");
+    if (/^(?:lol|haha|hahaha|lmao|hehe)$/.test(l)) return say("Glad that landed.");
+    if (/^(?:ok|okay|cool|nice|great|got it|i see|alright|sounds good|fine|k)$/.test(l)) return say("Okay. Anything else I can help with?");
+    if (/^(?:are you there|you there|hello\?|anyone there)$/.test(l)) return say("I'm here. What would you like to know?");
+    return null;
+  }
+
   function answerGuard(frame) {
     var t = String(frame.rawText || frame.body || ""), l = t.toLowerCase(), m;
     if (!l) return null;
     function say(text) { return { text: text, route: "conversation", confidence: 0.8, sources: [], defects: [], guard: true }; }
+    var talk = answerSmallTalk(frame);
+    if (talk) return talk;
+    /* a count nobody can make */
+    if (/\bexact(?:ly)? (?:number|count|amount) of\b[^?]*\b(?:grains?|sand|stars|atoms|hairs|leaves|fish|ants|cells|drops|trees|insects|birds|words ever)\b/.test(l)) {
+      return say("Nobody can count that exactly — any figure is an estimate. For grains of sand on Earth, rough estimates are on the order of 7.5 quintillion (7.5 × 10^18), but the true number is unknown.");
+    }
     /* the future */
     var futureYear = (l.match(/\b(2[0-9]{3}|[3-9][0-9]{3})\b/g) || []).some(function (y) { return +y > 2027; });
     if (((/\b(?:will|going to|gonna)\b/.test(l) &&
@@ -1535,7 +1588,7 @@
     var outerText = raw.replace(m[0], found), r3 = null;
     try { r3 = FX.answer(outerText, { min: 0.6 }); } catch (e2) { r3 = null; }
     if (!r3 || !r3.text) return null;
-    return { text: "The " + type + " with " + ent + " is " + found + ". " + r3.text, route: "knowledge", confidence: Math.min(0.8, r3.confidence || 0.8),
+    return { text: r3.text + " (" + found + " is the " + type + " with " + ent + ".)", route: "knowledge", confidence: Math.min(0.8, r3.confidence || 0.8),
              sources: ["local fact library"], defects: [], entity: ent, multiHop: true, hop: { inner: ent, found: found } };
   }
 
@@ -2199,8 +2252,10 @@
      the freezing point of water is a confident answer to a different
      question, and it is withdrawn. */
   function offTopic(frame, result) {
-    if (!result || !result.entity || result.multiHop || !frame.subject) return false;
-    var subj = C.words(frame.subject).filter(function (t) { return !neutralToken(t); });
+    if (!result || !result.entity || result.multiHop) return false;
+    var subjText = frame.subject || (frame.entities && frame.entities.length ? frame.entities.join(" ") : "");
+    if (!subjText) return false;
+    var subj = C.words(subjText).filter(function (t) { return !neutralToken(t); });
     if (!subj.some(unknownWord)) return false;
     var name = C.flatten(result.entity);
     /* the words nothing knows are the ones that pick the thing out ("the
@@ -2256,7 +2311,7 @@
   }
 
   function weakness(frame, result, decision) {
-    if (!result || result.memoryTurn || result.code) return "";
+    if (!result || result.memoryTurn || result.code || result.smallTalk || result.guard) return "";
     if (result.route === "code" || result.route === "compute" || result.route === "reason" || result.route === "memory") return "";
     if (decision && decision.features && decision.features.social) return "";
     if (frame.metaSelf || !isRequest(frame)) return "";
@@ -2643,12 +2698,19 @@
                       frame.relation || "", frame.queryForm || "", frame.speechAct || ""].join(" "));
   }
 
+  /* A message that is one self-contained puzzle or problem is not a set of statements to remember. */
+  function solvableWhole(raw) {
+    if (!/[.?!]\s+\S/.test(raw) || off("memory-skip")) return false;
+    try { var w = (STY && STY.solve(raw)) || (LG && LG.solve(raw)) || (TL && TL.solve(raw)); return !!(w && w.answer); } catch (e) { return false; }
+  }
   /* Conversation memory reads every message first: what to remember, what
      to forget, how to answer, and questions about the conversation itself.
      Whatever else the message asks is answered as usual, after it. */
   function answer(text, opts) {
     var M = state.memory, raw = String(text == null ? "" : text);
     if (!M) return answerCore(raw, opts);
+    /* A whole-message puzzle ("I am thinking of a number. I double it ... What is it?") is not a set of facts to remember */
+    if (solvableWhole(raw)) return answerCore(raw, opts);
     var memo = null;
     try { memo = M.command(raw); } catch (e) { memo = null; }
     if (memo && memo.handled) {
@@ -2747,8 +2809,9 @@
     if (hopped) return Promise.resolve(finish(frame, hopped, t0, decision));
     /* A question the fact library covers well is answered from it before the
        general chain, whose entity matching can land on a shared word. */
-    if (frame.speechAct === "question" && !frame.requiresFreshInformation && frame.queryForm !== "whatis" && frame.queryForm !== "topic") {
-      var fx = timed("facts", function () { return answerFacts(frame, 0.75, "strict"); });
+    if (frame.speechAct === "question" && !frame.requiresFreshInformation && frame.queryForm !== "whois") {
+      var plainForm = frame.queryForm !== "whatis" && frame.queryForm !== "topic";
+      var fx = timed("facts", function () { return answerFacts(frame, plainForm ? 0.75 : 0.9, plainForm ? "strict" : "relational"); });
       if (fx) return Promise.resolve(finish(frame, fx, t0, decision));
     }
     /* A bare noun phrase is a question, whatever its conversational shape:
@@ -2994,6 +3057,7 @@
        module does, and sees the answers that did not come from here */
     command: function (t) {
       if (!state.memory || !state.ready) return null;
+      if (solvableWhole(String(t == null ? "" : t))) return null;
       try { return state.memory.command(String(t == null ? "" : t)); } catch (e) { return null; }
     },
     observe: function (t, a) { if (state.memory) { try { state.memory.observe(t, a); } catch (e) {} } },

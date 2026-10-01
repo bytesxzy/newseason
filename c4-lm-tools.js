@@ -708,6 +708,77 @@
     return null;
   }
 
+
+  /* ------------------------------------------------------------ unit conversion */
+  /* every unit: dimension vector over [length, mass, time, volume-as-length^3 is derived] and factor to SI */
+  var UNITS = (function () {
+    var U = {};
+    function add(names, dim, f) { names.split("|").forEach(function (n) { U[n] = { dim: dim, f: f }; }); }
+    var L = { L: 1 }, M = { M: 1 }, T = { T: 1 };
+    add("millimeter|millimeters|millimetre|millimetres|mm", L, 0.001); add("centimeter|centimeters|centimetre|centimetres|cm", L, 0.01);
+    add("meter|meters|metre|metres|m", L, 1); add("kilometer|kilometers|kilometre|kilometres|km|kms", L, 1000);
+    add("inch|inches|in", L, 0.0254); add("foot|feet|ft", L, 0.3048); add("yard|yards|yd|yds", L, 0.9144); add("mile|miles|mi", L, 1609.344);
+    add("nautical mile|nautical miles|nmi", L, 1852); add("light year|light years|ly", L, 9.4607304725808e15);
+    add("milligram|milligrams|mg", M, 1e-6); add("gram|grams|g", M, 0.001); add("kilogram|kilograms|kilo|kilos|kg|kgs", M, 1);
+    add("tonne|tonnes|metric ton|metric tons", M, 1000); add("ounce|ounces|oz", M, 0.028349523125); add("pound|pounds|lb|lbs", M, 0.45359237); add("stone|stones", M, 6.35029318); add("ton|tons", M, 907.18474);
+    add("second|seconds|sec|secs|s", T, 1); add("minute|minutes|min|mins", T, 60); add("hour|hours|hr|hrs|h", T, 3600); add("day|days", T, 86400); add("week|weeks", T, 604800); add("year|years", T, 31536000);
+    add("millisecond|milliseconds|ms", T, 0.001);
+    /* volume is length cubed */
+    var V = { L: 3 };
+    add("milliliter|milliliters|millilitre|millilitres|ml", V, 1e-6); add("liter|liters|litre|litres|l", V, 0.001); add("gallon|gallons|gal", V, 0.003785411784); add("quart|quarts|qt", V, 0.000946352946);
+    add("pint|pints|pt", V, 0.000473176473); add("cup|cups", V, 0.0002365882365); add("tablespoon|tablespoons|tbsp", V, 0.00001478676478); add("teaspoon|teaspoons|tsp", V, 0.00000492892159); add("fluid ounce|fluid ounces|fl oz|floz", V, 0.0000295735296);
+    /* area */
+    var A = { L: 2 };
+    add("acre|acres", A, 4046.8564224); add("hectare|hectares|ha", A, 10000);
+    return U;
+  })();
+  var UNIT_PREFIX = /^(?:square|sq\.?|cubic|cu\.?)\s+/;
+  var SPEED_ALIAS = { mph: [["mile", 1], ["hour", -1]], kph: [["kilometer", 1], ["hour", -1]], kmh: [["kilometer", 1], ["hour", -1]], "km/h": [["kilometer", 1], ["hour", -1]], "km/hr": [["kilometer", 1], ["hour", -1]], "mi/h": [["mile", 1], ["hour", -1]], "m/s": [["meter", 1], ["second", -1]], mps: [["meter", 1], ["second", -1]], knot: [["nautical mile", 1], ["hour", -1]], knots: [["nautical mile", 1], ["hour", -1]], kn: [["nautical mile", 1], ["hour", -1]], "ft/s": [["foot", 1], ["second", -1]], fps: [["foot", 1], ["second", -1]] };
+  function dimAdd(a, b, k) { var o = {}, x; for (x in a) o[x] = a[x]; for (x in b) { o[x] = (o[x] || 0) + k * b[x]; if (!o[x]) delete o[x]; } return o; }
+  function dimKey(d) { return Object.keys(d).sort().map(function (k) { return k + d[k]; }).join(","); }
+  function parseUnit(str) {
+    var t = String(str).toLowerCase().trim().replace(/\.$/, "").replace(/\s+/g, " ");
+    if (SPEED_ALIAS[t]) { var acc = { dim: {}, f: 1 }; SPEED_ALIAS[t].forEach(function (p) { var u = UNITS[p[0]]; acc.dim = dimAdd(acc.dim, u.dim, p[1]); acc.f *= Math.pow(u.f, p[1]); }); return acc; }
+    var m;
+    if ((m = t.match(/^(.+?)\s*(?:\/|\bper\b)\s*(.+)$/))) {
+      var n = parseUnit(m[1]), d = parseUnit(m[2]);
+      if (!n || !d) return null;
+      return { dim: dimAdd(n.dim, d.dim, -1), f: n.f / d.f };
+    }
+    var power = 1, base = t;
+    if (UNIT_PREFIX.test(t)) { power = /^(?:cubic|cu)/.test(t) ? 3 : 2; base = t.replace(UNIT_PREFIX, ""); }
+    var sq = base.match(/^(.+?)\s*[²^]2$/); if (sq) { power = 2; base = sq[1]; }
+    var cb = base.match(/^(.+?)\s*[³^]3$/); if (cb) { power = 3; base = cb[1]; }
+    var u = UNITS[base] || UNITS[base.replace(/s$/, "")] || UNITS[base.replace(/es$/, "")];
+    if (!u) return null;
+    var dim = {}, x; for (x in u.dim) dim[x] = u.dim[x] * power;
+    return { dim: dim, f: Math.pow(u.f, power) };
+  }
+  function sig(x) { if (!isFinite(x)) return String(x); if (Math.abs(x) >= 1e6 || (Math.abs(x) < 1e-4 && x !== 0)) return Number(x.toPrecision(6)).toString(); return String(Math.round(x * 1e6) / 1e6); }
+  function convertQ(text) {
+    var t = clean(text).replace(/[?.!]+$/, ""), l = t.toLowerCase(), m;
+    var TEMP = { c: 1, celsius: 1, f: 2, fahrenheit: 2, k: 3, kelvin: 3 };
+    if ((m = l.match(/\b(-?\d+(?:\.\d+)?)\s*(?:degrees?|°)?\s*(celsius|fahrenheit|kelvin|c|f|k)\s*(?:to|in|into|as)\s*(?:degrees?\s*)?(celsius|fahrenheit|kelvin|c|f|k)\b/)) && TEMP[m[2]] && TEMP[m[3]] && m[2] !== m[3] && (m[2].length > 1 || /degrees|°/.test(l))) {
+      var v = +m[1], from = TEMP[m[2]], to = TEMP[m[3]], c = from === 1 ? v : (from === 2 ? (v - 32) * 5 / 9 : v - 273.15), r = to === 1 ? c : (to === 2 ? c * 9 / 5 + 32 : c + 273.15);
+      return res(sig(r) + (to === 1 ? " °C" : (to === 2 ? " °F" : " K")), [], "units");
+    }
+    var amount, fromU, toU;
+    if ((m = l.match(/\bconvert\s+(-?[\d.,]+(?:\s*\/\s*\d+)?)\s*([a-z][a-z./\s²³^0-9]*?)\s+(?:to|into|in)\s+([a-z][a-z./\s²³^0-9]*)$/)) || (m = l.match(/\b(?:how many|what is)\s+(?:is\s+)?(-?[\d.,]+(?:\s*\/\s*\d+)?)\s*([a-z][a-z./\s²³^0-9]*?)\s+(?:in|to|into|is|are)\s+(?:how many\s+)?([a-z][a-z./\s²³^0-9]*)$/))) { amount = m[1]; fromU = m[2]; toU = m[3]; }
+    else if ((m = l.match(/\bhow many\s+([a-z][a-z./\s²³^0-9]*?)\s+(?:are |is )?(?:there )?in\s+(?:an?\s+|one\s+|1\s+)?([a-z][a-z./\s²³^0-9]*)$/))) { amount = "1"; toU = m[1]; fromU = m[2]; }
+    else if ((m = l.match(/\bhow many\s+([a-z][a-z./\s²³^0-9]*?)\s+(?:are |is )?(?:there )?in\s+(-?[\d.,]+)\s*([a-z][a-z./\s²³^0-9]*)$/))) { amount = m[2]; toU = m[1]; fromU = m[3]; }
+    else if ((m = l.match(/\bhow many\s+([a-z][a-z./\s\u00b2\u00b3^0-9]*?)\s+(?:is|are|make up|equal)\s+(-?[\d.,]+)\s*([a-z][a-z./\s\u00b2\u00b3^0-9]*)$/))) { amount = m[2]; toU = m[1]; fromU = m[3]; }
+    else if ((m = l.match(/^(?:what is|what's)\s+(-?[\d.,]+(?:\s*\/\s*\d+)?)\s*([a-z][a-z./\s²³^0-9]*?)\s+(?:in|to|into)\s+([a-z][a-z./\s²³^0-9]*)$/))) { amount = m[1]; fromU = m[2]; toU = m[3]; }
+    else if ((m = l.match(/^(?:what is|how many)\s+(?:an?\s+|one\s+)?([a-z][a-z./\s²³^0-9]*?)\s+in\s+([a-z][a-z./\s²³^0-9]*)$/))) { amount = "1"; fromU = m[1]; toU = m[2]; }
+    else return null;
+    var a = amount.indexOf("/") >= 0 ? amount.split("/").reduce(function (x, y) { return +x / +y; }) : parseFloat(amount.replace(/,/g, ""));
+    if (!isFinite(a)) return null;
+    var fu = parseUnit(fromU.replace(/^(?:the |a |an )/, "")), tu = parseUnit(toU.replace(/^(?:the |a |an )/, ""));
+    if (!fu || !tu || dimKey(fu.dim) !== dimKey(tu.dim)) return null;
+    var out = a * fu.f / tu.f;
+    var rr = Math.abs(out - Math.round(out)) < 1e-9 ? String(Math.round(out)) : sig(out);
+    return res(sig(a) + " " + fromU.trim() + " = " + rr + " " + toU.trim(), [], "units");
+  }
+
   /* ----------------------------------------------------------------- words */
   function quotedWord(s) { return s.replace(/^['"]|['"]$/g, ""); }
   var ORDW = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, last: -1 };
@@ -847,8 +918,46 @@
     return null;
   }
 
+
+  /* "When did Napoleon land on the Moon?": a person asked to do what had not yet been invented */
+  var EVENTS = [
+    [/\b(?:land(?:ed)?|walk(?:ed)?|step(?:ped)?|travel(?:l?ed)?|go|went|gone) (?:on|to) the moon\b/, 1969, "the first Moon landing"],
+    [/\b(?:fl(?:y|ew|own|ying)|board(?:ed)?)\b[^?]*\b(?:plane|airplane|aeroplane|jet|helicopter)\b/, 1903, "the first powered flight"],
+    [/\b(?:use|used|using|own|owned|text|texted)\b[^?]*\b(?:smartphone|iphone|android phone)\b/, 2007, "the first iPhone"],
+    [/\b(?:send|sent|write|wrote|check|checked)\b[^?]*\b(?:email|e-mail)\b/, 1971, "email"],
+    [/\b(?:browse|browsed|surf|surfed|use|used)\b[^?]*\b(?:the internet|the web|google|a website|the world wide web)\b/, 1991, "the World Wide Web"],
+    [/\b(?:watch|watched|own|owned)\b[^?]*\b(?:television|tv)\b/, 1926, "television"],
+    [/\b(?:drive|drove|driven|own|owned)\b[^?]*\b(?:a car|an automobile|a motorcar)\b/, 1885, "the automobile"],
+    [/\b(?:make|made|take|took)\b[^?]*\b(?:a phone call|a telephone call)\b|\buse(?:d)? (?:a |the )?telephone\b/, 1876, "the telephone"],
+    [/\b(?:post|posted|use|used)\b[^?]*\b(?:facebook|twitter|instagram|tiktok|youtube)\b/, 2004, "social media"],
+    [/\b(?:play|played)\b[^?]*\b(?:video ?games?|playstation|xbox|nintendo)\b/, 1972, "video games"],
+    [/\b(?:use|used|turn(?:ed)? on)\b[^?]*\b(?:light ?bulb|electric light)\b/, 1879, "the light bulb"]
+  ];
+  function yearOfPhrase(n, bce) { return bce ? -parseInt(n, 10) : parseInt(n, 10); }
+  function lifespanOf(name) {
+    var FXm = root.C4LMFacts;
+    if (!FXm || !FXm._docs) return null;
+    var docs = FXm._docs(), low = name.toLowerCase(), i, m;
+    for (i = 0; i < docs.length; i++) {
+      var t = docs[i].text;
+      if (t.toLowerCase().indexOf(low) !== 0) continue;
+      if ((m = t.match(/lived from (\d+)( BCE| CE)? to (\d+)( BCE| CE)?/))) return { born: yearOfPhrase(m[1], /BCE/.test(m[2] || "")), died: yearOfPhrase(m[3], /BCE/.test(m[4] || "")) };
+    }
+    return null;
+  }
+  function anachronismQ(text) {
+    var t = clean(text).replace(/[?.!]+$/, ""), m;
+    if (!(m = t.match(/^(?:[Ww]hen|[Ww]hat year|[Ii]n what year|[Ii]n which year|[Hh]ow old was)\s+(?:did|was|were)\s+((?:[A-Z][\w.'’-]*)(?:\s+(?:de|da|van|von|the|of|[A-Z][\w.'’-]*))*)\s+(.+)$/))) return null;
+    var who = m[1], rest = m[2].toLowerCase(), i;
+    for (i = 0; i < EVENTS.length; i++) if (EVENTS[i][0].test(rest)) {
+      var life = lifespanOf(who);
+      if (life && life.died < EVENTS[i][1] && life.died !== null) return res(who + " lived from " + (life.born < 0 ? -life.born + " BCE" : life.born) + " to " + (life.died < 0 ? -life.died + " BCE" : life.died) + ", long before " + EVENTS[i][2] + " (" + EVENTS[i][1] + "), so that could not have happened.", [], "premise");
+    }
+    return null;
+  }
+
   /* ----------------------------------------------------------------- solve */
-  var SOLVERS = [falseRoleQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absQ, fractionQ, baseQ, stringQ];
+  var SOLVERS = [falseRoleQ, anachronismQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absQ, fractionQ, baseQ, stringQ];
   function solve(text, ctx) {
     var t = clean(text);
     if (!t || t.length > 600) return null;

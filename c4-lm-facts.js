@@ -29,7 +29,7 @@
    "year years name named called call known kind type sort please").split(" ").forEach(function (w) { STOP[w] = 1; });
   /* words that frame a question about a quantity are not content either */
   var FRAME = Object.create(null);
-  ("many much long far tall high old big fast often").split(" ").forEach(function (w) { FRAME[w] = 1; });
+  ("many much long far tall high old big fast often happen happens happened occur occurs story").split(" ").forEach(function (w) { FRAME[w] = 1; });
 
   /* words the library treats as one. The first of each group is canonical. */
   var SYN_GROUPS = [
@@ -59,7 +59,10 @@
     ["mammal", "mammals"],
     ["stand", "stands", "stood"],
     ["mean", "means", "meaning", "definition", "define"],
-    ["exhale", "breathe", "expel"]
+    ["exhale", "breathe", "expel"],
+    ["kilometer", "kilometre", "kilometers", "kilometres", "km"], ["meter", "metre", "meters", "metres"], ["centimeter", "centimetre", "centimeters", "centimetres"],
+    ["liter", "litre", "liters", "litres"], ["center", "centre"], ["color", "colour", "colors", "colours"], ["gray", "grey"], ["organize", "organise", "organization", "organisation"],
+    ["aluminum", "aluminium"], ["program", "programme"], ["travel", "travels", "traveled", "travelled", "traveling", "travelling"], ["mile", "miles"]
   ];
   var SYN = Object.create(null);
   SYN_GROUPS.forEach(function (g) { g.forEach(function (w) { SYN[w] = g[0]; }); });
@@ -95,7 +98,7 @@
     return u ? TENS[t] + " " + ORD_WORDS[u] : TENS_ORD[t];
   }
   function tokens(s) {
-    var t = String(s).toLowerCase()
+    var t = String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/g, function (m, n) { return ordWord(n); })
       .replace(/(twenty|thirty|forty|fifty|sixty|seventy)-(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)/g, "$1 $2")
       .replace(/[’']s\b/g, "")
@@ -227,6 +230,7 @@
       .slice(1).map(function (w) { return canon(w.toLowerCase()); }).filter(function (w) { return !STOP[w]; });
     var qBi = bigrams(contentSeq(question));
     var frameWord = tokens(question).filter(function (w) { return FRAME[w]; })[0] || "";
+    var whoDef = /^\s*who\s+(?:is|was|were|are)\b/i.test(question) && qs.length <= 3;
     var bigNums = (String(question).match(/\b\d{3,}\b/g) || []);
     var why = /\bwhy\b|\bhow (?:come|does|do|did) .* (?:work|happen|form)\b/i.test(question) || /\bwhat (?:causes|makes|caused)\b/i.test(question);
     var pool = [];
@@ -245,6 +249,8 @@
       if (!carries(type, d.text, qTokens, frameWord)) continue;
       /* a bare "what is X" is answered by a sentence that defines X: X is its subject */
       if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?" + qs[0].replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:is|are|was|means|refers|stands)\\b", "i")).test(d.text)) continue;
+      /* a bare "what is X" is not answered by a life-event line about X */
+      if (opts.define && /\b(?:died|was born) in [0-9]{4}\.?$/.test(d.text) && !/\b(?:born|birth|die[ds]?|death)\b/i.test(question)) continue;
       /* a number the question states must be in the sentence: "the 2087 World Cup" is not any World Cup */
       var numsOk = true;
       for (k = 0; k < bigNums.length; k++) if (d.text.indexOf(bigNums[k]) < 0) { numsOk = false; break; }
@@ -255,7 +261,8 @@
       var focus = matched / (matched + 0.35 * Math.max(0, d.n - hits) + 1);
       var adj = 0;
       for (k = 0; k < qBi.length; k++) if (d.bi[qBi[k]]) adj++;
-      var score = cov + 0.35 * focus + (hits === qw.length ? 0.2 : 0) + 0.3 * (qBi.length ? adj / qBi.length : 0);
+      if (whoDef && /\b(?:died|was born) in [0-9]{4}\.?$/.test(d.text)) continue;
+      var score = (whoDef && /\b(?:is known for|lived from|was an?|is an?|was the|is the)\b/.test(d.text) ? 0.4 : 0) + cov + 0.35 * focus + (hits === qw.length ? 0.2 : 0) + 0.3 * (qBi.length ? adj / qBi.length : 0);
       var cand = { text: d.text, score: score, coverage: cov, hits: hits, total: qw.length, type: type };
       if (opts.top) pool.push(cand);
       if (!best || score > best.score) { second = best; best = cand; }
