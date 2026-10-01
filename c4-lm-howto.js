@@ -33,6 +33,9 @@
     { id: "list-create", m: /\b(?:create|make|declare|define|initiali[sz]e|write|build)\b[^?]*\b(?:list|array)s?\b/, not: /\bempty\b.*\bdict|\bsql\b/,
       code: { python: 'numbers = [1, 2, 3]\nnumbers.append(4)', javascript: 'const numbers = [1, 2, 3];\nnumbers.push(4);', typescript: 'const numbers: number[] = [1, 2, 3];', java: 'int[] numbers = {1, 2, 3};\nList<Integer> list = new ArrayList<>(List.of(1, 2, 3));', c: 'int numbers[] = {1, 2, 3};', cpp: 'std::vector<int> numbers = {1, 2, 3};', go: 'numbers := []int{1, 2, 3}\nnumbers = append(numbers, 4)', rust: 'let mut numbers = vec![1, 2, 3];\nnumbers.push(4);', ruby: 'numbers = [1, 2, 3]\nnumbers << 4', php: '$numbers = [1, 2, 3];' },
       text: { python: "A list is written with square brackets; append adds an item at the end.", javascript: "An array literal uses square brackets; push adds an item at the end.", _: "A list or array holds an ordered sequence of items." } },
+    { id: "append", m: /\b(?:append|add|push|insert)\b[^?]*\b(?:to|into|onto|at the end of)\b[^?]*\b(?:array|list)\b/, not: /\bsql\b/,
+      code: { python: 'items = [1, 2]\nitems.append(3)        # add at the end\nitems.insert(0, 0)     # add at an index', javascript: 'const items = [1, 2];\nitems.push(3);       // add at the end\nitems.unshift(0);    // add at the start', java: 'List<Integer> items = new ArrayList<>();\nitems.add(3);', go: 'items = append(items, 3)', ruby: 'items << 3', php: '$items[] = 3;', rust: 'items.push(3);', csharp: 'items.Add(3);' },
+      text: { javascript: "push adds to the end of an array and returns the new length.", python: "append adds one item to the end of a list.", _: "Appending adds an item at the end of the list." } },
     { id: "loop-items", m: /\b(?:loop|iterate|go through|walk through|traverse|cycle)\b[^?]*\b(?:over|through)?\s*(?:an? |the |each (?:item|element) (?:in|of) )?(?:list|array|items|elements|collection)\b/,
       code: { python: 'for item in items:\n    print(item)', javascript: 'for (const item of items) {\n  console.log(item);\n}\n// or: items.forEach(item => console.log(item));', typescript: 'for (const item of items) {\n  console.log(item);\n}', java: 'for (int item : items) {\n    System.out.println(item);\n}', go: 'for _, item := range items {\n    fmt.Println(item)\n}', rust: 'for item in &items {\n    println!("{}", item);\n}', ruby: 'items.each { |item| puts item }', php: 'foreach ($items as $item) {\n    echo $item;\n}', c: 'for (int i = 0; i < n; i++) {\n    printf("%d\\n", items[i]);\n}', cpp: 'for (int item : items) {\n    std::cout << item << "\\n";\n}', csharp: 'foreach (var item in items) {\n    Console.WriteLine(item);\n}' },
       text: "A for-each loop visits every element once, in order." },
@@ -164,6 +167,14 @@
     { m: /\bwhat does (?:the )?(?:map)(?: method| function)? do\b/, a: "map applies a function to every element and returns the results." },
     { m: /\bwhat does (?:the )?(?:filter)(?: method| function)? do\b/, a: "filter keeps only the elements for which a test function returns true." },
     { m: /\bwhat does (?:the )?(?:reduce)(?: method| function)? do\b/, a: "reduce folds a list into a single value by combining the elements one at a time." },
+    { m: /\bwhat does (?:the )?break(?: statement| keyword)?(?: do)?\b|\bwhat is (?:the )?break(?: statement| keyword)\b/, a: "break ends the loop immediately, and the program continues with the first statement after the loop." },
+    { m: /\bwhat does (?:the )?continue(?: statement| keyword)?(?: do)?\b/, a: "continue skips the rest of the current pass through a loop and jumps to the next iteration." },
+    { m: /\bwhat does (?:the )?pass(?: statement| keyword)?(?: do)?\b/, a: "In Python, pass does nothing — it is a placeholder for a block that must exist but has no code yet." },
+    { m: /\bwhat is (?:a )?primary key\b/, a: "A primary key is a column (or set of columns) whose value uniquely identifies each row in a table; it cannot be null or repeated." },
+    { m: /\bwhat is (?:a )?foreign key\b/, a: "A foreign key is a column that refers to the primary key of another table, linking the two tables." },
+    { m: /\bwhat is (?:a )?(?:pointer)\b/, a: "A pointer is a variable that holds the memory address of another value instead of the value itself." },
+    { m: /\bwhat is (?:a )?(?:compiler)\b/, a: "A compiler translates source code written in a programming language into machine code (or another language) before the program runs." },
+    { m: /\bwhat is (?:an? )?(?:interpreter)\b/, a: "An interpreter reads and executes a program's source code step by step instead of translating it all in advance." },
     { m: /\bwhat does (?:the )?(?:return)(?: statement| keyword)? do\b/, a: "return ends a function and hands a value back to the caller." },
     { m: /\bwhat does (?:the )?(?:import)(?: statement| keyword)? do\b/, a: "import makes code defined in another module available in this file." },
     { m: /\bwhat does (?:the )?(?:console\.log) do\b/, a: "console.log prints a value to the JavaScript console." },
@@ -272,6 +283,10 @@
     /* concept definitions, differences and "what does X do" */
     for (var i = 0; i < CONCEPTS.length; i++) {
       if (CONCEPTS[i].m.test(l)) return { answer: CONCEPTS[i].a, steps: [], schema: "concept", confidence: 0.9 };
+    }
+    /* "what does git X do" and similar: the entry's own text */
+    if (/^(?:what (?:does|is|do)|explain|describe|tell me about)\b/.test(l)) {
+      for (var gi = 0; gi < HOWTO.length; gi++) if (HOWTO[gi].lang === "git" && HOWTO[gi].m.test(l)) return { answer: HOWTO[gi].text + "\n" + fence("bash", HOWTO[gi].code.bash), steps: [], schema: "howto", confidence: 0.88, language: "bash" };
     }
     /* "how do I ..." idioms */
     if (!/\b(?:how|write|show|give|create|make|use|declare|define|read|open|print|sort|loop|iterate|get|convert|parse|handle|reverse|remove|find|check)\b/.test(l)) return null;

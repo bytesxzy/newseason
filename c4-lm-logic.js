@@ -122,8 +122,8 @@
   }
   function kind(w) {
     w = String(w || "").toLowerCase().trim();
-    var s = stem(w);
-    if (ISA[w] || ISA[s]) return ISA[w] ? w : s;
+    var s = stem(w), alts = [w, s, w.replace(/s$/, ""), w.replace(/es$/, ""), w.replace(/ies$/, "y")];
+    for (var i = 0; i < alts.length; i++) if (alts[i] && Object.prototype.hasOwnProperty.call(ISA, alts[i])) return alts[i];
     return null;
   }
   function allKinds() { return Object.keys(ISA); }
@@ -365,12 +365,12 @@
     if (stmt) {
       var inner = stmt[1];
       var m2 = inner.match(/^(?:all|every|each)\s+([a-z ]+?)\s+(?:is|are)\s+(?:a |an )?([a-z ]+)$/);
-      if (m2) { var a = kind(normNP(m2[1])), b = kind(normNP(m2[2])); if (a && b) { var yes = isa(a, b); return res(yes ? "Yes — that's true: every " + a + " is a " + b + "." : "No — that's false: not every " + a + " is a " + b + ".", [], "taxonomy"); } }
+      if (m2) { var a = kind(m2[1].trim()) || kind(normNP(m2[1])), b = kind(m2[2].trim()) || kind(normNP(m2[2])); if (a && b) { var yes = isa(a, b); return res(yes ? "Yes — that's true: every " + a + " is a " + b + "." : "No — that's false: not every " + a + " is a " + b + ".", [], "taxonomy"); } }
       return null;
     }
     if (/\b(?:disproved?|refuted?|falsified?|contradicted)\b/.test(l) && /\b(?:all|every)\b/.test(l) && /\b(?:one|a single|a|an)\b/.test(l)) return res("Yes — a single counterexample is enough to disprove a universal claim.", [], "logic");
     if ((m = l.match(/^(?:are|is) (?:all|every|each) ([a-z ]+?) (?:a |an )?([a-z]+)$/))) {
-      var ka = kind(normNP(m[1])), kb = kind(normNP(m[2]));
+      var ka = kind(m[1].trim()) || kind(normNP(m[1])), kb = kind(m[2].trim()) || kind(normNP(m[2]));
       if (ka && kb) {
         if (isa(ka, kb)) return res("Yes — every " + ka + " is a " + kb + ".", [], "taxonomy");
         if (isa(kb, ka)) return res("No — not every " + ka + " is a " + kb + "; every " + kb + " is a " + ka + ", but not the other way round.", [], "taxonomy");
@@ -379,7 +379,7 @@
       }
     }
     if ((m = l.match(/^(?:is|are) (?:a |an |the )?([a-z ]+?) (?:a |an )([a-z ]+)$/))) {
-      var xa = kind(normNP(m[1])), xb = kind(normNP(m[2]));
+      var xa = kind(m[1].trim()) || kind(normNP(m[1])), xb = kind(m[2].trim()) || kind(normNP(m[2]));
       if (xa && xb) {
         if (isa(xa, xb)) return res("Yes — a " + xa + " is a " + xb + ".", [], "taxonomy");
         if (taxDisjoint(xa, xb)) {
@@ -409,7 +409,7 @@
     var rules = [], facts = [], pre = ss.slice(0, qIdx), qs = ss[qIdx], m;
     pre.forEach(function (s) {
       var low = s.replace(/[.!]+$/, "");
-      if ((m = low.match(/^if (.+?)(?:,\s*|\s+then\s+|\s+)((?:the|a|an|it|they|he|she|we|you|i|there)\b.+)$/i)) || (m = low.match(/^(.+?),?\s+if\s+(.+)$/i) && [null, RegExp.$2, RegExp.$1])) {
+      if ((m = low.match(/^if (.+?),\s*(?:then\s+)?(.+)$/i)) || (m = low.match(/^if (.+?)(?:\s+then\s+|\s+)((?:the|a|an|it|they|he|she|we|you|i|there)\b.+)$/i)) || (m = low.match(/^(.+?),?\s+if\s+(.+)$/i) && [null, RegExp.$2, RegExp.$1])) {
         rules.push({ p: litOf(m[1]), q: litOf(m[2]), raw: low.charAt(0).toLowerCase() + low.slice(1) });
       } else if ((m = low.match(/^(?:whenever|when)\s+(.+?),\s*(.+)$/i))) {
         rules.push({ p: litOf(m[1]), q: litOf(m[2]), raw: low.charAt(0).toLowerCase() + low.slice(1) });
@@ -589,9 +589,17 @@
     }
     if ((m = t.match(new RegExp("\\b" + NUMW + " months? (before|after) " + monRe))) && /what month|which month/.test(t)) { var k7 = n(m[1]); if (k7 !== null) return res(cap(MONTHS[mod(MONTHS.indexOf(m[3]) + (m[2] === "before" ? -1 : 1) * k7, 12)]), [], "calendar"); }
     if ((m = t.match(/\bwhat is the (\w+) (month|day) of the (year|week)\b/)) && m[2] === "month" && m[3] === "year") { var k8 = num(m[1]); if (k8 && k8 <= 12) return res(cap(MONTHS[k8 - 1]), [], "calendar"); }
-    if ((m = t.match(new RegExp("\\bhow many days (?:are )?(?:there )?in " + monRe))) && !/year/.test(t)) {
+    if ((m = t.match(new RegExp("\\bhow many days (?:are )?(?:there )?in " + monRe)))) {
       var dn = MDAYS[m[1]];
-      return res(m[1] === "february" ? "28 days (29 in a leap year)" : dn + " days", [], "calendar");
+      if (m[1] === "february") return res(/leap/.test(t) ? "29 days" : (/regular|normal|common|non-leap|ordinary|usual/.test(t) ? "28 days" : "28 days (29 in a leap year)"), [], "calendar");
+      return res(dn + " days", [], "calendar");
+    }
+    if ((m = t.match(/\bhow many months (?:of the year )?(?:have|has|contain|with) (\d+) days\b/))) {
+      var nd = +m[1];
+      if (nd === 31) return res("7 months have 31 days: January, March, May, July, August, October and December.", [], "calendar");
+      if (nd === 30) return res("4 months have 30 days: April, June, September and November.", [], "calendar");
+      if (nd === 28) return res("All 12 months have at least 28 days; only February has exactly 28 (29 in a leap year).", [], "calendar");
+      if (nd === 29) return res("Only February in a leap year has 29 days.", [], "calendar");
     }
     if ((m = t.match(/\bhow many (?:days|months|weeks|hours|minutes|seconds) (?:are )?(?:there )?in (?:a|one) (leap year|year|week|day|month|hour|minute)\b/)) && /how many/.test(t)) {
       var what = (t.match(/how many (days|months|weeks|hours|minutes|seconds)/) || [])[1];
@@ -807,7 +815,7 @@
   /* classic riddles whose answer is a careful reading of the words */
   function riddles(text) {
     var l = clean(text).toLowerCase(), m;
-    if ((m = l.match(/\b(\d+|[a-z]+)\s+(?:sheep|cows|chickens|hens|animals|birds|fish|horses|pigs|dogs|cats|apples|people|students|goats|ducks)\b[^.?]*?\ball but (\d+|[a-z]+)\b/)) && /how many/.test(l)) { var v = num(m[2]); if (v !== null) return res(String(v), ["\"all but " + v + "\" leaves " + v], "riddle"); }
+    if ((m = l.match(/\b(\d+|[a-z]+)\s+(?:sheep|cows|chickens|hens|animals|birds|fish|horses|pigs|dogs|cats|apples|people|students|goats|ducks|rabbits|pigeons|cookies|marbles|candles|balloons)\b[^?]*?\ball but (\d+|[a-z]+)\b/)) && /how many/.test(l)) { var v = num(m[2]); if (v !== null) return res(String(v), ["\"all but " + v + "\" leaves " + v], "riddle"); }
     if (/\bhow many months\b.*\b(?:28|twenty-eight)\b/.test(l)) return res("All 12 months have at least 28 days.", [], "riddle");
     if ((m = l.match(/\b(\d+|[a-z]+) (?:apples?|cookies?|oranges?|coins?|pens?|books?|cakes?|sweets?|candies)\b[^.?]*\byou take (?:away )?(\d+|[a-z]+)\b[^.?]*\bhow many (?:[a-z]+ )?(?:do|would) you have\b/)) || (m = l.match(/\b(\d+|[a-z]+) (?:apples?|cookies?|oranges?|coins?|pens?|books?|cakes?|sweets?|candies)\b[^.?]*\byou take (\d+|[a-z]+) away\b[^.?]*\bhow many (?:[a-z]+ )?(?:do|would) you have\b/))) { var tk = num(m[2]); if (tk !== null) return res(tk + " — the ones you took.", [], "riddle"); }
     if (/\b(?:heavier|weighs more|weigh more|heavy)\b/.test(l) && (m = l.match(/\b(?:a |an |one )?(kilogram|kilo|pound|ton|ounce|gram|stone)s? of ([a-z]+)\b[^.?]*\b(?:or|and) (?:a |an |one )?(kilogram|kilo|pound|ton|ounce|gram|stone)s? of ([a-z]+)\b/)) && m[1].replace("kilo", "kilogram") === m[3].replace("kilo", "kilogram")) return res("They weigh the same — a " + m[1] + " of " + m[2] + " and a " + m[3] + " of " + m[4] + " are the same weight.", [], "riddle");

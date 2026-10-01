@@ -53,7 +53,7 @@
     { id: "reverse-array", needs: ["array"],
       markers: [/\brevers\w+\s+(?:an?\s+)?(?:array|list)/i] },
     { id: "sum", needs: ["array"],
-      markers: [/\bsum\s+(?:of\s+)?(?:an?\s+)?(?:array|list|numbers)/i, /\badd\s+up\b/i, /\btotal\s+of\s+(?:an?\s+)?(?:array|list)/i] },
+      markers: [/\bsum\s+(?:of\s+)?(?:an?\s+)?(?:array|list|numbers)/i, /\bsums?\s+(?:up\s+)?(?:an?\s+|the\s+)?(?:array|list|numbers)/i, /\badd\s+up\b/i, /\btotal\s+of\s+(?:an?\s+)?(?:array|list)/i] },
     { id: "average", needs: ["array"],
       markers: [/\b(?:average|mean)\s+of\s+(?:an?\s+)?(?:array|list|numbers)/i] },
     { id: "max", needs: ["array"],
@@ -81,6 +81,8 @@
                 /\bnumber\s+of\s+\w+\s+(?:per|by|in each)\b/i, /\bhow many\s+\w+\s+(?:per|by|in each)\b/i] },
     { id: "top-n", needs: ["table"],
       markers: [/\btop\s+\d+\b/i, /\bhighest\s+\w+\b/i, /\blargest\s+\d+\b/i, /\bfirst\s+\d+\s+\w+\s+by\b/i] },
+    { id: "count-rows", needs: ["table"],
+      markers: [/\bcount\w*\s+(?:all\s+|the\s+)?(?:number\s+of\s+)?rows?\b/i, /\bhow many rows\b/i, /\bnumber of rows\b/i] },
     { id: "select-where", needs: ["table"],
       markers: [/\bselect\b.*\bwhere\b/i, /\bfind\s+(?:all\s+)?\w+\s+(?:where|with|whose)\b/i] },
     { id: "http-get", needs: [],
@@ -139,6 +141,11 @@
         language: "sql",
         explain: "Groups every row in " + s.table + " by " + g + " and counts the rows in each group, " +
                  "largest group first." };
+    }
+    if (opId === "count-rows") {
+      var low2 = frame.lower, tm = low2.match(/\btable\s+(?:named|called)\s+([a-z_]+)\b/) || low2.match(/\b(?:in|from|of)\s+(?:the\s+)?(?:table\s+)?([a-z_]+)\s*$/) || low2.match(/\b(?:in|from)\s+(?:the\s+)?([a-z_]+)\s+table\b/);
+      var tbl = tm ? tm[1] : s.table;
+      return { code: "SELECT COUNT(*) FROM " + tbl + ";", language: "sql", explain: "COUNT(*) counts every row in " + tbl + "." };
     }
     if (opId === "top-n") {
       var n = s.limit || 5, o = s.order || "salary";

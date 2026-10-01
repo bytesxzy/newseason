@@ -33,7 +33,7 @@
       var w = toks[i], lw = w.toLowerCase().replace(/[^a-z-]/g, "");
       var parts = lw.split("-");
       var isNum = function (x) { return ONES[x] !== undefined || TENS[x] !== undefined || SCALE[x] !== undefined; };
-      if (lw && parts.every(isNum) && !(lw === "one" && (/^(?:of|another|or|day|time|which|that|who|to)$/i.test((toks[i + 2] || "").replace(/[^a-z]/gi, "")) || /[.,;:!?]$/.test(w))) ) {
+      if (lw && parts.every(isNum) && !(lw === "one" && (/^(?:of|another|or|day|time|which|that|who|to|is|was|has|had|can|will|would|could|should|does|did|must|may|might|more|less|fewer|than|plus|minus|equals|and|but|as|must|number|numbers|side|sides|angle|angles)$/i.test((toks[i + 2] || "").replace(/[^a-z]/gi, "")) || /[.,;:!?]$/.test(w))) ) {
         var total = 0, cur = 0, j = i, consumed = false, tail = w.match(/[^A-Za-z-]+$/);
         while (j < toks.length) {
           var piece = toks[j].toLowerCase().replace(/[^a-z-]/g, "");
@@ -403,7 +403,8 @@
     return out;
   }
   var ROLE = /\b(?:his|her|their|the|my|our)\s+(son|daughter|father|mother|brother|sister|friend|uncle|aunt|grandfather|grandmother|grandson|granddaughter|cousin|nephew|niece|husband|wife|teacher|student|boy|girl)\b/gi;
-  function roleFix(t) { return t.replace(ROLE, function (m, r) { return r.charAt(0).toUpperCase() + r.slice(1).toLowerCase(); }); }
+  var ROLE_APPOS = new RegExp(ROLE.source.replace(/\)\\b$/, ")") + "\\s+(?=[A-Z][a-z]+)", "gi");
+  function roleFix(t) { return t.replace(ROLE_APPOS, "").replace(ROLE, function (m, r) { return r.charAt(0).toUpperCase() + r.slice(1).toLowerCase(); }); }
   function linear(S) {
     var all = roleFix(S.all), q = roleFix(S.question);
     var ql = q.toLowerCase();
@@ -521,7 +522,8 @@
     /* N total, P% are X: how many X */
     if ((m = all.match(/(\d+(?:\.\d+)?)\s+([a-z]+)[^.?!]*?(\d+(?:\.\d+)?)%\s+(?:are|were|is|of them)/i)) && ns.length === 2 && /\bhow many\b/.test(q)) {
       var cnt = +m[1] * +m[3] / 100, rest = +m[1] - cnt;
-      var askRest = /(?:not|other|rest|remaining|girls|women|left)/.test(q) && !/\bboys?|men\b/.test(q);
+      var gw = (all.match(/(\d+(?:\.\d+)?)%\s+(?:are|were|is|of them are|of them were)\s+([a-z]+)/i) || [])[2], qn = (q.match(/\bhow many\s+([a-z]+)/) || [])[1];
+      var askRest = gw && qn ? stemN(gw.toLowerCase()) !== stemN(qn) && !/\b(?:students|people|children|kids|items|animals|members|pupils)\b/.test(qn) : /(?:not|other|rest|remaining|girls|women|left)/.test(q) && !/\bboys?|men\b/.test(q);
       return result(askRest ? rest : cnt, "", [m[3] + "% of " + m[1] + " = " + nice(cnt)], "percent");
     }
     /* "tank holds N and is P% full" */
@@ -737,6 +739,11 @@
   };
   var ATTR_ALIAS = { vertices: "vertex", faces: "face", sides: "side", legs: "leg", wheels: "wheel", eyes: "eye", ears: "ear", hands: "hand", arms: "arm", fingers: "finger", toes: "toe", wings: "wing", corners: "corner", edges: "edge", petals: "petal", tires: "tire", teeth: "tooth", windows: "window" };
 
+  var MEASURE_STEMS = { second: 1, minute: 1, hour: 1, day: 1, week: 1, month: 1, year: 1, millimeter: 1, centimeter: 1, meter: 1, kilometer: 1, inch: 1, foot: 1, yard: 1, mile: 1,
+    gram: 1, kilogram: 1, pound: 1, ounce: 1, milligram: 1, tonne: 1, liter: 1, milliliter: 1, gallon: 1, quart: 1, pint: 1, cup: 1 };
+  var CONV = { length: { millimeter: 0.001, centimeter: 0.01, meter: 1, kilometer: 1000, inch: 0.0254, foot: 0.3048, yard: 0.9144, mile: 1609.344 },
+    mass: { milligram: 1e-6, gram: 0.001, kilogram: 1, pound: 0.45359237, ounce: 0.028349523, tonne: 1000 },
+    volume: { milliliter: 0.001, liter: 1, gallon: 3.785411784, quart: 0.946352946, pint: 0.473176473, cup: 0.2365882365 } };
   function uMul(a, b, sign) {
     var o = {}, k; for (k in a) o[k] = a[k];
     for (k in b) { o[k] = (o[k] || 0) + (sign || 1) * b[k]; if (!o[k]) delete o[k]; }
@@ -761,6 +768,7 @@
     }
     if (!words.length) return "";
     if (/^(?:dollar|euro|cent|buck)$/.test(words[0])) return words[0];
+    if (MEASURE_STEMS[ustem(words[0])]) return words[0];
     if (words.length > 1 && /[^s]s$/.test(words[0]) && !/^(?:this|his|its|yes|bus|gas|plus|class|glass|grass|dress|boss|cross)$/.test(words[0])) return words[0];
     return words[words.length - 1];
   }
@@ -824,6 +832,27 @@
       var u7 = {}; u7[mu] = 1; u7[ustem(m[1])] = -1;
       push(+m[2], u7, m.index, m.index + m[0].length + (/^\s*each\b/i.test(seg.slice(m.index + m[0].length)) ? seg.slice(m.index + m[0].length).match(/^\s*each/i)[0].length : 0), { rate: true });
     }
+    /* "6 rows of 8 chocolates": N groups, M things in each */
+    re = /(\d+(?:\.\d+)?)\s+(rows?|groups?|boxes|box|bags?|packs?|packets?|teams?|baskets?|trays?|shelves|shelf|piles?|plates?|sets?|bunches|bunch|bundles?|crates?|cartons?|dozens?|rounds?|pairs?|classes|class|tables?|cars?|buses|bus|bottles?|jars?|cups?|pots?|vases?|stacks?|columns?|lines?)\s+of\s+(\d+(?:\.\d+)?)\s+([A-Za-z]+)/gi;
+    while ((m = re.exec(seg))) {
+      if (isClaimed(m.index)) continue;
+      var cont = ustem(m[2]), thing = ustem(m[4]);
+      if (NOUN_STOP.test(m[4]) || !thing) continue;
+      var uc = {}; uc[cont] = 1;
+      var ur = {}; ur[thing] = 1; ur[cont] = -1;
+      var firstEnd = m.index + m[1].length + 1 + m[2].length;
+      push(+m[1], uc, m.index, firstEnd, {});
+      push(+m[3], ur, firstEnd, m.index + m[0].length, { rate: true });
+    }
+    /* "pens in packs of 12": the container size, with the thing named before or after */
+    re = /(?:\b([A-Za-z]+)\s+(?:in|into|per)\s+)?\b(packs?|packets?|boxes|box|bags?|bundles?|sets?|cartons?|crates?|trays?|dozens?|rolls?|bottles?|cases?)\s+of\s+(\d+(?:\.\d+)?)(?:\s+([A-Za-z]+))?/gi;
+    while ((m = re.exec(seg))) {
+      if (isClaimed(m.index)) continue;
+      var thing2 = m[1] && !NOUN_STOP.test(m[1]) ? ustem(m[1]) : (m[4] && !NOUN_STOP.test(m[4]) ? ustem(m[4]) : "");
+      if (!thing2 || TIME_STEMS[thing2]) continue;
+      var ur2 = {}; ur2[thing2] = 1; ur2[ustem(m[2])] = -1;
+      push(+m[3], ur2, m.index, m.index + m[0].length, { rate: true });
+    }
     /* "N A on/in each B" and "N A each" */
     re = /(\d+(?:\.\d+)?)\s+([A-Za-z]+)\s+(?:on|in|for|to|into|inside|at)\s+(?:each|every|one)\s+([A-Za-z]+)/gi;
     while ((m = re.exec(seg))) {
@@ -840,7 +869,7 @@
     re = /\b(?:each|every|a|an|one)\s+([A-Za-z]+)\s+(?:holds?|has|have|contains?|carries|seats?|fits|can hold|can carry|costs?|weighs?|takes?|uses?)\s+(\$)?(\d+(?:\.\d+)?)(?:\s+([A-Za-z]+))?/gi;
     while ((m = re.exec(seg))) {
       if (isClaimed(m.index)) continue;
-      if (/^(?:an?|one)\b/i.test(m[0]) && !new RegExp("\\d\\s+" + ustem(m[1]) + "(?:s|es)?\\b", "i").test(fullText || "")) continue;
+      if (/^(?:an?|one)\b/i.test(m[0]) && !new RegExp("\\d\\s+" + ustem(m[1]) + "(?:s|es)?\\b", "i").test(fullText || "") && !new RegExp("how (?:many|much)\\s+" + ustem(m[1]) + "(?:s|es)?\\b|(?:each|every|per|one)\\s+" + ustem(m[1]) + "\\b", "i").test(fullText || "")) continue;
       var ent = ustem(m[1]), nn = m[2] ? D : (m[4] && !NOUN_STOP.test(m[4]) ? ustem(m[4]) : "?");
       var u5 = {}; u5[nn] = 1; u5[ent] = -1;
       push(+m[3], u5, m.index, m.index + m[0].length, { rate: true, wild: nn === "?" });
@@ -853,6 +882,7 @@
       /* "N X cost $P" is a total, not a price per X */
       var before = seg.slice(0, m.index).match(/(\d+(?:\.\d+)?)\s*(?:[A-Za-z]+\s+){0,1}$/);
       if (before) continue;
+      if (/^(?:an?|one)\b/i.test(m[0].trim()) && !new RegExp("\\d\\s+(?:[a-z]+\\s+)?" + ustem(m[1]) + "(?:s|es)?\\b|how (?:many|much)\\s+(?:[a-z]+\\s+)?" + ustem(m[1]) + "(?:s|es)?\\b|(?:each|every|per|one)\\s+" + ustem(m[1]) + "\\b", "i").test(fullText || "")) continue;
       push(+m[2], u6, m.index, m.index + m[0].length, { rate: true });
     }
     /* generic: a number followed by a unit noun */
@@ -898,6 +928,15 @@
       return { type: "per", den: ustem(m[1]) };
     }
     if (/\bhow (?:many|much)\b[^?]*?\beach\s+(?:one\s+)?(?:get|gets|receive|receives|pay|pays|earn|earns|have|has|eat|eats|take|takes|owe|owes|contribute|contributes)\b/.test(ql)) return { type: "per", den: null };
+    if ((m = ql.match(/\bhow (?:many|much)\s+([a-z]+)\s+per\s+([a-z]+)\b/)) && !NOUN_STOP.test(m[1])) {
+      u = {}; u[ustem(m[1])] = 1; u[ustem(m[2])] = -1; return { type: "unit", u: u };
+    }
+    if ((m = ql.match(/\bhow (?:many|much)\s+([a-z]+)\b[^?]*?\b(?:in|on|per|for|to|at|into)\s+(?:each|every|one|a|an)\s+([a-z]+)\b/)) && !NOUN_STOP.test(m[1]) && m[2] !== m[1] && /\b(?:each|every)\b/.test(ql)) {
+      u = {}; u[ustem(m[1])] = 1; u[ustem(m[2])] = -1; return { type: "unit", u: u };
+    }
+    if ((m = ql.match(/\bhow much\s+(?:is|are|does|do|will|would)?\s*(?:be\s+)?(?:each|every)\s+([a-z]+)\b/)) && !NOUN_STOP.test(m[1])) {
+      u = { dollar: 1 }; u[ustem(m[1])] = -1; return { type: "unit", u: u };
+    }
     if (/\bhow (?:far|much distance)\b|\bwhat (?:distance)\b/.test(ql)) return { type: "dim", dim: "length" };
     if (/\bhow long (?:does|will|would|did|is it going to|should)\b[^.]*?\b(?:take|last|need|ride|walk|run|drive|travel|wait)\b|\bhow long (?:will|would|does)\b/.test(ql)) return { type: "dim", dim: "time" };
     if (/\bhow long (?:is|are)\b|\bhow (?:wide|tall|high|deep)\b/.test(ql)) return { type: "dim", dim: "length" };
@@ -948,7 +987,7 @@
     if (quants.length < 1 || quants.length > 7) return null;
     var tgt = targetOf2(q, quants);
     if (!tgt) return null;
-    if (ratedOnly && !quants.some(function (x) { return x.rate || (x.frac && !/\b(?:left|remain\w*|rest|still)\b/.test(q.toLowerCase())); }) && !(tgt.type === "per" || tgt.type === "dim") && !(ATTR_ALIAS[(q.toLowerCase().match(/\bhow many ([a-z]+)\b/) || [])[1]] || ATTR[(q.toLowerCase().match(/\bhow many ([a-z]+)\b/) || [])[1]])) {
+    if (ratedOnly && !(tgt.type === "unit" && Object.keys(tgt.u).some(function (k) { return tgt.u[k] < 0; })) && !quants.some(function (x) { return x.rate || (x.frac && !/\b(?:left|remain\w*|rest|still)\b/.test(q.toLowerCase())); }) && !(tgt.type === "per" || tgt.type === "dim") && !(ATTR_ALIAS[(q.toLowerCase().match(/\bhow many ([a-z]+)\b/) || [])[1]] || ATTR[(q.toLowerCase().match(/\bhow many ([a-z]+)\b/) || [])[1]])) {
       var pure = quants.length === 1 && TIME_STEMS[uSingle(quants[0].u)] && tgt.type === "unit" && TIME_STEMS[uSingle(tgt.u)];
       if (!pure) return null;
     }
@@ -983,7 +1022,9 @@
     var rateT = {};
     quants.forEach(function (x) { Object.keys(x.u).forEach(function (k) { if (x.u[k] < 0 && TIME_STEMS[k]) rateT[k] = 1; }); });
     var rts = Object.keys(rateT), tt = tgt.type === "unit" && uSingle(tgt.u) && TIME_STEMS[uSingle(tgt.u)] ? uSingle(tgt.u) : null;
-    var wantT = rts.length === 1 ? rts[0] : tt;
+    var askTm = ql.match(/\bper (hour|minute|second|day)\b|\bin (?:km|kilometers?|miles?|meters?|metres?|feet) per (hour|minute|second)\b/);
+    var askT = (askTm && (askTm[1] || askTm[2])) || (/\b(?:km\/h|kph|mph)\b/.test(ql) ? "hour" : (/\bm\/s\b/.test(ql) ? "second" : null));
+    var wantT = rts.length === 1 ? rts[0] : (tt || ((tgt.type === "dim" && tgt.dim === "speed") ? askT : null));
     if (wantT) quants.forEach(function (x) {
       var s = uSingle(x.u);
       if (s && TIME_STEMS[s] && s !== wantT) {
@@ -991,6 +1032,20 @@
         if (f !== null) { notes.push("1 " + s + " = " + nice(f) + " " + plural(wantT, f)); x.v = x.v * f; var nu = {}; nu[wantT] = 1; x.u = nu; }
       }
     });
+    var convDone = false;
+    if (tgt.type === "unit" && uSingle(tgt.u)) {
+      var tU = uSingle(tgt.u);
+      Object.keys(CONV).forEach(function (cat) {
+        if (CONV[cat][tU] === undefined) return;
+        quants.forEach(function (x) {
+          var su = uSingle(x.u);
+          if (su && su !== tU && CONV[cat][su] !== undefined && !x.rate) {
+            var fct = CONV[cat][su] / CONV[cat][tU];
+            convDone = true; notes.push("1 " + su + " = " + nice(fct) + " " + plural(tU, fct)); x.v = x.v * fct; var nu2 = {}; nu2[tU] = 1; x.u = nu2;
+          }
+        });
+      });
+    }
     if (!rts.length && !tt && tgt.type === "dim" && tgt.dim === "time") {
       /* "how long ... " with durations in several units: bring to the smallest */
     }
@@ -1085,13 +1140,29 @@
       if (scenery) { collect(req & ~scenery, 5); }
     }
     if (!cands.length) return null;
-    if (items.filter(function (x) { return !x.optional; }).length < 2 && (!notes.length || (!attrKey && !/\b(?:in|into|to|per|equal|equals|make|makes|worth)\b/.test(ql)))) return null;
+    if (items.filter(function (x) { return !x.optional; }).length < 2 && (!notes.length || (!attrKey && !convDone && !/\b(?:in|into|to|per|equal|equals|make|makes|worth)\b/.test(ql)))) return null;
     cands.sort(function (x, y) { return x.score - y.score; });
     var best = cands[0], tied = cands.filter(function (c) { return Math.abs(c.score - best.score) < 1e-9 && Math.abs(c.value - best.value) > 1e-9; });
     if (tied.length) {
       /* prefer the reading that agrees with the cue words */
       var pref = cands.filter(function (c) { return Math.abs(c.score - best.score) < 1e-9; });
       var narrowed = pref.filter(function (c) { return cfg.sub && !totalCue ? c.e.subs > 0 : (totalCue ? c.e.subs === 0 : true); });
+      if (items.some(function (x) { return x.frac && x.v > 0 && x.v < 1; }) && narrowed.length > 1) {
+        var mults = narrowed.filter(function (c) { return c.e.div === 0; });
+        if (mults.length) narrowed = mults;
+      }
+      if (cfg.sub && !totalCue && narrowed.length > 1) {
+        var sameUnit = items.filter(function (x) { return !x.optional; }).every(function (x, ix, arr) { return uKey(x.u) === uKey(arr[0].u); });
+        if (sameUnit && items.length >= 3) {
+          var firstMinusRest = items[0].v - items.slice(1).reduce(function (a, x) { return a + x.v; }, 0);
+          var hit0 = narrowed.filter(function (c) { return Math.abs(c.value - firstMinusRest) < 1e-9; });
+          if (hit0.length) narrowed = hit0;
+        }
+      }
+      if (cfg.sub && !totalCue && narrowed.length > 1) {
+        var bestNet = Math.max.apply(null, narrowed.map(function (c) { return c.e.subs - c.e.add; }));
+        narrowed = narrowed.filter(function (c) { return c.e.subs - c.e.add === bestNet; });
+      }
       var vals = {}; narrowed.forEach(function (c) { vals[nice(c.value)] = c; });
       if (Object.keys(vals).length !== 1) return null;
       best = narrowed[0];
@@ -1106,6 +1177,11 @@
   function geoInverse(S) {
     var t = S.all.toLowerCase(), q = geoQ(S.question), m;
     var ns = numbersIn(S.givens.join(" "));
+    if (/\bsquare\b/.test(t) && !/\bsquare (?:feet|meters?|metres?|inches|units|miles|kilomet|centimet|yards)\b/.test(t) && ns.length === 1) {
+      var pm2 = t.match(/\bperimeter\b[^0-9.]*?(\d+(?:\.\d+)?)/), am2 = t.match(/\barea\b[^0-9.]*?(\d+(?:\.\d+)?)/);
+      if (pm2 && /\barea\b/.test(q)) { var sd2 = +pm2[1] / 4; return result(sd2 * sd2, "", ["side = " + pm2[1] + " ÷ 4 = " + nice(sd2), "area = " + nice(sd2) + "² = " + nice(sd2 * sd2)], "geometry"); }
+      if (am2 && /\bperimeter\b/.test(q)) { var sq3 = Math.sqrt(+am2[1]); if (Number.isInteger(sq3)) return result(4 * sq3, "", ["side = √" + am2[1] + " = " + sq3, "perimeter = 4 × " + sq3], "geometry"); }
+    }
     var wantM = q.match(/\b(length|width|breadth|side|height|base|radius|diameter)\b/);
     /* sides listed: "a triangle has sides 7, 8 and 9. What is its perimeter?" */
     if (/\bperimeter\b/.test(q) && /\bsides?\b/.test(t) && ns.length >= 3 && !/\b(?:each|every|regular|equal)\b/.test(t)) {
@@ -1305,6 +1381,14 @@
       if (/\b(?:smaller|lesser|less|smallest)\b/.test(ql)) return result(small, "", [(s + " − " + d) + " ÷ 2 = " + nice(small)], "puzzle");
       return result(big + " and " + small, "", [], "puzzle", { text: nice(big) + " and " + nice(small) });
     }
+    var sm = t.match(/(?:sum|total|add up to|adds up to|add to|adds to|together)[^0-9.]*(\d+(?:\.\d+)?)/);
+    var km = t.match(/\bone (?:number |of them )?(?:is )?(twice|double|triple|thrice|half|(\d+(?:\.\d+)?) times)(?: as (?:much|big|large|many) as| of)? the other\b/);
+    if (sm && km) {
+      var K0 = km[2] ? +km[2] : { twice: 2, double: 2, triple: 3, thrice: 3, half: 0.5 }[km[1]], T0 = +sm[1];
+      var small = T0 / (1 + K0), big = small * K0, hi = Math.max(small, big), lo = Math.min(small, big);
+      if (/\b(?:larger|greater|bigger|greatest|biggest)\b/.test(ql)) return result(hi, "", [T0 + " \u00f7 (1 + " + nice(K0) + ") = " + nice(small)], "puzzle");
+      if (/\b(?:smaller|lesser|least|smallest)\b/.test(ql)) return result(lo, "", [T0 + " \u00f7 (1 + " + nice(K0) + ") = " + nice(small)], "puzzle");
+    }
     var X = lin(1, 0);
     function K(v) { return lin(0, v); }
     function add(p, r) { return lin(p.a + r.a, p.b + r.b); }
@@ -1416,9 +1500,51 @@
     return result(val, "", [X + " + " + Y + " = " + T, X + " − " + Y + " = " + (big ? "+" : "−") + D, "so " + (asked === "X" ? X : Y) + " = " + nice(val)], "puzzle", isMoney ? { money: true, text: val < 1 && val > 0 ? nice(Math.round(val * 100)) + " cents (" + money(val) + ")" : money(val) } : {});
   }
 
+
+  /* ---- a fraction of a number: "what is 2/3 of 45", "three quarters of 80" */
+  function fractionOfNumber(S) {
+    var q = S.all.toLowerCase().replace(/[?]/g, ""), m;
+    if (S.givens.length > 1) return null;
+    var WORDF = { half: [1, 2], third: [1, 3], quarter: [1, 4], fourth: [1, 4], fifth: [1, 5], sixth: [1, 6], eighth: [1, 8], tenth: [1, 10], thirds: [1, 3], quarters: [1, 4], fifths: [1, 5] };
+    if ((m = q.match(/\bwhat is (\d+)\s*\/\s*(\d+) of (\d+(?:\.\d+)?)\b/))) {
+      var v = +m[1] / +m[2] * +m[3];
+      return result(v, "", [m[1] + "/" + m[2] + " × " + m[3] + " = " + nice(v)], "fraction");
+    }
+    if ((m = q.match(/\bwhat is (?:(\d+)|an?|one) (half|third|quarter|fourth|fifth|sixth|eighth|tenth|thirds|quarters|fifths) of (\d+(?:\.\d+)?)\b/))) {
+      var f = WORDF[m[2]], num = m[1] ? +m[1] : 1, v2 = num * f[0] / f[1] * +m[3];
+      return result(v2, "", [num + "/" + f[1] + " × " + m[3] + " = " + nice(v2)], "fraction");
+    }
+    return null;
+  }
+
+  /* ---- the missing angle of a triangle or quadrilateral, complements and supplements */
+  function angles(S) {
+    var t = S.all.toLowerCase(), q = S.question.toLowerCase(), m;
+    var ns = numbersIn(S.givens.join(" ")).filter(function (n) { return !/^(?:angles?|sides?|numbers?)$/.test(n.unit); });
+    if (!/\bangles?\b/.test(t) || !/\b(?:missing|third|fourth|remaining|other|last|what is|find|how many degrees|how big)\b/.test(q)) return null;
+    var total = /\btriangle\b/.test(t) ? 180 : (/\b(?:quadrilateral|rectangle|square|parallelogram|trapezoid|rhombus)\b/.test(t) ? 360 : (/\bpentagon\b/.test(t) ? 540 : (/\bhexagon\b/.test(t) ? 720 : null)));
+    if (total !== null && ns.length >= 2) {
+      var vals = ns.filter(function (n) { return n.v < total; }).map(function (n) { return n.v; });
+      if (vals.length === ns.length) { var rest = total - vals.reduce(function (a, b) { return a + b; }, 0); if (rest > 0) return result(rest, "", [total + " − (" + vals.join(" + ") + ") = " + nice(rest)], "geometry", { text: nice(rest) + " degrees" }); }
+    }
+    if (ns.length === 1 && /\bcomplement(?:ary)?\b/.test(t)) return result(90 - ns[0].v, "", ["90 − " + nice(ns[0].v)], "geometry", { text: nice(90 - ns[0].v) + " degrees" });
+    if (ns.length === 1 && /\bsupplement(?:ary)?\b/.test(t)) return result(180 - ns[0].v, "", ["180 − " + nice(ns[0].v)], "geometry", { text: nice(180 - ns[0].v) + " degrees" });
+    return null;
+  }
+  /* ---- walking north and east: how far from the start */
+  function displacement(S) {
+    var t = S.all.toLowerCase(), q = S.question.toLowerCase();
+    if (!/\bhow far\b[^?]*\b(?:from|away from|is (?:he|she|it|they) from)\b|\bstraight[- ]line distance\b|\bdistance (?:from|between) (?:the )?(?:start|starting|origin|home)\b/.test(q)) return null;
+    var dx = 0, dy = 0, found = 0, re = /(\d+(?:\.\d+)?)\s*(?:km|kilometers?|miles?|meters?|metres?|m|blocks?|steps?|feet|ft|yards?)?\s*(?:to the\s+)?(north|south|east|west)\b/g, m;
+    var usedNums = 0;
+    while ((m = re.exec(t))) { var v = +m[1]; found++; usedNums++; if (m[2] === "north") dy += v; else if (m[2] === "south") dy -= v; else if (m[2] === "east") dx += v; else dx -= v; }
+    if (found < 2 || usedNums !== numbersIn(S.all).length) return null;
+    var d = Math.sqrt(dx * dx + dy * dy);
+    return result(d, "", ["√(" + nice(dx) + "² + " + nice(dy) + "²) = " + nice(d)], "geometry");
+  }
   /* ---- "a number" algebra phrases handled elsewhere; here: X more than / twice plus */
   function dimsRated(S) { return dims(S, true); }
-  var READERS = [shapeFacts, pairSystem, geoInverse, geometry, probability, fractionAsk, averageNeeded, series, numPuzzle, statistics, clock, markup, prices, percent, rates, linear, dimsRated, narrative, dims];
+  var READERS = [shapeFacts, angles, displacement, fractionOfNumber, pairSystem, geoInverse, geometry, probability, fractionAsk, averageNeeded, series, numPuzzle, statistics, clock, markup, prices, percent, rates, linear, dimsRated, narrative, dims];
 
   function parse(text) {
     var t = numify(text);

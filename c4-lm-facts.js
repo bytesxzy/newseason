@@ -62,7 +62,10 @@
     ["exhale", "breathe", "expel"],
     ["kilometer", "kilometre", "kilometers", "kilometres", "km"], ["meter", "metre", "meters", "metres"], ["centimeter", "centimetre", "centimeters", "centimetres"],
     ["liter", "litre", "liters", "litres"], ["center", "centre"], ["color", "colour", "colors", "colours"], ["gray", "grey"], ["organize", "organise", "organization", "organisation"],
-    ["aluminum", "aluminium"], ["program", "programme"], ["travel", "travels", "traveled", "travelled", "traveling", "travelling"], ["mile", "miles"]
+    ["aluminum", "aluminium"], ["program", "programme"], ["travel", "travels", "traveled", "travelled", "traveling", "travelling"], ["mile", "miles"],
+    ["europe", "european"], ["africa", "african"], ["asia", "asian"], ["america", "american"], ["australia", "australian"], ["west", "western"], ["east", "eastern"], ["north", "northern"], ["south", "southern"],
+    ["britain", "british"], ["france", "french"], ["germany", "german"], ["spain", "spanish"], ["italy", "italian"], ["greece", "greek"], ["egypt", "egyptian"], ["china", "chinese"], ["japan", "japanese"], ["russia", "russian"], ["india", "indian"], ["rome", "roman"],
+    ["explorer", "explore", "explored", "exploration"], ["reach", "reached", "reaches", "arrive", "arrived"], ["meet", "met", "meets"], ["fall", "fell", "fallen", "falls", "collapse", "collapsed"], ["filter", "filters", "filtered"], ["pull", "pulls", "attract", "attracts", "attracted"]
   ];
   var SYN = Object.create(null);
   SYN_GROUPS.forEach(function (g) { g.forEach(function (w) { SYN[w] = g[0]; }); });

@@ -1023,6 +1023,7 @@
    * This is what stops an unseen phrase being matched to the nearest article
    * with similar letters in it. */
   function answerLexical(frame, decision) {
+    if (/\b(?:called|named)\s*[?.!]*$/i.test(frame.lower || "")) return null;
     var CP = root.C4LMCompose;
     if (!CP || off("lexical")) return null;
     var asked = (frame.subject || frame.topic || frame.contentTokens.join(" ")).trim();
@@ -1389,8 +1390,7 @@
      so a shared word never selects an unrelated sentence. */
   function answerFacts(frame, min, only) {
     if (!FX || off("facts") || !FX.size()) return null;
-    if (frame.requiresList || frame.onlyValue || frame.requestedLength ||
-        (frame.requestedFormat && frame.requestedFormat !== "prose")) return null;
+    if (frame.onlyValue || frame.requestedLength || (frame.requestedFormat && frame.requestedFormat !== "prose" && frame.requestedFormat !== "list")) return null;
     var q = frame.semanticText || frame.body || frame.rawText || "";
     var hit = null;
     var o = { min: min };
@@ -1398,7 +1398,7 @@
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
     if (cs0.length > alpha0.length && alpha0.length < 2) return null;
     if (only === "strict") o.minStems = frame.queryForm === "why" ? 1 : 2;
-    else if (only === "relational") o.minStems = 3;
+    else if (only === "relational") o.minStems = (/\b\w+est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
     else if (FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
     try { hit = FX.answer(q, o); } catch (e) { hit = null; }
     if (!hit) return null;
@@ -1450,6 +1450,19 @@
     if (/^(?:what'?s|what is) your favou?rite (.+)$/.test(l)) return say("As a program I don't have personal tastes, but I can tell you about popular choices or help you decide — what are you choosing between?");
     var like = l.match(/^do you (?:like|love|enjoy|prefer|listen to|watch|play|read|eat|drink) (?:the |a |an |to )?(.+)$/);
     if (like) return say("I don't experience " + like[1] + " the way a person does, but I'm happy to talk about it — what would you like to know?");
+    if (/^(?:it'?s )?(?:nice|good|great|a pleasure|pleased) to meet you(?: too)?$|^pleased to meet you$/.test(l)) return say("Nice to meet you too! What can I do for you?");
+    if (/^(?:what'?s|what is) your name$|^what do (?:i|people) call you$|^do you have a name$/.test(l)) return say("I'm the local language system built into this page — you can call me CELL4. What would you like to know?");
+    if (/^who (?:made|created|built|developed|programmed|wrote) you$|^who is your (?:creator|maker|developer)$/.test(l)) return say("I'm part of the CELL4 project — a language system written to run locally in this page, with no outside AI service behind it. The people who built the project are the ones to credit.");
+    if (/^(?:tell me about yourself|describe yourself|introduce yourself|what are you|what are you exactly|what is your purpose|what do you do)$/.test(l))
+      return say("I'm a language system that runs locally in this page. I answer questions from a built-in knowledge base, work through arithmetic, algebra, word problems and logic, write small programs, and chat — without calling an outside AI service.");
+    if (/^do you (?:have|feel|get) (?:any )?(?:feelings|emotions|feeling)$|^can you feel$/.test(l)) return say("No — I'm a program, so I don't have feelings or experiences, though I can talk about them and about how people feel.");
+    if (/^(?:are you|r you) (?:smarter|cleverer|better) than (?:me|us|humans|people)$/.test(l)) return say("Different rather than simply smarter: I'm fast at arithmetic, lookup and logic puzzles, but I have no real-world experience or judgment like yours.");
+    if (/^can you (?:speak|talk|understand|write) (?:in )?([a-z]+)$/.test(l)) { var lg = l.match(/^can you (?:speak|talk|understand|write) (?:in )?([a-z]+)$/)[1]; if (lg !== "english") return say("My knowledge is mostly in English, so I'm not reliable in " + lg.charAt(0).toUpperCase() + lg.slice(1) + ". I can try a short phrase, but treat anything I give you with caution."); }
+    if (/^(?:i'?m|i am) (?:so |really |very |a bit )?(?:tired|exhausted|sleepy|worn out)$/.test(l)) return say("That sounds draining. If you can, take a break or get some rest — I'll be here when you're ready.");
+    if (/^(?:sorry|my bad|my apologies|apologies|oops|i'?m sorry|i apologi[sz]e)(?: about that| for that| for the mistake)?$/.test(l)) return say("No problem at all.");
+    if (/^what should i (?:eat|cook|make|have) (?:for )?(?:dinner|lunch|breakfast|tonight|today|supper)$/.test(l)) return say("A few ideas: a vegetable stir-fry with rice, pasta with a simple tomato sauce, bean-and-cheese burritos, or soup with bread. Any preferences or restrictions?");
+    if (/\bmy (?:dog|cat|pet|mother|father|mom|dad|grandmother|grandfather|grandma|grandpa|friend|brother|sister|husband|wife|uncle|aunt|parrot|hamster|rabbit)\b[^.?!]*\b(?:died|passed away|has passed|is dead|was killed|passed)\b/.test(l)) return say("I'm so sorry for your loss. That's really hard — I'm here if you'd like to talk about it.");
+    if (/^i (?:just )?(?:got|won|passed|made|finished|completed|earned|received|achieved|landed|graduated|scored|aced)\b/.test(l) && (/!\s*$/.test(said) || /\b(?:promotion|job|award|prize|scholarship|exam|test|degree|raise|offer|engaged|married|accepted|first place|a new)\b/.test(l))) return say("Congratulations — that's wonderful news! Tell me more.");
     if (/^(?:i love you|i like you)$/.test(l)) return say("That's kind of you. I'm a program, so I can't love anyone back, but I'm glad to be useful to you.");
     if (/^(?:lol|haha|hahaha|lmao|hehe)$/.test(l)) return say("Glad that landed.");
     if (/^(?:ok|okay|cool|nice|great|got it|i see|alright|sounds good|fine|k)$/.test(l)) return say("Okay. Anything else I can help with?");
@@ -1463,6 +1476,10 @@
     function say(text) { return { text: text, route: "conversation", confidence: 0.8, sources: [], defects: [], guard: true }; }
     var talk = answerSmallTalk(frame);
     if (talk) return talk;
+    /* what a particular person ate or said on a particular day is not something anyone can look up */
+    if (/\bwhat did\b[^?]*\b(?:eat|have|wear|say|think|drink|do)\b[^?]*\b(?:on|in|at|during) (?:\d{1,2}(?:st|nd|rd|th)? \w+,? \d{4}|\w+ \d{1,2}(?:st|nd|rd|th)?,? \d{4}|\d{4}-\d{2}-\d{2})/.test(l)) {
+      return say("I have no record of that — what a particular person ate, said or thought on a specific day isn't something I know, and it is rarely recorded anywhere.");
+    }
     /* a count nobody can make */
     if (/\bexact(?:ly)? (?:number|count|amount) of\b[^?]*\b(?:grains?|sand|stars|atoms|hairs|leaves|fish|ants|cells|drops|trees|insects|birds|words ever)\b/.test(l)) {
       return say("Nobody can count that exactly — any figure is an estimate. For grains of sand on Earth, rough estimates are on the order of 7.5 quintillion (7.5 × 10^18), but the true number is unknown.");
@@ -2700,7 +2717,7 @@
 
   /* A message that is one self-contained puzzle or problem is not a set of statements to remember. */
   function solvableWhole(raw) {
-    if (!/[.?!]\s+\S/.test(raw) || off("memory-skip")) return false;
+    if (!/[?\d]/.test(raw) || off("memory-skip")) return false;
     try { var w = (STY && STY.solve(raw)) || (LG && LG.solve(raw)) || (TL && TL.solve(raw)); return !!(w && w.answer); } catch (e) { return false; }
   }
   /* Conversation memory reads every message first: what to remember, what
@@ -2770,6 +2787,11 @@
        before is read again on its own words -- a repeat is not a follow-up,
        so the dialogue context must not drift it -- and what is said depends
        on what happened the last time it was asked. */
+    /* plain small talk is answered before reaction handling can take "nice to meet you" for an interjection */
+    if (!opts.internal && !off("guard")) {
+      var early = answerSmallTalk(baseFrame);
+      if (early) return Promise.resolve(finish(baseFrame, early, t0));
+    }
     var sig = userSignature(baseFrame);
     state.turnInfo = { sig: sig, rep: [], reaction: false, internal: !!opts.internal };
     if (!off("awareness") && !opts.internal && isReaction(baseFrame)) {

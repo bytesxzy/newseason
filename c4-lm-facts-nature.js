@@ -82,6 +82,8 @@
   out.push("Humans and dinosaurs never lived at the same time: the non-bird dinosaurs died out about 66 million years ago, and modern humans appeared only about 300,000 years ago.");
   out.push("Humans and dinosaurs never met: the non-bird dinosaurs died out about 66 million years ago, long before the first humans appeared, so there was no year when they first met.");
   out.push("Humans and dinosaurs did not live at the same time, so they never first met.");
+  out.push("The population of the world is about 8 billion people; it passed 8 billion in November 2022, and the exact number changes every second.");
+  out.push("The world population is roughly 8.2 billion people, with India and China the two most populous countries.");
   out.push("Dinosaurs went extinct about 66 million years ago, probably after a huge asteroid struck what is now Mexico.");
   out.push("Birds are the living descendants of small feathered dinosaurs.");
   out.push("Tyrannosaurus rex was one of the largest meat-eating dinosaurs and lived about 68 to 66 million years ago.");

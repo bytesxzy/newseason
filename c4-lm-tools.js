@@ -583,10 +583,10 @@
   }
   function primeQ(text) {
     var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
-    if ((m = l.match(/\b(?:smallest|least|first|next|lowest) prime(?: number)? (?:that is )?(?:greater|larger|bigger|more|higher) than (\d+)/)) || (m = l.match(/\bnext prime(?: number)? (?:after|following|past) (\d+)/)) || (m = l.match(/\bfirst prime (?:after|above) (\d+)/))) {
+    if ((m = l.match(/\b(?:smallest|least|first|next|lowest) prime(?: number)? (?:that is )?(?:(?:greater|larger|bigger|more|higher) than|above|over|after) (\d+)/)) || (m = l.match(/\bnext prime(?: number)? (?:after|following|past) (\d+)/)) || (m = l.match(/\bfirst prime (?:after|above) (\d+)/))) {
       var n = +m[1] + 1; while (!isPrime(n)) n++; return res(String(n), [], "number");
     }
-    if ((m = l.match(/\b(?:largest|greatest|biggest|previous|last) prime(?: number)? (?:that is )?(?:less|smaller|lower|fewer) than (\d+)/)) || (m = l.match(/\bprevious prime(?: number)? (?:before|below) (\d+)/))) {
+    if ((m = l.match(/\b(?:largest|greatest|biggest|previous|last) prime(?: number)? (?:that is )?(?:(?:less|smaller|lower|fewer) than|below|under|before) (\d+)/)) || (m = l.match(/\bprevious prime(?: number)? (?:before|below) (\d+)/))) {
       var k = +m[1] - 1; while (k > 1 && !isPrime(k)) k--; return k > 1 ? res(String(k), [], "number") : null;
     }
     if ((m = l.match(/^is (\d+) (?:a )?prime(?: number)?$/)) || (m = l.match(/^is (\d+) prime$/))) {
@@ -898,6 +898,8 @@
       if (m[1] === "population" && /^(?:mars|moon|venus|mercury|jupiter|saturn|uranus|neptune|pluto)$/.test(m[2])) return res("No people live permanently on " + cap(m[2]) + ", so its human population is zero.", [], "premise");
       return res(cap(m[2]) + " is not a country, so it has no " + m[1] + ".", [], "premise");
     }
+    if ((m = l.match(/\bfirst (?:person|human|man|woman|people|astronaut|astronauts|humans)s? to (?:walk|land|step|set foot|live|go|travel|fly|get)(?: on| to| in| onto)? (?:the )?(mars|venus|mercury|jupiter|saturn|uranus|neptune|pluto|sun)\b/)))
+      return res("No one yet — no human has been to " + cap(m[1]) + (m[1] === "mars" ? "; only robotic spacecraft and rovers have landed there." : "."), [], "premise");
     if ((m = l.match(/\bhow many moons does (?:the )?(sun|stars?)\b/))) return res("None — the Sun is a star, and moons orbit planets (the planets orbit the Sun).", [], "premise");
     /* ordinals beyond what exists */
     var OMAX = { president: [47, "the United States has had 47 presidents so far"], planet: [8, "the Solar System has eight planets"], month: [12, "a year has twelve months"], continent: [7, "there are seven continents"], ocean: [5, "there are five oceans"], "day of the week": [7, "a week has seven days"] };
@@ -907,7 +909,7 @@
       if (lim && nn > lim[0] && nn - lim[0] >= (m[2] === "president" ? 3 : 1)) return res("There is no " + nn + (["th", "st", "nd", "rd"][(nn % 10 < 4 && Math.floor(nn / 10) !== 1) ? nn % 10 : 0]) + " " + m[2] + " — " + lim[1] + ".", [], "premise");
     }
     /* things that have no largest / last / smallest */
-    if (/\b(?:largest|biggest|greatest|highest|last) (?:prime|number|integer|whole number|natural number|counting number|digit of pi)\b/.test(l) || /\blast digit of (?:pi|π)\b/.test(l)) {
+    if ((/\b(?:largest|biggest|greatest|highest|last) (?:prime|number|integer|whole number|natural number|counting number|digit of pi)\b/.test(l) && !/\b(?:below|under|less than|smaller than|before|up to|at most|not more than|between|within|that is less|that is smaller|under)\b|\bin (?:the )?(?:first|range)\b|\bof (?:these|the following)\b/.test(l)) || /\blast digit of (?:pi|π)\b/.test(l)) {
       if (/\bprime\b/.test(l)) return res("There is no largest prime — Euclid proved that the primes go on forever.", [], "premise");
       if (/\bdigit of (?:pi|π)\b/.test(l)) return res("Pi has no last digit — it is irrational, so its decimal expansion never ends or repeats.", [], "premise");
       return res("There is no largest number — whatever number you name, adding 1 gives a bigger one.", [], "premise");
@@ -919,6 +921,21 @@
   }
 
 
+  /* "How many wings does a dog have?": zero, for a creature that is known not to */
+  function zeroAttrQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if (!(m = l.match(/^how many (wings|legs|eyes|tails|horns|fins|arms|wheels|heads) (?:does|do|has|have) (?:an? |the |one )?([a-z]+?)s?(?: have)?$/))) return null;
+    var L = root.C4LMLogic; if (!L || !L.kind) return null;
+    var k = L.kind(m[2]); if (!k) return null;
+    var IS = function (c) { return L.isa(k, c); };
+    var attr = m[1], none = false;
+    if (attr === "wings" && (IS("mammal") && k !== "bat" || IS("fish") || IS("reptile") || IS("amphibian"))) none = true;
+    if (attr === "legs" && (IS("fish") || k === "snake" || k === "whale" || k === "dolphin" || k === "eel" || IS("mollusc") && k !== "octopus")) none = true;
+    if (attr === "fins" && (IS("mammal") && !/whale|dolphin|seal/.test(k) || IS("bird") || IS("reptile") || IS("insect"))) none = true;
+    if (attr === "wheels" && (IS("animal") || IS("fruit") || IS("vegetable"))) none = true;
+    if (!none) return null;
+    return res("None — " + (/^[aeiou]/.test(m[2]) ? "an " : "a ") + m[2] + " has no " + attr + ".", [], "premise");
+  }
   /* "When did Napoleon land on the Moon?": a person asked to do what had not yet been invented */
   var EVENTS = [
     [/\b(?:land(?:ed)?|walk(?:ed)?|step(?:ped)?|travel(?:l?ed)?|go|went|gone) (?:on|to) the moon\b/, 1969, "the first Moon landing"],
@@ -939,8 +956,10 @@
     if (!FXm || !FXm._docs) return null;
     var docs = FXm._docs(), low = name.toLowerCase(), i, m;
     for (i = 0; i < docs.length; i++) {
-      var t = docs[i].text;
-      if (t.toLowerCase().indexOf(low) !== 0) continue;
+      var t = docs[i].text, lf = t.indexOf(" lived from ");
+      if (lf < 0) continue;
+      var subj = t.slice(0, lf).toLowerCase();
+      if (subj !== low && !new RegExp("(?:^|\\s)" + low.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$").test(subj)) continue;
       if ((m = t.match(/lived from (\d+)( BCE| CE)? to (\d+)( BCE| CE)?/))) return { born: yearOfPhrase(m[1], /BCE/.test(m[2] || "")), died: yearOfPhrase(m[3], /BCE/.test(m[4] || "")) };
     }
     return null;
@@ -956,8 +975,38 @@
     return null;
   }
 
+
+  /* squares, cubes, roots and rounding */
+  function powerQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    function out(v, how) { return res(numStr(v), [how], "number"); }
+    if ((m = l.match(/^(?:what is |what's |calculate |find |compute |evaluate )?(?:the value of )?(-?\d+(?:\.\d+)?) (squared|cubed)$/))) { var b = +m[1], e = m[2] === "squared" ? 2 : 3; return out(Math.pow(b, e), m[1] + "^" + e); }
+    if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(?:the )?(square|cube) of (-?\d+(?:\.\d+)?)$/))) { var e2 = m[1] === "square" ? 2 : 3; return out(Math.pow(+m[2], e2), m[2] + "^" + e2); }
+    if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(?:the )?(cube|square|fourth|fifth) root of (-?\d+(?:\.\d+)?)$/))) {
+      var k = { square: 2, cube: 3, fourth: 4, fifth: 5 }[m[1]], x = +m[2], r = x < 0 && k % 2 ? -Math.pow(-x, 1 / k) : Math.pow(x, 1 / k);
+      if (x < 0 && k % 2 === 0) return null;
+      var rr = Math.round(r); if (Math.abs(r - rr) < 1e-9 && Math.pow(rr, k) === x) r = rr;
+      return out(r, "the number whose " + k + (k === 2 ? "nd" : k === 3 ? "rd" : "th") + " power is " + m[2]);
+    }
+    if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(-?\d+(?:\.\d+)?) (?:to the power of|raised to the power of|to the) (?:power )?(-?\d+(?:\.\d+)?)$/))) return out(Math.pow(+m[1], +m[2]), m[1] + "^" + m[2]);
+    return null;
+  }
+  function roundQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    var W = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
+    if ((m = l.match(/^round (-?\d+(?:\.\d+)?) (?:off )?to (?:the nearest )?(\d+|zero|one|two|three|four|five|six) (?:decimal places?|decimals?|places?|d\.p\.)$/))) {
+      var d = /^\d+$/.test(m[2]) ? +m[2] : W[m[2]], f = Math.pow(10, d), v = Math.round((+m[1] + Number.EPSILON * Math.sign(+m[1])) * f) / f;
+      return res(d === 0 ? String(v) : v.toFixed(d), [], "number");
+    }
+    if ((m = l.match(/^round (-?\d+(?:\.\d+)?) (?:off )?to the nearest (whole number|integer|ten|hundred|thousand|tenth|hundredth|thousandth)$/))) {
+      var g = { "whole number": 1, integer: 1, ten: 10, hundred: 100, thousand: 1000, tenth: 0.1, hundredth: 0.01, thousandth: 0.001 }[m[2]];
+      var r2 = Math.round(+m[1] / g) * g; r2 = Math.round(r2 * 1e6) / 1e6; return res(String(r2), [], "number");
+    }
+    return null;
+  }
+
   /* ----------------------------------------------------------------- solve */
-  var SOLVERS = [falseRoleQ, anachronismQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absQ, fractionQ, baseQ, stringQ];
+  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absQ, fractionQ, baseQ, stringQ];
   function solve(text, ctx) {
     var t = clean(text);
     if (!t || t.length > 600) return null;
