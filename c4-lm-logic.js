@@ -612,6 +612,8 @@
     if ((m = t.match(/\bwhat is the (\w+) (month|day) of the (year|week)\b/)) && m[2] === "month" && m[3] === "year") { var k8 = num(m[1]); if (k8 && k8 <= 12) return res(cap(MONTHS[k8 - 1]), [], "calendar"); }
     if ((m = t.match(new RegExp("\\bhow many days (?:are )?(?:there )?in " + monRe)))) {
       var dn = MDAYS[m[1]];
+      var fy = t.match(/\b(1[0-9]{3}|2[0-9]{3})\b/);
+      if (m[1] === "february" && fy) { var Y = +fy[1], isLeap = (Y % 4 === 0 && Y % 100 !== 0) || Y % 400 === 0; return res((isLeap ? "29" : "28") + " days (" + Y + " is " + (isLeap ? "" : "not ") + "a leap year)", [], "calendar"); }
       if (m[1] === "february") return res(/leap/.test(t) ? "29 days" : (/regular|normal|common|non-leap|ordinary|usual/.test(t) ? "28 days" : "28 days (29 in a leap year)"), [], "calendar");
       return res(dn + " days", [], "calendar");
     }

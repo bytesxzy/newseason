@@ -70,7 +70,7 @@
     var now = today();
     /* day of the week */
     if (/\bwhat (?:day of the week|day)\b/.test(l) && !/\b(?:in|after|from|before|ago|will it be|until)\b\s+\d+ (?:days?|weeks?)/.test(l) && !/\b(?:today|tomorrow|yesterday)\b/.test(l) && (ds = datesIn(t)).length === 1) {
-      var d1 = fixYear(ds[0], now.y), tense = /\b(?:was|were|did)\b/.test(l) ? "was" : (d1.y > now.y || (d1.y === now.y && toDate(d1) > toDate(now)) ? "will be" : "is");
+      var yrTok = l.match(/\b(?:in|for|of|during)\s+(\d{4})\b/), d1 = fixYear(ds[0], yrTok ? +yrTok[1] : now.y), tense = /\b(?:was|were|did)\b/.test(l) ? "was" : (d1.y > now.y || (d1.y === now.y && toDate(d1) > toDate(now)) ? "will be" : "is");
       if (/\bwas\b/.test(l)) tense = "was";
       return res(showDate(d1) + " " + tense + " a " + dayName(d1) + ".", [], "date");
     }

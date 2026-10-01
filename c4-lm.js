@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock;
 
   var state = {
     ready: false,
@@ -1449,6 +1449,65 @@
      the kind of thing asked for. A question it covers only in part is declined,
      so a shared word never selects an unrelated sentence. */
   /* A matter of taste or circumstance has no single answer; saying so, and what would settle it, is the honest reply. */
+  /* "Tell me more", "Give me an example", "Why?": a follow-up about the last real answer, answered from the fact library on the same topic */
+  function answerFollowUp(frame) {
+    var L = state.lastReal;
+    if (!L || !L.topic || !FX || off("facts") || !FX.size()) return null;
+    var said = String(state.userText || frame.rawText || frame.body || "").trim(), l = said.toLowerCase().replace(/[!.?]+$/g, "").replace(/\s+/g, " ").replace(/^(?:ok|okay|so|and|well|please|can you|could you)[, ]+/, "").trim();
+    if (!l || l.length > 60) return null;
+    var kind = /^(?:tell me more|more|go on|continue|elaborate|say more|keep going|what else(?: can you tell me| is there| do you know)?|anything else|more (?:details|info|information)|tell me more about (?:it|that|this)|elaborate on (?:that|it)|explain (?:more|further)|expand on (?:that|it)|go deeper|i want to know more|tell me something else about (?:it|that|this))$/.test(l) ? "more" :
+               /^(?:give me an example|an example|example|for example|example please|give (?:me )?an example|show me an example|any examples|for instance|give me some examples|can i have an example|give me another example|another example)(?: of (?:that|it|this))?$/.test(l) ? "example" :
+               /^(?:why|why is that|why is it|why so|how come|but why|why though|why does that happen)$/.test(l) ? "why" :
+               /^(?:how|how so|how does that work|how does it work|how is that possible|how does that happen)$/.test(l) ? "how" : "";
+    if (!kind) return null;
+    var topic = L.topic, flat = C.flatten(L.answer);
+    function seen(t) { var f = C.flatten(t); return f === flat || flat.indexOf(f) >= 0 || f.indexOf(flat) >= 0 || state.moreSaid[f]; }
+    function pool(q) {
+      var r = null;
+      try { r = FX.answer(q, { min: 0.5, top: 16 }); } catch (e) { r = null; }
+      return ((r && r.all) || (r ? [r] : [])).filter(function (c) { return c.coverage >= 0.99 && c.text.length > 30 && c.text.length < 400 && !/^Simply put/.test(c.text); });
+    }
+    function done(text) { return { text: text, route: "knowledge", confidence: 0.75, sources: ["local fact library"], defects: [], entity: topic, followUp: true }; }
+    var c, i, out;
+    if (kind === "more") {
+      c = pool(topic).filter(function (x) { return !seen(x.text); });
+      if (!c.length) return done("That is about all I have on " + topic + ". Ask me something specific about it — what it is used for, how it works, who made it — and I'll try.");
+      out = c.slice(0, 2).map(function (x) { state.moreSaid[C.flatten(x.text)] = 1; return x.text; });
+      state.followUp = { fromFollowUp: out.join(" ") };
+      return done(out.join(" "));
+    }
+    if (kind === "example") {
+      c = pool(topic).concat(pool("example of " + topic));
+      c = c.filter(function (x) { return /\b(?:such as|for example|for instance|e\.g\.|like |including|examples? of|include)\b/i.test(x.text) && !seen(x.text); });
+      c.sort(function (p, q) { return (/^(?:Examples? of|An example of)/.test(q.text) ? 1 : 0) - (/^(?:Examples? of|An example of)/.test(p.text) ? 1 : 0); });
+      if (!c.length) return done("I don't have a ready example of " + topic + ". Tell me what kind of example you want — a sentence, a number, a picture in words — and I'll try.");
+      state.moreSaid[C.flatten(c[0].text)] = 1;
+      return done(c[0].text);
+    }
+    c = pool((kind === "why" ? "why " : "how does ") + topic).filter(function (x) { return !seen(x.text) && (kind === "why" ? /\b(?:because|due to|so that|which is why|to [a-z]+|when|since|caused?)\b/i.test(x.text) : /\b(?:by|works?|through|using|when)\b/i.test(x.text)); });
+    if (!c.length) return done("I don't have a deeper " + (kind === "why" ? "reason" : "explanation") + " on record for " + topic + " beyond what I said. If you ask a specific \"" + (kind === "why" ? "why" : "how") + "\" question, I'll try again.");
+    state.moreSaid[C.flatten(c[0].text)] = 1;
+    return done(c[0].text);
+  }
+
+  /* "Give me an example of a metaphor", "Examples of renewable energy": the line that opens with "Examples of" */
+  function answerExamples(frame) {
+    if (!FX || off("facts") || !FX.size()) return null;
+    var raw = String(frame.rawText || frame.body || ""), m = raw.match(/^\s*(?:please\s+)?(?:(?:can you |could you )?(?:give|show|tell) (?:me )?|list |name |what are |i need |i want )?(?:some |an |a few |another |more |a couple of |two |three )?examples? (?:of|for)\s+(?:an? |the |some )?(.+?)[?.!]*\s*$/i);
+    if (!m) return null;
+    var topic = m[1].trim(), qs = FX.contentStems(topic);
+    if (!qs.length) return null;
+    var r = null;
+    try { r = FX.answer("examples of " + topic, { min: 0.5, top: 16 }); } catch (e) { r = null; }
+    var cands = (r && r.all) || (r ? [r] : []);
+    for (var i = 0; i < cands.length; i++) {
+      var st = FX.contentStems(cands[i].text);
+      if (/^(?:Examples? of|An example of)\b/.test(cands[i].text) && qs.every(function (w) { return st.indexOf(w) >= 0; }))
+        return { text: cands[i].text, route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], multiHop: true, entity: topic, fact: { coverage: cands[i].coverage, score: cands[i].score } };
+    }
+    return null;
+  }
+
   /* "What does NASA stand for?", "What is the full form of HTML?", "What is NASA short for?": the line that spells the letters out */
   function answerAcronym(frame) {
     if (!FX || off("facts") || !FX.size()) return null;
@@ -1854,6 +1913,8 @@
     if (!SK || off("skills")) return null;
     var sr = null;
     try { sr = SK.solve(frame.rawText || frame.body || ""); } catch (e) { sr = null; }
+    /* the world clock and the holiday calendar: time in another city, days until a holiday */
+    if ((!sr || !sr.answer) && CK) { try { sr = CK.solve(frame.rawText || frame.body || ""); } catch (e) { sr = null; } }
     if (!sr || !sr.answer) return null;
     return { text: sr.answer, route: "reason", confidence: sr.confidence || 0.86, sources: [], defects: [],
              interpretation: "skills:" + sr.schema, skills: sr };
@@ -3177,6 +3238,23 @@
                     route: "conversation", confidence: 0.6, conversational: true, sources: [] };
       return Promise.resolve(finish(baseFrame, empty, t0));
     }
+    /* a little Spanish, French, German, Italian and Portuguese: greetings in kind, simple questions read into English */
+    if (root.C4LMPolyglot && !(opts && (opts.rewritten || opts.internal)) && !off("polyglot")) {
+      var pg = null;
+      try { pg = root.C4LMPolyglot.reply(String(text == null ? "" : text)); } catch (e) { pg = null; }
+      if (pg && (pg.kind === "small" || pg.kind === "sorry")) {
+        return Promise.resolve(finish(baseFrame, { text: pg.text, route: "conversation", confidence: 0.8, conversational: true, smallTalk: true, sources: [], defects: [] }, t0));
+      }
+      if (pg && pg.question) {
+        var oPg = {}, kPg; for (kPg in opts) oPg[kPg] = opts[kPg]; oPg.rewritten = true;
+        return answerCore(pg.question, oPg).then(function (r) {
+          if (!r || typeof r.text !== "string") return r;
+          var loc = pg.kind === "capital" && r.route !== "insufficient" ? root.C4LMPolyglot.localiseCapital(pg.lang, pg.country, r.text) : null;
+          r.text = loc || (root.C4LMPolyglot.NOTE[pg.lang] + " " + r.text);
+          return r;
+        });
+      }
+    }
     /* Requests to cause serious harm are declined plainly, with a way forward for the legitimate version. */
     var harm = !opts.internal && harmOf(String(text == null ? "" : text));
     if (harm) return Promise.resolve(finish(baseFrame, { text: harm, route: "conversation", confidence: 0.95, smallTalk: true, conversational: true, sources: [], defects: [] }, t0));
@@ -3196,6 +3274,11 @@
     if (!opts.internal && !off("guard")) {
       var early = answerSmallTalk(baseFrame);
       if (early) return Promise.resolve(finish(baseFrame, early, t0));
+    }
+    if (!opts.internal && !off("guard")) {
+      var fu = null;
+      try { fu = answerFollowUp(baseFrame); } catch (e) { fu = null; }
+      if (fu) return Promise.resolve(finish(baseFrame, fu, t0));
     }
     var sig = userSignature(baseFrame);
     state.turnInfo = { sig: sig, rep: [], reaction: false, internal: !!opts.internal };
@@ -3229,7 +3312,7 @@
     /* Deterministic resolvers run before the social branch: "what time is it
        right now" is a clock question with a chatty shape, and a computation
        is never small talk. */
-    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerAcronym(frame) || answerPreference(frame); });
+    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerAcronym(frame) || answerExamples(frame) || answerPreference(frame); });
     if (diff) return Promise.resolve(finish(frame, diff, t0, decision));
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
@@ -3394,6 +3477,13 @@
       result.text = result.text.replace(/([A-Za-z])\.?mw-[\w-]+[^{}]*\{[^{}]*\}\s*/g, "$1. ").replace(/\.?mw-[\w-]+[^{}]*\{[^{}]*\}/g, " ").replace(/\{\{[^{}]*\}\}/g, " ").replace(/\[(?:\d+|citation needed|edit)\]/gi, "").replace(/[ \t]{2,}/g, " ").trim();
     }
     result.latency_ms = Math.round((now() - t0) * 100) / 100;
+    /* what a follow-up like "tell me more" or "give me an example" is about: the last real answer and its topic */
+    if (result && result.text && !result.conversational && !result.smallTalk && !result.insufficient && !result.clarification && !result.memoryTurn &&
+        /^(?:knowledge|lexicon|explanation|compose|comparison|code)$/.test(result.route || "") && !(state.followUp && state.followUp.fromFollowUp === result.text)) {
+      var tp = result.entity || frame.subject || (frame.contentTokens || []).filter(function (w) { return !GENERIC_Q.test(w); }).slice(0, 3).join(" ");
+      state.lastReal = { question: state.userText, topic: String(tp || "").trim(), answer: result.text };
+      state.moreSaid = Object.create(null);
+    }
     /* an answer about "it" or "there" leaves the topic where it was, even when it names another thing on the way */
     if (decision && decision.carried && /^(?:pronoun|there|ellipsis|open-relation)$/.test(decision.carryReason || "")) result.carriedContext = true;
     result.frame = {

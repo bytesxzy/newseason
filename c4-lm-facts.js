@@ -340,6 +340,8 @@
       if (defSubj && /\bstands? for\b/i.test(d.text) && !/\b(?:stand|stands|stood|abbreviat\w*|acronym|initials?|short for|mean|means)\b/i.test(question)) score -= 0.3;
       /* "X is a ..., and the Y is a ..." defines two things at once; the sentence about X alone is the better definition */
       if (defSubj && /,\s*(?:and|while|whereas)\s+(?:the|a|an)\s+[a-z-]+\s+(?:is|are|has|have)\b/i.test(d.text)) score -= 0.25;
+      /* "Zeus is the king of the gods, Hera is his wife, Poseidon rules the sea" is a cast list, not a definition of Zeus */
+      if (defSubj && (d.text.match(/,\s*(?:and\s+)?[A-Z][A-Za-z-]+(?:\s[A-Z][A-Za-z-]+)?\s+(?:is|are|was|rules|ends|began|has)\b/g) || []).length >= 1) score -= 0.3;
       if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;
       if (listAsk && (d.text.match(/,/g) || []).length >= 3) score += Math.min(0.6, 0.06 * (d.text.match(/,/g) || []).length + 0.1);
       /* "How do plants grow?" is answered by "Plants grow by using sunlight ..." */

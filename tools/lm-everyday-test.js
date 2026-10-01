@@ -114,6 +114,38 @@ function ok(name, cond, detail) { if (cond) pass++; else { fail++; console.log("
     var t = await say(rt.boot({}), NOUNS[k][0]);
     ok("define: " + NOUNS[k][0], NOUNS[k][1].test(t), t.slice(0, 140));
   }
+  /* world clock and holidays: fixed "now" so the checks do not depend on the day they are run */
+  var CK = w.C4LMClock, fixed = function (y, m, d, h) { return new Date(y, m - 1, d, h || 12, 0, 0); };
+  function ck(q, now) { var r = CK.solve(q, now); return r ? r.answer : ""; }
+  ok("Easter 2027", /Sunday, March 28, 2027/.test(ck("When is Easter 2027?", fixed(2026, 10, 1))), ck("When is Easter 2027?", fixed(2026, 10, 1)));
+  ok("Easter 2025", /Sunday, April 20, 2025/.test(ck("When is Easter 2025?", fixed(2026, 10, 1))));
+  ok("Thanksgiving 2027", /Thursday, November 25, 2027/.test(ck("When is Thanksgiving in 2027?", fixed(2026, 10, 1))));
+  ok("Memorial Day 2025", /Monday, May 26, 2025/.test(ck("When is Memorial Day in 2025?", fixed(2026, 10, 1))));
+  ok("Mother's Day next", /Sunday, May 9, 2027/.test(ck("When is Mother's Day?", fixed(2026, 10, 1))));
+  ok("days until Christmas", /85 days until Christmas Day/.test(ck("How many days until Christmas?", fixed(2026, 10, 1))), ck("How many days until Christmas?", fixed(2026, 10, 1)));
+  ok("Christmas on Christmas morning is today", /today/.test(ck("How many days until Christmas?", fixed(2026, 12, 25, 9))));
+  ok("weekday of a holiday", /falls on a Friday/.test(ck("What day of the week is Christmas this year?", fixed(2026, 10, 1))));
+  ok("New York to London in autumn", /9:00 AM in New York is 2:00 PM in London/.test(ck("If it's 9am in New York, what time is it in London?", fixed(2026, 10, 1))));
+  ok("New York to London in a week the US is already back on standard time", /9:00 AM in New York is 2:00 PM in London/.test(ck("If it's 9am in New York, what time is it in London?", fixed(2026, 11, 10))));
+  ok("New York to London in the weeks the two disagree", /9:00 AM in New York is 1:00 PM in London/.test(ck("If it's 9am in New York, what time is it in London?", fixed(2026, 3, 20))), ck("If it's 9am in New York, what time is it in London?", fixed(2026, 3, 20)));
+  ok("crossing midnight", /11:00 AM the next day in Tokyo/.test(ck("What time is it in Tokyo when it's 9pm in Chicago?", fixed(2026, 10, 1))));
+  ok("time zone abbreviations", /12:00 PM in PST/.test(ck("Convert 3pm EST to PST", fixed(2026, 10, 1))));
+  ok("difference with half-hour zone", /5.5 hours ahead of London/.test(ck("What is the time difference between Mumbai and London?", fixed(2026, 1, 15))), ck("What is the time difference between Mumbai and London?", fixed(2026, 1, 15)));
+  ok("local time in a city", /in Tokyo \(UTC\+9\)/.test(await say(rt.boot({}), "What time is it in Tokyo?")));
+  ok("plain what time is it keeps the device clock", /device's clock/.test(await say(rt.boot({}), "What time is it?")));
+  ok("February in a leap year", /^29 days/.test(await say(rt.boot({}), "How many days are in February 2028?")));
+  ok("weekday of a date with a year at the end", /Thursday/.test(await say(rt.boot({}), "What day is July 4th on in 2030?")));
+  /* a little Spanish, French, German, Italian, Portuguese */
+  var LANGS = [
+    ["¿Cuál es la capital de Francia?", /^La capital de Francia es París\.$/], ["Quelle est la capitale du Japon ?", /^La capitale du Japon est Tokyo\.$/],
+    ["Wie heißt die Hauptstadt von Spanien?", /^Die Hauptstadt von Spanien ist Madrid\.$/], ["Qual è la capitale della Francia?", /^La capitale della Francia è Parigi\.$/],
+    ["Qual é a capital do Brasil?", /^A capital do Brasil é Brasília\.$/], ["Hola", /^¡Hola!/], ["Guten Morgen", /^Guten Morgen!/], ["Merci", /^Je vous en prie/],
+    ["¿Cuánto es 15 por 3?", /\b45\b/], ["Combien font 12 plus 7 ?", /\b19\b/], ["Je voudrais un café", /français/], ["What is the capital of France?", /Paris/], ["Do you speak Spanish?", /Spanish|language|speak/i]
+  ];
+  for (var lgi = 0; lgi < LANGS.length; lgi++) {
+    var lt = await say(rt.boot({}), LANGS[lgi][0]);
+    ok("language: " + LANGS[lgi][0], LANGS[lgi][1].test(lt), lt.slice(0, 120));
+  }
   console.log((fail ? "FAIL " : "") + pass + "/" + (pass + fail) + " everyday checks passed");
   process.exit(fail ? 1 : 0);
 })();

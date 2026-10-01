@@ -146,7 +146,7 @@ var SESSIONS = [
   var SINGLE = [
     ["What is a butterfly?", /insect/i], ["Who is the CEO of Apple?", /Tim Cook/], ["Name the months of the year.", /January.*December/],
     ["List the planets in order from the Sun.", /- Mercury/], ["Which planet has the most moons?", /Saturn/], ["What does the word benevolent mean?", /kind/],
-    ["How do planes fly?", /lift/], ["What sound does a cat make?", /meow/i], ["When is Christmas?", /25 December/],
+    ["How do planes fly?", /lift/], ["What sound does a cat make?", /meow/i], ["When is Christmas?", /25 December|December 25/],
     ["Which is bigger, Texas or California?", /Texas is larger/], ["What is the difference between a virus and a bacterium?", /smaller/],
     ["What is the best way to learn a language?", /practise/], ["Write a haiku about the sea.", /\n/], ["What is the meaning of life?", /no single/],
     ["Tell me France's capital city", /Paris/], ["Which company created the Windows operating system?", /Microsoft/],
