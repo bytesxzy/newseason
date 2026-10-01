@@ -294,6 +294,14 @@
     if ((m = s.match(/^(?:you can |please |just )?call me\s+([A-Za-z][\w'-]*(?:\s+[A-Z][\w'-]*)?)$/i))) {
       return { key: "name", attr: "name", value: cap(m[1]), copula: "is", verb: "be", address: true };
     }
+    if ((m = s.match(/^i\s+(?:was|were)\s+born\s+(?:in|at)\s+(.{2,60})$/i))) {
+      return /^\d/.test(m[1]) ? { key: "birthyear", attr: "birth year", value: trimEnd(m[1]), verb: "be", prep: "born in" }
+                              : { key: "birthplace", attr: "birthplace", value: trimEnd(m[1]), verb: "be", prep: "born in" };
+    }
+    if ((m = s.match(/^i\s+(?:was\s+born\s+(?:on|around)|were\s+born\s+on)\s+(.{3,40})$/i))) return { key: "birthdate", attr: "birthday", value: trimEnd(m[1]), verb: "be", prep: "born on" };
+    if ((m = s.match(/^i\s+grew\s+up\s+(?:in|near|around)\s+(.{2,60})$/i))) return { key: "grewup", attr: "childhood home", value: trimEnd(m[1]), verb: "be", prep: "grew up in" };
+    if ((m = s.match(/^i\s+(?:come|came)\s+from\s+(.{2,60})$/i))) return { key: "origin", attr: "origin", value: trimEnd(m[1]), prep: "from", verb: "be" };
+    if ((m = s.match(/^i\s+(?:just\s+|recently\s+)?(?:moved|relocated)\s+to\s+(.{2,60})$/i))) return { key: "v:live", attr: "live", verb: "live", verbSurface: "live", value: "in " + trimEnd(m[1]) };
     if ((m = s.match(/^i\s+am\s+(.{1,80})$/i))) {
       var rest = trimEnd(m[1]);
       if (/^(?:a|an)\s+\w/i.test(rest) && !/^(?:a|an)\s+(?:bit|little|lot)\b/i.test(rest)) {
@@ -341,6 +349,8 @@
       if (f.key === "location") return "You're " + (f.prep || "in") + " " + v + ".";
       if (f.key === "age") return "You're " + v + ".";
       if (f.key === "address") return "You asked me to call you " + v + ".";
+      if (f.key === "birthplace" || f.key === "birthyear" || f.key === "birthdate") return "You were born " + (f.key === "birthdate" ? "on " : "in ") + v + ".";
+      if (f.key === "grewup") return "You grew up in " + v + ".";
       return "Your " + f.attr + " " + (f.copula || "is") + " " + v + ".";
     }
     return "You " + (f.verbSurface || f.verb) + " " + v + ".";
@@ -641,6 +651,7 @@
     if (it.kind === "note") return "the note that " + flipPerson(it.text);
     if (it.verb && it.verb !== "be") return "that you " + (it.verbSurface || it.verb) + " " + flipPerson(it.value);
     return { role: "your role", origin: "where you're from", location: "where you are", age: "your age",
+             birthplace: "where you were born", birthyear: "the year you were born", birthdate: "when you were born", grewup: "where you grew up",
              address: "what to call you" }[it.key] || "your " + it.attr;
   }
   function categoryLabel(c) {
@@ -818,6 +829,11 @@
     var s = normQ(text), m;
     if (!s || s.length > 120) return "";
     if (/^who am I$/i.test(s)) return this.aboutUser();
+    if ((m = s.match(/^where\s+(?:am I from|do I come from|did I come from|is my family from)$/i))) { var of = this.find("fact", "origin"); return of ? factSentence(of) : "You haven't told me where you're from yet."; }
+    if (/^where\s+(?:was I born|were I born)$/i.test(s)) { var bp = this.find("fact", "birthplace"); return bp ? factSentence(bp) : "You haven't told me where you were born yet."; }
+    if (/^(?:when|what year)\s+(?:was I born|were I born)$/i.test(s)) { var by = this.find("fact", "birthyear") || this.find("fact", "birthdate"); return by ? factSentence(by) : "You haven't told me when you were born yet."; }
+    if (/^where\s+did\s+I\s+grow\s+up$/i.test(s)) { var gu = this.find("fact", "grewup"); return gu ? factSentence(gu) : "You haven't told me where you grew up yet."; }
+    if (/^where\s+am\s+I(?:\s+(?:right now|now|currently))?$/i.test(s)) { var lf = this.find("fact", "location") || this.find("fact", "v:live"); return lf ? factSentence(lf) : ""; }
     if ((m = s.match(/^(?:what|how much)\s+(?:do|did|can|does)\s+you\s+(?:know|remember|recall)\s+about\s+(me|myself)$/i)) ||
         /^what\s+(?:have|did)\s+I\s+(?:told|tell)\s+you(?:\s+about\s+(?:me|myself))?(?:\s+so\s+far)?$/i.test(s)) return this.aboutUser();
     if (/^(?:what|how much)\s+(?:do|can|did)\s+you\s+(?:remember|recall)(?:\s+so\s+far)?$|^what(?:\s+is|\s+do\s+you\s+have)?\s+in\s+your\s+memory$|^what\s+do\s+you\s+know\s+so\s+far$/i.test(s)) return this.summary();
@@ -840,6 +856,18 @@
     if ((m = s.match(/^(what|where|who|when|how|which)\s+(?:do|did|does)\s+I\s+([a-z]+)\b\s*(.*)$/i)) && !(/^how$/i.test(m[1]) && /^do(?:es)?\s/i.test(s.slice(m[1].length).trim()) && /^(?:say|ask|tell|type|write|mention)$/i.test(m[2]))) return this.verbAnswer(m[1], m[2], m[3]);
     return "";
   };
+  /* the place the person has said they are in or live in, as a bare name ("Toronto"), or "" */
+  P.homePlace = function (order) {
+    var keys = order || ["location", "v:live", "home"];
+    for (var i = 0; i < keys.length; i++) {
+      var f = this.find("fact", keys[i]);
+      if (f && f.value) {
+        var v = String(f.value).replace(/^(?:in|at|near|around|to)\s+/i, "").replace(/^(?:the (?:city|town|village) of |the city |the town )/i, "").replace(/^the\s+/i, "").trim();
+        if (v && v.split(/\s+/).length <= 4) return v;
+      }
+    }
+    return "";
+  };
   P.countAnswer = function (noun) {
     var base = String(noun).toLowerCase().trim().replace(/ies$/, "y").replace(/(?:es|s)$/, "");
     var fs = this.byKind("fact").filter(function (f) { return String(f.value).toLowerCase().indexOf(base) >= 0 || String(f.attr || "").toLowerCase().indexOf(base) >= 0; });
@@ -852,6 +880,10 @@
     var words = wordsOf(phrase);
     if (!words.length) return "";
     if (conceptsOf(tokens(phrase).pop()).directive) return this.directiveList();
+    var ALIAS = { city: ["location", "v:live", "home", "city", "town"], town: ["location", "v:live", "home", "town", "city"], home: ["home", "v:live", "location"], location: ["location", "v:live"], place: ["location", "v:live"], country: ["country", "origin", "v:live"], "home town": ["hometown", "grewup", "origin"], "birth place": ["birthplace"], "place of birth": ["birthplace"], birthday: ["birthdate", "birthyear"], "date of birth": ["birthdate", "birthyear"], "birth date": ["birthdate", "birthyear"], "home city": ["v:live", "location", "home"], "home country": ["origin", "country"] };
+    var al = ALIAS[phrase.toLowerCase()], af = null;
+    if (al) for (var ai = 0; ai < al.length && !af; ai++) af = this.find("fact", al[ai]);
+    if (af) return factSentence(af);
     var f = this.match(words, ["fact"])[0];
     if (f) {
       var out = factSentence(f);
@@ -876,6 +908,7 @@
       return f.verb === v || (v === "do" && /^(?:role|v:work)$/.test(f.key));
     });
     if (fs.length) return fs.map(factSentence).join(" ");
+    if (v === "live") { var lf = this.find("fact", "location") || this.find("fact", "home"); if (lf) return factSentence(lf); }
     var phrase = String(wh).toLowerCase() + " you " + verb.toLowerCase();
     if (this.tombstones["v:" + v] || this.tombstones[v]) return "You asked me to forget " + phrase + ", so I don't have it anymore.";
     if (/^(?:live|work|like|love|do|come|study|prefer|speak|play|eat|drink|read|watch|own|enjoy|visit)$/.test(v) && !String(rest || "").trim()) return "You haven't told me " + phrase + " yet.";

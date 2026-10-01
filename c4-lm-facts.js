@@ -245,6 +245,8 @@
       /* a speed such as 55 km/h is not a height or a length */
       if (frameWord && UNIT[frameWord] && !UNIT[frameWord].test(frameWord === "fast" ? text : text.replace(/\b(?:km|m|mi)\s*\/\s*(?:h|s|hr)\b|\b(?:kilometres?|miles?|metres?) per (?:hour|second)\b/gi, " "))) return false;
       var nums = text.match(/\b\d[\d,.]*\b/g) || [];
+      /* "how many" asks for a count, and a year (as in "won the 2014 World Cup") is not one */
+      if (frameWord === "many" || qTokens.indexOf("many") >= 0) nums = nums.filter(function (n) { return !/^(?:1[5-9]\d\d|20\d\d)$/.test(n); });
       return nums.some(function (n) { return !inQ[n.toLowerCase()]; }) ||
              /\b(?:no|zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|hundred|thousand|million|billion|dozen)\b/i.test(text);
     }
@@ -258,6 +260,8 @@
     if (!DOCS.length) return null;
     var LISTLEAD = /^\s*(?:please\s+)?(?:list|name|give me|tell me)\s+(?:all\s+)?(?:(?:the|some|a few|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)/i;
     question = usTok(question);
+    /* "the word 'serendipity'" is just serendipity; "a person who is afraid of clowns" asks for the name of the fear */
+    question = String(question).replace(/\b(?:the\s+)?(?:word|term|phrase|expression|idiom|slang|abbreviation|acronym)\s+(?=['"\u2018\u201c])/gi, "").replace(/\b(?:a\s+person|someone|somebody|people|anyone)\s+(?:who\s+is|who's|who\s+are|that\s+is|that's)\s+(?:afraid|scared|terrified|frightened)\s+of\b/gi, "the fear of").replace(/\bwhat(?:'s|\s+is)\s+(?:the\s+)?(?:word|name|term)\s+for\s+(?:the\s+)?fear\s+of\b/gi, "what is the fear of").replace(/\bwhat(?:'s|\s+is)\s+(?:the\s+)?(?:word|name|term)\s+for\s+(?:the\s+)?study\s+of\b/gi, "what is the study of");
     /* "when do I use who versus whom" and "cats vs dogs" ask for the difference between the two */
     question = String(question).replace(/^\s*(?:when|how)\s+(?:do|should|can)\s+(?:i|you|we|one)\s+(?:use|choose|say|write)\s+(.+?)\s+(?:versus|vs\.?|or)\s+(.+?)\s*\??\s*$/i, "What is the difference between $1 and $2?")
       .replace(/^\s*(?:what(?:'s| is) the )?(?:difference|comparison)?\s*(?:of |between )?([A-Za-z][\w' -]{1,30}?)\s+(?:versus|vs\.?)\s+([A-Za-z][\w' -]{1,30}?)\s*\??\s*$/i, "What is the difference between $1 and $2?");

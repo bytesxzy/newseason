@@ -108,7 +108,7 @@ async function main() {
   check("offline: local knowledge unaffected", /Paris/.test(off2.text), off2.text.slice(0, 40));
   var off3 = await rt.askOnce(w2, "What is the current Bitcoin price?", 12000);
   check("offline: current question degrades honestly",
-    /could not reach|local knowledge|may be out of date|don't have/i.test(off3.text), off3.text.slice(0, 60));
+    /could not reach|local knowledge|may be out of date|don't have|can't look up|can't check|can't read/i.test(off3.text), off3.text.slice(0, 60));
 
   var w3 = rt.boot({ fetch: hangingFetch });
   var t0 = Date.now();

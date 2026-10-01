@@ -173,6 +173,64 @@ function ok(name, cond, detail) { if (cond) pass++; else { fail++; console.log("
     var tt = await say(rt.boot({}), TXT[tx][0]);
     ok("text: " + TXT[tx][0].slice(0, 60), TXT[tx][1].test(tt), tt.slice(0, 160));
   }
+  /* distances between places, trip times, coordinates */
+  var DIS = [
+    ["How far is Toronto from New York?", /about 5[0-9]{2} km \(3[0-9]{2} miles\)/], ["How far is London from Paris in miles?", /215 miles/],
+    ["distance between London and Sydney", /16,9[0-9]{2} km/], ["How long does it take to fly from London to New York?", /7 hours/],
+    ["Which is closer to London, Paris or Rome?", /^Paris is closer to London/], ["Which is farther north, Oslo or Rome?", /^Oslo is farther north/],
+    ["What are the coordinates of Tokyo?", /35\.7° N, 139\.7° E/], ["What is the latitude of Sydney?", /33\.9° S/], ["Which hemisphere is Sydney in?", /southern/],
+    ["How far is France from Japan?", /capitals/], ["How long would it take to drive from London to Sydney?", /no road/],
+    ["How many miles from Boston to Chicago?", /850 miles/], ["How far is Londn from Pariss?", /345 km/], ["How far is the Moon from the Earth?", /^(?!.*straight line)/]
+  ];
+  for (var di = 0; di < DIS.length; di++) {
+    var dd = await say(rt.boot({}), DIS[di][0]);
+    ok("distance: " + DIS[di][0], DIS[di][1].test(dd), dd.slice(0, 160));
+  }
+  /* words: inflections, rhymes, pronunciation, vocabulary, collective nouns, events */
+  var WRD = [
+    ["What is the plural of cactus?", /cacti or cactuses/], ["What is the past tense of swim?", /swam/], ["What is the past participle of eat?", /eaten/], ["What is the plural of baby?", /babies/],
+    ["What is the comparative of good?", /better/], ["superlative of happy", /happiest/], ["What is the -ing form of run?", /running/], ["Spell 'necessary'", /^necessary is spelled N-E-C-E-S-S-A-R-Y\.$/],
+    ["Is 'alot' a word?", /misspelling.*a lot/], ["Is it recieve or receive?", /"receive" is correct/], ["What rhymes with cat?", /bat, hat/], ["What rhymes with orange?", /Nothing rhymes perfectly/],
+    ["How do you pronounce 'quinoa'?", /KEEN-wah/], ["How do you say hello in French?", /bonjour/i], ["What part of speech is run?", /verb/], ["Use the word serendipity in a sentence", /serendipity/],
+    ["What does the word 'serendipity' mean?", /chance|accident/], ["What is the fear of spiders called?", /Arachnophobia/], ["What is a person who is afraid of clowns called?", /Coulrophobia/], ["What is the word for fear of snakes?", /Ophidiophobia/],
+    ["What is a group of crows called?", /^A group of crows is called a murder\.$/], ["What does ghosting mean?", /ending all contact/], ["What does 'status quo' mean?", /existing state/], ["What is the study of insects called?", /Entomology/],
+    ["Who won the 1966 World Cup?", /^England won the 1966 World Cup\.$/], ["Where were the 1992 Olympics?", /Barcelona/], ["How many times has Brazil won the World Cup?", /five times/], ["How many players are on a football team?", /an American football/],
+    ["What is 3 power 4?", /^81/], ["What is 5 raised to the 3rd?", /^125/]
+  ];
+  for (var wi = 0; wi < WRD.length; wi++) {
+    var wd = await say(rt.boot({}), WRD[wi][0]);
+    ok("words: " + WRD[wi][0], WRD[wi][1].test(wd), wd.slice(0, 160));
+  }
+  /* money: tips, splitting, discounts, tax, loans, interest, wages */
+  var MON = [
+    ["Split 120 dollars among 5 people", /\$24 each/], ["How much is 15% off 80?", /becomes 68/], ["What is 20% tip on 85 dollars?", /\$17.*\$102/], ["What is 8% sales tax on 50 dollars?", /\$54/],
+    ["We have a 150 dollar bill, 6 of us, 15% tip. How much each?", /\$28\.75/], ["A pack of 12 costs 6 dollars. What is the price per item?", /\$0\.50 each/],
+    ["Which is cheaper: 500 g for 3 dollars or 1 kg for 5 dollars?", /1 kg for 5 dollars.*better value/], ["What is the monthly payment on a 10000 dollar loan at 5% for 3 years?", /\$299\.71/],
+    ["What is 2000 dollars at 5% compounded annually for 10 years?", /\$3,257\.79/], ["What is my annual salary if I make 25 dollars per hour?", /\$52,000/], ["How long to double my money at 6%?", /11\.9 years/],
+    ["The shirt is 30 dollars after 25% off. What was the original price?", /\$40/], ["Convert 30 mpg to km per liter", /12\.75/], ["Increase 80 by 15%", /^92/]
+  ];
+  for (var mo = 0; mo < MON.length; mo++) {
+    var mm = await say(rt.boot({}), MON[mo][0]);
+    ok("money: " + MON[mo][0], MON[mo][1].test(mm), mm.slice(0, 160));
+  }
+  /* things that change by the minute are declined, not answered with something unrelated */
+  var LIVE = [["What's the weather today?", /can't check the weather/], ["What's the weather like in Paris?", /can't check the weather/], ["What's the news?", /can't read the news/],
+              ["What is the price of Bitcoin?", /can't look up prices/], ["Who won the game last night?", /can't look up scores/], ["Is the library open now?", /can't check opening hours/],
+              ["What is weather?", /^(?!.*can't check)/], ["What is Bitcoin?", /^Bitcoin is/]];
+  for (var li = 0; li < LIVE.length; li++) {
+    var ll = await say(rt.boot({}), LIVE[li][0]);
+    ok("live: " + LIVE[li][0], LIVE[li][1].test(ll), ll.slice(0, 160));
+  }
+  /* what the person says about themselves is used by later questions */
+  var mw = rt.boot({}), MEMQ = [
+    ["I live in Toronto.", /Toronto/], ["How far is it from here to Paris?", /6,0[0-9]{2} km/], ["What time is it in my city?", /in Toronto/], ["What is my city?", /^You live in Toronto/],
+    ["I was born in Cairo.", /born in Cairo/], ["Where was I born?", /^You were born in Cairo/], ["Where am I from?", /haven't told me/], ["I'm from Canada.", /Canada/], ["Where am I from?", /^You're from Canada/],
+    ["I have two cats named Milo and Luna.", /Milo/], ["What are my cats called?", /Milo.*Luna|Luna.*Milo/]
+  ];
+  for (var mi = 0; mi < MEMQ.length; mi++) {
+    var mr = await say(mw, MEMQ[mi][0]);
+    ok("memory: " + MEMQ[mi][0], MEMQ[mi][1].test(mr), mr.slice(0, 160));
+  }
   console.log((fail ? "FAIL " : "") + pass + "/" + (pass + fail) + " everyday checks passed");
   process.exit(fail ? 1 : 0);
 })();

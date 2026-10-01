@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock, TXW = root.C4LMTextwork;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock, TXW = root.C4LMTextwork, DST = root.C4LMDistance, WL = root.C4LMWordlab, MN = root.C4LMMoney;
 
   var state = {
     ready: false,
@@ -1552,6 +1552,8 @@
 
   function answerPreference(frame) {
     var raw = String(frame.rawText || frame.body || ""), m;
+    /* "which is cheaper: 500 g for 3 dollars or 1 kg for 5 dollars" has an answer, not a matter of taste */
+    if (MN && /\d/.test(raw)) { try { var mq = MN.solve(raw); if (mq && mq.answer) return null; } catch (e) {} }
     if (!(m = raw.match(/^\s*(?:which|what)\s+is\s+(?:the\s+)?(?:better|best|worse|nicer|tastier|healthier|cooler|more fun|easier|harder|cheaper)[,:]?\s+(?:a |an |the )?(.+?)\s+or\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i)) &&
         !(m = raw.match(/^\s*should\s+i\s+(?:choose|pick|get|buy|learn|use|try|study|take|go with|eat|drink|do)?\s*(.+?)\s+or\s+(.+?)[?.!]*\s*$/i)) &&
         !(m = raw.match(/^\s*is\s+(?:a |an |the )?(.+?)\s+(?:better|worse|healthier|cheaper|easier|harder|tastier) than\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i))) return null;
@@ -1641,7 +1643,7 @@
     var o = { min: min };
     /* a numeric fragment ("3 power 4") is a computation, not a topic */
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
-    if (cs0.length > alpha0.length && alpha0.length < 2 && !/\b(?:happened|happen|occurred|took place|events?|significant|famous|important)\b[^?]*\b\d{1,4}\b/i.test(rawq)) return null;
+    if (cs0.length > alpha0.length && alpha0.length < 2 && !(alpha0.length >= 1 && /\b(?:1\d{3}|20\d{2})\b/.test(rawq) && !/\b(?:power|plus|minus|times|divided|squared|cubed|root|percent|sum|product)\b/i.test(rawq)) && !/\b(?:happened|happen|occurred|took place|events?|significant|famous|important)\b[^?]*\b\d{1,4}\b/i.test(rawq)) return null;
     /* a command to work something out is not a topic to look up, and a bare comparative ("which one is faster?") has no subject of its own */
     if (/^\s*(?:please\s+)?(?:convert|calculate|compute|solve|simplify|evaluate|expand|factori[sz]e|factor|differentiate|integrate|round|multiply|divide|subtract)\b/i.test(rawq) && /\d/.test(rawq)) return null;
     if (/^\s*(?:and\s+)?(?:which|what)(?:\s+one)?\s+(?:is|was|are)\s+(?:the\s+)?(?:faster|slower|bigger|larger|smaller|better|worse|cheaper|older|younger|taller|longer|shorter|heavier|lighter|stronger|easier|harder|safer|more\s+\w+|less\s+\w+)\s*\?*\s*$/i.test(rawq)) return null;
@@ -1704,6 +1706,34 @@
     "Why was the math book sad? It had too many problems."
   ];
   var jokeIx = 0;
+  /* Questions about things that change by the minute (weather, news, prices, scores, traffic, opening hours). The answer needs a live
+     source this program does not have, so it says so plainly rather than answering with something unrelated from its own knowledge. */
+  function answerLive(frame) {
+    var said = String(state.userText || frame.rawText || frame.body || "").trim(), l = said.toLowerCase().replace(/[!.?]+$/g, "").replace(/\s+/g, " ").replace(/^(?:hey|hi|hello|ok|okay|so|well|um|please|tell me|can you tell me|do you know)[, ]+/, "").trim();
+    if (!l || l.length > 100) return null;
+    var timeCue = /\b(?:today|tonight|tomorrow|now|right now|currently|outside|at the moment|this (?:morning|afternoon|evening|week|weekend)|these days|latest|live)\b/.test(l), kind = "", m;
+    var placeCue = false;
+    if (DST) { m = l.match(/\b(?:in|for|at|near|around)\s+([a-z .'-]+?)(?:\s+(?:today|tonight|tomorrow|now|right now|this \w+))?$/); if (m) { try { placeCue = !!DST.resolve(m[1]); } catch (e) { placeCue = false; } } }
+    if (/\b(?:weather|forecast|raining|snowing|sunny outside|temperature)\b/.test(l) && (timeCue || placeCue || /^what(?:'s| is) the weather(?: like)?$/.test(l)) && !/\b(?:what is|define|meaning of|causes?|types? of|why)\b.*\b(?:weather|forecast)\b(?!.*\b(?:today|now|tonight|tomorrow)\b)/.test(l)) kind = "weather";
+    else if (/\b(?:will it|is it going to|is it)\s+(?:rain|snow|storm|be (?:sunny|cold|hot|warm|cloudy|windy))\b/.test(l) && (timeCue || placeCue || /\b(?:will|going to)\b/.test(l))) kind = "weather";
+    else if (/^(?:what(?:'s| is) )?(?:the )?(?:latest |today'?s |breaking |current |top )?(?:news|headlines)(?: today| right now| now| this \w+)?$/.test(l) || /^(?:any|what(?:'s| is) the) news(?: today| lately)?$/.test(l) || /^what(?:'s| is) (?:happening|going on)(?: (?:in the world|around the world|today|right now|in the news))$/.test(l) || /^what(?:'s| is) (?:in the news|trending)(?: (?:today|now|right now))?$/.test(l)) kind = "news";
+    else if (/\b(?:price|worth|trading|value|cost)\b/.test(l) && /\b(?:bitcoin|btc|ethereum|ether|dogecoin|crypto|cryptocurrency|stock|stocks|shares?|gold|silver|oil|s&p|dow|nasdaq|tesla|apple stock|gas|petrol)\b/.test(l) && (timeCue || /^(?:what(?:'s| is)|how much is)\b/.test(l)) && !/\b(?:history|average|in \d{4})\b/.test(l)) kind = "market";
+    else if (/^(?:how is|how are) (?:the )?(?:stock market|markets?|bitcoin|crypto|dow|nasdaq|s&p(?: 500)?)(?: doing)?(?: today| now| right now)?$/.test(l) || /^(?:what(?:'s| is) )?(?:the )?stock market(?: doing)?(?: today| now| right now)?$/.test(l)) kind = "market";
+    else if (/\b(?:who (?:won|is winning|scored|lost|plays)|what(?:'s| is) the score|did .{2,30} (?:win|lose))\b/.test(l) && /\b(?:last night|yesterday|today|tonight|this (?:week|weekend|morning|season)|right now|the (?:game|match|race|final)|so far)\b/.test(l) && !/\b(?:\d{4}|world cup|in (?:19|20)\d\d)\b/.test(l)) kind = "scores";
+    else if (/\b(?:traffic|flight status|is my flight|is .{2,30} (?:on time|delayed))\b/.test(l) && (timeCue || /^(?:how is|what(?:'s| is)) the traffic/.test(l) || /\bmy flight\b/.test(l))) kind = "travel";
+    else if (/^(?:is|are) (?:the )?[a-z' ]{2,30} (?:open|closed)(?: now| today| right now| at the moment| tonight)$/.test(l)) kind = "hours";
+    if (!kind) return null;
+    var out = {
+      weather: "I can't check the weather. I run entirely offline inside this page, with no live data, so I don't know today's conditions or any forecast. A weather app or site will have it. I can explain how weather and forecasts work if that helps.",
+      news: "I can't read the news. I run entirely offline with no live feed, so I don't know what's happening today. A news site will have the latest. If you name a topic, I can tell you what I know about it as background.",
+      market: "I can't look up prices or markets. I run entirely offline with no live data, so I can't tell you what something is trading at right now. A finance site or app will have it. I can explain how something works, or convert a rough currency amount.",
+      scores: "I can't look up scores or results from recent events. I run entirely offline with no live data, so a sports site or app is the place to check. I can answer questions about long-settled history.",
+      travel: "I can't check live traffic or flight status. I run entirely offline with no live data, so your maps app or the airline's page is the place to look.",
+      hours: "I can't check opening hours. I run entirely offline with no live data, so the place's own website or a maps app will know if it's open."
+    }[kind];
+    return { text: out, route: "insufficient", confidence: 0.82, insufficient: true, sources: [], defects: [], interpretation: "live:" + kind };
+  }
+
   function answerSmallTalk(frame) {
     var said = String(state.userText || frame.rawText || frame.body || "").trim();
     var l = said.toLowerCase().replace(/[!.?]+$/g, "").replace(/\s+/g, " ").replace(/^(?:hey|hi|hello|ok|okay|so|well|um|please)[, ]+/, "").trim();
@@ -1814,6 +1844,9 @@
     /* text the user supplied: summarise it, find its keywords, judge its sentiment, change its tone, reword it, title it, count it */
     var textwork = answerTextwork(frame);
     if (textwork) return textwork;
+    /* tips, bills, discounts, tax, loans, interest, wages, price per item */
+    var money = answerMoney(frame);
+    if (money) return money;
     var story = answerStory(frame);
     if (story) return story;
     /* Puzzles and premises: syllogisms, ordering, calendar, kinship, sequences, riddles. */
@@ -1933,6 +1966,14 @@
              interpretation: "write:" + wr.schema, write: wr };
   }
 
+  function answerMoney(frame) {
+    if (!MN || off("money")) return null;
+    var mr = null;
+    try { mr = MN.solve(state.userText || frame.rawText || frame.body || ""); } catch (e) { mr = null; }
+    if (!mr || !mr.answer) return null;
+    return { text: mr.answer, route: "reason", confidence: mr.confidence || 0.88, sources: [], defects: [], interpretation: "money:" + mr.schema, money: mr };
+  }
+
   function answerTextwork(frame) {
     if (!TXW || off("textwork")) return null;
     var tr = null;
@@ -1941,12 +1982,30 @@
     return { text: tr.answer, route: "reason", confidence: tr.confidence || 0.84, sources: [], defects: [], interpretation: "textwork:" + tr.schema, textwork: tr };
   }
 
+  function homeSub(text) {
+    var M = state.memory, t = String(text || "");
+    if (!M || typeof M.homePlace !== "function" || !/\b(?:here|home|my|where i)\b/i.test(t)) return t;
+    function sub(re, order) { t = t.replace(re, function (m0, pre) { var pl = ""; try { pl = M.homePlace(order); } catch (e) { pl = ""; } return pl ? pre + " " + pl : m0; }); }
+    sub(/\b(from|to|in|at|and|between|near|of|is|are)\s+(?:here|home|where i (?:live|am)|my (?:home |current )?(?:city|town|place|location|area))\b/gi, null);
+    t = t.replace(/\b(is it|the time|time)\s+here\b/gi, function (m0, pre) { var pl = ""; try { pl = M.homePlace(null); } catch (e) { pl = ""; } return pl ? pre + " in " + pl : m0; });
+    sub(/\b(from|to|in|at|and|between|near|of|is|are)\s+(?:my home ?town|where i grew up)\b/gi, ["hometown", "grewup"]);
+    sub(/\b(from|to|in|at|and|between|near|of|is|are)\s+(?:my birthplace|where i was born)\b/gi, ["birthplace"]);
+    sub(/\b(from|to|in|at|and|between|near|of|is|are)\s+(?:my (?:home )?country)\b/gi, ["country", "origin"]);
+    return t;
+  }
+
   function answerSkills(frame) {
     if (!SK || off("skills")) return null;
     var sr = null;
     try { sr = SK.solve(frame.rawText || frame.body || ""); } catch (e) { sr = null; }
+    /* "my city", "here", "home" mean the place the person has said they live in */
+    var raw0 = frame.rawText || frame.body || "", raw1 = homeSub(raw0);
     /* the world clock and the holiday calendar: time in another city, days until a holiday */
-    if ((!sr || !sr.answer) && CK) { try { sr = CK.solve(frame.rawText || frame.body || ""); } catch (e) { sr = null; } }
+    if ((!sr || !sr.answer) && CK) { try { sr = CK.solve(raw1); } catch (e) { sr = null; } }
+    /* inflections, rhymes, pronunciation, "is it a word?", parts of speech, example sentences */
+    if ((!sr || !sr.answer) && WL && !off("wordlab")) { try { sr = WL.solve(raw0); } catch (e) { sr = null; } }
+    /* distances between cities and countries, trip times, coordinates */
+    if ((!sr || !sr.answer) && DST && !off("distance")) { try { sr = DST.solve(raw1); } catch (e) { sr = null; } }
     if (!sr || !sr.answer) return null;
     return { text: sr.answer, route: "reason", confidence: sr.confidence || 0.86, sources: [], defects: [],
              interpretation: "skills:" + sr.schema, skills: sr };
@@ -3247,6 +3306,8 @@
       if (cont) { var oC = {}, kC; for (kC in opts) oC[kC] = opts[kC]; oC.rewritten = true; return answerCore(cont, oC); }
       var recase = String(text == null ? "" : text).match(/^\s*(?:please\s+)?(?:make|write|put|say|convert|turn|give me)\s+(?:it|that|this|the (?:answer|result))\s+(?:in\s+|into\s+|to\s+)?(upper ?case|lower ?case|all caps|title ?case|capital letters)[.!?]*\s*$/i);
       if (recase && discourse.lastAnswer) { var oR = {}, kR; for (kR in opts) oR[kR] = opts[kR]; oR.rewritten = true; return answerCore('Convert "' + String(discourse.lastAnswer).replace(/"/g, "'") + '" to ' + recase[1], oR); }
+      var wordFor = String(text == null ? "" : text).match(/^\s*(?:what(?:'s| is)|tell me|do you know)\s+(?:the|a)\s+(?:word|term|name)\s+for\s+((?:the\s+)?(?:fear|study|science|love|hatred|worship|belief)\s+of\s+.+?|(?:a|an)\s+(?:group|baby|young|male|female|home|house|flock|herd|collection)\s+of\s+.+?|(?:a|an)\s+(?:baby|young|male|female)\s+.+?)[?.!]*\s*$/i);
+      if (wordFor) { var oW = {}, kW; for (kW in opts) oW[kW] = opts[kW]; oW.rewritten = true; return answerCore("What is " + (/^(?:the|a|an)\s/i.test(wordFor[1]) ? "" : "the ") + wordFor[1] + " called?", oW); }
       if ((popM = String(text == null ? "" : text).match(/^\s*how many (?:people|persons|inhabitants|humans) (?:live|reside|inhabit|are there) (?:in|at|on)\s+(?:the\s+)?(.+?)[?.!]*\s*$/i))) {
         var oP = {}, kP; for (kP in opts) oP[kP] = opts[kP]; oP.rewritten = true; return answerCore("What is the population of " + popM[1] + "?", oP);
       }
@@ -3308,6 +3369,9 @@
     if (!opts.internal && !off("guard")) {
       var early = answerSmallTalk(baseFrame);
       if (early) return Promise.resolve(finish(baseFrame, early, t0));
+      var liveQ = null;
+      try { liveQ = answerLive(baseFrame); } catch (e) { liveQ = null; }
+      if (liveQ) return Promise.resolve(finish(baseFrame, liveQ, t0));
     }
     if (!opts.internal && !off("guard")) {
       var fu = null;
@@ -3506,6 +3570,9 @@
     if (result && typeof result.text === "string" && /^The (?:date|age|time) of /.test(result.text))
       result.text = result.text.replace(/^The (?:date|age|time) of (.+?) is ((?:about |around |roughly |over |nearly )?[\d.,]+(?: [a-z]+)? years old)\b/, function (m0, nm, ag) { return (RZ && RZ.theName ? RZ.capitalize(RZ.theName(nm)) : nm) + " is " + ag; });
     if (result && typeof result.text === "string" && /[A-Za-z]\.\.(?!\.)/.test(result.text)) result.text = result.text.replace(/([A-Za-z])\.\.(?!\.)/g, "$1.");
+    /* "a American" is "an American": the article follows the sound of the word that comes next */
+    if (result && typeof result.text === "string" && /\b[Aa] (?:American|Australian|Asian|African|Arctic|Antarctic|Atlantic|Italian|Indian|Irish|Icelandic|Israeli|Iranian|Iraqi|Egyptian|Ethiopian|Estonian|Olympic|Argentine|Austrian|Algerian|Arab|Arabic|Armenian|Albanian|Afghan|Angolan|Austronesian|Alpine|Eastern|Inuit)\b/.test(result.text))
+      result.text = result.text.replace(/\b([Aa]) (?=(?:American|Australian|Asian|African|Arctic|Antarctic|Atlantic|Italian|Indian|Irish|Icelandic|Israeli|Iranian|Iraqi|Egyptian|Ethiopian|Estonian|Olympic|Argentine|Austrian|Algerian|Arab|Arabic|Armenian|Albanian|Afghan|Angolan|Austronesian|Alpine|Eastern|Inuit)\b)/g, "$1n ");
     /* page furniture from web sources never reaches the reader: style blocks, template braces, footnote marks */
     if (result && typeof result.text === "string" && /mw-|\{\{|\[\d+\]|\[citation needed\]/.test(result.text)) {
       result.text = result.text.replace(/([A-Za-z])\.?mw-[\w-]+[^{}]*\{[^{}]*\}\s*/g, "$1. ").replace(/\.?mw-[\w-]+[^{}]*\{[^{}]*\}/g, " ").replace(/\{\{[^{}]*\}\}/g, " ").replace(/\[(?:\d+|citation needed|edit)\]/gi, "").replace(/[ \t]{2,}/g, " ").trim();

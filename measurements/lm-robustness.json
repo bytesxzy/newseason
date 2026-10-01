@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T21:19:51.331Z",
- "passed": 96,
- "total": 96,
+ "generated": "2026-10-01T22:18:03.985Z",
+ "passed": 101,
+ "total": 101,
  "results": [
   {
    "name": "syntax: c4-lm-clock.js",
@@ -25,6 +25,11 @@
   },
   {
    "name": "syntax: c4-lm-core.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-distance.js",
    "ok": true,
    "detail": ""
   },
@@ -60,6 +65,11 @@
   },
   {
    "name": "syntax: c4-lm-facts-differences.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-events.js",
    "ok": true,
    "detail": ""
   },
@@ -204,6 +214,11 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-words2.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-world.js",
    "ok": true,
    "detail": ""
@@ -245,6 +260,11 @@
   },
   {
    "name": "syntax: c4-lm-memory.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-money.js",
    "ok": true,
    "detail": ""
   },
@@ -295,6 +315,11 @@
   },
   {
    "name": "syntax: c4-lm-tools.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-wordlab.js",
    "ok": true,
    "detail": ""
   },
@@ -356,7 +381,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: emoji only",
@@ -366,12 +391,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "edge input: sql-ish input",
@@ -391,7 +416,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: non-latin script",
@@ -421,27 +446,27 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "14 -> 12"
+   "detail": "13 -> 9"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 comes to 391."
+   "detail": "17 * 23 equals 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "offline: current question degrades honestly",
    "ok": true,
-   "detail": "A current bitcoin price would be an amount of money expected"
+   "detail": "I can't look up prices or markets. I run entirely offline wi"
   },
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2804 ms"
+   "detail": "6 ms"
   },
   {
    "name": "garbage source response handled",
@@ -456,12 +481,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hi — what would you like to know?"
+   "detail": "Hey. Ask me something."
   },
   {
    "name": "dialogue sequence",

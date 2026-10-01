@@ -545,7 +545,9 @@
           return reply(said, S);
         }
         var fresh = /\?$/.test(String(said || "").trim()) || /^(?:what|who|where|when|why|how|which|tell|give|show|explain|define|calculate|compute|write|translate|list|name|can|could|do|does|is|are|will)\b/.test(l) || l.split(" ").length > 8;
-        if (!fresh || matches(l, accepted)) {
+        /* a long question that merely contains the answer ("What is the capital of France?") is a new question, not a guess */
+        var asQ = fresh && l.split(" ").length >= 4 && !/^(?:is it|it'?s|it is|i think|maybe|could it be|would it be|is the answer|the answer is|i guess|i believe|probably|perhaps|was it|are they|is that)\b/.test(l);
+        if (!asQ && (!fresh || matches(l, accepted))) {
           if (matches(l, accepted)) {
             F.pending = null; F.last = P.type;
             if (P.type === "quiz") { F.score.right++; F.score.asked++; return { text: "Correct! " + end(shown) + " That's " + F.score.right + " out of " + F.score.asked + ". Say \"next\" for another question.", kind: "quiz" }; }

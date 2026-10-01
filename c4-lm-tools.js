@@ -1163,7 +1163,8 @@
       var rr = Math.round(r); if (Math.abs(r - rr) < 1e-9 && Math.pow(rr, k) === x) r = rr;
       return out(r, "the number whose " + k + (k === 2 ? "nd" : k === 3 ? "rd" : "th") + " power is " + m[2]);
     }
-    if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(-?\d+(?:\.\d+)?) (?:to the power of|raised to the power of|to the) (?:power )?(-?\d+(?:\.\d+)?)$/))) return out(Math.pow(+m[1], +m[2]), m[1] + "^" + m[2]);
+    if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(-?\d+(?:\.\d+)?) (?:to the power of|raised to the power of|raised to the power|raised to the|raised to|to the) (?:power )?(?:of )?(-?\d+(?:\.\d+)?)$/))) return out(Math.pow(+m[1], +m[2]), m[1] + "^" + m[2]);
+    if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(-?\d+(?:\.\d+)?) (?:power|exponent) (-?\d+(?:\.\d+)?)$/)) || (m = l.match(/^(?:what is |what's |calculate |find |compute )?(-?\d+(?:\.\d+)?) raised to (?:the )?(-?\d+(?:\.\d+)?)(?:st|nd|rd|th)?(?: power)?$/))) return out(Math.pow(+m[1], +m[2]), m[1] + "^" + m[2]);
     return null;
   }
   /* a number written as a fraction, decimal, percent or integer */

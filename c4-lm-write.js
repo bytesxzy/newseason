@@ -31,7 +31,7 @@
   function spellQ(t) {
     var l = t.toLowerCase().replace(/[?.!]+$/, ""), m;
     if ((m = l.match(/^(?:please )?(?:spell|spell out)(?: the word| the name)?\s+["']?([a-z'-]{1,30})["']?$/)) || (m = l.match(/^how (?:do you|do i|to|would you) spell\s+(?:the word )?["']?([a-z'-]{1,30})["']?$/)) || (m = l.match(/^what(?:'s| is) the spelling of\s+["']?([a-z'-]{1,30})["']?$/))) {
-      var w = m[1];
+      var w = m[1].replace(/^'+|'+$/g, "");
       return res(w + " is spelled " + w.toUpperCase().replace(/[^A-Z']/g, "").split("").join("-") + ".", "spell", 0.85);
     }
     return null;
