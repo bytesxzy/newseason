@@ -1,0 +1,231 @@
+/* Held-out evaluation v8: a fifth bank, written AFTER the everyday-knowledge, text-work, clock, language and fun layers existed,
+ * but BEFORE it was run, with new wording and mostly new topics. Each expected answer was written from general knowledge,
+ * not from the system's output.
+ *
+ *   node tools/lm-heldout8.js [--out FILE] [--fails] [--peek] [--cat name]
+ *
+ * v4 to v7 were read while fixing and are development sets. This file is frozen when first committed; its first-run score is the
+ * number to quote for generalisation on this round's additions, and any later change made after reading its failures must be
+ * reported as such. Scoring and the sealed third are identical to lm-heldout4.js.
+ */
+"use strict";
+var H4 = require("./lm-heldout4.js");
+var BOTH = function () { var a = [].slice.call(arguments); return new RegExp(a.map(function (x) { return "(?=[\\s\\S]*(?:" + x + "))"; }).join(""), "i"); };
+
+var CASES = [
+  /* ---- everyday things */
+  ["thingE", "What is a chimney?", /smoke|fire|flue|pipe|duct|vent/i],
+  ["thingE", "What is a thermostat?", /temperature|control|heat|regulat/i],
+  ["thingE", "What is a barometer?", /pressure|atmospher|weather/i],
+  ["thingE", "What is a lantern?", /light|lamp|candle|case|portable/i],
+  ["thingE", "What is a gazelle?", /antelope|deer|fast|africa|asia|graceful|mammal|animal/i],
+  ["thingE", "What is a raccoon?", /mammal|america|mask|nocturnal|animal|ringed|rodent|carnivor/i],
+  ["thingE", "What is a lighthouse for?", /ship|warn|guide|light|navigat|rock/i],
+  ["thingE", "What is a compass used for?", /direction|north|navigat|find/i],
+  ["thingE", "What is a peninsula?", /water|surround|land|jut|sea/i],
+  ["thingE", "What is an archipelago?", /islands|group|chain|cluster|scatter/i],
+  ["thingE", "What is a glacier?", /ice|slow|snow|mov|river/i],
+  ["thingE", "What is a vaccine?", /immun|disease|protect|train|antibod|infect/i],
+  ["thingE", "What is a skeleton?", /bone|frame|support/i],
+  ["thingE", "What is a recipe?", /instruction|ingredient|cook|prepare|make|food|dish/i],
+  ["thingE", "What is a passport?", /document|travel|identity|id\b|country|border|permit/i],
+  ["thingE", "What is a pharmacy?", /medic|drug|prescription|shop|store|pharmac/i],
+  ["thingE", "What is a dentist?", /teeth|tooth|dental|doctor|mouth/i],
+  ["thingE", "What is a skyscraper?", /tall|building|floors|storeys|stories/i],
+  ["thingE", "What is a harbour?", /ship|boat|port|shelter|water|safe/i],
+  ["thingE", "What is a wallet?", /money|cards|carry|case|hold|cash/i],
+
+  /* ---- body and health */
+  ["bodyE", "What does the liver do?", /filter|bile|detox|digest|metabol|blood|toxin|storage|store/i],
+  ["bodyE", "What do red blood cells do?", /oxygen|carry|transport|haemoglobin|hemoglobin/i],
+  ["bodyE", "How many bones are in the adult human body?", /\b206\b/],
+  ["bodyE", "What is the largest organ in the human body?", /skin/i],
+  ["bodyE", "What causes a fever?", /infect|immune|germ|bacteria|virus|body|temperature|illness|inflam/i],
+  ["bodyE", "How much sleep does an adult need?", /7|seven|8|eight|nine|9/i],
+  ["bodyE", "What is high blood pressure?", /blood|artery|arteries|force|heart|hypertension/i],
+  ["bodyE", "What is a calorie?", /energy|heat|unit|food/i],
+  ["bodyE", "What is the function of the kidneys?", /filter|waste|urine|blood|water/i],
+  ["bodyE", "How can I stop the hiccups?", /breath|water|hold|sip|swallow|pass|bag|sugar|vinegar|drink/i],
+  ["bodyE", "What is first aid for a nosebleed?", /lean|pinch|nose|forward|pressure|tilt/i],
+  ["bodyE", "What is the difference between a virus and a bacterium?", /living|antibiotic|cell|host|reproduce|smaller|organism/i],
+  ["bodyE", "Why do we need vitamins?", /health|body|function|nutrient|small|immune|grow|essential|needs/i],
+  ["bodyE", "What is asthma?", /breath|lung|airway|wheez|chronic|inflam/i],
+  ["bodyE", "What does insulin do?", /sugar|glucose|blood|cells|pancrea|energy|diabet/i],
+
+  /* ---- how to */
+  ["howE", "How do I boil pasta?", /boil|water|salt|minutes|drain|simmer/i],
+  ["howE", "How do I make a cup of tea?", /water|tea bag|steep|boil|leaves|minutes|cup/i],
+  ["howE", "How do I get rid of a headache?", /rest|water|pain|relie|dark|paracetamol|ibuprofen|medicine|cool|hydrate/i],
+  ["howE", "How do I change a light bulb?", /switch|off|twist|unscrew|replace|power|cool|screw/i],
+  ["howE", "How do I jump-start a car?", /cable|clamp|battery|jump|positive|negative|terminal/i],
+  ["howE", "How do I take a screenshot on Windows?", /print|screen|shift|windows|snip|key/i],
+  ["howE", "How do I write a cover letter?", /job|company|skill|experience|address|introduc|paragraph|concise|position|role/i],
+  ["howE", "How do I study for an exam?", /review|practice|plan|schedule|sleep|notes|test|recall|break|space|flashcard|revise/i],
+  ["howE", "How do I start running?", /walk|slow|gradual|shoes|build|short|jog|rest|easy/i],
+  ["howE", "How do I save money each month?", /budget|track|spend|automatic|emergency|save|cut|goal|plan/i],
+  ["howE", "How do I clean a microwave?", /steam|water|lemon|vinegar|wipe|bowl/i],
+  ["howE", "How do I fix a flat bicycle tire?", /patch|tube|puncture|wheel|pump|inner|tyre|tire|remove/i],
+  ["howE", "How do I tie shoelaces?", /loop|lace|cross|knot|bow|pull|tight/i],
+  ["howE", "How do I back up my files?", /external|cloud|copy|drive|backup|storage|regular|another/i],
+  ["howE", "How do I make a strong password?", /long|character|unique|symbol|number|different|phrase|manager|mix/i],
+
+  /* ---- why and how things work */
+  ["whyE", "Why does ice float on water?", /less dense|density|expand|lighter|crystal|lattice|air|space/i],
+  ["whyE", "Why do we have time zones?", /earth|rotat|sun|spin|noon|daylight|longitude|clock/i],
+  ["whyE", "Why do birds migrate?", /food|season|winter|weather|breed|warm|climate|survive|resources/i],
+  ["whyE", "How does a microwave oven heat food?", /water|molecule|wave|vibrat|radiation|heat|radio/i],
+  ["whyE", "How does a refrigerator keep food cold?", /heat|coolant|refrigerant|compress|evapor|remov|liquid|gas|cycle/i],
+  ["whyE", "What causes tides?", /moon|gravity|gravitational|sun|pull/i],
+  ["whyE", "Why is the ocean salty?", /river|mineral|rock|salt|evaporat|dissolv|erosion/i],
+  ["whyE", "Why do we get hungry?", /stomach|empty|hormone|ghrelin|brain|energy|food|signal|blood sugar/i],
+  ["whyE", "What causes lightning?", /charge|electric|static|cloud|storm|spark|ice/i],
+  ["whyE", "How do solar panels work?", /light|photon|electron|semiconductor|silicon|electric|current|sun|photovoltaic/i],
+  ["whyE", "How does a vaccine work?", /immune|antibod|train|recogni|germ|pathogen|protect|memory/i],
+  ["whyE", "Why is the sky red at sunset?", /scatter|atmosphere|wavelength|blue|light|longer|path|angle/i],
+  ["whyE", "Why do cats purr?", /content|happy|comfort|relax|vibrat|heal|nervous|communicat|soothe|throat/i],
+  ["whyE", "Why do volcanoes erupt?", /magma|pressure|gas|crust|molten|lava|rock|plate/i],
+  ["whyE", "How do airplanes fly?", /lift|wing|thrust|engine|air|pressure|aerodynam/i],
+
+  /* ---- geography */
+  ["geoE", "What is the capital of Argentina?", /Buenos Aires/i],
+  ["geoE", "What is the capital of New Zealand?", /Wellington/i],
+  ["geoE", "What is the capital of Kenya?", /Nairobi/i],
+  ["geoE", "What is the capital of Norway?", /Oslo/i],
+  ["geoE", "Which ocean is the largest?", /Pacific/i],
+  ["geoE", "How big is Texas?", /\b6[89]\d,?\d{3}\b|\b69\d\b|\b268,?\d{3}\b|\bsq|square|larger than|bigger than|France|second/i],
+  ["geoE", "Which is the longest river in Africa?", /Nile/i],
+  ["geoE", "What continent is Brazil in?", /South America/i],
+  ["geoE", "What currency does Japan use?", /yen/i],
+  ["geoE", "What is the largest country by area?", /Russia/i],
+  ["geoE", "How many people live in Tokyo?", /million/i],
+  ["geoE", "What is the highest mountain in North America?", /Denali|McKinley/i],
+  ["geoE", "What is the smallest country in the world?", /Vatican/i],
+  ["geoE", "What is the largest desert in the world?", /Antarctic|Sahara/i],
+  ["geoE", "Which country has the most people?", /India|China/i],
+  ["geoE", "What language do they speak in Egypt?", /Arabic/i],
+  ["geoE", "What is the capital of Canada?", /Ottawa/i],
+  ["geoE", "Which country is known as the Land of the Rising Sun?", /Japan/i],
+  ["geoE", "How many countries are in Europe?", /\b4[4-9]\b|\b5[0-1]\b|forty|fifty/i],
+  ["geoE", "What is the population of Texas?", /\b29\b|\b30\b|million/i],
+
+  /* ---- history */
+  ["histE", "What happened in 1066?", /Hastings|Norman|William|Harold|conquest/i],
+  ["histE", "When did World War I begin?", /1914/],
+  ["histE", "Who was the first emperor of Rome?", /Augustus|Octavian/i],
+  ["histE", "What was the Renaissance?", /revival|rebirth|art|learning|europe|14th|cultural/i],
+  ["histE", "Who invented the printing press in Europe?", /Gutenberg/i],
+  ["histE", "When did the Berlin Wall fall?", /1989/],
+  ["histE", "Who discovered penicillin?", /Fleming/i],
+  ["histE", "What was the Magna Carta?", /1215|king|John|charter|rights|barons|law/i],
+  ["histE", "Who was Nelson Mandela?", /South Africa|president|apartheid|anti-apartheid|leader/i],
+  ["histE", "When was the American Declaration of Independence signed?", /1776/],
+  ["histE", "What was the Industrial Revolution?", /machine|factory|manufactur|steam|britain|industr/i],
+  ["histE", "Who was Cleopatra?", /Egypt|queen|pharaoh|ruler/i],
+  ["histE", "What caused World War II?", /Hitler|Nazi|Poland|invasion|aggression|germany|treaty|fascis|expansion/i],
+  ["histE", "When did the Roman Empire fall?", /476|5th century|fifth century/i],
+  ["histE", "What happened in 1969?", /moon|Apollo|Armstrong|landing/i],
+
+  /* ---- arts, sport, belief */
+  ["cultE", "Who wrote 1984?", /Orwell/i],
+  ["cultE", "Who painted the Mona Lisa?", /Leonardo|da Vinci/i],
+  ["cultE", "Who composed the Fifth Symphony?", /Beethoven/i],
+  ["cultE", "What is impressionism?", /painting|art|light|France|brush|monet|movement|impression/i],
+  ["cultE", "What is a sonnet?", /14|fourteen|poem|line|rhyme/i],
+  ["cultE", "How many players are on a soccer team?", /\b11\b|eleven/i],
+  ["cultE", "What is offside in soccer?", /goal|attack|opponent|defender|ball|ahead|position|line/i],
+  ["cultE", "How often are the Olympic Games held?", /four|4\b/i],
+  ["cultE", "What is a hat-trick?", /three|3\b/i],
+  ["cultE", "What is a birdie in golf?", /one (?:stroke|shot) under|under par|1 under|below par/i],
+  ["cultE", "Who is Zeus?", /king|god|sky|thunder|Greek|Olympus/i],
+  ["cultE", "What is Ramadan?", /Islam|Muslim|fast|month|holy/i],
+  ["cultE", "What is Diwali?", /light|Hindu|festival|lamp/i],
+  ["cultE", "What is jazz?", /music|style|genre|improvis|New Orleans|swing|american/i],
+  ["cultE", "Who wrote Romeo and Juliet?", /Shakespeare/i],
+
+  /* ---- time, calendar and dates */
+  ["timeE", "When is Easter in 2028?", /April 16/i],
+  ["timeE", "When is Thanksgiving in 2026?", /November 26/i],
+  ["timeE", "What day of the week is December 25, 2030?", /Wednesday/i],
+  ["timeE", "How many days are in February 2100?", /\b28\b/],
+  ["timeE", "What day of the week was July 20, 1969?", /Sunday/i],
+  ["timeE", "How many days are there between January 1 and March 1 in a non-leap year?", /\b59\b/],
+  ["timeE", "Is 2024 a leap year?", /yes|leap/i],
+  ["timeE", "What is the time difference between New York and London in winter?", /5|five/i],
+  ["timeE", "If it is noon in London, what time is it in Tokyo in January?", /9:00 PM|9 PM|21:00|9:00/i],
+  ["timeE", "How many hours is it from Los Angeles to New York time zones?", /3|three/i],
+
+  /* ---- conversions and numbers */
+  ["convE", "Convert 5 miles to kilometers.", /8\.0/],
+  ["convE", "How many ounces are in a pound?", /\b16\b/],
+  ["convE", "Convert 100 degrees Celsius to Fahrenheit.", /\b212\b/],
+  ["convE", "How many seconds are in a day?", /86,?400/],
+  ["convE", "How many megabytes are in a gigabyte?", /1,?000|1,?024/],
+  ["convE", "What is 72 Fahrenheit in Celsius?", /22\.2|22\.22|\b22\b/],
+  ["convE", "Convert 3 gallons to liters.", /11\.3|11\.4/],
+  ["convE", "How many tablespoons are in a quarter cup?", /\b4\b|four/i],
+  ["convE", "Convert 1 mile per hour to kilometers per hour.", /1\.6/],
+  ["convE", "Convert 20 USD to euros.", /\b1[5-9]\b|\b2[0-2]\b|roughly|about/i],
+
+  /* ---- text work */
+  ["textE", "Is this positive or negative: I can't believe how wonderful the staff were.", /positive/i],
+  ["textE", "What is the sentiment of: The hotel was dirty and the staff were rude.", /negative/i],
+  ["textE", "Make this more formal: gonna be late, sorry", /going to|late|apolog|sorry/i],
+  ["textE", "How many words are in: I like to eat green apples", /\b6\b|six/i],
+  ["textE", "Summarize in one sentence: Cats are popular pets. They sleep up to sixteen hours a day. They hunt small animals and groom themselves often. Many people find them calming.", /cat/i],
+  ["textE", "Extract all the numbers from: The train leaves at 9 and arrives at 14 after 5 stops.", /9[\s\S]*14[\s\S]*5/],
+  ["textE", "Passage: Lena planted 12 tulips and 8 roses in April. Question: How many flowers did Lena plant in total?", /\b20\b|twenty/i],
+  ["textE", "Read this: Omar drove to Lisbon on Friday and stayed three nights. Question: Where did Omar drive?", /Lisbon/i],
+  ["textE", "Give me a title for an essay about renewable energy", /renewable|energy/i],
+  ["textE", "Count the vowels in: education", /\b5\b|five/i],
+
+  /* ---- languages */
+  ["langE", "¿Cuál es la capital de España?", /Madrid/i],
+  ["langE", "Quelle est la capitale de l'Italie ?", /Rome/i],
+  ["langE", "Hola, ¿qué tal?", /hola|bien|ayudar|ayudarte|gracias/i],
+  ["langE", "Wie heißt die Hauptstadt von Deutschland?", /Berlin/i],
+  ["langE", "How do you say good morning in Spanish?", /buenos d[ií]as/i],
+  ["langE", "How do you say thank you in Japanese?", /arigat/i],
+  ["langE", "What does bonjour mean?", /hello|good (?:day|morning)|hi/i],
+  ["langE", "Combien font 9 fois 6 ?", /\b54\b/],
+  ["langE", "Obrigado", /nada|ajudar|disponha|por nada|mais/i],
+  ["langE", "What is the French word for house?", /maison/i],
+
+  /* ---- money and school subjects */
+  ["finE", "What is compound interest?", /interest|earn|add|principal|grow|accumulat/i],
+  ["finE", "What is a mortgage?", /loan|home|house|property|bank|borrow/i],
+  ["finE", "What is the difference between a stock and a bond?", /own|share|loan|debt|interest|equity/i],
+  ["finE", "What is inflation?", /price|rise|purchasing|cost|money/i],
+  ["finE", "What does GDP stand for?", /gross domestic product/i],
+  ["finE", "What is a credit score?", /number|credit|borrow|lend|score|history|reliab/i],
+  ["gramE", "What is the difference between affect and effect?", /verb|noun|influence|result/i],
+  ["gramE", "What is the plural of mouse?", /mice/i],
+  ["gramE", "What is a metaphor?", /compar|figure|speech|say|is another|without|not literal/i],
+  ["gramE", "What is the past tense of go?", /went/i],
+  ["gramE", "What is an adverb?", /verb|adjective|describes|modif/i],
+  ["gramE", "What does the word benevolent mean?", /kind|good|well|generous|charit|benefi/i],
+  ["gramE", "What is a synonym for happy?", /glad|joyful|cheerful|content|pleased|delighted/i],
+  ["gramE", "What is the opposite of generous?", /stingy|selfish|mean|miserly|greedy|tight/i],
+  ["gramE", "What is a palindrome?", /same|backward|forward|read/i],
+
+  /* ---- fun and chat */
+  ["funE", "Tell me a riddle", /\?/],
+  ["funE", "Flip a coin", /heads|tails/i],
+  ["funE", "Roll a die", /\b[1-6]\b/],
+  ["funE", "Give me a quote", /“|—|—/],
+  ["funE", "Tell me a fun fact about space", /./],
+  ["funE", "Tell me a joke", /\?|\w+/],
+  ["funE", "Quiz me", /question|\?/i],
+  ["funE", "Pick a number between 1 and 5", /^[1-5]\b/],
+  ["funE", "What is your name?", /CELL4|assistant|program/i],
+  ["funE", "Do you like music?", /program|don't|can talk|happy to|experience|tell me/i],
+
+  /* ---- multi-part */
+  ["multiE", "What is the capital of Spain and what language do they speak there?", BOTH("Madrid", "Spanish")],
+  ["multiE", "Who wrote Frankenstein and in what year was it published?", BOTH("Shelley", "1818")],
+  ["multiE", "What is 15% of 80 and what is 80 divided by 16?", BOTH("\\b12\\b", "\\b5\\b")],
+  ["multiE", "What is the largest planet and what is the closest planet to the Sun?", BOTH("Jupiter", "Mercury")],
+  ["multiE", "What is the boiling point of water and the freezing point of water in Celsius?", BOTH("\\b100\\b", "\\b0\\b")]
+];
+
+module.exports = { CASES: CASES };
+if (require.main === module) H4.run(CASES);
