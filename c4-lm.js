@@ -169,7 +169,8 @@
          (root.C4LMLexicon && frame.contentTokens.some(function (t) { return root.C4LMLexicon.has(t); })) ||
          (KB && frame.contentTokens.some(function (t) { return KB.resolve(t, { strict: true }).length > 0; })));
       if (frame.leadMarker === "and" || frame.leadMarker === "but" ||
-          /^(?:and|what about|how about|why|how|when|where|what else|more|and what of)\b/i.test(frame.body) ||
+          /^(?:and|what about|how about|what else|more|and what of)\b/i.test(frame.body) ||
+          /^(?:why|how|when|where)\b/i.test(frame.body) && frame.contentTokens.length <= 1 && !frame.entities.length && !(KB && KB.resolve(frame.body.replace(/^(?:why|how|when|where)\s+(?:is|are|was|were|do|does|did|can|could|would|will|has|have)?\s*/i, "").replace(/[?.!]+$/, "").trim(), { strict: true }).length) ||
           (frame.relation && !frame.subject) ||
           (!namesSomething && frame.queryForm === "statement" && !frame.entities.length &&
            frame.contentTokens.length <= 2)) {
@@ -1388,6 +1389,44 @@
   /* The local fact library: declarative sentences reached by content words and
      the kind of thing asked for. A question it covers only in part is declined,
      so a shared word never selects an unrelated sentence. */
+  /* "the difference between A and B": a fact sentence that holds both terms answers it */
+  function answerDifference(frame) {
+    if (!FX || off("facts") || !FX.size()) return null;
+    var raw = String(frame.rawText || frame.body || "");
+    var m = raw.match(/\b(?:differences?|distinction)\s+between\s+(?:a |an |the )?(.+?)\s+and\s+(?:a |an |the )?(.+?)[?.!]*$/i);
+    if (!m) return null;
+    var A = FX.contentStems(m[1]), B = FX.contentStems(m[2]);
+    if (!A.length || !B.length) return null;
+    var r = null;
+    try { r = FX.answer(raw, { min: 0.3, top: 14 }); } catch (e) { r = null; }
+    var cands = (r && r.all) || (r ? [r] : []);
+    for (var i = 0; i < cands.length; i++) {
+      var st = FX.contentStems(cands[i].text);
+      if (A.every(function (w) { return st.indexOf(w) >= 0; }) && B.every(function (w) { return st.indexOf(w) >= 0; }))
+        return { text: cands[i].text, route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], entity: m[1], fact: { coverage: cands[i].coverage, score: cands[i].score }, multiHop: true };
+    }
+    return null;
+  }
+
+  var FUN_FACTS = [
+    "Honey never spoils: edible honey has been found in ancient Egyptian tombs.",
+    "A day on Venus is longer than its year, because it rotates so slowly.",
+    "Octopuses have three hearts and blue blood.",
+    "Bananas are berries, but strawberries are not.",
+    "There are more possible ways to shuffle a deck of 52 cards than there are atoms on Earth.",
+    "Sharks have been around longer than trees.",
+    "The Eiffel Tower grows about 15 centimetres taller in summer because heat expands the iron.",
+    "Wombats produce cube-shaped droppings.",
+    "Lightning is about five times hotter than the surface of the Sun.",
+    "A group of flamingos is called a flamboyance.",
+    "Humans share about 60% of their genes with bananas.",
+    "The shortest war in history, between Britain and Zanzibar in 1896, lasted under 45 minutes.",
+    "Sound travels about four times faster in water than in air.",
+    "Your stomach gets a new lining every few days, which stops it digesting itself.",
+    "Antarctica is the driest continent, even though it holds most of the world's fresh water as ice."
+  ];
+  var funIx = 0;
+
   function answerFacts(frame, min, only) {
     if (!FX || off("facts") || !FX.size()) return null;
     if (frame.onlyValue || frame.requestedLength || (frame.requestedFormat && frame.requestedFormat !== "prose" && frame.requestedFormat !== "list")) return null;
@@ -1442,6 +1481,8 @@
     if (/^(?:i'?m|i am) (?:so |really |very )?bored$|^i'?m bored(?: today)?$|^i am bored$/.test(l))
       return say("Let's fix that. I can set you a puzzle, tell you a surprising fact, run a quick quiz, or answer anything you're curious about — which sounds good?");
     if (/^(?:tell me a joke|tell a joke|say a joke|give me a joke|got any jokes|do you know any jokes|make me laugh|tell me something funny)$/.test(l)) return say(JOKES[jokeIx++ % JOKES.length]);
+    if (/^(?:tell me|give me|share|say|got|do you have)\s+(?:me\s+)?(?:a |an |some |any )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)$|^(?:fun|random|interesting) fact$|^surprise me$/.test(l)) return say(FUN_FACTS[funIx++ % FUN_FACTS.length]);
+    if (/^(?:what(?:'s| is) the meaning of life|what(?:'s| is) the purpose of life|why are we here|what is the point of life)$/.test(l)) return say("There is no single agreed answer. Philosophers, religions and scientists give different ones, and many people find meaning in relationships, learning, creative work and helping others.");
     if (/^(?:you(?:'re| are) (?:so |really |very )?(?:smart|great|awesome|amazing|good|helpful|clever|cool|the best|brilliant|nice))$/.test(l)) return say("Thank you — that's kind of you to say. I'll keep trying to earn it.");
     if (/^(?:you(?:'re| are) (?:so |really |very )?(?:stupid|dumb|useless|bad|terrible|awful|wrong|annoying))$/.test(l)) return say("Sorry I fell short. Tell me what went wrong and I'll try again.");
     if (/^(?:how old are you|what is your age|what's your age|when were you born|when were you made)$/.test(l)) return say("I'm a program, so I don't have an age in years — I simply run whenever this page is open.");
@@ -2773,8 +2814,61 @@
                              frame: { subject: "", relation: "", form: "memory", fresh: false, act: "memory" } });
   }
 
+  /* Two questions in one sentence: "What is the capital of Italy and what is its currency?" */
+  var WH = "(?:what|who|whom|whose|which|when|where|why|how(?: many| much| long| far| old| tall| big| fast)?|is|are|does|do|did|can|will|was|were)";
+  function splitMulti(raw) {
+    var t = String(raw || "").replace(/\s+/g, " ").trim();
+    if (t.length < 20 || t.length > 260 || /\n/.test(raw) || (t.match(/\?/g) || []).length > 1 || /["\u201c]/.test(t)) return null;
+    var body = t.replace(/[?.!]+$/, ""), m, a, b;
+    if (!(m = body.match(new RegExp("^(.+?),?\\s+and\\s+((?:" + WH + ")\\b.+)$", "i")))) m = body.match(/^((?:convert|calculate|compute|find|solve|simplify|expand|factor|translate)\b.+?)\s+and\s+(\d.+)$/i);
+    if (!m) m = body.match(/^((?:what|which|who|how)\b.+?\b(?:in|at|on|for|to)\s+\S+)\s+and\s+((?:in|at|on|for|to)\s+\S+(?:\s\S+)?)$/i);
+    if (!m) {
+      /* "What is the cube of 3 and the square root of 144?": the second part reuses the first's opening */
+      var lm = body.match(/^((?:what|which|who) (?:is|are|was|were)) (the .+?)\s+and\s+(the .+)$/i);
+      if (lm && /\b(?:of|in|between)\b/i.test(lm[3]) && /\bof\s+\S+/i.test(lm[2])) m = [null, lm[1] + " " + lm[2], lm[1] + " " + lm[3]];
+      else return null;
+    }
+    a = m[1].trim(); b = m[2].trim();
+    if (/^(?:convert|calculate|compute|find|solve|simplify|expand|factor|translate)\b/i.test(a) && /^\d/.test(b)) b = a.match(/^\S+/)[0] + " " + b;
+    else if (!/^(?:what|who|whom|whose|which|when|where|why|how|is|are|does|do|did|can|will|was|were)\b/i.test(a)) return null;
+    /* "...in Celsius and in Fahrenheit": swap the qualifier */
+    var qm = b.match(/^(in|at|on|for|to)\s+(\S+(?:\s\S+)?)$/i), qa = a.match(/^(.*\b)(in|at|on|for|to)\s+\S+(?:\s\S+)?$/i);
+    if (qm && qa) b = qa[1] + qm[1] + " " + qm[2];
+    /* "which planet is the largest and which is the smallest": the noun carries over */
+    var nm = a.match(/^(which|what) ([a-z]+) (is|are|was|were)\b/i), vm = b.match(/^(which|what) (is|are|was|were) (.+)$/i);
+    if (nm && vm && !/^(?:the|a|an)\s+(?:capital|name|population|currency)\b/i.test(nm[2])) b = vm[1] + " " + nm[2] + " " + vm[2] + " " + vm[3];
+    if (b.split(" ").length < 3 || a.split(" ").length < 3) return null;
+    return [a.replace(/[,;]$/, "") + "?", b.replace(/^./, function (c) { return c.toUpperCase(); }) + "?"];
+  }
+  function answerParts(parts, opts) {
+    var done = [], base = {}, k;
+    for (k in (opts || {})) base[k] = opts[k];
+    base.part = true;
+    return parts.reduce(function (p, q, i) { return p.then(function () { var o = {}; for (var kk in base) o[kk] = base[kk]; if (i > 0) o.internal = true; return answerCore(q, o).then(function (r) { done.push(r); }); }); }, Promise.resolve()).then(function () {
+      var first = done[0], out = {}, seen = {};
+      for (var key in first) out[key] = first[key];
+      var texts = done.map(function (r) {
+        var ss = String(r.text || "").trim().split(/(?<=[.!?])\s+/).filter(function (x) { var k2 = x.toLowerCase().replace(/\W+/g, " ").trim(); if (!k2 || seen[k2]) return false; seen[k2] = 1; return true; });
+        return ss.join(" ");
+      }).filter(Boolean);
+      out.text = texts.every(function (x) { return x.length <= 30; }) ? texts.join("; ") : texts.join(" ");
+      out.confidence = Math.min.apply(null, done.map(function (r) { return r.confidence == null ? 0.5 : r.confidence; }));
+      out.multiPart = done.length;
+      out.guard = out.guard || done.some(function (r) { return r.guard; });
+      out.sources = [].concat.apply([], done.map(function (r) { return r.sources || []; }));
+      return out;
+    });
+  }
+
   function answerCore(text, opts) {
     opts = opts || {};
+    var funAbout = String(text == null ? "" : text).match(/^\s*(?:tell me|give me|share|say)\s+(?:me\s+)?(?:a |an |some |one )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)\s+(?:about|on|regarding|concerning)\s+(.+?)[?.!]*\s*$/i);
+    if (funAbout && !opts.rewritten) { var o9 = {}, k9; for (k9 in opts) o9[k9] = opts[k9]; o9.rewritten = true; return answerCore("Tell me about " + funAbout[1], o9); }
+    if (!opts.part && !opts.internal && !off("multipart")) {
+      var parts = null;
+      try { parts = splitMulti(text); } catch (e) { parts = null; }
+      if (parts) return answerParts(parts, opts);
+    }
     state.varyKey = "";
     state.userText = String(text == null ? "" : text);
     var t0 = now();
@@ -2835,6 +2929,8 @@
     /* Deterministic resolvers run before the social branch: "what time is it
        right now" is a clock question with a chatty shape, and a computation
        is never small talk. */
+    var diff = timed("difference", function () { return answerDifference(frame); });
+    if (diff) return Promise.resolve(finish(frame, diff, t0, decision));
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
     var guarded = timed("guard", function () { return off("guard") ? null : answerGuard(frame); });

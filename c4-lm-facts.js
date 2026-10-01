@@ -69,6 +69,14 @@
   ];
   var SYN = Object.create(null);
   SYN_GROUPS.forEach(function (g) { g.forEach(function (w) { SYN[w] = g[0]; }); });
+  /* irregular verbs: the past forms meet the base form ("sank", "sunk" -> "sink") unless a group above already says otherwise */
+  ("sink:sank:sunk blow:blew:blown break:broke:broken bring:brought build:built buy:bought catch:caught choose:chose:chosen come:came dig:dug do:did:done draw:drew:drawn drink:drank:drunk drive:drove:driven eat:ate:eaten fall:fell:fallen " +
+   "feed:fed fight:fought fly:flew:flown forget:forgot:forgotten forgive:forgave freeze:froze:frozen get:got:gotten give:gave:given go:went:gone grow:grew:grown hang:hung have:had hear:heard hide:hid:hidden hold:held keep:kept know:knew:known " +
+   "lead:led leave:left:left lend:lent lose:lost make:made mean:meant meet:met pay:paid ride:rode:ridden ring:rang:rung run:ran say:said see:saw:seen sell:sold send:sent shake:shook:shaken shine:shone shoot:shot sing:sang:sung sit:sat sleep:slept " +
+   "speak:spoke:spoken spend:spent stand:stood steal:stole:stolen swim:swam:swum swing:swung take:took:taken teach:taught tear:tore:torn tell:told think:thought throw:threw:thrown understand:understood wake:woke:woken wear:wore:worn win:won write:wrote:written begin:began:begun become:became").split(" ").forEach(function (g) {
+    var f = g.split(":"), base = f[0];
+    f.slice(1).forEach(function (w) { if (w && !SYN[w] && !/^(?:saw|left|found|lay|rose|ground|spoke|bore|wound|lit|bound|fit|had|did|made|said|go|got|ring|rang|rung|lead|led|hung|hang|held|shot|sat|met|paid|won|told|sold|sent|lent|lost|kept|heard|hid|fed|fought|dug|built|bought|brought|caught|taught|thought|meant)$/.test(w) || (w && !SYN[w] && /^(?:sank|sunk|went|gone|came|ate|eaten|wrote|written|flew|flown|drove|driven|began|begun|became|took|taken|gave|given|knew|known|grew|grown|threw|thrown|wore|worn|stole|stolen|swam|swum|sang|sung|rode|ridden|spoke|spoken|broke|broken|chose|chosen|drank|drunk|drew|drawn|fell|fallen|froze|frozen|forgot|forgotten|woke|woken|shook|shaken|tore|torn|blew|blown|understood|stood)$/.test(w))) SYN[w] = SYN[base] || base; });
+  });
 
   function stem(w) {
     if (w.length <= 3) return w;
@@ -234,7 +242,10 @@
     var qBi = bigrams(contentSeq(question));
     var frameWord = tokens(question).filter(function (w) { return FRAME[w]; })[0] || "";
     var whoDef = /^\s*who\s+(?:is|was|were|are)\b/i.test(question) && qs.length <= 3;
+    var defStem = qs.filter(function (x) { return !/^(?:word|term|phrase|mean|meaning|definition|define)$/.test(x); })[0] || qs[0];
     var bigNums = (String(question).match(/\b\d{3,}\b/g) || []);
+    var qSup = (String(question).toLowerCase().match(/\b(?:longest|largest|biggest|tallest|highest|smallest|deepest|oldest|fastest|heaviest|richest|greatest|most [a-z]+)\b/) || [])[0];
+    var supRe = qSup ? new RegExp("\\b" + qSup + "\\b[^.,;]{0,40}?\\b(?:wholly|entirely|solely|only|within|inside)\\b", "i") : null;
     var why = /\bwhy\b|\bhow (?:come|does|do|did) .* (?:work|happen|form)\b/i.test(question) || /\bwhat (?:causes|makes|caused)\b/i.test(question);
     var pool = [];
     var best = null, second = null, i, d, k;
@@ -251,7 +262,7 @@
       if (!namesOk) continue;
       if (!carries(type, d.text, qTokens, frameWord)) continue;
       /* a bare "what is X" is answered by a sentence that defines X: X is its subject */
-      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?" + qs[0].replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:is|are|was|means|refers|stands)\\b", "i")).test(d.text)) continue;
+      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:is|are|was|means|refers|stands)\\b", "i")).test(d.text)) continue;
       /* a bare "what is X" is not answered by a life-event line about X */
       if (opts.define && /\b(?:died|was born) in [0-9]{4}\.?$/.test(d.text) && !/\b(?:born|birth|die[ds]?|death)\b/i.test(question)) continue;
       /* a number the question states must be in the sentence: "the 2087 World Cup" is not any World Cup */
@@ -266,6 +277,8 @@
       for (k = 0; k < qBi.length; k++) if (d.bi[qBi[k]]) adj++;
       if (whoDef && /\b(?:died|was born) in [0-9]{4}\.?$/.test(d.text)) continue;
       var score = (whoDef && /\b(?:is known for|lived from|was an?|is an?|was the|is the)\b/.test(d.text) ? 0.4 : 0) + cov + 0.35 * focus + (hits === qw.length ? 0.2 : 0) + 0.3 * (qBi.length ? adj / qBi.length : 0);
+      /* "the longest river wholly within Brazil" is a narrower claim than "the longest river in South America" */
+      if (supRe && supRe.test(d.text)) score -= 0.4;
       var cand = { text: d.text, score: score, coverage: cov, hits: hits, total: qw.length, type: type };
       if (opts.top) pool.push(cand);
       if (!best || score > best.score) { second = best; best = cand; }

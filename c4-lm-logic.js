@@ -148,7 +148,7 @@
   }
 
   /* ============================================================ categorical */
-  var VERBS = "is are was were be been am have has had can could cannot can't may might must should shall will would do does did don't doesn't eat eats ate fly flies swim swims live lives breathe breathes bark barks run runs walk walks jump jumps climb climbs sleep sleeps need needs make makes give gives produce produces contain contains grow grows move moves hunt hunts like likes love loves hate hates play plays sing sings read reads write writes teach teaches work works study studies drive drives ride rides carry carries hold holds feed feeds drink drinks see sees hear hears smell smells taste tastes cost costs weigh weighs lay lays hatch hatches bloom blooms fade fades melt melts float floats sink sinks burn burns freeze freezes boil boils shine shines glow glows pass passes fail fails win wins lose loses".split(" ");
+  var VERBS = "is are was were be been am have has had can could cannot can't may might must should shall will would do does did don't doesn't eat eats ate fly flies swim swims live lives breathe breathes bark barks run runs walk walks jump jumps climb climbs sleep sleeps need needs make makes give gives produce produces contain contains grow grows move moves hunt hunts like likes love loves hate hates play plays sing sings read reads write writes teach teaches work works study studies drive drives ride rides carry carries hold holds feed feeds drink drinks see sees hear hears smell smells taste tastes cost costs weigh weighs lay lays hatch hatches bloom blooms fade fades melt melts float floats sink sinks burn burns freeze freezes boil boils shine shines glow glows pass passes fail fails win wins lose loses absorb absorbs conduct conducts emit emits reflect reflects require requires cause causes provide provides help helps protect protects attract attracts repel repels release releases generate generates create creates build builds wear wears buy buys sell sells own owns serve serves speak speaks understand understands remember remembers forget forgets rise rises spin spins vibrate vibrates flow flows dissolve dissolves expand expands contract contracts evaporate evaporates decay decays spoil spoils wilt wilts die dies bite bites sting stings fear fears dislike dislikes enjoy enjoys prefer prefers want wants kill kills chase chases catch catches pull pulls push pushes lift lifts throw throws kick kicks sit sits stand stands stay stays leave leaves arrive arrives appear appears exist exists belong belongs contribute contributes depend depends lead leads follow follows include includes mean means become becomes remain remains seem seems keep keeps take takes get gets tell tells ask asks answer answers travel travels fight fights wash washes listen listens wait waits join joins meet meets visit visits save saves spend spends earn earns pay pays measure measures predict predicts improve improves reduce reduces increase increases decrease decreases suffer suffers evolve evolves reproduce reproduces pollinate pollinates digest digests swallow swallows chew chews bounce bounces roll rolls slide slides glide glides crawl crawls dig digs bend bends stretch stretches shrink shrinks vanish vanishes explode explodes crack cracks sparkle sparkles shatter shatters spread spreads fill fills surround surrounds lack lacks offer offers accept accepts allow allows prevent prevents avoid avoids attack attacks defend defends guard guards orbit orbits attract tolerate tolerates survive survives breed breeds migrate migrates hibernate hibernates graze grazes squeak squeaks roar roars purr purrs sweat sweats shed sheds molt molts store stores weigh decompose decomposes ferment ferments transmit transmits propel propels".split(" ");
   var VERBSET = {}; VERBS.forEach(function (v) { VERBSET[v] = 1; });
   var GENERIC_N = /^(?:people|persons?|things?|ones?|animals?|creatures?|beings?|items?|objects?)$/;
   var NPS = {};
@@ -212,6 +212,7 @@
     sv = splitSV(t);
     if (sv) {
       var subj = normNP(sv.subj);
+      if (sv.verb === "are" && NPS[subj]) NPS[subj].plural = true;
       if (/^(?:is|are)$/.test(sv.verb)) {
         var r = sv.rest, neg2 = false;
         if (/^not /i.test(r)) { neg2 = true; r = r.replace(/^not /i, ""); }
@@ -241,7 +242,12 @@
   function pluralOf(n) { var i = NPS[n]; if (i && i.raw !== n && /s$/.test(i.raw)) return i.raw; if (i && !isNounNode(n)) return i.raw; return plural(showNode(n)); }
   function restate(Q, negate) {
     var pred = Q.b.indexOf("P:") === 0, subj = Q.t === "some" ? "some " + pluralOf(Q.a) : (Q.t === "all" ? "all " + pluralOf(Q.a) : descr(Q.a));
-    if (pred) { var ph = showNode(Q.b); var third = Q.t === "in" ? ph.replace(/^have\b/, "has").replace(/^do\b/, "does") : ph; return subj + " " + (negate ? (Q.t === "in" ? "does not " + ph : "do not " + ph) : third); }
+    if (pred) {
+      var ph = showNode(Q.b), ni = NPS[Q.a], plSubj = Q.t !== "in" || (ni && (ni.plural || (!ni.name && /s$/.test(ni.raw) && !/ss$/.test(ni.raw))));
+      var third = ph;
+      if (!plSubj) third = ph.replace(/^(\w+)/, function (v) { return v === "have" ? "has" : (v === "do" ? "does" : (/(?:s|x|z|ch|sh)$/.test(v) ? v + "es" : (/[^aeiou]y$/.test(v) ? v.slice(0, -1) + "ies" : v + "s"))); });
+      return subj + " " + (negate ? (plSubj ? "do not " : "does not ") + ph : third);
+    }
     if (Q.t === "in") return subj + (negate ? " is not " : " is ") + descr(Q.b);
     return subj + (negate ? " are not " : " are ") + (isNounNode(Q.b) ? pluralOf(Q.b) : (NPS[Q.b] ? NPS[Q.b].raw : Q.b));
   }
@@ -458,6 +464,9 @@
     for (i = ss.length - 1; i >= 0; i--) if (/\?$/.test(ss[i])) { qIdx = i; break; }
     if (qIdx < 0) return null;
     var qs = ss[qIdx].replace(/\?$/, ""), pre = ss.slice(0, qIdx).join(" ");
+    /* "town A", "runner Kim": a generic noun before a capitalised name is dropped */
+    var DESC = /\b(?:[Tt]own|[Cc]ity|[Vv]illage|[Hh]ouse|[Ss]treet|[Rr]unner|[Pp]erson|[Ss]tudent|[Tt]eam|[Pp]layer|[Cc]ar|[Bb]uilding|[Ii]sland|[Pp]lanet|[Bb]ox|[Ss]helf|[Ff]loor|[Rr]oom|[Ll]ane|[Bb]us|[Tt]rain|[Cc]ountry|[Ss]tore|[Ss]hop|[Ss]chool|[Bb]oy|[Gg]irl|[Mm]an|[Ww]oman|[Ss]tation|[Pp]ark|[Ll]ake|[Mm]ountain|[Rr]iver|[Bb]ook|[Ss]tudent)\s+(?=[A-Z])/g;
+    pre = pre.replace(DESC, ""); qs = qs.replace(DESC, "");
     var icm = qs.match(/^(?:[Ii]f|[Gg]iven that|[Ss]uppose)\s+(.+?),\s*((?:[Ii]s|[Aa]re|[Ww]as|[Dd]oes|[Dd]id|[Ww]ho|[Ww]hich)\b.+)$/);
     if (icm) { pre = (pre + " " + icm[1]).trim(); qs = icm[2]; }
     /* premises may share the question's sentence: "Anna is taller than Ben and Ben is taller than Carl. Who is the tallest?" */
@@ -479,7 +488,7 @@
     /* axis normalisation: speed in a race is finishing order (earlier = faster) */
     function axisOf(dim, sign) {
       if (race && dim === "speed") return ["late", -sign];
-      if (dim === "early") return ["late", -sign];
+      if (dim === "early" || dim === "ahead") return ["late", -sign];
       return [dim, sign];
     }
     var byDim = {};
@@ -582,6 +591,18 @@
       if (/\bwhat day (?:is|will it be|was) (?:it )?(?:next|last) week\b/.test(t)) return dayAns(anchor, 0, "a week later is the same day");
     }
     if ((m = t.match(new RegExp("\\bhow many days (?:from|between|after) " + dayRe + " (?:to|and|until|till) " + dayRe)))) { var dd = mod(DAYS.indexOf(m[2]) - DAYS.indexOf(m[1]), 7); return res(String(dd || 7), [], "calendar"); }
+    /* the neighbour of a named day, month or season: "what comes after Thursday", "the season after winter" */
+    var SEAS = ["spring", "summer", "autumn", "winter"], ANYNAME = "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|spring|summer|autumn|fall|winter)";
+    if (!/\d/.test(t) && (m = t.match(new RegExp("\\b(?:what|which)\\b[^?]*?\\b(before|after|following|preceding|prior to)\\s+(?:the\\s+)?(?:day\\s+|month\\s+|season\\s+)?" + ANYNAME + "\\b")))) {
+      var dirn = /before|preceding|prior/.test(m[1]) ? -1 : 1, nm = m[2] === "fall" ? "autumn" : m[2];
+      if (DAYS.indexOf(nm) >= 0) return res(cap(DAYS[mod(DAYS.indexOf(nm) + dirn, 7)]), [], "calendar");
+      if (MONTHS.indexOf(nm) >= 0) return res(cap(MONTHS[mod(MONTHS.indexOf(nm) + dirn, 12)]), [], "calendar");
+      if (SEAS.indexOf(nm) >= 0) return res(cap(SEAS[mod(SEAS.indexOf(nm) + dirn, 4)]), [], "calendar");
+    }
+    if ((m = t.match(/\b(?:what|which) (?:day|month)?[^?]*?\bbetween (\w+) and (\w+)\b/))) {
+      var L1 = DAYS.indexOf(m[1]) >= 0 ? DAYS : (MONTHS.indexOf(m[1]) >= 0 ? MONTHS : null);
+      if (L1 && L1.indexOf(m[2]) >= 0) { var ia = L1.indexOf(m[1]), ib = L1.indexOf(m[2]), N = L1.length; if (mod(ib - ia, N) === 2) return res(cap(L1[mod(ia + 1, N)]), [], "calendar"); }
+    }
     /* months */
     if ((m = t.match(new RegExp("\\bwhat month (?:is|comes|falls|was|would it be|will it be)?\\s*(?:the )?(?:month )?(?:" + NUMW + " months? )?(before|after|from|following|preceding) " + monRe)))) {
       var k6 = m[1] ? n(m[1]) : 1, s6 = /before|preceding/.test(m[2]) ? -1 : 1;

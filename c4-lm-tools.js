@@ -675,6 +675,22 @@
     if ((m = l.match(/\bchoose (?:a |an )?(?:committee|team|group|subset)? ?(?:of )?(\d+)[^.?]*? from (?:a (?:group|set|class|list) of )?(\d+)\b/)) || (m = l.match(/\bways (?:can|to) (?:you )?(?:choose|pick|select) (\d+)[^.?]*? from (?:a (?:group|set|class) of )?(\d+)\b/))) return res(String(C(+m[2], +m[1])), ["C(" + m[2] + ", " + m[1] + ")"], "number");
     return null;
   }
+  /* |ax + b| = k, solved by reading the inside as a linear function of x */
+  function absEquationQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if (!(m = l.match(/^(?:solve|find x(?: such that)?|what is x(?: if)?|solve for x)[:,]?\s*(?:\|(.+)\||abs\((.+)\))\s*=\s*(-?\d+(?:\.\d+)?)$/))) return null;
+    var inner = (m[1] || m[2]).trim(), k = +m[3], ast;
+    try { ast = parse(inner); } catch (e) { return null; }
+    var f0, f1, f2;
+    try { f0 = evalAst(ast, { x: 0 }); f1 = evalAst(ast, { x: 1 }); f2 = evalAst(ast, { x: 2 }); } catch (e2) { return null; }
+    var a = f1 - f0, b = f0;
+    if (!isFinite(a) || !isFinite(b) || Math.abs(f2 - (2 * a + b)) > 1e-9 || a === 0) return null;
+    if (k < 0) return res("No solution \u2014 an absolute value is never negative.", [], "equation");
+    var x1 = (k - b) / a, x2 = (-k - b) / a;
+    if (k === 0 || x1 === x2) return res("x = " + numStr(x1), ["|" + inner + "| = 0 means " + inner + " = 0"], "equation");
+    var lo = Math.min(x1, x2), hi = Math.max(x1, x2);
+    return res("x = " + numStr(hi) + " or x = " + numStr(lo), [inner + " = " + numStr(k) + " or " + inner + " = " + numStr(-k)], "equation");
+  }
   function absQ(text) {
     var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
     if ((m = l.match(/\babsolute value of\s*\(?(-?\d+(?:\.\d+)?)\)?$/)) || (m = l.match(/^\|\s*(-?\d+(?:\.\d+)?)\s*\|$/))) return res(numStr(Math.abs(+m[1])), [], "number");
@@ -950,6 +966,16 @@
     [/\b(?:play|played)\b[^?]*\b(?:video ?games?|playstation|xbox|nintendo)\b/, 1972, "video games"],
     [/\b(?:use|used|turn(?:ed)? on)\b[^?]*\b(?:light ?bulb|electric light)\b/, 1879, "the light bulb"]
   ];
+  /* "Who invented the smartphone in 1850?": the thing did not exist yet */
+  var INVENTED = { telephone: 1876, phone: 1876, "light bulb": 1879, lightbulb: 1879, airplane: 1903, aeroplane: 1903, plane: 1903, television: 1926, tv: 1926, smartphone: 2007, iphone: 2007, internet: 1969, "world wide web": 1989, email: 1971, computer: 1945, laptop: 1981, radio: 1895, automobile: 1885, car: 1885, photograph: 1826, camera: 1826, "steam engine": 1712, "printing press": 1440, "atomic bomb": 1945, "nuclear bomb": 1945, "nuclear weapon": 1945, penicillin: 1928, telescope: 1608, microscope: 1590, battery: 1800, "social media": 2004, facebook: 2004, google: 1998, "video game": 1958, "space shuttle": 1981, satellite: 1957, rocket: 1926, helicopter: 1939, submarine: 1620, "electric car": 1881, "x-ray": 1895, "x-rays": 1895, laser: 1960, transistor: 1947, "microwave oven": 1945, "credit card": 1950, "gps": 1978 };
+  function inventedBeforeQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if (!(m = l.match(/^(?:who|which person) (?:invented|created|built|made|discovered|developed) (?:the |a |an )?([a-z -]+?) in (?:the year )?(\d{3,4})$/)) && !(m = l.match(/^(?:when|in what year) did (?:someone|anyone|somebody|people) (?:invent|create|build|make|discover) (?:the |a |an )?([a-z -]+?) in (\d{3,4})$/))) return null;
+    var thing = m[1].trim(), yr = +m[2];
+    if (INVENTED[thing] === undefined && INVENTED[thing.replace(/s$/, "")] !== undefined) thing = thing.replace(/s$/, "");
+    if (INVENTED[thing] === undefined || yr >= INVENTED[thing]) return null;
+    return res("Nobody did \u2014 the " + thing + " did not exist yet in " + yr + "; it was not invented until about " + INVENTED[thing] + ".", [], "anachronism", 0.9);
+  }
   function yearOfPhrase(n, bce) { return bce ? -parseInt(n, 10) : parseInt(n, 10); }
   function lifespanOf(name) {
     var FXm = root.C4LMFacts;
@@ -959,7 +985,7 @@
       var t = docs[i].text, lf = t.indexOf(" lived from ");
       if (lf < 0) continue;
       var subj = t.slice(0, lf).toLowerCase();
-      if (subj !== low && !new RegExp("(?:^|\\s)" + low.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$").test(subj)) continue;
+      if (subj !== low && subj.indexOf(low + " ") !== 0 && !new RegExp("(?:^|\\s)" + low.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$").test(subj)) continue;
       if ((m = t.match(/lived from (\d+)( BCE| CE)? to (\d+)( BCE| CE)?/))) return { born: yearOfPhrase(m[1], /BCE/.test(m[2] || "")), died: yearOfPhrase(m[3], /BCE/.test(m[4] || "")) };
     }
     return null;
@@ -991,6 +1017,38 @@
     if ((m = l.match(/^(?:what is |what's |calculate |find |compute )?(-?\d+(?:\.\d+)?) (?:to the power of|raised to the power of|to the) (?:power )?(-?\d+(?:\.\d+)?)$/))) return out(Math.pow(+m[1], +m[2]), m[1] + "^" + m[2]);
     return null;
   }
+  /* a number written as a fraction, decimal, percent or integer */
+  function numVal(x) {
+    x = String(x).trim().replace(/^the (?:number |fraction )?/, "").replace(/,/g, "");
+    var m;
+    if ((m = x.match(/^(-?\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/))) return +m[2] ? +m[1] / +m[2] : null;
+    if ((m = x.match(/^(-?\d+(?:\.\d+)?)\s*%$/))) return +m[1] / 100;
+    if ((m = x.match(/^(-?\d*\.?\d+)$/))) return +m[1];
+    return null;
+  }
+  function compareNumsQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m, a, b, big;
+    if ((m = l.match(/^which is (larger|bigger|greater|higher|more|smaller|less|lesser|lower)[,:]?\s+(.+?)\s+or\s+(.+)$/))) {
+      a = numVal(m[2]); b = numVal(m[3]); big = /larger|bigger|greater|higher|more/.test(m[1]);
+      if (a === null || b === null) return null;
+      if (a === b) return res("They are equal: " + m[2] + " = " + m[3] + ".", [], "compare");
+      var win = (a > b) === big ? m[2] : m[3];
+      return res(win.replace(/^the (?:number |fraction )?/, "") + " is " + (big ? "larger" : "smaller") + " (" + numStr(Math.round(a * 1e6) / 1e6) + " vs " + numStr(Math.round(b * 1e6) / 1e6) + ").", [], "compare");
+    }
+    if ((m = l.match(/^is (.+?) (greater than|larger than|bigger than|more than|less than|smaller than|fewer than|equal to) (.+)$/))) {
+      a = numVal(m[1]); b = numVal(m[3]);
+      if (a === null || b === null) return null;
+      var op = m[2], ok = /greater|larger|bigger|more/.test(op) ? a > b : (/less|smaller|fewer/.test(op) ? a < b : a === b);
+      return res((ok ? "Yes" : "No") + " \u2014 " + numStr(Math.round(a * 1e6) / 1e6) + (a === b ? " equals " : (a > b ? " is greater than " : " is less than ")) + numStr(Math.round(b * 1e6) / 1e6) + ".", [], "compare");
+    }
+    return null;
+  }
+  function rootDecimalsQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if (!(m = l.match(/^(?:what is |find |calculate |compute )?(?:the )?(square|cube) root of (\d+(?:\.\d+)?)(?: (?:to|correct to|rounded to|up to)|,? rounded to) (\d+|one|two|three|four|five|six) (?:decimal places?|d\.p\.|decimals?)$/))) return null;
+    var W = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 }, d = /^\d+$/.test(m[3]) ? +m[3] : W[m[3]], v = Math.pow(+m[2], m[1] === "square" ? 1 / 2 : 1 / 3);
+    return res(v.toFixed(d), [], "number");
+  }
   function roundQ(text) {
     var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
     var W = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8 };
@@ -1006,7 +1064,7 @@
   }
 
   /* ----------------------------------------------------------------- solve */
-  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absQ, fractionQ, baseQ, stringQ];
+  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
   function solve(text, ctx) {
     var t = clean(text);
     if (!t || t.length > 600) return null;

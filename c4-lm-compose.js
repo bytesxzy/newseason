@@ -141,6 +141,18 @@
   /* Everything the system knows about one word, from whichever source holds
      it. The knowledge base wins for named things; the lexicon holds ordinary
      vocabulary; a dictionary lookup fills the rest at query time. */
+  /* Dictionary text arrives with page furniture: style blocks, footnote marks, run-on senses. */
+  function cleanGloss(g, max) {
+    var t = String(g || "");
+    t = t.replace(/([A-Za-z])\.?mw-parser-output[^{}]*\{[^{}]*\}\s*/g, "$1. ").replace(/\.?mw-parser-output[^{}]*\{[^{}]*\}/g, " ").replace(/[.#]?[A-Za-z][\w-]*(?:\.[\w-]+)+\s*\{[^{}]*\}/g, " ").replace(/\{[^{}]*\}/g, " ");
+    t = t.replace(/\[(?:\d+|citation needed|edit|note \d+)\]/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    t = t.replace(/\s+([;,.])/g, "$1");
+    if (max && t.length > max) {
+      var cut = t.slice(0, max), at = Math.max(cut.lastIndexOf("; "), cut.lastIndexOf(", "), cut.lastIndexOf(". "));
+      t = (at > max * 0.5 ? cut.slice(0, at) : cut.replace(/\s+\S*$/, ""));
+    }
+    return t.replace(/[;,:\s]+$/, "").replace(/\.$/, "");
+  }
   function sensesFor(word) {
     var out = [];
     var L = lex();
@@ -149,7 +161,7 @@
       if (hit) {
         hit.senses.forEach(function (s) {
           out.push({
-            word: hit.word, form: hit.form, pos: s.pos, gloss: s.gloss, cls: s.cls,
+            word: hit.word, form: hit.form, pos: s.pos, gloss: cleanGloss(s.gloss) || s.gloss, cls: s.cls,
             /* The declared field, or the one its own wording implies. Without
                this the question's context has nothing to select against. */
             domain: s.domain || domainOf(s.gloss),
@@ -612,16 +624,27 @@
     var real = senses.filter(function (s) { return s.from !== "knowledge"; });
     if (!real.length) return null;
     var limit = opts.limit || 3;
-    var parts = real.slice(0, limit).map(function (s) {
+    var parts = real.slice(0, limit).map(function (s, i) {
       var tag = s.pos === "v" ? "as a verb, " : s.pos === "adj" ? "as an adjective, " :
                 s.pos === "adv" ? "as an adverb, " : "";
-      return tag + s.gloss;
+      var g1 = cleanGloss(s.gloss, i === 0 ? 260 : 120);
+      var sent = g1.split(/(?<=[a-z)])\.\s+(?=[A-Z])/);
+      if (sent.length > 1 && sent[0].length >= 30) g1 = sent[0];
+      if (/^(?:A|An|The|To|Of|Relating|Having|Being|Used|Not|Very|Without|Characterized|Resembling|Pertaining|Belonging|Concerned|Existing|Something|Someone|Any|Anything|One|In|On|Able|Full|Capable)\b/.test(g1)) g1 = g1.charAt(0).toLowerCase() + g1.slice(1);
+      return tag + g1;
     });
     var body;
     if (parts.length === 1) {
       body = RZcap(word) + " means " + parts[0] + ".";
     } else {
-      body = RZcap(word) + " has more than one sense: " + parts.join("; ") + ".";
+      /* the main sense leads as a definition; the others are noted briefly, and never repeat a part of speech already given */
+      var first = real[0], lead = parts[0], seenPos = {}, rest = [];
+      seenPos[first.pos || "n"] = 1;
+      real.slice(1, limit).forEach(function (s, j) { var k = s.pos || "n"; if (seenPos[k]) return; seenPos[k] = 1; rest.push((s.pos === "v" ? "As a verb it means " : s.pos === "adj" ? "As an adjective it means " : s.pos === "adv" ? "As an adverb it means " : "It can also mean ") + parts[j + 1].replace(/^as an? (?:verb|adjective|adverb), /, "")); });
+      var nounLead = (!first.pos || first.pos === "n") && /^(?:an?|the)\s/i.test(lead);
+      body = (nounLead ? (/^an?\s/i.test(word) ? "" : indefiniteFor(word) ? RZcap(indefiniteFor(word)) : "") + word + " is " + lead : RZcap(word) + " means " + lead) + ".";
+      body = body.replace(/^(An?) (an?|the) /i, "$1 ");
+      if (rest.length) body += " " + rest.join(". ") + ".";
     }
     return {
       text: body, senses: real.slice(0, limit), word: word,

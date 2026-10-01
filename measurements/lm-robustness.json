@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T00:50:48.370Z",
- "passed": 59,
- "total": 59,
+ "generated": "2026-10-01T13:51:04.298Z",
+ "passed": 68,
+ "total": 68,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -49,12 +49,47 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-life.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-lives.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-nature.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-people.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-science.js",
    "ok": true,
    "detail": ""
   },
   {
    "name": "syntax: c4-lm-facts-tech.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-things.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-words.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-world.js",
    "ok": true,
    "detail": ""
   },
@@ -109,7 +144,17 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-skills.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-story.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-thesaurus.js",
    "ok": true,
    "detail": ""
   },
@@ -186,7 +231,7 @@
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "edge input: sql-ish input",
@@ -226,7 +271,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -236,17 +281,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "6 -> 6"
+   "detail": "11 -> 11"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 = 391."
+   "detail": "17 * 23 equals 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -256,7 +301,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2588 ms"
+   "detail": "2668 ms"
   },
   {
    "name": "garbage source response handled",
@@ -271,12 +316,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hi — what would you like to know?"
+   "detail": "Hey. Ask me something."
   },
   {
    "name": "dialogue sequence",

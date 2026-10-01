@@ -265,15 +265,170 @@
   ];
   var LANG_ORDER = ["en", "es", "fr", "de", "it", "pt", "ja", "zh", "ru", "ar", "hi", "ko", "nl", "sv"];
   function stripPunct(s) { return s.toLowerCase().replace(/[¿?¡!.,]/g, "").replace(/\s*\([^)]*\)\s*/g, "").replace(/\s+/g, " ").trim(); }
+  /* common words: en | es | fr | de | it | pt */
+  var WORDLIST = {};
+  [
+    ["cat","gato","chat","Katze","gatto","gato"],
+    ["dog","perro","chien","Hund","cane","cão"],
+    ["house","casa","maison","Haus","casa","casa"],
+    ["water","agua","eau","Wasser","acqua","água"],
+    ["food","comida","nourriture","Essen","cibo","comida"],
+    ["bread","pan","pain","Brot","pane","pão"],
+    ["milk","leche","lait","Milch","latte","leite"],
+    ["coffee","café","café","Kaffee","caffè","café"],
+    ["tea","té","thé","Tee","tè","chá"],
+    ["apple","manzana","pomme","Apfel","mela","maçã"],
+    ["book","libro","livre","Buch","libro","livro"],
+    ["friend","amigo","ami","Freund","amico","amigo"],
+    ["family","familia","famille","Familie","famiglia","família"],
+    ["mother","madre","mère","Mutter","madre","mãe"],
+    ["father","padre","père","Vater","padre","pai"],
+    ["brother","hermano","frère","Bruder","fratello","irmão"],
+    ["sister","hermana","sœur","Schwester","sorella","irmã"],
+    ["boy","chico","garçon","Junge","ragazzo","menino"],
+    ["girl","chica","fille","Mädchen","ragazza","menina"],
+    ["man","hombre","homme","Mann","uomo","homem"],
+    ["woman","mujer","femme","Frau","donna","mulher"],
+    ["child","niño","enfant","Kind","bambino","criança"],
+    ["day","día","jour","Tag","giorno","dia"],
+    ["night","noche","nuit","Nacht","notte","noite"],
+    ["sun","sol","soleil","Sonne","sole","sol"],
+    ["moon","luna","lune","Mond","luna","lua"],
+    ["star","estrella","étoile","Stern","stella","estrela"],
+    ["sky","cielo","ciel","Himmel","cielo","céu"],
+    ["tree","árbol","arbre","Baum","albero","árvore"],
+    ["flower","flor","fleur","Blume","fiore","flor"],
+    ["car","coche","voiture","Auto","macchina","carro"],
+    ["train","tren","train","Zug","treno","trem"],
+    ["school","escuela","école","Schule","scuola","escola"],
+    ["city","ciudad","ville","Stadt","città","cidade"],
+    ["country","país","pays","Land","paese","país"],
+    ["love","amor","amour","Liebe","amore","amor"],
+    ["time","tiempo","temps","Zeit","tempo","tempo"],
+    ["year","año","an","Jahr","anno","ano"],
+    ["money","dinero","argent","Geld","denaro","dinheiro"],
+    ["work","trabajo","travail","Arbeit","lavoro","trabalho"],
+    ["red","rojo","rouge","rot","rosso","vermelho"],
+    ["blue","azul","bleu","blau","blu","azul"],
+    ["green","verde","vert","grün","verde","verde"],
+    ["yellow","amarillo","jaune","gelb","giallo","amarelo"],
+    ["black","negro","noir","schwarz","nero","preto"],
+    ["white","blanco","blanc","weiß","bianco","branco"],
+    ["big","grande","grand","groß","grande","grande"],
+    ["small","pequeño","petit","klein","piccolo","pequeno"],
+    ["good","bueno","bon","gut","buono","bom"],
+    ["bad","malo","mauvais","schlecht","cattivo","mau"],
+    ["hot","caliente","chaud","heiß","caldo","quente"],
+    ["cold","frío","froid","kalt","freddo","frio"],
+    ["happy","feliz","heureux","glücklich","felice","feliz"],
+    ["sad","triste","triste","traurig","triste","triste"],
+    ["one","uno","un","eins","uno","um"],
+    ["two","dos","deux","zwei","due","dois"],
+    ["three","tres","trois","drei","tre","três"],
+    ["four","cuatro","quatre","vier","quattro","quatro"],
+    ["five","cinco","cinq","fünf","cinque","cinco"],
+    ["six","seis","six","sechs","sei","seis"],
+    ["seven","siete","sept","sieben","sette","sete"],
+    ["eight","ocho","huit","acht","otto","oito"],
+    ["nine","nueve","neuf","neun","nove","nove"],
+    ["ten","diez","dix","zehn","dieci","dez"],
+    ["eat","comer","manger","essen","mangiare","comer"],
+    ["drink","beber","boire","trinken","bere","beber"],
+    ["sleep","dormir","dormir","schlafen","dormire","dormir"],
+    ["run","correr","courir","laufen","correre","correr"],
+    ["walk","caminar","marcher","gehen","camminare","andar"],
+    ["read","leer","lire","lesen","leggere","ler"],
+    ["write","escribir","écrire","schreiben","scrivere","escrever"],
+    ["speak","hablar","parler","sprechen","parlare","falar"],
+    ["see","ver","voir","sehen","vedere","ver"],
+    ["go","ir","aller","gehen","andare","ir"],
+    ["come","venir","venir","kommen","venire","vir"],
+    ["have","tener","avoir","haben","avere","ter"],
+    ["be","ser","être","sein","essere","ser"],
+    ["want","querer","vouloir","wollen","volere","querer"],
+    ["know","saber","savoir","wissen","sapere","saber"],
+    ["morning","mañana","matin","Morgen","mattina","manhã"],
+    ["evening","tarde","soir","Abend","sera","noite"],
+    ["today","hoy","aujourd'hui","heute","oggi","hoje"],
+    ["tomorrow","mañana","demain","morgen","domani","amanhã"],
+    ["yesterday","ayer","hier","gestern","ieri","ontem"],
+    ["yes","sí","oui","ja","sì","sim"],
+    ["no","no","non","nein","no","não"],
+    ["please","por favor","s'il vous plaît","bitte","per favore","por favor"],
+    ["sorry","lo siento","désolé","Entschuldigung","scusa","desculpe"],
+    ["welcome","bienvenido","bienvenue","willkommen","benvenuto","bem-vindo"],
+    ["help","ayuda","aide","Hilfe","aiuto","ajuda"],
+    ["bird","pájaro","oiseau","Vogel","uccello","pássaro"],
+    ["fish","pez","poisson","Fisch","pesce","peixe"],
+    ["horse","caballo","cheval","Pferd","cavallo","cavalo"],
+    ["cow","vaca","vache","Kuh","mucca","vaca"],
+    ["pig","cerdo","cochon","Schwein","maiale","porco"],
+    ["rain","lluvia","pluie","Regen","pioggia","chuva"],
+    ["snow","nieve","neige","Schnee","neve","neve"],
+    ["wind","viento","vent","Wind","vento","vento"],
+    ["fire","fuego","feu","Feuer","fuoco","fogo"],
+    ["earth","tierra","terre","Erde","terra","terra"],
+    ["sea","mar","mer","Meer","mare","mar"],
+    ["mountain","montaña","montagne","Berg","montagna","montanha"],
+    ["river","río","rivière","Fluss","fiume","rio"],
+    ["window","ventana","fenêtre","Fenster","finestra","janela"],
+    ["door","puerta","porte","Tür","porta","porta"],
+    ["table","mesa","table","Tisch","tavolo","mesa"],
+    ["chair","silla","chaise","Stuhl","sedia","cadeira"],
+    ["bed","cama","lit","Bett","letto","cama"],
+    ["room","habitación","chambre","Zimmer","stanza","quarto"],
+    ["street","calle","rue","Straße","strada","rua"],
+    ["shop","tienda","magasin","Geschäft","negozio","loja"],
+    ["doctor","médico","médecin","Arzt","medico","médico"],
+    ["teacher","profesor","professeur","Lehrer","insegnante","professor"],
+    ["language","idioma","langue","Sprache","lingua","língua"],
+    ["name","nombre","nom","Name","nome","nome"],
+    ["life","vida","vie","Leben","vita","vida"],
+    ["world","mundo","monde","Welt","mondo","mundo"],
+    ["heart","corazón","cœur","Herz","cuore","coração"],
+    ["hand","mano","main","Hand","mano","mão"],
+    ["head","cabeza","tête","Kopf","testa","cabeça"],
+    ["eye","ojo","œil","Auge","occhio","olho"],
+    ["music","música","musique","Musik","musica","música"],
+    ["song","canción","chanson","Lied","canzone","canção"],
+    ["game","juego","jeu","Spiel","gioco","jogo"],
+    ["phone","teléfono","téléphone","Telefon","telefono","telefone"],
+    ["computer","ordenador","ordinateur","Computer","computer","computador"],
+    ["rabbit","conejo","lapin","Kaninchen","coniglio","coelho"],
+    ["bear","oso","ours","Bär","orso","urso"],
+    ["butterfly","mariposa","papillon","Schmetterling","farfalla","borboleta"],
+    ["bee","abeja","abeille","Biene","ape","abelha"],
+    ["egg","huevo","œuf","Ei","uovo","ovo"],
+    ["cheese","queso","fromage","Käse","formaggio","queijo"],
+    ["rice","arroz","riz","Reis","riso","arroz"],
+    ["salt","sal","sel","Salz","sale","sal"],
+    ["sugar","azúcar","sucre","Zucker","zucchero","açúcar"],
+    ["wine","vino","vin","Wein","vino","vinho"],
+    ["beer","cerveza","bière","Bier","birra","cerveja"],
+    ["hospital","hospital","hôpital","Krankenhaus","ospedale","hospital"],
+    ["airport","aeropuerto","aéroport","Flughafen","aeroporto","aeroporto"],
+    ["beautiful","hermoso","beau","schön","bello","bonito"],
+    ["thank you very much","muchas gracias","merci beaucoup","vielen Dank","grazie mille","muito obrigado"]
+  ].forEach(function (r) { WORDLIST[r[0]] = { es: r[1], fr: r[2], de: r[3], it: r[4], pt: r[5] }; });
+  function wordFor(word, code) {
+    var w = word.toLowerCase().replace(/^(?:a|an|the|to)\s+/, "");
+    var e = WORDLIST[w] || WORDLIST[w.replace(/ies$/, "y")] || WORDLIST[w.replace(/s$/, "")];
+    return e && e[code] ? e[code] : null;
+  }
   function translateQ(text) {
     var l = clean(text).replace(/[?.!]+$/, ""), low = l.toLowerCase(), m;
-    var forward = low.match(/^(?:how (?:do|would|can) (?:you|i) say|what(?:'s| is) the word for|translate|say|what is|how to say)\s+["']?(.+?)["']?\s+(?:in|into|to)\s+([a-z]+)$/);
+    var forward = low.match(/^(?:how (?:do|would|can) (?:you|i) say|what(?:'s| is) the word for|translate|say|what is|what's|how to say)\s+["']?(.+?)["']?\s+(?:in|into|to)\s+([a-z]+)$/);
+    var viaWord = low.match(/^(?:what(?:'s| is) the|give me the|tell me the)\s+([a-z]+)\s+(?:word|translation)\s+for\s+["']?(.+?)["']?$/);
+    if (viaWord && LANG[viaWord[1]]) forward = [null, viaWord[2], viaWord[1]];
     if (forward && LANG[forward[2]]) {
       var key = stripPunct(forward[1]), code = LANG[forward[2]], col = LANG_ORDER.indexOf(code);
       for (var i = 0; i < PHRASES.length; i++) if (stripPunct(PHRASES[i][0]) === key) {
         if (col < 0) return null;
         return res(PHRASES[i][col], [], "translate");
       }
+      var wf = wordFor(forward[1], code);
+      if (wf) return res(wf, [], "translate");
+      if (key.split(" ").length <= 3 && !/\d/.test(key)) return res("I don't have \u201c" + forward[1] + "\u201d in my " + (LNAME[code] || forward[2]) + " phrasebook yet, and I won't guess a translation.", [], "translate", 0.5);
       return null;
     }
     var back = low.match(/^(?:what does|what is the meaning of|what's the meaning of|translate)\s+["']?(.+?)["']?\s+(?:mean|in english|to english)(?: in english)?$/) || low.match(/^what does ["']?(.+?)["']? mean$/);
@@ -384,7 +539,7 @@
     { k: "voltage", u: /\b(volts?|v)\b/, f: { volt: 1, volts: 1, v: 1 } },
     { k: "current", u: /\b(amps?|amperes?|a|ma|milliamps?)\b/, f: { amp: 1, amps: 1, ampere: 1, amperes: 1, a: 1, ma: 0.001, milliamp: 0.001, milliamps: 0.001 } },
     { k: "resistance", u: /\b(ohms?|Ω)\b/, f: { ohm: 1, ohms: 1, "Ω": 1 } },
-    { k: "volume", u: /\b(m3|m\^3|m³|liters?|litres?|l|ml|cm3|cm\^3|cm³)\b/, f: { m3: 1, "m^3": 1, "m³": 1, liter: 0.001, liters: 0.001, litre: 0.001, litres: 0.001, l: 0.001, ml: 1e-6, cm3: 1e-6, "cm^3": 1e-6, "cm³": 1e-6 } },
+    { k: "volume", u: /\b(m3|m\^3|m³|liters?|litres?|l|ml|cm3|cm\^3|cm³)\b/, f: { m3: 1, "m^3": 1, "m³": 1, liter: 0.001, liters: 0.001, litre: 0.001, litres: 0.001, l: 0.001, ml: 1e-6, cm3: 1e-6, "cm^3": 1e-6, "cm³": 1e-6, "cubic centimeters": 1e-6, "cubic centimetres": 1e-6, "cubic meters": 1, "cubic metres": 1 } },
     { k: "area", u: /\b(m2|m\^2|m²|cm2|cm\^2|cm²)\b/, f: { m2: 1, "m^2": 1, "m²": 1, cm2: 1e-4, "cm^2": 1e-4, "cm²": 1e-4 } },
     { k: "pressure", u: /\b(pascals?|pa|kpa)\b/, f: { pascal: 1, pascals: 1, pa: 1, kpa: 1000 } },
     { k: "frequency", u: /\b(hz|hertz|khz)\b/, f: { hz: 1, hertz: 1, khz: 1000 } },
@@ -412,8 +567,11 @@
   ];
   function physicsQ(text) {
     var t = clean(text), l = t.toLowerCase();
-    if (!/\b(?:what is|find|calculate|compute|how much|how far|how fast)\b/.test(l)) return null;
-    var vals = {}, re = /(-?\d+(?:\.\d+)?)\s*(m\/s\^?2|m\/s²|meters? per second squared|m\/s|km\/h|kph|mph|meters? per second|metres? per second|kilograms?|kg|grams?|lbs?|pounds?|newtons?|joules?|kj|watts?|kw|seconds?|secs?|minutes?|mins?|hours?|hrs?|volts?|amps?|amperes?|ma|ohms?|Ω|kilometers?|kilometres?|km|centimeters?|cm|meters?|metres?|m|pascals?|pa|kpa|hz|hertz|khz|liters?|litres?|ml|m3|m\^3|m³|m2|m\^2|m²|n|j|w|v|a|s|h|g|l)\b/gi, m;
+    if (!/\b(?:what|find|calculate|compute|determine|how much|how far|how fast|how long)\b/.test(l)) return null;
+    var vals = {}, m, unitKeys = {};
+    QTY.forEach(function (q0) { Object.keys(q0.f).forEach(function (k) { unitKeys[k] = 1; }); });
+    ["cubic centimeters", "cubic centimetres", "cubic meters", "cubic metres", "cm3", "m3", "square meters", "square metres"].forEach(function (k) { unitKeys[k] = 1; });
+    var re = new RegExp("(-?\\d+(?:\\.\\d+)?)\\s*(" + Object.keys(unitKeys).sort(function (a, b) { return b.length - a.length; }).map(function (k) { return k.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"); }).join("|") + ")(?![A-Za-z0-9^²³])", "gi");
     while ((m = re.exec(t))) {
       var unit = m[2].toLowerCase();
       for (var i = 0; i < QTY.length; i++) {
@@ -434,6 +592,7 @@
       if (fm.vars.every(function (v) { return vals[v] !== undefined; })) {
         var v = fm.calc(vals);
         if (!isFinite(v)) continue;
+        if (fm.out === "density") return res(fmt(v / 1000, 4) + " g/cm\u00b3 (" + fmt(v, 4) + " kg/m\u00b3)", [fm.show + " with " + fm.vars.map(function (k) { return k + " = " + fmt(vals[k], 4); }).join(", ")], "physics");
         return res(fmt(v, 4) + " " + fm.unit, [fm.show + " with " + fm.vars.map(function (k) { return k + " = " + fmt(vals[k], 4); }).join(", ")], "physics");
       }
     }

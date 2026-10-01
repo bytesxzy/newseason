@@ -186,9 +186,12 @@
     if (/\bcube\b/.test(t) && ns.length === 1 && /\bvolume\b/.test(q)) { v = Math.pow(ns[0].v, 3); return result(v, "", [ns[0].v + "^3 = " + nice(v)], "geometry"); }
     if (/\brectang|\bbox\b|\bgarden\b|\broom\b|\bfield\b|\bfloor\b|\bpool\b|\bplot\b|\bpage\b|\bscreen\b|\bpicture\b/.test(t) || / by /.test(t)) {
       var l = null, w = null, h = null;
-      if ((m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:long|in length|length)\b/))) l = +m[1];
-      if ((m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:wide|in width|width)\b/))) w = +m[1];
-      if ((m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:high|tall|in height|height|deep)\b/))) h = +m[1];
+      if ((m = t.match(/\blength (?:of |is |= |was |measures )?(\d+(?:\.\d+)?)/))) l = +m[1];
+      else if ((m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:long|in length|length)\b/))) l = +m[1];
+      if ((m = t.match(/\bwidth (?:of |is |= |was |measures )?(\d+(?:\.\d+)?)/))) w = +m[1];
+      else if ((m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:wide|in width|width)\b/))) w = +m[1];
+      if ((m = t.match(/\b(?:height|depth) (?:of |is |= |was |measures )?(\d+(?:\.\d+)?)/))) h = +m[1];
+      else if ((m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:high|tall|in height|height|deep)\b/))) h = +m[1];
       if (l === null && w === null && (m = t.match(/(\d+(?:\.\d+)?)\s*(?:[a-z]+\s+)?(?:by|x|×)\s*(\d+(?:\.\d+)?)(?:\s*(?:[a-z]+\s+)?(?:by|x|×)\s*(\d+(?:\.\d+)?))?/))) { l = +m[1]; w = +m[2]; if (m[3]) h = +m[3]; }
       if (l !== null && w !== null && ns.length === (h !== null ? 3 : 2)) {
         if (/\bvolume\b/.test(q) && h !== null) return result(l * w * h, "", [l + " × " + w + " × " + h + " = " + nice(l * w * h)], "geometry");
@@ -866,7 +869,7 @@
       push(+m[1], { "?": 0, _num: ustem(m[2]) }, m.index, m.index + m[0].length, { rate: true, eachNoun: ustem(m[2]) });
     }
     /* "each X holds/has/costs N [Y]" and "a pack of N X costs $P" is left to the generic reading */
-    re = /\b(?:each|every|a|an|one)\s+([A-Za-z]+)\s+(?:holds?|has|have|contains?|carries|seats?|fits|can hold|can carry|costs?|weighs?|takes?|uses?)\s+(\$)?(\d+(?:\.\d+)?)(?:\s+([A-Za-z]+))?/gi;
+    re = /\b(?:each|every|a|an|one)\s+(?:[A-Za-z]+\s+)?([A-Za-z]+)\s+(?:holds?|has|have|contains?|carries|seats?|fits|can hold|can carry|costs?|weighs?|takes?|uses?)\s+(\$)?(\d+(?:\.\d+)?)(?:\s+([A-Za-z]+))?/gi;
     while ((m = re.exec(seg))) {
       if (isClaimed(m.index)) continue;
       if (/^(?:an?|one)\b/i.test(m[0]) && !new RegExp("\\d\\s+" + ustem(m[1]) + "(?:s|es)?\\b", "i").test(fullText || "") && !new RegExp("how (?:many|much)\\s+" + ustem(m[1]) + "(?:s|es)?\\b|(?:each|every|per|one)\\s+" + ustem(m[1]) + "\\b", "i").test(fullText || "")) continue;
@@ -948,6 +951,7 @@
       if (quants.some(function (x) { return x.u.dollar; }) || /\b(?:cost|pay|spend|earn|price|change|save|owe|money|bill|charge|fee|worth)\b/.test(ql)) return { type: "unit", u: { dollar: 1 } };
       return { type: "any" };
     }
+    if (/\bwhat (?:is|are|was|were) (?:the |his |her |their |its )?(?:[a-z]+ )?(?:pay|earnings|income|salary|wages?|bill|profit|revenue|total cost|total price|fee|charge)\b/.test(ql)) return { type: "unit", u: { dollar: 1 } };
     if (/\bwhat is the (?:total|sum)\b|\bwhat (?:is|are) the (?:answer|result)\b|\bhow (?:much|many) in (?:all|total)\b/.test(ql)) return { type: "any", plain: true };
     return null;
   }
@@ -980,7 +984,7 @@
   function dims(S, ratedOnly) {
     var q = S.question;
     if (/\beach (?:brother|sister)\b/i.test(S.all) && /\b(?:brothers?|sisters?)\b/i.test(q)) return null;
-    var tgtTextOK = /\bhow (?:many|much|far|fast|long|old|quickly)\b|\bwhat is the (?:total|sum|cost|price|average speed|speed|rate)\b|\baverage speed\b/i.test(q);
+    var tgtTextOK = /\bhow (?:many|much|far|fast|long|old|quickly)\b|\bwhat is (?:the|its|his|her|their) (?:total|sum|cost|price|average speed|speed|rate)\b|\baverage speed\b|\bwhat (?:is|are|was|were) (?:the |his |her |their |its )?(?:[a-z]+ )?(?:pay|earnings|income|salary|wages?|bill|profit|revenue|fee|charge)\b/i.test(q);
     if (!tgtTextOK) return null;
     var segs = S.givens.concat([q]), quants = [], g;
     for (g = 0; g < segs.length; g++) Array.prototype.push.apply(quants, quantitiesOf(segs[g], g, g === segs.length - 1, S.all));
@@ -1464,6 +1468,119 @@
   }
 
 
+  /* ---- setups the generic quantity reader cannot see: goals, approach, reversals, circles, ranges, ages */
+  function countOf(a, re) { var n = 0, m, r = new RegExp(re.source, "gi"); while ((m = r.exec(a))) n++; return n; }
+  function savingsGoal(S) {
+    var a = S.all, ql = S.question.toLowerCase(), mu = ql.match(/\bhow many (weeks?|months?|days?|years?)\b/);
+    if (!mu || !/\b(?:until|before|till|to|can)\b[^?]*\b(?:buy|afford|reach|save|enough|get|have)\b/.test(ql)) return null;
+    var money = [], re = /\$\s*(\d+(?:,\d{3})*(?:\.\d+)?)/g, m;
+    while ((m = re.exec(a))) money.push({ v: parseFloat(m[1].replace(/,/g, "")), at: m.index, end: m.index + m[0].length });
+    if (money.length !== 3 || numbersIn(a).length !== 3) return null;
+    var rate = null, have = null, goal = null;
+    money.forEach(function (x) {
+      var after = a.slice(x.end, x.end + 24), before = a.slice(Math.max(0, x.at - 30), x.at);
+      if (/^\s*(?:a|an|per|each|every|\/)\s*(?:week|month|day|year)/i.test(after) || /\b(?:saves?|earns?|adds?|puts? away|gets?|makes?)\s*$/i.test(before)) rate = rate || x;
+      else if (/\b(?:has|have|had|already|saved|with|owns?|started with)\s*(?:saved\s*)?$/i.test(before)) have = have || x;
+      else goal = goal || x;
+    });
+    if (!rate || !have || !goal || rate === have || have === goal) return null;
+    var n = Math.ceil((goal.v - have.v) / rate.v);
+    if (!(n >= 0)) return null;
+    var u = mu[1].replace(/s$/, "");
+    return result(n, plural(u, n), ["(" + goal.v + " − " + have.v + ") ÷ " + rate.v + " = " + nice((goal.v - have.v) / rate.v) + ", rounded up"], "goal");
+  }
+  function meeting(S) {
+    var a = S.all, ql = S.question.toLowerCase();
+    if (!/\b(?:toward|towards)\s+each other|\bapproach(?:ing)? each other|\bcome together\b/i.test(a) || !/\bhow (?:many|long)\b|\bwhen\b|\bafter how\b/.test(ql)) return null;
+    var dm = a.match(/(\d+(?:\.\d+)?)\s*(km|kilometers?|miles?|meters?|m)\b[^.?]*?\bapart\b/i) || a.match(/\bapart\b[^.?]*?(\d+(?:\.\d+)?)\s*(km|kilometers?|miles?|meters?|m)\b/i) || a.match(/\b(?:distance|gap)\b[^.?]*?(\d+(?:\.\d+)?)\s*(km|kilometers?|miles?|meters?|m)\b/i);
+    var sm = a.match(/(\d+(?:\.\d+)?)\s+and\s+(\d+(?:\.\d+)?)\s*(km\/h|kph|mph|mi\/h|m\/s|miles per hour|kilometers per hour|km per hour|meters per second)/i);
+    var v1, v2, su;
+    if (sm) { v1 = +sm[1]; v2 = +sm[2]; su = sm[3].toLowerCase(); }
+    else { var all = []; var r2 = /(\d+(?:\.\d+)?)\s*(km\/h|kph|mph|mi\/h|m\/s|miles per hour|kilometers per hour|km per hour|meters per second)/gi, mm; while ((mm = r2.exec(a))) all.push(mm); if (all.length !== 2) return null; v1 = +all[0][1]; v2 = +all[1][1]; su = all[1][2].toLowerCase(); }
+    if (!dm) return null;
+    if (numbersIn(a).some(function (n) { return n.v !== +dm[1] && n.v !== v1 && n.v !== v2 && n.v > 3; })) return null;
+    var D = +dm[1], t = D / (v1 + v2), perSec = /m\/s|meters per second/.test(su);
+    var mins = /\bminutes?\b/.test(ql), hrs = perSec ? t / 3600 : t;
+    if (mins && !perSec) return result(t * 60, "minutes", [D + " ÷ (" + v1 + " + " + v2 + ") = " + nice(t) + " h = " + nice(t * 60) + " min"], "meeting");
+    return result(t, perSec ? "seconds" : (t === 1 ? "hour" : "hours"), [D + " ÷ (" + v1 + " + " + v2 + ") = " + nice(t)], "meeting");
+  }
+  function reversePercent(S) {
+    var a = S.all, ql = S.question.toLowerCase(), m;
+    if (!/\b(?:original|regular|initial|before|starting|list|full|marked|old)\s+(?:price|cost|value|amount)|\bwhat was (?:the )?(?:price|cost)\b|\bhow much (?:did|was) (?:it|the \w+) cost before\b/.test(ql)) return null;
+    m = a.match(/\$\s*(\d+(?:\.\d+)?)\s+after\s+(?:a |an |the )?(\d+(?:\.\d+)?)\s*%\s*(discount|decrease|reduction|markdown|off|increase|markup|tax|raise|rise|drop)/i);
+    if (!m) return null;
+    if (numbersIn(a).length !== 2) return null;
+    var P = +m[1], r = +m[2] / 100, down = /discount|decrease|reduction|markdown|off|drop/i.test(m[3]);
+    var orig = P / (down ? 1 - r : 1 + r);
+    return result(orig, "", [P + " ÷ (1 " + (down ? "−" : "+") + " " + nice(r) + ") = " + nice(orig)], "percent", { money: true });
+  }
+  function circleCalc(S) {
+    var a = S.all, ql = S.question.toLowerCase(), m;
+    if (!/\b(?:circle|circular|wheel|pizza|coin|disc|disk)\b/i.test(a) || !/\b(circumference|area|perimeter)\b/.test(ql)) return null;
+    var rm = a.match(/\bradius (?:of |is |= )?(\d+(?:\.\d+)?)/i), dm = a.match(/\bdiameter (?:of |is |= )?(\d+(?:\.\d+)?)/i);
+    var pm = a.match(/\b(?:use|using|take|with|let)\s+(?:π|pi)?\s*(?:=|as|≈)?\s*(3\.14(?:159)?|22\/7|3\.1416)/i), pi = Math.PI, piTxt = "π";
+    if (pm) { pi = /\//.test(pm[1]) ? 22 / 7 : +pm[1]; piTxt = pm[1]; }
+    var r = rm ? +rm[1] : (dm ? +dm[1] / 2 : null);
+    if (r === null) return null;
+    var want = /circumference|perimeter/.test(ql) ? "c" : "a", v = want === "c" ? 2 * pi * r : pi * r * r;
+    var given = 1 + (pm ? 1 : 0);
+    if (numbersIn(a).length !== given) return null;
+    var txt = pm ? nice(Math.round(v * 1e4) / 1e4) : "about " + nice(Math.round(v * 100) / 100);
+    return result(v, "", [want === "c" ? "2 × " + piTxt + " × " + nice(r) + " = " + txt : piTxt + " × " + nice(r) + "² = " + txt], "circle", { text: txt });
+  }
+  function packPrice(S) {
+    var a = S.all, ql = S.question.toLowerCase(), m = a.match(/\b(?:pack|box|bag|set|carton|bundle|case|crate|bottle|tray|roll|packet|dozen)\s+of\s+(\d+(?:\.\d+)?)\s+([a-z]+)\s+(?:costs?|is|sells? for|are|go for)\s+\$\s*(\d+(?:\.\d+)?)/i);
+    if (!m || !/\b(?:one|each|a single|1|per|every|an?)\s+([a-z]+)/.test(ql) || !/\b(?:cost|price|how much)\b/.test(ql)) return null;
+    if (numbersIn(S.givens.join(" ")).length !== 2) return null;
+    var v = +m[3] / +m[1];
+    return result(v, "", [m[3] + " ÷ " + m[1] + " = " + nice(v)], "price", { money: true });
+  }
+  function fencePen(S) {
+    var a = S.all, ql = S.question.toLowerCase(), m = a.match(/\b(\d+(?:\.\d+)?)\s*(?:m|meters?|metres?|feet|ft|yards?|km|cm)\s+of\s+(?:fence|fencing|rope|wire|string|border|edging|ribbon)\b/i);
+    if (!m || !/\barea\b/.test(ql) || numbersIn(a).length !== 1) return null;
+    var P = +m[1];
+    if (/\bsquare\b/i.test(a)) { var side = P / 4; return result(side * side, "", ["side = " + P + " ÷ 4 = " + nice(side), "area = " + nice(side) + "² = " + nice(side * side)], "geometry"); }
+    return null;
+  }
+  function basket(S) {
+    var q = S.question, ql = q.toLowerCase();
+    if (!/\b(?:total|how much|cost|pay|spend)\b/.test(ql) || !/\d/.test(q)) return null;
+    var price = {}, re = /\b(?:an?|one|each|every)\s+([a-z]+)\s+(?:costs?|is|sells? for|is priced at)\s+\$\s*(\d+(?:\.\d+)?)/gi, m, np = 0;
+    var givens = S.givens.join(" ");
+    while ((m = re.exec(givens))) { price[ustem(m[1])] = +m[2]; np++; }
+    if (np < 2 || numbersIn(givens).length !== np) return null;
+    var terms = [], steps = [], rc = /(\d+(?:\.\d+)?)\s+([a-z]+)/gi, nq = numbersIn(q).length, used = 0;
+    while ((m = rc.exec(q))) { var k = ustem(m[2]); if (price[k] === undefined) return null; terms.push(+m[1] * price[k]); steps.push(m[1] + " × " + price[k]); used++; }
+    if (!used || used !== nq) return null;
+    var tot = terms.reduce(function (x, y) { return x + y; }, 0);
+    return result(tot, "", [steps.join(" + ") + " = " + nice(tot)], "price", { money: true });
+  }
+  function fuelRange(S) {
+    var a = S.all, ql = S.question.toLowerCase();
+    if (!/\bhow (?:far|many (?:km|kilometers|miles))\b/.test(ql) || !/\b(?:tank|fuel|gas|petrol|battery)\b/i.test(a)) return null;
+    var cm = a.match(/(\d+(?:\.\d+)?)\s*(liters?|litres?|gallons?|l|kwh)\s*(?:per|every|for each|\/)\s*(\d+(?:\.\d+)?)\s*(km|kilometers?|miles?|mi)\b/i);
+    if (!cm) return null;
+    var rest = a.replace(cm[0], " "), tm = rest.match(/(\d+(?:\.\d+)?)\s*(?:liters?|litres?|gallons?|l|kwh)\b/i);
+    if (!tm || numbersIn(a).length !== 3) return null;
+    var d = +tm[1] / +cm[1] * +cm[3], u = /^mi/i.test(cm[4]) ? "miles" : "km";
+    return result(d, u, [tm[1] + " ÷ " + cm[1] + " × " + cm[3] + " = " + nice(Math.round(d * 100) / 100)], "range", { text: nice(Math.round(d * 10) / 10) + " " + u });
+  }
+  function ageFuture(S) {
+    var a = S.all, ql = S.question.toLowerCase(), m = a.match(/\b([A-Z][a-z]+) is (twice|double|three times|four times|half|\d+ times) as old as (?:(?:his|her|their|the) )?([A-Za-z]+)/);
+    if (!m || !/\bhow old\b/.test(ql)) return null;
+    var k = { twice: 2, double: 2, half: 0.5, "three times": 3, "four times": 4 }[m[2].toLowerCase()];
+    if (k === undefined) k = parseFloat(m[2]);
+    var tm = a.match(/\bin (\d+) years?\b/i), sm = a.match(/\b(?:sum|total) of (?:their|both|the|our) (?:two )?ages (?:will be|is|are|equals?|=)\s+(\d+)\b|\btogether (?:they|their ages) (?:are|is|will be|add up to)\s+(\d+)\b/i);
+    if (!sm) return null;
+    var tot = +(sm[1] || sm[2]), t = tm ? +tm[1] : 0, B = (tot - 2 * t) / (k + 1), A = k * B;
+    var who = (S.question.match(/\bhow old (?:is|was|are) (?:the |his |her )?([A-Za-z]+)/i) || [])[1];
+    if (!who) return null;
+    who = who.toLowerCase();
+    var val = who === m[1].toLowerCase() ? A : (who === m[3].toLowerCase() ? B : null);
+    if (val === null || !(val >= 0)) return null;
+    return result(val, "years old", ["(" + tot + " − 2×" + t + ") ÷ (" + nice(k) + " + 1) = " + nice(B) + " for " + m[3]], "age", { text: nice(val) + " years old" });
+  }
+
   /* ---- facts about kinds: "how many sides does a hexagon have", interior angles */
   function shapeFacts(S) {
     var q = S.question.toLowerCase(), m;
@@ -1544,7 +1661,7 @@
   }
   /* ---- "a number" algebra phrases handled elsewhere; here: X more than / twice plus */
   function dimsRated(S) { return dims(S, true); }
-  var READERS = [shapeFacts, angles, displacement, fractionOfNumber, pairSystem, geoInverse, geometry, probability, fractionAsk, averageNeeded, series, numPuzzle, statistics, clock, markup, prices, percent, rates, linear, dimsRated, narrative, dims];
+  var READERS = [savingsGoal, basket, meeting, reversePercent, circleCalc, packPrice, fencePen, fuelRange, ageFuture, shapeFacts, angles, displacement, fractionOfNumber, pairSystem, geoInverse, geometry, probability, fractionAsk, averageNeeded, series, numPuzzle, statistics, clock, markup, prices, percent, rates, linear, dimsRated, narrative, dims];
 
   function parse(text) {
     var t = numify(text);
@@ -1559,7 +1676,22 @@
     if (splitAt > 0) { givens.push(qsent.slice(0, splitAt)); qsent = qsent.slice(splitAt + 1).trim(); }
     var em = qsent.match(/^(.*?)\b((?:how|what)\b.*)$/i);
     if (em && em[1] && /\d/.test(em[1]) && !/^(?:if|when|suppose)\b/i.test(em[1].trim() ? "" : "x")) { givens.push(em[1].replace(/[,;]\s*$/, "")); qsent = em[2]; }
+    givens = elideUnits(givens, qsent.trim());
     return { all: t, givens: givens, question: qsent.trim() };
+  }
+  /* "Priya had 45 stickers and gave away 18": the amount after a transfer verb keeps the counted noun */
+  function elideUnits(givens, question) {
+    var qm = question.toLowerCase().match(/\bhow many (?:more |fewer |other )?([a-z]+)\b/);
+    if (!qm || NOUN_STOP.test(qm[1])) return givens;
+    var noun = qm[1], established = false, VERB = "(?:gave away|gave|give|gives|ate|eats|eat|sold|sells|sell|lost|loses|lose|used|uses|use|broke|breaks|donated|donates|threw away|throws away|returned|returns|dropped|drops|took|takes|take|picked|picks|bought|buys|buy|found|finds|received|receives|got|gets|made|makes|baked|bakes|spent|spends|added|adds|wasted|shared|handed out|handed|sent|sends|burned|burnt|lent|lends|donate|put|puts|placed|removed|removes)";
+    var re = new RegExp("\\b(" + VERB + ")\\s+((?:[A-Za-z]+\\s+)?)(\\d+(?:\\.\\d+)?)(?=\\s*(?:$|[.,;]|\\s(?:and|to|but|then|while|from|away|off|out|more|so)\\b))", "gi");
+    var nounRe = new RegExp("\\b\\d+(?:\\.\\d+)?\\s+(?:[a-z]+\\s+)?" + noun.replace(/s$/, "") + "(?:s|es)?\\b", "i");
+    return givens.map(function (g) {
+      var out = g;
+      out = g.replace(re, function (all, v, mid, n, off) { return (!established && !nounRe.test(g.slice(0, off))) || /\$\s*$/.test(g.slice(0, off + all.length - n.length)) ? all : v + " " + mid + n + " " + noun; });
+      if (nounRe.test(g)) established = true;
+      return out;
+    });
   }
 
   function solve(text) {

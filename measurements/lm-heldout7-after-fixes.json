@@ -1,0 +1,2881 @@
+{
+  "total": 260,
+  "all": {
+    "n": 260,
+    "pass": 241,
+    "honest": 4,
+    "wrong": 15,
+    "accuracy_pct": 92.7,
+    "by_category": {
+      "wordD": {
+        "n": 40,
+        "pass": 38,
+        "honest": 0,
+        "wrong": 2
+      },
+      "logicD": {
+        "n": 20,
+        "pass": 18,
+        "honest": 1,
+        "wrong": 1
+      },
+      "algebraD": {
+        "n": 28,
+        "pass": 28,
+        "honest": 0,
+        "wrong": 0
+      },
+      "unitsD": {
+        "n": 10,
+        "pass": 10,
+        "honest": 0,
+        "wrong": 0
+      },
+      "skillD": {
+        "n": 40,
+        "pass": 39,
+        "honest": 1,
+        "wrong": 0
+      },
+      "knowD": {
+        "n": 60,
+        "pass": 55,
+        "honest": 2,
+        "wrong": 3
+      },
+      "abstainD": {
+        "n": 20,
+        "pass": 18,
+        "honest": 0,
+        "wrong": 2
+      },
+      "chatD": {
+        "n": 12,
+        "pass": 12,
+        "honest": 0,
+        "wrong": 0
+      },
+      "codeD": {
+        "n": 20,
+        "pass": 19,
+        "honest": 0,
+        "wrong": 1
+      },
+      "multiD": {
+        "n": 10,
+        "pass": 4,
+        "honest": 0,
+        "wrong": 6
+      }
+    }
+  },
+  "dev": {
+    "n": 184,
+    "pass": 181,
+    "honest": 0,
+    "wrong": 3,
+    "accuracy_pct": 98.4,
+    "by_category": {
+      "wordD": {
+        "n": 29,
+        "pass": 29,
+        "honest": 0,
+        "wrong": 0
+      },
+      "logicD": {
+        "n": 15,
+        "pass": 15,
+        "honest": 0,
+        "wrong": 0
+      },
+      "algebraD": {
+        "n": 19,
+        "pass": 19,
+        "honest": 0,
+        "wrong": 0
+      },
+      "unitsD": {
+        "n": 5,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 0
+      },
+      "skillD": {
+        "n": 33,
+        "pass": 33,
+        "honest": 0,
+        "wrong": 0
+      },
+      "knowD": {
+        "n": 45,
+        "pass": 45,
+        "honest": 0,
+        "wrong": 0
+      },
+      "abstainD": {
+        "n": 12,
+        "pass": 12,
+        "honest": 0,
+        "wrong": 0
+      },
+      "chatD": {
+        "n": 9,
+        "pass": 9,
+        "honest": 0,
+        "wrong": 0
+      },
+      "codeD": {
+        "n": 11,
+        "pass": 11,
+        "honest": 0,
+        "wrong": 0
+      },
+      "multiD": {
+        "n": 6,
+        "pass": 3,
+        "honest": 0,
+        "wrong": 3
+      }
+    }
+  },
+  "sealed": {
+    "n": 76,
+    "pass": 60,
+    "honest": 4,
+    "wrong": 12,
+    "accuracy_pct": 78.9,
+    "by_category": {
+      "wordD": {
+        "n": 11,
+        "pass": 9,
+        "honest": 0,
+        "wrong": 2
+      },
+      "logicD": {
+        "n": 5,
+        "pass": 3,
+        "honest": 1,
+        "wrong": 1
+      },
+      "algebraD": {
+        "n": 9,
+        "pass": 9,
+        "honest": 0,
+        "wrong": 0
+      },
+      "unitsD": {
+        "n": 5,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 0
+      },
+      "skillD": {
+        "n": 7,
+        "pass": 6,
+        "honest": 1,
+        "wrong": 0
+      },
+      "knowD": {
+        "n": 15,
+        "pass": 10,
+        "honest": 2,
+        "wrong": 3
+      },
+      "abstainD": {
+        "n": 8,
+        "pass": 6,
+        "honest": 0,
+        "wrong": 2
+      },
+      "chatD": {
+        "n": 3,
+        "pass": 3,
+        "honest": 0,
+        "wrong": 0
+      },
+      "codeD": {
+        "n": 9,
+        "pass": 8,
+        "honest": 0,
+        "wrong": 1
+      },
+      "multiD": {
+        "n": 4,
+        "pass": 1,
+        "honest": 0,
+        "wrong": 3
+      }
+    }
+  },
+  "latency": {
+    "p50": 39,
+    "p90": 221,
+    "max": 315
+  },
+  "rows": [
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "Priya had 45 stickers and gave away 18. How many stickers remain?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "27 stickers",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 57
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "A cyclist rides at 18 km/h for 3 hours. How far does she go?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "54 kilometers",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 38
+    },
+    {
+      "cat": "wordD",
+      "q": "Three friends split an $87 bill equally. How much does each pay?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$29 per friend",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 40
+    },
+    {
+      "cat": "wordD",
+      "q": "A rope 3.5 m long is cut into pieces of 0.5 m. How many pieces are there?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "7 pieces",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 44
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "A water tank leaks 2 liters every hour. How many liters leak out in a day?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "48 liters",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 53
+    },
+    {
+      "cat": "wordD",
+      "q": "Mia is twice as old as Jon. In 5 years the sum of their ages is 40. How old is Jon now?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "10 years old",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 42
+    },
+    {
+      "cat": "wordD",
+      "q": "A train 200 meters long passes a pole in 10 seconds. What is its speed in meters per second?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "20 m/s",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 96
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "A sandwich costs $4.50 and a drink costs $1.75. What is the total for 3 sandwiches and 2 drinks?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$17",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 44
+    },
+    {
+      "cat": "wordD",
+      "q": "What is 12% of 250?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "30",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 10
+    },
+    {
+      "cat": "wordD",
+      "q": "A circle has a radius of 7. What is its circumference? Use 3.14.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "43.96",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 29
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "A car's tank holds 50 liters and the car uses 6 liters per 100 km. How far can it go on a full tank?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "833.3 km",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 39
+    },
+    {
+      "cat": "wordD",
+      "q": "Oscar is saving for a $240 bike. He has $90 and saves $15 a week. How many weeks until he can buy it?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "10 weeks",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 32
+    },
+    {
+      "cat": "wordD",
+      "q": "A recipe needs 2 cups of sugar for 24 cookies. How many cups are needed for 60 cookies?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "5 cups",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 37
+    },
+    {
+      "cat": "wordD",
+      "q": "A rectangle has a perimeter of 36 and a length of 11. What is its width?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "7",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 29
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "In a class of 30 students, 40% are boys. How many are girls?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "18",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 30
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "Nina buys 3 notebooks at $2.25 each. How much does she spend?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$6.75",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 30
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "How many legs do 6 spiders have?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "48 legs",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 15
+    },
+    {
+      "cat": "wordD",
+      "q": "A pizza is cut into 8 slices. Tom eats 3 and Ann eats 2. How many slices are left?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3 slices",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 45
+    },
+    {
+      "cat": "wordD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "wordD",
+      "q": "Find the average of 15, 25 and 35.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "25",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 18
+    },
+    {
+      "cat": "wordD",
+      "q": "Kai earns $12 per hour and works 35 hours. What is the weekly pay?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$420",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 33
+    },
+    {
+      "cat": "wordD",
+      "q": "A square has an area of 81. What is its side length?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "9",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 34
+    },
+    {
+      "cat": "wordD",
+      "q": "A farmer has 100 meters of fence and builds a square pen. What is the area of the pen?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "625",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 36
+    },
+    {
+      "cat": "wordD",
+      "q": "Two trains 300 km apart travel toward each other at 60 and 40 km/h. After how many hours do they meet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3 hours",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 42
+    },
+    {
+      "cat": "wordD",
+      "q": "A pack of 6 batteries costs $9. What does one battery cost?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$1.50",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 45
+    },
+    {
+      "cat": "wordD",
+      "q": "Rita is 5 years younger than Sam. Sam is 21. How old is Rita?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "16",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 41
+    },
+    {
+      "cat": "wordD",
+      "q": "A book has 320 pages. Eli has read 3/8 of it. How many pages has he read?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "120 pages",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 43
+    },
+    {
+      "cat": "wordD",
+      "q": "A school bus holds 48 students. 7 buses are full. How many students are on the buses?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "336 students",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 42
+    },
+    {
+      "cat": "wordD",
+      "q": "A shirt costs $50 after a 20% discount. What was the original price?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$62.50",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 40
+    },
+    {
+      "cat": "wordD",
+      "q": "Abe has 3 times as many marbles as Bo. Bo has 14. How many do they have together?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "56",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 37
+    },
+    {
+      "cat": "logicD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "logicD",
+      "q": "If it rains, the ground is wet. The ground is not wet. Did it rain?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "No — if it rains, the ground is wet, and the ground is not wet, so it is not the case that it rains.",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 39
+    },
+    {
+      "cat": "logicD",
+      "q": "Anna is taller than Ben. Ben is taller than Cara. Who is the shortest?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Cara",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 50
+    },
+    {
+      "cat": "logicD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "logicD",
+      "q": "If today is Wednesday, what day will it be in 10 days?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Saturday",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 26
+    },
+    {
+      "cat": "logicD",
+      "q": "All roses are flowers. Some flowers fade quickly. Must all roses fade quickly?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Not necessarily — that doesn't follow from what is given.",
+      "route": "reason",
+      "conf": 0.8,
+      "ms": 45
+    },
+    {
+      "cat": "logicD",
+      "q": "I am facing north and turn right twice. Which way am I facing?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "South",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 51
+    },
+    {
+      "cat": "logicD",
+      "q": "Which is the odd one out: apple, banana, carrot, grape?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Carrot — the others are fruits, carrot is a carrot.",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 46
+    },
+    {
+      "cat": "logicD",
+      "q": "Town A is east of town B, and town B is east of town C. Which town is farthest west?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "C",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 47
+    },
+    {
+      "cat": "logicD",
+      "q": "What number comes next: 1, 1, 2, 3, 5, 8?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "13",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 22
+    },
+    {
+      "cat": "logicD",
+      "q": "If all bloops are razzies and all razzies are lazzies, are all bloops lazzies?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes — all bloops are razzies, and all razzies are lazzies, so all bloops are lazzies.",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 70
+    },
+    {
+      "cat": "logicD",
+      "q": "Sam finished ahead of Lee, and Lee finished ahead of Kim. Who finished last of the three?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Kim",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 50
+    },
+    {
+      "cat": "logicD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "logicD",
+      "q": "Which weighs more: a kilogram of feathers or a kilogram of iron?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "They weigh the same — a kilogram of feathers and a kilogram of iron are the same weight.",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 28
+    },
+    {
+      "cat": "logicD",
+      "q": "Some cats are black. All black things absorb heat. Do some cats absorb heat?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes — some cats are black, so some cats absorb heat.",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 48
+    },
+    {
+      "cat": "logicD",
+      "q": "What is the next letter in the pattern A, C, E, G?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 24
+    },
+    {
+      "cat": "logicD",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "logicD",
+      "q": "If every artist is creative and Maria is an artist, is Maria creative?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes — Maria is an artist, and every artist is creative, so Maria is creative.",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 44
+    },
+    {
+      "cat": "logicD",
+      "q": "What is the next number: 3, 6, 11, 18, 27?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "38",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 20
+    },
+    {
+      "cat": "logicD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve 3x + 7 = 22.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = 5. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 96
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve x^2 - 9 = 0.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -3 or x = 3. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 118
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve 2x - 5 = 3x + 1.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -6. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 125
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is the integral of 2x dx?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x^2 + C",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 14
+    },
+    {
+      "cat": "algebraD",
+      "q": "Factor x^2 + 7x + 12.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "(x + 4)(x + 3)",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 23
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve x^2 + 4x + 4 = 0.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -2. Checked by 2 independent methods (closed-form formula, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 92
+    },
+    {
+      "cat": "algebraD",
+      "q": "Simplify 3(x + 2) - x.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "2x + 6",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 23
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is 5 factorial?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "120",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 9
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve |x - 3| = 5.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = 8 or x = -2",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 12
+    },
+    {
+      "cat": "algebraD",
+      "q": "Expand (x + 2)^2.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x^2 + 4x + 4",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 27
+    },
+    {
+      "cat": "algebraD",
+      "q": "If f(x) = 2x + 3, what is f(5)?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "13",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 17
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is the square root of 196?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "14",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 21
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve x/4 = 9.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = 36. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 78
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is the derivative of e^x?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "e^x",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 20
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is the greatest common divisor of 48 and 36?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12. Checked by 3 independent methods (Euclid's algorithm, exhaustive search of common divisors, common prime factors); verified by divides both, cofactors coprime.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 28
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "Is 91 a prime number?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "No — 91 = 7 × 13.",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 15
+    },
+    {
+      "cat": "algebraD",
+      "q": "Solve 2x^2 = 50.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "x = -5 or x = 5. Checked by 3 independent methods (closed-form formula, rational-root theorem, numeric sign-change search); verified by substitution, root count bound, no missed sign change.",
+      "route": "reason",
+      "conf": 0.99,
+      "ms": 102
+    },
+    {
+      "cat": "algebraD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is 3/4 plus 1/6?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3/4 + 1/6 = 0.9167.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 12
+    },
+    {
+      "cat": "algebraD",
+      "q": "What is 0.375 as a fraction?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3/8",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 11
+    },
+    {
+      "cat": "unitsD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "unitsD",
+      "q": "How many ounces are in a pound?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1 pound = 16 ounces",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 12
+    },
+    {
+      "cat": "unitsD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "unitsD",
+      "q": "How many centimeters are in 2.5 meters?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "250 centimeters",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 15
+    },
+    {
+      "cat": "unitsD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "unitsD",
+      "q": "Convert 2 gallons to liters.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "2 gallons = 7.570824 liters",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 15
+    },
+    {
+      "cat": "unitsD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "unitsD",
+      "q": "How many feet are in 72 inches?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "6 feet",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 13
+    },
+    {
+      "cat": "unitsD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "unitsD",
+      "q": "How many millimeters are in a kilometer?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1 kilometer = 1000000 millimeters",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 26
+    },
+    {
+      "cat": "skillD",
+      "q": "What day of the week was December 25, 2000?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "December 25, 2000 was a Monday.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 42
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "skillD",
+      "q": "How many days are between January 15 and March 1, 2023?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "45 days.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 29
+    },
+    {
+      "cat": "skillD",
+      "q": "What is 1000 in words?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "one thousand",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 11
+    },
+    {
+      "cat": "skillD",
+      "q": "Write 215 in words.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "two hundred fifteen",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 11
+    },
+    {
+      "cat": "skillD",
+      "q": "Spell out the number 76.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "seventy-six",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 14
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the percent increase from 80 to 100?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "25% increase (80 to 100).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 22
+    },
+    {
+      "cat": "skillD",
+      "q": "What percent of 200 is 50?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "25%",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 17
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the percent decrease from 200 to 150?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "25% decrease (200 to 150).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 39
+    },
+    {
+      "cat": "skillD",
+      "q": "Find the simple interest on $2000 at 4% for 5 years.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$400.00 of simple interest, for a total of $2,400.00.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 48
+    },
+    {
+      "cat": "skillD",
+      "q": "What is $500 worth after 2 years at 10% compound interest?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "$105.00 of interest, for a total of $605.00.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 32
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the population variance of 2, 4, 6, 8?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "5 (population variance; mean 5).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 31
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the standard deviation of 1, 2, 3, 4, 5?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1.4142 (population standard deviation; mean 3).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 20
+    },
+    {
+      "cat": "skillD",
+      "q": "Translate thank you to Italian.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "grazie",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 25
+    },
+    {
+      "cat": "skillD",
+      "q": "How do you say goodbye in Spanish?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "adiós",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 19
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "skillD",
+      "q": "How do you say thank you in Russian?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "спасибо (spasibo)",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 22
+    },
+    {
+      "cat": "skillD",
+      "q": "How many arrangements are there of the letters in DOG?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "6 different arrangements of the letters in DOG. They are: DOG, DGO, ODG, OGD, GDO, GOD.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 25
+    },
+    {
+      "cat": "skillD",
+      "q": "How many distinct permutations does the word BOOK have?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12 different arrangements of the letters in BOOK. They are: BOOK, BOKO, BKOO, OBOK, OBKO, OOBK, OOKB, OKBO, OKOB, KBOO, KOBO, KOOB.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 33
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the molar mass of CaCO3?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "100.086 g/mol (CaCO3).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 24
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the molar mass of CH4?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "16.043 g/mol (CH4).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 24
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the molar mass of glucose?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "180.156 g/mol (C6H12O6).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 33
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the molar mass of O2?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "31.998 g/mol (O2).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 21
+    },
+    {
+      "cat": "skillD",
+      "q": "How many atoms are in one molecule of H2SO4?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "7 atoms in one molecule of H2SO4 (2 H, 1 S, 4 O).",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 35
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the momentum of a 3 kg object moving at 4 m/s?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12 kg·m/s",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 36
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the voltage across a 4 ohm resistor carrying 3 amps?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12 V",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 55
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the density of an object with mass 20 g and volume 5 cm^3?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "4 g/cm³ (4000 kg/m³)",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 43
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the kinetic energy of a 4 kg ball moving at 5 m/s?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "50 J",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 38
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the opposite of generous?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The opposite of generous is selfish.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 23
+    },
+    {
+      "cat": "skillD",
+      "q": "Give me a synonym for tired.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Synonyms for tired: exhausted, weary, fatigued, drained.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 20
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "skillD",
+      "q": "What is another word for begin?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Synonyms for begin: start, commence, launch, initiate.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 17
+    },
+    {
+      "cat": "skillD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "skillD",
+      "q": "Is 2024 a leap year?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes — 2024 is a leap year.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 19
+    },
+    {
+      "cat": "skillD",
+      "q": "Write 3rd in words.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "third",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 13
+    },
+    {
+      "cat": "skillD",
+      "q": "What is the speed of an object that travels 120 m in 8 s?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "15 m/s",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 30
+    },
+    {
+      "cat": "skillD",
+      "q": "Summarize: The Nile is the longest river in Africa. It flows north through eleven countries. Ancient Egyptians relied on its yearly floods for farming. Today dams control the flow.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Nile is the longest river in Africa.",
+      "route": "reason",
+      "conf": 0.7,
+      "ms": 47
+    },
+    {
+      "cat": "knowD",
+      "q": "Which river flows through Paris?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Seine is the river that flows through Paris.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 177
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the capital of Australia?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Australia's capital is Canberra. It is in Oceania.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 176
+    },
+    {
+      "cat": "knowD",
+      "q": "Which continent is Egypt in?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The country of Egypt is located on the continent of Africa.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 165
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the longest river in South America?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The longest river in South America is the Amazon, at about 6,400 kilometres, and it is also the largest river in the world by volume of water.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 201
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the smallest country in the world?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Vatican City is the smallest country in the world by area.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 156
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the tallest mountain in Africa?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Kilimanjaro is the highest mountain in Africa.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 167
+    },
+    {
+      "cat": "knowD",
+      "q": "In which country is the Taj Mahal?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The country that is home to the Taj Mahal is India.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 204
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the capital of Canada?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The capital of Canada is Ottawa. It is in North America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 146
+    },
+    {
+      "cat": "knowD",
+      "q": "Which desert covers much of northern Africa?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Sahara is the largest hot desert in the world, covering much of North Africa.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 184
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the currency of Japan?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Japan uses the yen as its currency. It is in East Asia.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 161
+    },
+    {
+      "cat": "knowD",
+      "q": "Which sea lies between Europe and Africa?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Mediterranean Sea lies between Europe and Africa.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 242
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the largest island in the world?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Greenland is the largest island in the world that is not a continent.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 168
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the chemical symbol for gold?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The chemical symbol for gold is Au.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 152
+    },
+    {
+      "cat": "knowD",
+      "q": "How many planets are in the solar system?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "There are eight planets in the solar system: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus and Neptune.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 156
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What force keeps the planets in orbit around the Sun?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The force that keeps planets in orbit around the Sun is gravity.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 241
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the hardest natural substance?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Diamond is the hardest natural substance, and it is made of carbon.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 167
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the boiling point of water in Celsius?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The boiling point of water at sea level is 100 degrees Celsius.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 187
+    },
+    {
+      "cat": "knowD",
+      "q": "Which planet is known as the Red Planet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Mars is known as the Red Planet because of iron oxide on its surface.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 286
+    },
+    {
+      "cat": "knowD",
+      "q": "What do bees collect from flowers?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Bees collect nectar from flowers and pollinate plants as they go.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 187
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the freezing point of water in Fahrenheit?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Water freezes at 0 °C. That is 32 °F.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 238
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "knowD",
+      "q": "What does DNA stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "DNA is deoxyribonucleic acid, the double-helix molecule that stores the genetic instructions of living organisms. It is used for storing hereditary information.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 151
+    },
+    {
+      "cat": "knowD",
+      "q": "What causes the tides?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Ocean tides are caused mainly by the gravitational pull of the Moon, and also of the Sun, on Earth's oceans.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 172
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "Who painted the ceiling of the Sistine Chapel?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Michelangelo painted the ceiling of the Sistine Chapel and sculpted the statue of David.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 315
+    },
+    {
+      "cat": "knowD",
+      "q": "Who was the first president of the United States?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The first president of the United States was George Washington.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 208
+    },
+    {
+      "cat": "knowD",
+      "q": "Which empire built the Colosseum?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Roman Empire built the Colosseum, which was completed in AD 80 in Rome.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 221
+    },
+    {
+      "cat": "knowD",
+      "q": "In what year did the Berlin Wall fall?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The year the Berlin Wall fell was 1989.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 214
+    },
+    {
+      "cat": "knowD",
+      "q": "Who discovered penicillin?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Alexander Fleming discovered penicillin in 1928.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 165
+    },
+    {
+      "cat": "knowD",
+      "q": "Which civilization built Machu Picchu?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Inca civilization built Machu Picchu in the Andes of Peru in the fifteenth century.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 194
+    },
+    {
+      "cat": "knowD",
+      "q": "Who was the main author of the Declaration of Independence?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Thomas Jefferson lived from 1743 to 1826 and was the third president of the United States and the main author of the Declaration of Independence.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 194
+    },
+    {
+      "cat": "knowD",
+      "q": "In what year did the French Revolution begin?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The French Revolution began in 1789 with the storming of the Bastille on 14 July.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 305
+    },
+    {
+      "cat": "knowD",
+      "q": "Who wrote Pride and Prejudice?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Jane Austen wrote Pride and Prejudice in 1813.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 204
+    },
+    {
+      "cat": "knowD",
+      "q": "Who composed The Four Seasons?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Antonio Vivaldi composed The Four Seasons.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 227
+    },
+    {
+      "cat": "knowD",
+      "q": "Who painted The Starry Night?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Vincent van Gogh painted The Starry Night in 1889.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 183
+    },
+    {
+      "cat": "knowD",
+      "q": "What is a haiku?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A haiku is a Japanese poem of three lines with five, seven and five syllables.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 172
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the plural of mouse?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The plural of child is children, the plural of mouse is mice, the plural of foot is feet, and the plural of man is men.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 185
+    },
+    {
+      "cat": "knowD",
+      "q": "What is a noun?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A noun is a word that names a person, place, thing or idea.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 169
+    },
+    {
+      "cat": "knowD",
+      "q": "Who wrote Romeo and Juliet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "William Shakespeare wrote Romeo and Juliet in around 1595.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 182
+    },
+    {
+      "cat": "knowD",
+      "q": "What does the word benevolent mean?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The word benevolent means kind, well-meaning and generous.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 234
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the past tense of go?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The past tense of run is ran, the past tense of go is went, the past tense of eat is ate, and the past tense of be is was or were.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 207
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "What does HTML stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "HTML stands for HyperText Markup Language.",
+      "route": "code",
+      "conf": 0.9,
+      "ms": 21
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "knowD",
+      "q": "How many minutes are in a day?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1440 minutes",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 17
+    },
+    {
+      "cat": "knowD",
+      "q": "What is the largest planet in the solar system?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Jupiter is the largest planet in the solar system and has a Great Red Spot storm.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 235
+    },
+    {
+      "cat": "knowD",
+      "q": "How many continents are there?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "There are seven continents. It consists of Africa, Antarctica, Asia, Australia, Europe, North America and South America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 259
+    },
+    {
+      "cat": "knowD",
+      "q": "How many players are on a soccer team on the field?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A soccer team has 11 players on the field, including the goalkeeper.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 207
+    },
+    {
+      "cat": "knowD",
+      "q": "What color do you get when you mix blue and yellow?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The primary colours of light are red, green and blue; in pigment they are traditionally red, yellow and blue. It is made up of red, green and blue for light.",
+      "route": "knowledge",
+      "conf": 0.65,
+      "ms": 290
+    },
+    {
+      "cat": "knowD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the phone number of my dentist?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on my dentist. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 274
+    },
+    {
+      "cat": "abstainD",
+      "q": "Who will win the next World Cup?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I can't predict that — it depends on events that haven't happened yet, and I have no reliable way to know them. I can tell you what is known up to now, or help you reason about the possibilities.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 42
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the color of Tuesday?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Of Tuesday, a color is the property of an object produced by the light it reflects. That is the general sense of the word — I don't hold a separate tuesday meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 237
+    },
+    {
+      "cat": "abstainD",
+      "q": "Who wrote the book The Glass Orchard of Zeta?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on book The Glass Orchard of Meta. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 235
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the weather in Paris today?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I can't look up live information like that, and I have no reliable way to know it without a live source, so I can't tell you what it is right now.",
+      "route": "insufficient",
+      "conf": 0.4,
+      "ms": 229
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the square root of a banana?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That doesn't make sense as a question: a banana isn't a number, so it has no square root. If you meant a number, tell me which one.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 23
+    },
+    {
+      "cat": "abstainD",
+      "q": "When did Napoleon land on the Moon?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Napoleon lived from 1769 to 1821, long before the first Moon landing (1969), so that could not have happened.",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 29
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the largest prime number?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "There is no largest prime — Euclid proved that the primes go on forever.",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 19
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "q": "Predict tomorrow's lottery numbers.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I can't predict that — it depends on events that haven't happened yet, and I have no reliable way to know them. I can tell you what is known up to now, or help you reason about the possibilities.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 60
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the name of the mayor of Zarnovia?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Of the mayor of Zarnovia, a name is the word by which something is known. That is the general sense of the word — I don't hold a separate mayor of zarnovia meaning for it.",
+      "route": "compose",
+      "conf": 0.45,
+      "ms": 248
+    },
+    {
+      "cat": "abstainD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "abstainD",
+      "q": "Who invented the smartphone in 1850?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Nobody did — the smartphone did not exist yet in 1850; it was not invented until about 2007.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 24
+    },
+    {
+      "cat": "abstainD",
+      "q": "What is the cube root of purple?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "That doesn't make sense as a question: a purple isn't a number, so it has no cube root. If you meant a number, tell me which one.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 22
+    },
+    {
+      "cat": "chatD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chatD",
+      "q": "How are you today?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I'm doing well, thanks for asking. I'm a program, so I don't have good or bad days, but I'm ready to help — what's on your mind?",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 4
+    },
+    {
+      "cat": "chatD",
+      "q": "Thanks a lot.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "You're welcome — glad to help. Anything else?",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 3
+    },
+    {
+      "cat": "chatD",
+      "q": "Goodbye!",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Goodbye — take care! Come back any time.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 3
+    },
+    {
+      "cat": "chatD",
+      "q": "What can you do?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information.",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 12
+    },
+    {
+      "cat": "chatD",
+      "q": "I'm bored.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Let's fix that. I can set you a puzzle, tell you a surprising fact, run a quick quiz, or answer anything you're curious about — which sounds good?",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 6
+    },
+    {
+      "cat": "chatD",
+      "q": "Can you help me?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes, happy to help. Tell me what you're working on — a question, a calculation, some code, a puzzle or a bit of reasoning — and I'll take it from there.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 5
+    },
+    {
+      "cat": "chatD",
+      "q": "That's funny.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on That's funny. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 124
+    },
+    {
+      "cat": "chatD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chatD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "chatD",
+      "q": "Good morning!",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Good morning! What can I help you with today?",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 4
+    },
+    {
+      "cat": "chatD",
+      "q": "I feel nervous about my exam.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I'm sorry you're feeling that way. I'm here and I'm listening — do you want to tell me what's going on, or would you rather I help take your mind off it?",
+      "route": "conversation",
+      "conf": 0.75,
+      "ms": 199
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "q": "How do I sort a list in Python?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In Python:\n```python\nitems = [3, 1, 2]\nsorted_items = sorted(items)        # new list\nitems.sort(reverse=True)            # in place, descending\n```\nsorted returns a new list; list.sort sorts in place and returns None.",
+      "route": "code",
+      "conf": 0.88,
+      "ms": 17
+    },
+    {
+      "cat": "codeD",
+      "q": "What is recursion?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Recursion is when a function calls itself on a smaller version of the problem until it reaches a base case that stops the calls — for example factorial(n) = n × factorial(n−1), with factorial(0) = 1.",
+      "route": "code",
+      "conf": 0.9,
+      "ms": 8
+    },
+    {
+      "cat": "codeD",
+      "q": "How do I define a function in JavaScript?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In JavaScript:\n```javascript\nfunction add(a, b) {\n  return a + b;\n}\n// or: const add = (a, b) => a + b;\n```\nA function has a name, parameters and a body that returns a result.",
+      "route": "code",
+      "conf": 0.88,
+      "ms": 21
+    },
+    {
+      "cat": "codeD",
+      "q": "What is an API?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "An API (Application Programming Interface) is a defined way for one piece of software to request data or actions from another — for example a web service that answers HTTP requests.",
+      "route": "code",
+      "conf": 0.9,
+      "ms": 4
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "q": "How do I read a file in Python?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In Python:\n```python\nwith open(\"data.txt\", \"r\", encoding=\"utf-8\") as f:\n    text = f.read()\n```\nThe with statement closes the file for you, even if an error occurs.",
+      "route": "code",
+      "conf": 0.88,
+      "ms": 10
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "q": "How do I remove duplicates from a list in Python?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In Python:\n```python\nunique = list(dict.fromkeys(items))   # keeps order\nunique_set = set(items)               # unordered\n```\nA set keeps one copy of each value.",
+      "route": "code",
+      "conf": 0.88,
+      "ms": 21
+    },
+    {
+      "cat": "codeD",
+      "q": "What is the difference between == and === in JavaScript?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "== compares after converting types (loose equality), so 0 == \"0\" is true; === compares value and type with no conversion (strict equality), so 0 === \"0\" is false. Prefer === in JavaScript.",
+      "route": "code",
+      "conf": 0.9,
+      "ms": 15
+    },
+    {
+      "cat": "codeD",
+      "q": "How do I get the length of a string in Python?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In Python:\n```python\nlen(items)\n```\nlen returns the number of items in a sequence or collection (the number of characters for a string).",
+      "route": "code",
+      "conf": 0.88,
+      "ms": 42
+    },
+    {
+      "cat": "codeD",
+      "q": "Write a Python function to compute the factorial of n.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "```python\ndef factorial(n):\n    out = 1\n    for i in range(2, n + 1):\n        out *= i\n    return out\n```\nThe loop avoids the call-stack depth that recursion would need for large n.",
+      "route": "code",
+      "conf": 0.9,
+      "ms": 169
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "codeD",
+      "q": "How do I concatenate two strings in Java?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In Java:\n```java\nString full = first + \" \" + last;\nString full2 = first.concat(\" \").concat(last);\n```\nThe + operator joins strings; concat is the method form, and StringBuilder is better inside loops.",
+      "route": "code",
+      "conf": 0.88,
+      "ms": 29
+    },
+    {
+      "cat": "codeD",
+      "q": "What is the difference between a list and a tuple in Python?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A list is mutable — you can add, remove and change items — while a tuple is immutable: once created it cannot change. Tuples are written with parentheses, lists with square brackets, and tuples can be used as dictionary keys.",
+      "route": "code",
+      "conf": 0.9,
+      "ms": 22
+    },
+    {
+      "cat": "multiD",
+      "q": "What is the capital of Italy and what is its currency?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The capital of Italy is Rome. It is in Southern Europe. Italy's currency is the euro.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 131
+    },
+    {
+      "cat": "multiD",
+      "q": "What is 12 times 12, and what is 100 divided by 4?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12 * 12 = 144.; 100 / 4 comes to 25.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 26
+    },
+    {
+      "cat": "multiD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multiD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multiD",
+      "q": "What is the capital of Egypt and which river flows through it?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "Cairo is the capital of Egypt. Egypt is in North Africa. The Nile is a river in Africa, about 6,650 kilometres long. It flows north through Egypt into the Mediterranean Sea.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 178
+    },
+    {
+      "cat": "multiD",
+      "q": "How many days are in a week and how many hours are in a day?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "7 days; 24 hours",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 61
+    },
+    {
+      "cat": "multiD",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "multiD",
+      "q": "What is the cube of 3 and the square root of 144?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "27; 12",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 29
+    },
+    {
+      "cat": "multiD",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multiD",
+      "q": "Who wrote Hamlet and who wrote Pride and Prejudice?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "William Shakespeare wrote Hamlet in around 1600. Jane Austen wrote Pride and Prejudice in 1813.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 169
+    }
+  ]
+}
