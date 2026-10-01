@@ -29,7 +29,7 @@
    "year years name named called call known kind type sort please").split(" ").forEach(function (w) { STOP[w] = 1; });
   /* words that frame a question about a quantity are not content either */
   var FRAME = Object.create(null);
-  ("many much long far tall high old big fast often happen happens happened occur occurs story").split(" ").forEach(function (w) { FRAME[w] = 1; });
+  ("many much long far tall high old big fast often happen happens happened occur occurs story proverb saying idiom expression phrase").split(" ").forEach(function (w) { FRAME[w] = 1; });
 
   /* words the library treats as one. The first of each group is canonical. */
   var SYN_GROUPS = [
@@ -67,6 +67,8 @@
     ["britain", "british"], ["france", "french"], ["germany", "german"], ["spain", "spanish"], ["italy", "italian"], ["greece", "greek"], ["egypt", "egyptian"], ["china", "chinese"], ["japan", "japanese"], ["russia", "russian"], ["india", "indian"], ["rome", "roman"],
     ["explorer", "explore", "explored", "exploration"], ["reach", "reached", "reaches", "arrive", "arrived"], ["meet", "met", "meets"], ["fall", "fell", "fallen", "falls", "collapse", "collapsed"], ["filter", "filters", "filtered"], ["pull", "pulls", "attract", "attracts", "attracted"]
   ];
+  SYN_GROUPS.push(["sing", "sang", "sung", "sings", "singer", "singing"]);
+  SYN_GROUPS.push(["discover", "discovered", "discovering", "discovers", "discovery"]);
   SYN_GROUPS.push(["spouse", "wife", "husband", "partner", "married", "marry", "wed"]);
   var SYN = Object.create(null);
   SYN_GROUPS.forEach(function (g) { g.forEach(function (w) { SYN[w] = g[0]; }); });
@@ -138,6 +140,12 @@
       if (!STOP[c]) out.push(c);
     });
     return out;
+  }
+  /* the first few words of the sentence are the question's own terms: it is about them */
+  function leadCovers(text, qs) {
+    if (!qs.length) return false;
+    var ts = tokens(text).filter(function (w) { return !STOP[w]; }).slice(0, qs.length).map(canon);
+    return qs.every(function (q) { return ts.indexOf(q) >= 0; });
   }
   function bigrams(seq) {
     var o = [], i;
@@ -247,6 +255,8 @@
     var whoDef = /^\s*who\s+(?:is|was|were|are)\b/i.test(question) && qs.length <= 3;
     var defStem = qs.filter(function (x) { return !/^(?:word|term|phrase|mean|meaning|definition|define)$/.test(x); })[0] || qs[0];
     var bigNums = (String(question).match(/\b\d{3,}\b/g) || []);
+    var dm = String(question).match(/^\s*what\s+(?:is|are|was|were)\s+(?:a |an |the )?([A-Za-z][A-Za-z' -]{2,40}?)\s*\??\s*$/i);
+    var defSubj = dm ? dm[1].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-\s]+/g, "[- ]") : "";
     var qMarker = (String(question).toLowerCase().match(/\b(most|least|fewest|biggest|smallest|first|last)\b/) || [])[1];
     var listAsk = /^\s*(?:name|list|what are|which are|give me|tell me)\b/i.test(question) && /\b(?:the|all|some|few|three|four|five|six|seven|eight|nine|ten)\b/i.test(question);
     var presentQ = /^\s*(?:who|what|which)\s+(?:is|are)\b/i.test(question) && !/\b(?:first|last|original|former|ex|previous|second|third|[0-9]+(?:st|nd|rd|th))\b/i.test(question);
@@ -269,7 +279,7 @@
       if (!namesOk) continue;
       if (!carries(type, d.text, qTokens, frameWord)) continue;
       /* a bare "what is X" is answered by a sentence that defines X: X is its subject */
-      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:[a-z]+\\s+){0,2}(?:is|are|was|were|means|refers|stands|lived|combines|contains|consists|includes|has|uses|helps|works|starts|begins|measures|equals|produces|holds)\\b", "i")).test(d.text)) continue;
+      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:[a-z]+\\s+){0,2}(?:is|are|was|were|means|refers|stands|lived|combines|contains|consists|includes|has|uses|helps|works|starts|begins|measures|equals|produces|holds|happens|occurs|asks|forms)\\b", "i")).test(d.text) && !leadCovers(d.text, qs)) continue;
       /* a bare "what is X" is not answered by a life-event line about X */
       if (opts.define && /\b(?:died|was born) in [0-9]{1,4}(?: BCE| CE| BC| AD)?\.?$/.test(d.text) && !/\b(?:born|birth|die[ds]?|death)\b/i.test(question)) continue;
       /* a number the question states must be in the sentence: "the 2087 World Cup" is not any World Cup */
@@ -277,7 +287,7 @@
       for (k = 0; k < bigNums.length; k++) if (d.text.indexOf(bigNums[k]) < 0) { numsOk = false; break; }
       if (!numsOk) continue;
       /* a "why" question wants a reason, not a description of the same things */
-      if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive)|since)\b/i.test(d.text) && !(howWork && /\bworks? by\b|\bby \w+ing\b|\bthrough\b|\busing\b|\bwhen\b|\bwhile\b|\bpumps?\b|\bconverts?\b|\bturns?\b/i.test(d.text))) continue;
+      if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive)|since|(?:happens?|occurs?|forms?|appears?|arises?) when)\b/i.test(d.text) && !(howWork && /\bworks? by\b|\bby \w+ing\b|\bthrough\b|\busing\b|\bwhen\b|\bwhile\b|\bpumps?\b|\bconverts?\b|\bturns?\b/i.test(d.text))) continue;
       /* a focused sentence beats a long one that mentions the same words */
       var focus = matched / (matched + 0.35 * Math.max(0, d.n - hits) + 1);
       var adj = 0;
@@ -289,6 +299,8 @@
       /* a present-tense question wants the present holder, not a past one in the list of holders */
       if (presentQ && /\bwas the (?:[a-z]+ )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|[a-z-]+(?:th|st|nd|rd)|[a-z]+-[a-z]+)\b/i.test(d.text) && !/\b(?:is|are) the\b/i.test(d.text)) score -= 0.4;
       if (presentQ && /^as of \d{4}/i.test(d.text)) score += 0.3;
+      /* "what is X": the sentence that is about X (starts with it) beats one that merely mentions it */
+      if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\b(?:[^.]{0,40}?)(?:\\s(?:is|are|was|were|means|refers|stands|happens|occurs)\\b|,|:)", "i").test(d.text)) score += 0.35;
       if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;
       if (listAsk && (d.text.match(/,/g) || []).length >= 3) score += Math.min(0.6, 0.06 * (d.text.match(/,/g) || []).length + 0.1);
       /* "the longest river wholly within Brazil" is a narrower claim than "the longest river in South America" */

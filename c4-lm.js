@@ -1471,8 +1471,8 @@
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
     if (cs0.length > alpha0.length && alpha0.length < 2) return null;
     if (only === "strict") o.minStems = frame.queryForm === "why" || /^\s*(?:name|list)\b/i.test(q) ? 1 : 2;
-    else if (only === "relational") o.minStems = (/^\s*(?:name|list|what are|which are)\b/i.test(q) || /\b\w+est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
-    else if (FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
+    else if (only === "relational") o.minStems = (/^\s*(?:name|list|what are|which are)\b/i.test(q) || /\b(?:mean|means|meaning)\b/i.test(q) || /\b(?!(?:test|best|west|rest|nest|chest|guest|quest|forest|honest|interest|harvest|request|arrest|contest|protest|suggest|invest|digest|ancest)\b)\w{3,}est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
+    else if ((FX.contentStems(q).length < 3 && !/\b(?:\w{3,}est|most|least|first|last|best|worst)\b/i.test(q)) || FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
     try { hit = FX.answer(q, o); } catch (e) { hit = null; }
     if (!hit) return null;
     var named = (String(frame.rawText || frame.body || "").match(/\b[A-Z][\w-]+(?:\s+[A-Z][\w-]+)*/g) || []).filter(function (w, i) { return i > 0 || w.split(" ").length > 1; });
