@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory;
 
   var state = {
     ready: false,
@@ -1441,6 +1441,10 @@
        x^2 - 5x + 6 = 0" is not "2 - 5". The structured reading wins. */
     var structured = answerProblem(frame);
     if (structured) { structured.interpretation = "structured"; return structured; }
+    /* Story problems: read the English into quantities and relations, derive the answer,
+       and decline unless every number in the text was used. */
+    var story = answerStory(frame);
+    if (story) return story;
     var r = RS.solve(frame);
     /* Arithmetic read compositionally from the English comes before the
        numeral re-read below: "three quarters of 200" re-read as "3/4 of 200"
@@ -1471,6 +1475,17 @@
     var out = answerReasonText(frame, r);
     if (out && cal) { out.confidence = cal.confidence; out.calibration = cal; }
     return out;
+  }
+
+  function answerStory(frame) {
+    if (!STY || off("story")) return null;
+    var st = null;
+    try { st = STY.solve(frame.rawText || frame.body || ""); } catch (e) { st = null; }
+    if (!st || !st.answer) return null;
+    var body = st.answer;
+    if (st.steps && st.steps.length && !frame.onlyValue && (frame.requiresExplanation || frame.requestedTone === "steps")) body += ". " + st.steps.join("; ") + ".";
+    return { text: body, route: "reason", confidence: st.confidence || 0.8, sources: [], defects: [],
+             interpretation: "story:" + st.schema, story: st };
   }
 
   /* Quantitative questions the operator library does not recognise are

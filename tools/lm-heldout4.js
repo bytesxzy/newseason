@@ -484,15 +484,16 @@ function hash(s) { var h = 5381, i; for (i = 0; i < s.length; i++) h = ((h << 5)
 function sealed(q) { return hash(q) % 3 === 0; }
 var MATHY = /arith|word|algebra|units|multi/;
 
-async function main() {
+async function main(cases, label) {
+  var LIST = cases || CASES;
   var args = process.argv.slice(2);
   function arg(k, d) { var i = args.indexOf("--" + k); return i < 0 ? d : args[i + 1]; }
   var root = path.resolve(arg("root", path.join(__dirname, "..")));
   var rt = require(path.join(root, "tools", "lm-runtime.js"));
   var peek = args.indexOf("--peek") >= 0, only = arg("cat", "");
   var rows = [], lat = [];
-  for (var i = 0; i < CASES.length; i++) {
-    var c = CASES[i]; if (only && c[0] !== only) continue;
+  for (var i = 0; i < LIST.length; i++) {
+    var c = LIST[i]; if (only && c[0] !== only) continue;
     var win = rt.boot({}), a = await rt.askOnce(win, c[1], 20000), text = a.text || "";
     var hay = MATHY.test(c[0]) && c[0] !== "multi" ? firstSentence(text) : text;
     var pass = c[2].test(hay) || (MATHY.test(c[0]) && c[0] !== "units" && c[0] !== "multi" && c[2].test(text) && /^(?:\S+\s){0,14}\S+$/.test(firstSentence(text)) && false);
@@ -524,5 +525,5 @@ async function main() {
     console.log((r.honest ? "HONEST" : "WRONG ") + " [" + r.cat + "] " + r.q + "  =>  " + r.text.replace(/\n/g, " | ").slice(0, 170));
   });
 }
-module.exports = { CASES: CASES, sealed: sealed };
+module.exports = { CASES: CASES, sealed: sealed, run: main, SIGNAL: SIGNAL, HONEST: HONEST };
 if (require.main === module) main();
