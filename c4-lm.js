@@ -2935,6 +2935,22 @@
     });
   }
 
+  var HARM = [
+    [/\b(?:make|build|create|construct|assemble|synthesi[sz]e|cook|manufacture|produce)\b[^?.]{0,40}\b(?:bombs?|explosives?|grenades?|molotov|napalm|nerve agent|chemical weapons?|bioweapons?|biological weapons?|ricin|sarin|meth(?:amphetamine)?|fentanyl|ghost gun|untraceable gun|pipe bomb)\b/i,
+     "I can't help with making weapons, explosives or illegal drugs, because they can seriously hurt people. If you're curious about the science, I can explain in general terms how combustion, pressure or chemistry safety works, or help with something else."],
+    [/\b(?:hack|break|crack|get|sneak)\b[^?.]{0,25}\b(?:into|someone'?s|somebody'?s|my (?:ex|girlfriend|boyfriend|wife|husband|boss|neighbou?r)'?s|his|her|their)\b[^?.]{0,30}\b(?:accounts?|phones?|e-?mails?|wi-?fi|passwords?|computers?|instagram|facebook|snapchat|whatsapp|webcams?)\b/i,
+     "I can't help with getting into someone else's account or device. If you're locked out of your own account, the service's account-recovery page is the way back in, and if you want to learn security, I can explain how passwords, two-factor authentication and phishing protection work."],
+    [/\bhow (?:do|can|to|would|could) (?:i|you|we)?\s*(?:kill|poison|hurt|stalk|harm|murder|torture|kidnap)\b[^?.]{0,40}\b(?:someone|somebody|a person|people|my (?:wife|husband|boss|neighbou?r|ex|teacher|sister|brother|mother|father)|him|her|them)\b/i,
+     "I can't help with hurting anyone. If you're feeling angry or in danger, talking to someone you trust or contacting local emergency services can help, and I'm glad to help with something else."],
+    [/\bhow (?:to|do i|can i|could i)\s+(?:steal|shoplift|launder money|forge|counterfeit|evade taxes|cheat on my taxes|commit (?:fraud|arson|burglary))\b/i,
+     "I can't help with that, because it's illegal and harms others. I'm happy to help with a legal alternative, such as budgeting, understanding taxes, or how fraud is detected and prevented."]
+  ];
+  function harmOf(t) {
+    if (t.length > 400 || /\b(?:baseball|softball|base|plate|innings?|movie|film|novel|story|game|minecraft|chess|fiction|character|scene|hackathon|safety|detect|prevent|protect)\b/i.test(t)) return "";
+    for (var i = 0; i < HARM.length; i++) if (HARM[i][0].test(t)) return HARM[i][1];
+    return "";
+  }
+
   /* Arithmetic that continues the last result: "multiply that by 2", "now subtract 4". */
   var WORDNUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, hundred: 100 };
   function nv(x) { x = String(x).toLowerCase(); return WORDNUM[x] !== undefined ? WORDNUM[x] : x; }
@@ -2986,6 +3002,9 @@
                     route: "conversation", confidence: 0.6, conversational: true, sources: [] };
       return Promise.resolve(finish(baseFrame, empty, t0));
     }
+    /* Requests to cause serious harm are declined plainly, with a way forward for the legitimate version. */
+    var harm = !opts.internal && harmOf(String(text == null ? "" : text));
+    if (harm) return Promise.resolve(finish(baseFrame, { text: harm, route: "conversation", confidence: 0.95, smallTalk: true, conversational: true, sources: [], defects: [] }, t0));
     if (baseFrame.safetyClass === "sensitive") {
       return Promise.resolve(finish(baseFrame, {
         text: "I'd rather not go into that one. If you're going through something difficult, talking to someone you trust or a local support line is worth more than anything I can say here.",
@@ -3183,6 +3202,10 @@
     /* A weak first answer gets a second, deliberate reading before it is
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;
+    /* page furniture from web sources never reaches the reader: style blocks, template braces, footnote marks */
+    if (result && typeof result.text === "string" && /mw-|\{\{|\[\d+\]|\[citation needed\]/.test(result.text)) {
+      result.text = result.text.replace(/([A-Za-z])\.?mw-[\w-]+[^{}]*\{[^{}]*\}\s*/g, "$1. ").replace(/\.?mw-[\w-]+[^{}]*\{[^{}]*\}/g, " ").replace(/\{\{[^{}]*\}\}/g, " ").replace(/\[(?:\d+|citation needed|edit)\]/gi, "").replace(/[ \t]{2,}/g, " ").trim();
+    }
     result.latency_ms = Math.round((now() - t0) * 100) / 100;
     /* an answer about "it" or "there" leaves the topic where it was, even when it names another thing on the way */
     if (decision && decision.carried && /^(?:pronoun|there|ellipsis|open-relation)$/.test(decision.carryReason || "")) result.carriedContext = true;

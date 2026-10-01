@@ -100,6 +100,106 @@
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
+  /* ---- grammar correction by rule */
+  var IRREG_PAST = { go: "went", eat: "ate", see: "saw", have: "had", do: "did", make: "made", take: "took", come: "came", run: "ran", buy: "bought", get: "got", give: "gave", write: "wrote", say: "said", tell: "told", think: "thought", know: "knew", find: "found", leave: "left", sit: "sat", stand: "stood", drink: "drank", sing: "sang", swim: "swam", begin: "began", bring: "brought", teach: "taught", speak: "spoke", drive: "drove", ride: "rode", fall: "fell", feel: "felt", meet: "met", pay: "paid", send: "sent", sleep: "slept", win: "won", wear: "wore", lose: "lost", read: "read", sell: "sold", build: "built", break: "broke", choose: "chose", fly: "flew", forget: "forgot", grow: "grew", hear: "heard", keep: "kept", sleep2: "slept" };
+  var REG_VERBS = "walk talk play watch visit work study call help want need like love look ask use try start stay move open close clean cook jump laugh listen live wait wash answer arrive decide enjoy finish follow learn order plan pull push remember rest save show stop turn travel carry cry dance end happen invite join kick kiss lift mark miss offer pick pray prefer pass reach receive repeat shop skip smile snow stir talk touch trust wish yell".split(" ");
+  var PAST_MARK = /\b(?:yesterday|last (?:night|week|month|year|summer|winter|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|\d+ (?:days?|weeks?|months?|years?|hours?|minutes?) ago|in (?:19|20)\d\d|earlier today|this morning)\b/i;
+  function pastOf(v) { v = v.toLowerCase(); if (IRREG_PAST[v]) return IRREG_PAST[v]; if (REG_VERBS.indexOf(v) < 0) return null; return /e$/.test(v) ? v + "d" : /[^aeiou]y$/.test(v) ? v.slice(0, -1) + "ied" : v + "ed"; }
+  function thirdOf(v) { v = v.toLowerCase(); if (v === "have") return "has"; if (v === "do") return "does"; if (v === "go") return "goes"; return /(?:s|x|z|ch|sh)$/.test(v) ? v + "es" : /[^aeiou]y$/.test(v) ? v.slice(0, -1) + "ies" : v + "s"; }
+  var BASE_VERBS = Object.keys(IRREG_PAST).concat(REG_VERBS).join("|");
+  function fixGrammar(text) {
+    var t = text, notes = [], before;
+    function rule(re, rep, note) { before = t; t = t.replace(re, rep); if (t !== before) notes.push(note); }
+    rule(/\b(\w+(?:\s+\w+)?)\s+of\s+(?:the\s+)?(?=\w)/g, function (m) { return m; }, "");
+    notes.length = 0;
+    rule(/\b(should|could|would|must|might) of\b/gi, "$1 have", "“" + "should of" + "” should be “should have”");
+    rule(/\balot\b/gi, "a lot", "“alot” is two words: “a lot”");
+    rule(/\b(\w+) (?:and|&) me (is|are|was|were|go|went|like|have|want)\b/gi, function (m, a, v) { return /^(?:me|him|her|them|us)$/i.test(a) ? m : a + " and I " + v; }, "use “I”, not “me”, in a compound subject");
+    rule(/\bme and (him|her|them|my (?:friend|brother|sister|mom|dad|mother|father|wife|husband)|\w+)\s+(is|are|was|were|am)\b/gi, function (m, o, v) { var map = { him: "he", her: "she", them: "they" }; var subj = map[o.toLowerCase()] ? map[o.toLowerCase()] : o; subj = subj.charAt(0).toUpperCase() + subj.slice(1); var pl = /^(?:is|am)$/i.test(v) ? "are" : (/^was$/i.test(v) ? "were" : v); return subj + " and I " + pl; }, "“me and him” as a subject should be “he and I”, with a plural verb");
+    rule(/\b(him|her|them) and I\b(?=\s+(?:are|is|was|were|went|go|have))/gi, function (m, o) { return { him: "He", her: "She", them: "They" }[o.toLowerCase()] + " and I"; }, "use a subject pronoun");
+    rule(/\b(i)\b(?!['’]|\.)/g, "I", "the pronoun “I” is always capitalised");
+    rule(/\b(?:i|I) seen\b/g, "I saw", "“I seen” should be “I saw”");
+    rule(/\b(?:i|I) done\b/g, "I did", "“I done” should be “I did”");
+    rule(/\b(they|we|you) was\b/gi, function (m, p) { return p + " were"; }, "“" + "they/we/you was" + "” should be “were”");
+    rule(/\b(?:your) (welcome|going|coming|right|wrong|late|here|not|very|so|being)\b/gi, "you're $1", "“you're” (you are) is not “your”");
+    rule(/\byou're (book|car|house|dog|cat|friend|name|phone|mother|father|idea|turn)\b/gi, "your $1", "“your” shows possession");
+    rule(/\bits (a|an|the|not|been|going|time|my|raining|very|so|too|really|just|only|true)\b/gi, "it's $1", "“it's” is short for “it is”");
+    rule(/\bit's (tail|color|colour|name|own|head|owner|size|shape)\b/gi, "its $1", "“its” shows possession");
+    rule(/\bthere (going|coming|not|late|here|friends|house|car)\b(?!\s+(?:is|are))/gi, function (m, w) { return /^(?:house|car|friends)$/i.test(w) ? "their " + w : "they're " + w; }, "“they're” means they are, “their” shows possession");
+    rule(/\btheir (is|are|was|were)\b/gi, "there $1", "“there is/are”, not “their”");
+    rule(/\bthey're (house|car|dog|cat|friends|book|names?|parents)\b/gi, "their $1", "“their” shows possession");
+    rule(/\b(better|more|less|bigger|smaller|faster|slower|larger|older|younger|taller|rather|other|worse) then\b/gi, "$1 than", "“than” is for comparisons, “then” is for time");
+    rule(/\bless (people|books|cars|friends|apples|mistakes|students|items|things|children|dogs|cats)\b/gi, "fewer $1", "use “fewer” with things you can count");
+    rule(/\b(don't|doesn't|can't|couldn't|won't|wouldn't|didn't|haven't|hasn't) (?:have|get|want|see|know|do|need) no\b/gi, function (m) { return m.replace(/ no$/i, " any"); }, "avoid a double negative");
+    rule(/\b(a) ([aeiou]\w+)/gi, function (m, art, w) { return /^(?:one|once|use|used|user|useful|usual|unit|union|unique|uniform|university|universe|european|eu)/i.test(w) ? m : (art === "A" ? "An " : "an ") + w; }, "use “an” before a vowel sound");
+    rule(/\b(an) ([b-df-hj-np-tv-z]\w+)/gi, function (m, art, w) { return /^(?:hour|honest|honor|honour|heir)/i.test(w) ? m : (art === "An" ? "A " : "a ") + w; }, "use “a” before a consonant sound");
+    rule(/\b(he|she|it|everyone|everybody|someone|somebody|nobody|each) (don't)\b/gi, "$1 doesn't", "use “doesn't” with he, she and it");
+    rule(new RegExp("\\b(he|she|it|everyone|everybody|someone|somebody|nobody|each) (" + BASE_VERBS + "|want|need|like|love|know|think|live|play|work|study|walk|read|write|speak|talk|come|run|eat|make|take|get|give|find|say|tell|try|use|ask|help|call|feel|leave|keep|begin|seem|turn|start|have|do|go)\\b(?!\\w)", "gi"), function (m, subj, v) {
+      if (/^(?:he|she|it|everyone|everybody|someone|somebody|nobody|each)$/i.test(subj) && !/s$/i.test(v) && !PAST_MARK.test(t)) return subj + " " + thirdOf(v);
+      return m;
+    }, "use the “-s” form of the verb with he, she and it");
+    if (PAST_MARK.test(t)) {
+      /* a present-tense verb after the subject in a sentence about the past */
+      before = t;
+      t = t.replace(new RegExp("\\b(I|you|we|they|he|she|it|[A-Z][a-z]+)\\s+(" + BASE_VERBS + ")(es|s)?\\b", "g"), function (m, subj, v, suf) {
+        var pv = pastOf(v); if (!pv) return m;
+        if (/^[A-Z][a-z]+$/.test(subj) && /^(?:The|A|An|This|That|My|His|Her|Their)$/.test(subj)) return m;
+        return subj + " " + pv;
+      });
+      if (t !== before) notes.push("the sentence is about the past, so the verb takes the past tense");
+    }
+    t = t.replace(/\s{2,}/g, " ").trim();
+    if (/^[a-z]/.test(t)) { t = t.charAt(0).toUpperCase() + t.slice(1); notes.push("a sentence starts with a capital letter"); }
+    if (!/[.!?]$/.test(t)) { t += "."; notes.push("a sentence ends with punctuation"); }
+    return { text: t, notes: notes };
+  }
+  function grammarQ(t) {
+    var m = t.match(/^(?:please )?(?:correct|fix|proofread|edit|improve|check)\s+(?:the |this |my )?(?:grammar|spelling|sentence|text|english)?(?:\s+(?:of|in)\s+(?:the |this |my )?(?:sentence|text))?\s*[:\-]\s*["“']?(.+?)["”']?$/i) || t.match(/^is (?:this|the following)(?: sentence)? (?:grammatically )?correct\s*[:\-]\s*["“']?(.+?)["”']?\??$/i);
+    if (!m || m[1].length > 300) return null;
+    var asked = /^is /i.test(t), src = m[1].trim(), r = fixGrammar(src);
+    var same = r.text.replace(/[.!?]$/, "") === src.replace(/[.!?]$/, "");
+    if (same || r.notes.length === 0) return res(asked ? "Yes, that looks grammatical." : "That sentence looks correct: " + src, "grammar", 0.7);
+    var real = r.notes.filter(Boolean);
+    return res((asked ? "Not quite. A corrected version: " : "") + r.text + (real.length ? "\nWhy: " + real.slice(0, 3).join("; ") + "." : ""), "grammar", 0.72);
+  }
+
+  /* ---- ideas and names from banks */
+  var IDEAS = [
+    [/\b(?:pet|dog|puppy|cat|kitten|goldfish|fish|hamster|rabbit|bunny|bird|parrot|horse|turtle|guinea pig)\b.*\bnames?\b|\bnames?\b.*\b(?:pet|dog|puppy|cat|kitten|goldfish|fish|hamster|rabbit|bird|parrot|horse|turtle)\b/i, ["Buddy", "Luna", "Max", "Bella", "Milo", "Coco", "Rocky", "Daisy", "Oscar", "Ginger", "Bubbles", "Finn", "Nugget", "Pepper", "Willow", "Sushi", "Captain", "Splash"], "name"],
+    [/birthday party|party ideas?|party theme/i, ["a backyard barbecue with lawn games", "a scavenger hunt around the neighbourhood", "a movie night with popcorn and blankets", "bowling or mini golf", "a board-game or card-game party", "a baking or pizza-making party", "a picnic in the park", "an escape room", "a karaoke night", "a craft or pottery workshop"], "idea"],
+    [/\bgifts?\b/i, ["a book chosen for their interests", "a houseplant", "a handwritten letter with a small treat", "a good mug with tea or coffee", "a personalised photo frame or photo book", "a gift card for a favourite shop", "an experience such as a cooking class or concert tickets", "homemade baked goods", "a cozy blanket", "a nice notebook and pen"], "idea"],
+    [/\bdate (?:ideas?|night)|first date|romantic\b/i, ["a picnic in the park", "cooking dinner together", "a museum or gallery visit", "a sunset hike", "stargazing", "a farmers' market stroll", "a board-game night", "mini golf or bowling", "a coffee-shop book crawl", "a dance or pottery class"], "idea"],
+    [/\bhobbies?\b|\bhobby\b|\bthings to do (?:when|if) (?:i'?m|i am|you are) bored\b|\bwhen bored\b/i, ["drawing or sketching", "gardening", "journaling", "hiking", "learning a musical instrument", "photography", "baking", "chess", "learning to code", "birdwatching", "knitting", "learning a language"], "idea"],
+    [/\bhealthy snacks?\b|\bsnack ideas?\b|\bsnacks?\b/i, ["an apple with peanut butter", "yogurt with berries", "carrots and hummus", "a handful of nuts", "air-popped popcorn", "cheese with whole-grain crackers", "a hard-boiled egg", "a banana", "cottage cheese with fruit", "roasted chickpeas"], "idea"],
+    [/\b(?:programming|coding|software|app|web) projects?\b|\bproject ideas?\b.*\b(?:code|coding|programming|beginner)\b|\bbeginner projects?\b/i, ["a to-do list app", "a weather app using a public API", "a calculator", "tic-tac-toe or hangman", "a personal website", "a URL shortener", "a quiz game", "an expense tracker", "a simple chatbot", "a snake game"], "idea"],
+    [/\bside hustles?\b|\bways to make (?:extra )?money\b|\bmake money\b|\bearn money\b/i, ["freelance writing, design or programming", "tutoring", "selling crafts online", "pet sitting or dog walking", "delivery driving", "photography", "managing social media for small businesses", "reselling thrift-store finds", "house or garden help", "teaching a skill online"], "idea"],
+    [/\bice ?breakers?\b|\bconversation starters?\b|\bget to know\b/i, ["If you could travel anywhere tomorrow, where would you go?", "What is the best meal you have ever had?", "What was your first job?", "Which book or film changed how you think?", "What skill would you like to learn?", "What is your favourite way to spend a free weekend?", "If you could have dinner with anyone, who would it be?", "What is something you are looking forward to?"], "question"],
+    [/\bstory (?:ideas?|prompts?)\b|\bwriting prompts?\b|\bstory about\b/i, ["A lighthouse keeper finds a message in a bottle addressed to them.", "Two strangers swap phones by mistake on a train.", "A town wakes up to find every clock stopped at the same time.", "A child discovers a door in the garden that was not there yesterday.", "An astronaut hears a familiar song on a silent planet.", "A baker's bread begins to grant small wishes."], "prompt"],
+    [/\bworkouts?\b|\bexercises?\b.*\bat home\b|\bat[- ]home exercises?\b|\bhome workouts?\b/i, ["push-ups", "bodyweight squats", "lunges", "planks", "jumping jacks", "burpees", "mountain climbers", "glute bridges", "tricep dips on a chair", "high knees"], "idea"],
+    [/\bweekend (?:activities|ideas|plans)\b|\bthings to do (?:this|on the) weekend\b|\bactivities for\b.*\bkids?\b|\bwith kids\b/i, ["a picnic or park day", "a nature walk and leaf collection", "baking together", "a living-room fort and movie", "a museum or library visit", "a scavenger hunt", "painting or crafts", "a trip to the zoo or a farm", "a board-game afternoon", "building something from cardboard"], "idea"],
+    [/\bteam names?\b|\bband names?\b|\bgroup names?\b/i, ["The Night Owls", "Thunder Bolts", "The Rolling Stones' cousins", "Blue Horizon", "The Quiet Storm", "Paper Tigers", "Neon Echo", "The Wild Cards", "Copper Hearts", "Silver Foxes"], "name"],
+    [/\bbusiness names?\b|\bcompany names?\b|\bstartup names?\b/i, ["Bright Harbor", "North Star Studio", "Willow & Wren", "Bluebird Labs", "Maple Lane Co.", "Quill & Compass", "Evergreen Works", "Copper Kettle"], "name"],
+    [/\bbaby names?\b/i, ["Olivia", "Noah", "Amelia", "Liam", "Sophia", "Elijah", "Isla", "Lucas", "Harper", "Mason"], "name"],
+    [/\bstudy (?:tips|techniques|methods|ideas)\b|\bways to study\b/i, ["test yourself with practice questions", "space your study over several days", "explain the topic aloud in your own words", "teach it to someone else", "use short focused sessions with breaks", "sleep well before an exam", "make a one-page summary", "mix up topics rather than blocking"], "idea"]
+  ];
+  var NUMWORD = { a: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, few: 3, some: 5, several: 5 };
+  function ideasQ(t) {
+    var m = t.match(/^(?:please )?(?:can you |could you )?(?:give me|suggest|think of|list|brainstorm|come up with|recommend|what are|i need|i want|any|show me|tell me)\s+(?:me\s+)?(?:(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|a few|few|some|several)\s+)?(?:(?:good|fun|cool|creative|simple|easy|great|unique|cute|funny|nice|healthy|best|popular)\s+)*(.+?)[?.!]*$/i);
+    if (!m) { m = t.match(/^(?:please )?(?:can you |could you )?(suggest|think of|come up with|recommend)\s+(?:me\s+)?(?:a|an|one)\s+(?:good |fun |cool |cute |funny |nice )*(.+?)[?.!]*$/i); if (m) m = [m[0], "1", m[2]]; }
+    if (!m || !/\b(?:ideas?|names?|suggestions?|gifts?|activities|snacks?|projects?|prompts?|workouts?|hobbies|hobby|tips|starters?|icebreakers?|questions?|ways|things)\b|\bname\b/i.test(m[2]) && !/\b(?:snacks?|hobbies|gifts?)\b/i.test(t)) return null;
+    if (/\b(?:ideas?|names?)\b/i.test(m[2]) === false && !/\b(?:snacks?|hobbies|gifts?|workouts?|prompts?|questions?|starters?|icebreakers?)\b/i.test(m[2])) return null;
+    var n = m[1] ? (/^\d+$/.test(m[1]) ? +m[1] : (NUMWORD[m[1].toLowerCase()] || 5)) : (/^(?:suggest|think of|come up with|recommend)\s+(?:me\s+)?(?:a|an|one)\b/i.test(t) ? 1 : 5);
+    n = Math.max(1, Math.min(n, 10));
+    for (var i = 0; i < IDEAS.length; i++) if (IDEAS[i][0].test(t)) {
+      var bank = IDEAS[i][1].slice(), k = (ix.poem = (ix.poem || 0) + 1) % bank.length, pick = [];
+      for (var j = 0; j < n && j < bank.length; j++) pick.push(bank[(k + j) % bank.length]);
+      var endp = function (x) { return /[.?!]$/.test(x) ? x : x; };
+      if (n === 1) return res("How about " + (IDEAS[i][2] === "prompt" || IDEAS[i][2] === "question" ? "this: " + cap(pick[0]) : (/^[A-Z]/.test(pick[0]) && IDEAS[i][2] === "name" ? pick[0] : pick[0].replace(/^a /, "a "))) + (/[.?!]$/.test(pick[0]) ? "" : "?"), "ideas", 0.72);
+      return res(pick.map(function (x, q) { return (q + 1) + ". " + cap(endp(x)); }).join("\n"), "ideas", 0.72);
+    }
+    return null;
+  }
+
   /* ---- rhymes: words grouped by their ending sound */
   var RIMES = [
     "at|cat bat hat mat rat sat flat chat fat pat that brat splat", "an|man can fan pan plan ran tan van clan span", "ay|day say way play stay gray may pay hay lay ray tray spray",
@@ -256,7 +356,22 @@
     return res(set.map(function (x) { return x.replace("{T}", topic); }).join("\n"), "poem", 0.72);
   }
 
-  var SOLVERS = [textQ, spellQ, countQ, rhymeQ, wordsQ, haikuQ, limerickQ, acrosticQ, poemQ];
+  /* ---- very short stories from templates */
+  var STORIES = [
+    "Once upon a time there was a {T} who lived at the edge of a quiet village. Every morning the {T} wondered what lay beyond the hills. One day it set out to find out. On the way it met a traveller who needed help, and the {T} stopped to give it. In the end the {T} learned that the best adventures are shared, and it came home with a new friend.",
+    "Nobody believed the {T} could do it. It was small, and the mountain was tall, and the winter was coming fast. But the {T} took one step, then another, and kept going while the snow fell. At the top it saw the whole valley glowing in the evening light. After that, nobody ever doubted the {T} again.",
+    "One rainy afternoon a {T} found a mysterious key under an old stone. It tried the key in every lock it could find, but nothing opened. Just as the {T} was about to give up, the clouds parted and a tiny door appeared in the trunk of an oak tree. Inside was a note that said: you were brave enough to look."
+  ];
+  function storyQ(t) {
+    var m = t.match(/^(?:please )?(?:write|tell|make up|compose|give|create|narrate)\s+(?:me\s+)?(?:a|an|one)\s+(?:short |little |quick |bedtime |funny |scary |sweet |happy )*(?:story|tale|fairy tale)(?:\s+(?:about|on|with)\s+(?:an? |the )?(.+?))?[?.!]*$/i);
+    if (!m) return null;
+    var T = (m[1] || "traveller").trim().replace(/s$/, "");
+    if (T.split(" ").length > 4) return null;
+    var k = (ix.story = (ix.story || 0) + 1) % STORIES.length;
+    return res(STORIES[k].replace(/\{T\}/g, T), "story", 0.7);
+  }
+
+  var SOLVERS = [textQ, grammarQ, ideasQ, storyQ, spellQ, countQ, rhymeQ, wordsQ, haikuQ, limerickQ, acrosticQ, poemQ];
   function solve(text) {
     var t = clean(text);
     if (!t || t.length > 200) return null;
