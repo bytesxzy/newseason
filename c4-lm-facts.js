@@ -122,14 +122,16 @@
     return t.split(" ");
   }
   function canon(w) { return SYN[w] || SYN[stem(w)] || stem(w); }
-  function contentStems(s) {
+  function contentStems(s, keepFrame) {
     var out = [], seen = Object.create(null);
     tokens(s).forEach(function (w) {
-      if (STOP[w] || FRAME[w]) return;
+      if (STOP[w] || (FRAME[w] && !(keepFrame && /^(?:story|proverb|saying|idiom|expression|phrase)$/.test(w)))) return;
       var c = canon(w);
       if (STOP[c] || seen[c]) return;
       seen[c] = 1; out.push(c);
     });
+    /* "What is a proverb?" asks about the word the frame list would otherwise throw away */
+    if (!out.length) tokens(s).forEach(function (w) { if (/^(?:story|proverb|saying|idiom|expression|phrase)$/.test(w) && !seen[canon(w)]) { seen[canon(w)] = 1; out.push(canon(w)); } });
     return out;
   }
   /* the content words in order, repeats kept, for adjacency */
@@ -173,7 +175,7 @@
     DOCS.forEach(function (d) {
       /* "US", "U.S." and "United States" index as one token, so "state" only matches a real state */
       var nt = usTok(d.text);
-      var st = contentStems(nt), set = Object.create(null);
+      var st = contentStems(nt, true), set = Object.create(null);
       st.forEach(function (x) { set[x] = 1; });
       d.stems = set; d.n = st.length;
       var bg = Object.create(null); bigrams(contentSeq(nt)).forEach(function (b) { bg[b] = 1; });
@@ -315,7 +317,9 @@
       if (presentQ && /\bwas the (?:[a-z]+ )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|[a-z-]+(?:th|st|nd|rd)|[a-z]+-[a-z]+)\b/i.test(d.text) && !/\b(?:is|are) the\b/i.test(d.text)) score -= 0.4;
       if (presentQ && /^as of \d{4}/i.test(d.text)) score += 0.3;
       /* "what is X": the sentence that is about X (starts with it) beats one that merely mentions it */
-      if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\b(?:[^.]{0,40}?)(?:\\s(?:is|are|was|were|means|refers|stands|happens|occurs)\\b|,|:)", "i").test(d.text)) score += 0.35;
+      if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\b(?:[^.,:]{0,40}?\\s(?:is|are|was|were|means|refers|stands|happens|occurs)\\b|[,:])", "i").test(d.text)) score += 0.35;
+      /* "X is a ..., and the Y is a ..." defines two things at once; the sentence about X alone is the better definition */
+      if (defSubj && /,\s*(?:and|while|whereas)\s+(?:the|a|an)\s+[a-z-]+\s+(?:is|are|has|have)\b/i.test(d.text)) score -= 0.25;
       if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;
       if (listAsk && (d.text.match(/,/g) || []).length >= 3) score += Math.min(0.6, 0.06 * (d.text.match(/,/g) || []).length + 0.1);
       /* a sentence that settles four different questions in a row is a roll-call, not the answer to one of them */

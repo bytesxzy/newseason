@@ -19,6 +19,7 @@
     "lm:comprehend": "node tools/lm-comprehend-test.js",
     "lm:awareness": "node tools/lm-awareness-test.js",
     "lm:skills": "node tools/lm-skills-test.js",
+    "lm:everyday": "node tools/lm-everyday-test.js",
     "lm:heldout7": "node tools/lm-heldout7.js",
     "lm:heldout3": "node tools/lm-heldout3.js --out measurements/lm-heldout3-after.json",
     "lm:heldout": "node tools/lm-heldout.js --out measurements/lm-heldout-after.json && node tools/lm-heldout2.js --out measurements/lm-heldout2-after-fixes.json",

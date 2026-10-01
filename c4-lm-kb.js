@@ -1043,7 +1043,7 @@
     /* A word the lexicon knows is that word, not a near-miss for a name.
        Without this, "metal" resolves to Meta and "space" to SpaceX. */
     var LX = root.C4LMLexicon;
-    var ordinary = LX && k.indexOf(" ") < 0 && LX.has(k);
+    var ordinary = k.indexOf(" ") < 0 && ((LX && LX.has(k)) || (C && C.knownWord && C.knownWord(k)));
     if (!out.length && C && k.length >= 5 && !ordinary) {
       /* Typo tolerance over the whole registered name, multi-word included:
          "quantum entaglement" is one edit from a name we hold. */

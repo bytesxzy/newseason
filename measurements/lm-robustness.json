@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T17:28:38.987Z",
- "passed": 75,
- "total": 75,
+ "generated": "2026-10-01T18:12:47.206Z",
+ "passed": 77,
+ "total": 77,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -79,6 +79,11 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-nouns.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-people.js",
    "ok": true,
    "detail": ""
@@ -125,6 +130,11 @@
   },
   {
    "name": "syntax: c4-lm-facts.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-fun.js",
    "ok": true,
    "detail": ""
   },
@@ -251,7 +261,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: emoji only",
@@ -261,12 +271,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "edge input: sql-ish input",
@@ -286,7 +296,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: non-latin script",
@@ -306,7 +316,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -316,17 +326,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "8 -> 8"
+   "detail": "9 -> 10"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 = 391."
+   "detail": "17 * 23 works out to 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -351,12 +361,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hi there — what are we looking into?"
+   "detail": "Hello. What can I look into for you?"
   },
   {
    "name": "dialogue sequence",

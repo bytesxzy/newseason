@@ -273,6 +273,8 @@
     if (VOCAB[w] || STOP[w]) return true;
     if (wordOracle) { try { if (wordOracle(w)) return true; } catch (e) {} }
     if (VOCAB[stem(w)]) return true;
+    /* a singular is known when its plural is: "lung" from "lungs", "berry" from "berries" */
+    if (w.length >= 4 && (VOCAB[w + "s"] || VOCAB[w + "es"] || (/y$/.test(w) && VOCAB[w.slice(0, -1) + "ies"]))) return true;
     var cuts = [/s$/, /es$/, /ed$/, /ing$/, /ly$/, /er$/, /est$/, /ies$/];
     for (var i = 0; i < cuts.length; i++) {
       if (cuts[i].test(w)) {
@@ -355,7 +357,14 @@
         for (var si = 0; si < sb.length; si++) {
           var sc = sb[si];
           if (sc.charAt(0) !== w.charAt(0) || inflectionOf(w, sc)) continue;
-          if (damerau(w, sc, 1) === 1) { near.push(sc); if (CORE_SET[sc]) common.push(sc); }
+          if (damerau(w, sc, 1) !== 1) continue;
+          /* Real words that merely are not in the vocabulary ("swamp", "canoe", "lung") sit one edit from
+             real neighbours ("swam", "cane", "long"): a tail-trimmed form or a short-word swap is a different
+             word, not a typo. Only a swapped pair or an interior keystroke on a five-letter word is repaired. */
+          if (!sameLetters(w, sc) && (w.slice(0, -1) === sc || sc.slice(0, -1) === w || w.slice(0, sc.length) === sc || sc.slice(0, w.length) === w || w.slice(-1) !== sc.slice(-1))) continue;
+          /* a dropped or extra letter is only taken for a typo when the target is an everyday word */
+          if (sc.length !== w.length && !CORE_SET[sc]) continue;
+          near.push(sc); if (CORE_SET[sc]) common.push(sc);
         }
       }
       var pick = near.length === 1 ? near[0] : (common.length === 1 ? common[0] : "");

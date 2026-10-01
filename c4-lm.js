@@ -461,6 +461,14 @@
       if (!picked) {
         for (var si = 0; si < g.senses.length; si++) if (g.senses[si].dominant) { picked = g.senses[si]; break; }
       }
+      /* "What is an apple?" with an indefinite article asks about the kind of thing, not the company or the country */
+      if (!picked && frame.queryForm === "whatis" && /\b(?:what|which)\s+(?:is|are)\s+an?\s+\S+/i.test(frame.rawText || frame.lower || "")) {
+        var kinds = g.senses.filter(function (sn) {
+          var en = (KB.resolve(sn.entity, { strict: true })[0] || {}).entity || {};
+          return !/compan|organi[sz]ation|brand|person|country|city|film|band|album|software|language|place|river|state|island/i.test((en.type || "") + " " + (en.rel && en.rel.type || ""));
+        });
+        if (kinds.length === 1) picked = kinds[0];
+      }
       if (picked) entity = (KB.resolve(picked.entity, { strict: true })[0] || {}).entity || entity;
       else if (frame.queryForm === "whois" || frame.queryForm === "whatis" || frame.queryForm === "topic") {
         if (frame.wordCount <= 6) {
@@ -1574,6 +1582,12 @@
     var said = String(state.userText || frame.rawText || frame.body || "").trim();
     var l = said.toLowerCase().replace(/[!.?]+$/g, "").replace(/\s+/g, " ").replace(/^(?:hey|hi|hello|ok|okay|so|well|um|please)[, ]+/, "").trim();
     var prevKind = state.lastKind; state.lastKind = "";
+    /* jokes, facts, riddles, quizzes, games and chance live in their own module and keep their own thread */
+    if (root.C4LMFun && !off("fun")) {
+      var funR = null;
+      try { funR = root.C4LMFun.reply(said, state); } catch (e) { funR = null; }
+      if (funR) return say(funR.text);
+    }
     if (!l || l.length > 80) return null;
     function say(text) { return { text: text, route: "conversation", confidence: 0.8, conversational: true, smallTalk: true, sources: [], defects: [] }; }
     if (/^(?:how are you|how are you doing|how are you today|how are you doing today|how r u|how are u|how is it going|how's it going|how have you been|how's your day|how is your day|how do you do|what's up|whats up|sup)$/.test(l))
@@ -2352,6 +2366,8 @@
         var hay = C.flatten(sn), cov = ask.filter(function (t) { return stemIn(hay, t); }).length / Math.max(1, ask.length);
         /* a sentence that leaves out the named thing asked about (France) is about something else (Mexico) */
         if (namedAsk.length && !namedAsk.some(function (e) { return hay.indexOf(e) >= 0; })) return;
+        /* "What is a saw?": only a sentence that opens on the word defines it; "a pair it never saw" does not */
+        if (ask.length === 1 && frame.queryForm === "whatis" && !stemIn(C.flatten(sn.split(/\s+/).slice(0, 5).join(" ")), ask[0])) return;
         var fit = typeFit(type, { text: sn }, frame);
         if (ask.length >= 2 && cov < 0.66 && !(cov >= 0.5 && cov * ask.length >= 3) && !(fit > 0 && cov >= 0.4 && cov * ask.length >= 1.9)) return;
         var agree = docs.filter(function (o) { return o !== h && C.flatten(o.doc.text || "").indexOf(hay.slice(0, 24)) < 0 &&
@@ -2915,11 +2931,16 @@
   /* Conversation memory reads every message first: what to remember, what
      to forget, how to answer, and questions about the conversation itself.
      Whatever else the message asks is answered as usual, after it. */
+  /* "I give up" and "I don't know" answer an open riddle or quiz question; they are not facts about the user */
+  function openGameReply(raw) {
+    return !!(state.fun && state.fun.pending && /^\s*(?:i\b|my\b|no\b)/i.test(raw) && String(raw).length < 60);
+  }
   function answer(text, opts) {
     var M = state.memory, raw = String(text == null ? "" : text);
     if (!M) return answerCore(raw, opts);
     /* A whole-message puzzle ("I am thinking of a number. I double it ... What is it?") is not a set of facts to remember */
     if (solvableWhole(raw)) return answerCore(raw, opts);
+    if (openGameReply(raw)) return answerCore(raw, opts);
     var memo = null;
     try { memo = M.command(raw); } catch (e) { memo = null; }
     if (memo && memo.handled) {
@@ -3085,7 +3106,7 @@
       }
     }
     var funAbout = String(text == null ? "" : text).match(/^\s*(?:tell me|give me|share|say)\s+(?:me\s+)?(?:a |an |some |one )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)\s+(?:about|on|regarding|concerning)\s+(.+?)[?.!]*\s*$/i);
-    if (funAbout && !opts.rewritten) { var o9 = {}, k9; for (k9 in opts) o9[k9] = opts[k9]; o9.rewritten = true; return answerCore("Tell me about " + funAbout[1], o9); }
+    if (funAbout && !opts.rewritten && !root.C4LMFun) { var o9 = {}, k9; for (k9 in opts) o9[k9] = opts[k9]; o9.rewritten = true; return answerCore("Tell me about " + funAbout[1], o9); }
     if (!opts.part && !opts.internal && !off("multipart")) {
       var parts = null;
       try { parts = splitMulti(text); } catch (e) { parts = null; }
@@ -3277,8 +3298,16 @@
     if (!result || !result.text || result.fact || result.relation || result.multiHop || result.guard || result.smallTalk || result.insufficient || result.conversational || result.clarification) return false;
     if (!/^(?:knowledge|local)$/.test(result.route)) return false;
     if (result.caveat || frame.requiresFreshInformation) return false;
-    if (frame.wordCount < 5 || frame.queryForm === "whois") return false;
-    var qs = (frame.contentStems || []).filter(function (w) { return w.length > 2 && !GENERIC_Q.test(w); });
+    if (frame.queryForm === "whois") return false;
+    var qs0 = (frame.contentStems || []).filter(function (w) { return w.length > 2 && !GENERIC_Q.test(w); });
+    /* "What is a saw?" answered from a paragraph of the project's own notes that merely uses the word: a one-word
+       definition question needs a sentence that is about the word, from a source that defines things */
+    if (qs0.length === 1 && frame.wordCount <= 6 && /^(?:what|who)\b/i.test(frame.rawText || "") && (result.sources || []).some(function (x) { return !/fact library|knowledge base|lexicon|dictionary|wikipedia|wiktionary/i.test(String(x)); })) {
+      var head = C.words(String(result.text).split(/\s+/).slice(0, 7).join(" ")).map(C.stem);
+      return head.indexOf(qs0[0]) < 0;
+    }
+    if (frame.wordCount < 5) return false;
+    var qs = qs0;
     if (qs.length < 2) return false;
     var ans = {};
     C.words(result.text + " " + (result.entity || "")).forEach(function (w) { ans[C.stem(w)] = 1; });
@@ -3420,7 +3449,7 @@
     parse: function (t) { return C.parse(t, discourse.snapshot()); },
     decide: function (t) { var f = C.parse(t, discourse.snapshot()); return decide(f, discourse); },
     discourse: function () { return discourse; },
-    reset: function () { discourse = new Discourse(); if (C) C._clearCache(); if (state.memory) state.memory.resetSession(); },
+    reset: function () { state.fun = null; discourse = new Discourse(); if (C) C._clearCache(); if (state.memory) state.memory.resetSession(); },
     /* Documents can arrive after boot (the page reads its own pages
        asynchronously), so the index accepts late additions. */
     addDocuments: function (docs) {
@@ -3450,7 +3479,7 @@
        module does, and sees the answers that did not come from here */
     command: function (t) {
       if (!state.memory || !state.ready) return null;
-      if (solvableWhole(String(t == null ? "" : t))) return null;
+      if (solvableWhole(String(t == null ? "" : t)) || openGameReply(String(t == null ? "" : t))) return null;
       try { return state.memory.command(String(t == null ? "" : t)); } catch (e) { return null; }
     },
     observe: function (t, a) { if (state.memory) { try { state.memory.observe(t, a); } catch (e) {} } },

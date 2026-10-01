@@ -29,7 +29,8 @@
   ].forEach(function (row) {
     var p = row.split("|");
     var art = /^[aeiou]/i.test(p[0]) ? "An " : "A ";
-    out.push(art + p[0] + " is a " + p[1] + " that eats " + p[2] + ". It lives in " + p[3] + ".");
+    var cls = /^[aeiou]/i.test(p[1]) ? "an " : "a ", hab = /^(?:near|in|on|at|around|among|along|across|under|beside)\b/i.test(p[3]) ? p[3] : "in " + p[3];
+    out.push(art + p[0] + " is " + cls + p[1] + " that eats " + p[2] + ". It lives " + hab + ".");
   });
   out.push("The largest mammal is the blue whale.");
   out.push("The largest animal in the world is the blue whale.");
