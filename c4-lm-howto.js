@@ -15,16 +15,18 @@
   "use strict";
 
   var LANGS = {
-    python: /\bpython3?\b|\bpy\b/, javascript: /\bjavascript\b|\bjs\b|\bnode(?:js)?\b|\bes6\b/, typescript: /\btypescript\b|\bts\b/, java: /\bjava\b(?!script)/, c: /\bin c\b|\bc language\b|\bc programming\b/,
-    cpp: /\bc\+\+|\bcpp\b/, go: /\bgolang\b|\bin go\b|\bgo language\b/, rust: /\brust\b/, ruby: /\bruby\b/, php: /\bphp\b/, bash: /\bbash\b|\bshell\b|\bterminal\b|\bcommand line\b/, sql: /\bsql\b|\bmysql\b|\bpostgres\w*\b|\bsqlite\b/, csharp: /\bc#|\bcsharp\b/, swift: /\bswift\b/, kotlin: /\bkotlin\b/
+    python: /\bpython3?\b|\bpy\b/, javascript: /\bjavascript\b|\bjs\b|\bnode(?:js)?\b|\bes6\b/, typescript: /\btypescript\b|\bts\b/, java: /\bjava\b(?!script)/, c: /\bin c\b(?!\+\+|#)|\bc language\b|\bc programming\b/,
+    cpp: /\bc\+\+|\bcpp\b/, go: /\bgolang\b|\bin go\b|\bgo language\b/, rust: /\brust\b/, ruby: /\bruby\b/, php: /\bphp\b/, bash: /\bbash\b|\bshell\b|\bterminal\b|\bcommand line\b/, sql: /\bsql\b|\bmysql\b|\bpostgres\w*\b|\bsqlite\b/, csharp: /\bc#|\bcsharp\b/, swift: /\bswift\b/, html: /\bhtml5?\b/, css: /\bcss3?\b|\bstylesheet\b/, kotlin: /\bkotlin\b/
   };
-  var NAMES = { python: "Python", javascript: "JavaScript", typescript: "TypeScript", java: "Java", c: "C", cpp: "C++", go: "Go", rust: "Rust", ruby: "Ruby", php: "PHP", bash: "Bash", sql: "SQL", csharp: "C#", swift: "Swift", kotlin: "Kotlin" };
+  var NAMES = { python: "Python", javascript: "JavaScript", typescript: "TypeScript", java: "Java", c: "C", cpp: "C++", go: "Go", rust: "Rust", ruby: "Ruby", php: "PHP", bash: "Bash", sql: "SQL", csharp: "C#", swift: "Swift", kotlin: "Kotlin", html: "HTML", css: "CSS" };
   function langOf(l) { for (var k in LANGS) if (LANGS[k].test(l)) return k; return ""; }
   function fence(lang, code) { return "```" + (lang === "cpp" ? "cpp" : lang === "csharp" ? "csharp" : lang) + "\n" + code + "\n```"; }
 
   /* ------------------------------------------------------------- idioms */
   var HOWTO = [
-    { id: "print", m: /\b(?:print|output|display|show|write)\b[^?]*\b(?:hello,? world|a message|text|a string|something|to the (?:console|screen|terminal)|on the screen)\b|\bhello,? world\b/,
+    { id: "csv", pri: 60, m: /\bcsv\b/, code: { python: 'import csv\n\nwith open("data.csv", newline="") as f:\n    for row in csv.reader(f):\n        print(row)', javascript: 'const text = require("fs").readFileSync("data.csv", "utf8");\nconst rows = text.trim().split("\\n").map(line => line.split(","));' }, text: "csv.reader yields each row as a list of strings." },
+    { id: "install-package", pri: 40, m: /\b(?:install|add)\b[^?]*\b(?:package|library|module|dependency)\b|\bpip install\b|\bnpm install\b/, code: { python: "pip install requests", javascript: "npm install express", bash: "pip install requests" }, text: "Python packages come from pip and JavaScript packages from npm." },
+    { id: "print", m: /^how (?:do|can|would) (?:i|you) (?:print|output|display)(?: something| text| a message)?(?: in [a-z+#]+)?$|\b(?:print|output|display|show|write)\b[^?]*\b(?:hello,? world|a message|text|a string|something|to the (?:console|screen|terminal)|on the screen)\b|\bhello,? world\b/,
       code: { python: 'print("Hello, World!")', javascript: 'console.log("Hello, World!");', typescript: 'console.log("Hello, World!");', java: 'System.out.println("Hello, World!");', c: '#include <stdio.h>\n\nint main(void) {\n    printf("Hello, World!\\n");\n    return 0;\n}', cpp: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, World!" << std::endl;\n}', go: 'package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello, World!")\n}', rust: 'fn main() {\n    println!("Hello, World!");\n}', ruby: 'puts "Hello, World!"', php: '<?php\necho "Hello, World!";', bash: 'echo "Hello, World!"', csharp: 'Console.WriteLine("Hello, World!");', swift: 'print("Hello, World!")', kotlin: 'println("Hello, World!")' },
       text: "Printing sends text to the console." },
     { id: "variable", m: /\b(?:declare|define|create|make|initiali[sz]e|set up|assign)\b[^?]*\bvariables?\b/,
@@ -189,12 +191,42 @@
       code: { python: 'for i, item in enumerate(items):\n    print(i, item)', javascript: 'items.forEach((item, i) => console.log(i, item));', java: 'for (int i = 0; i < items.size(); i++) {\n    System.out.println(i + " " + items.get(i));\n}' }, text: "enumerate gives the index and the item together." },
     { id: "file-exists", m: /\b(?:check|test|see)\b[^?]*\bfile\b[^?]*\bexists?\b|\bfile exists\b/,
       code: { python: 'import os\nos.path.exists("data.txt")', javascript: 'const fs = require("fs");\nfs.existsSync("data.txt");', java: 'new java.io.File("data.txt").exists();', go: '_, err := os.Stat("data.txt")\nexists := err == nil' }, text: "Check for the path before reading, or handle the error when opening." },
+    { id: "html-list", m: /\b(?:html|web ?page)\b[^?]*\blists?\b|\blists?\b[^?]*\b(?:in|with|using) html\b/, lang: "html", code: { html: '<ul>\n  <li>Apples</li>\n  <li>Bananas</li>\n</ul>\n\n<ol>\n  <li>First</li>\n  <li>Second</li>\n</ol>' }, text: "ul makes a bulleted list and ol a numbered one; each item goes in an li element." },
+    { id: "html-link", m: /\b(?:link|hyperlink|anchor)\b[^?]*\bhtml\b|\bhtml\b[^?]*\b(?:link|hyperlink)\b/, lang: "html", code: { html: '<a href="https://example.com">Visit the site</a>' }, text: "The a element with an href attribute makes a link." },
+    { id: "html-image", m: /\b(?:image|picture|img)\b[^?]*\bhtml\b|\bhtml\b[^?]*\b(?:image|picture|img)\b/, lang: "html", code: { html: '<img src="photo.jpg" alt="A short description">' }, text: "The img element shows an image; alt text describes it for screen readers." },
+    { id: "html-table", m: /\btable\b[^?]*\bhtml\b|\bhtml\b[^?]*\btable\b/, lang: "html", code: { html: '<table>\n  <tr><th>Name</th><th>Age</th></tr>\n  <tr><td>Ada</td><td>36</td></tr>\n</table>' }, text: "tr is a row, th a header cell and td a data cell." },
+    { id: "html-form", m: /\bform\b[^?]*\bhtml\b|\bhtml\b[^?]*\b(?:form|input)\b/, lang: "html", code: { html: '<form action="/submit" method="post">\n  <label for="name">Name</label>\n  <input id="name" name="name" type="text">\n  <button type="submit">Send</button>\n</form>' }, text: "A form groups inputs and sends them to the action URL when submitted." },
+    { id: "css-center", m: /\bcent(?:er|re)\b[^?]*\b(?:div|element|box|item|content|text|image)\b|\bcss\b[^?]*\bcent(?:er|re)/, lang: "css", code: { css: '.parent {\n  display: flex;\n  justify-content: center;   /* horizontal */\n  align-items: center;       /* vertical */\n}\n\n/* centre text only */\np { text-align: center; }' }, text: "Flexbox on the parent centres its child both ways; text-align centres inline text." },
+    { id: "css-color", m: /\b(?:change|set|make)\b[^?]*\b(?:colou?r|background)\b[^?]*\bcss\b|\bcss\b[^?]*\b(?:colou?r|background)\b/, lang: "css", code: { css: 'p {\n  color: blue;\n  background-color: #f0f0f0;\n}' }, text: "color sets the text colour and background-color sets the fill." },
+    { id: "css-class", m: /\bcss\b[^?]*\b(?:class|selector|id)\b|\bselect\b[^?]*\b(?:class|element)\b[^?]*\bcss\b/, lang: "css", code: { css: '.card { padding: 1rem; }        /* <div class="card"> */\n#header { font-size: 2rem; }  /* <h1 id="header"> */\np { margin: 0; }                /* every <p> */' }, text: "A dot selects a class, a hash selects an id, and a bare name selects every element of that type." },
+    { id: "css-flex", m: /\bflex(?:box)?\b|\bcss grid\b|\bgrid layout\b/, lang: "css", code: { css: '.row {\n  display: flex;\n  gap: 1rem;\n}\n\n.grid {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 1rem;\n}' }, text: "Flexbox lays items out in one direction; grid lays them out in rows and columns." },
+    { id: "css-media", m: /\bmedia quer(?:y|ies)\b|\bresponsive\b[^?]*\b(?:css|design|layout)\b/, lang: "css", code: { css: '@media (max-width: 600px) {\n  .sidebar { display: none; }\n}' }, text: "A media query applies its rules only when the screen matches the condition." },
+    { id: "js-dom", m: /\b(?:get|find|select|change|update|set)\b[^?]*\b(?:element|text|html)\b[^?]*\b(?:by id|dom|document)\b|\bgetelementbyid\b|\bquerySelector\b|\bchange the text of\b/, code: { javascript: 'const title = document.getElementById("title");\ntitle.textContent = "Hello";\n\nconst box = document.querySelector(".box");' }, text: "getElementById and querySelector find an element so you can change it." },
+    { id: "js-event", m: /\b(?:click|button)\b[^?]*\b(?:event|listener|handler)\b|\baddEventListener\b|\bevent listener\b/, code: { javascript: 'button.addEventListener("click", () => {\n  console.log("clicked");\n});' }, text: "addEventListener runs a function whenever the event happens." },
     { id: "env-var", m: /\benvironment variables?\b|\benv var\b/,
       code: { python: 'import os\nvalue = os.environ.get("HOME")', javascript: 'const value = process.env.HOME;', java: 'String value = System.getenv("HOME");', go: 'value := os.Getenv("HOME")', bash: 'echo "$HOME"' }, text: "Environment variables are read from the process environment." }
   ];
 
   /* ---------------------------------------------------- concept answers */
   var CONCEPTS = [
+    { m: /\b(?:difference between|differences between|compare|vs\.?|versus)\b[^?]*\b(?:let|const|var)\b[^?]*\b(?:let|const|var)\b|\b(?:let|const|var) (?:vs\.?|versus|and|or) (?:let|const|var)\b/, a: "In JavaScript, const declares a binding that cannot be reassigned and let declares one that can; both are block-scoped. var is the older form: it is function-scoped, hoisted and can be redeclared. Prefer const by default and let when the value must change." },
+    { m: /\b(?:what is|explain)\b[^?]*\binheritance\b/, a: "Inheritance lets a class reuse and extend another class: the subclass gets the parent's fields and methods and can add to them or override them." },
+    { m: /\b(?:what is|explain)\b[^?]*\bpolymorphism\b/, a: "Polymorphism lets different types be used through the same interface, so the same call can behave differently depending on the object it is made on." },
+    { m: /\b(?:what is|explain)\b[^?]*\bencapsulation\b/, a: "Encapsulation bundles data with the methods that work on it and hides the internal details behind a public interface." },
+    { m: /\bwhat is (?:a |an )?(?:software |web )?framework\b/, a: "A framework is a reusable structure of code that provides the skeleton of an application and calls your code at set points; examples are Django, React and Spring. A library, by contrast, is code that you call." },
+    { m: /\b(?:difference between|differences between)\b[^?]*\b(?:library|libraries)\b[^?]*\bframework|\bframework\b[^?]*\blibrar/, a: "You call a library, but a framework calls you: a library is a set of functions you use when you want, while a framework sets the structure of the application and runs your code inside it." },
+    { m: /\b(?:difference between|differences between)\b[^?]*\bget\b[^?]*\bpost\b/, a: "GET asks a server for data and puts its parameters in the URL, so it should not change anything; POST sends data in the request body to create or change something." },
+    { m: /\b(?:difference between|differences between)\b[^?]*\bram\b[^?]*\brom\b/, a: "RAM is fast, temporary memory that holds what is running and is cleared when power is off; ROM is permanent memory that keeps its contents without power and holds startup instructions." },
+    { m: /\b(?:difference between|differences between)\b[^?]*\bstack\b[^?]*\bheap\b/, a: "The stack holds function call frames and local variables and is managed automatically; the heap holds dynamically allocated memory that lives until it is freed or garbage-collected." },
+    { m: /\b(?:difference between|differences between)\b[^?]*\btcp\b[^?]*\budp\b/, a: "TCP is reliable and ordered, setting up a connection and retransmitting lost data; UDP is connectionless and faster but gives no guarantee of delivery or order." },
+    { m: /\bwhat is (?:the )?debugging\b|\bwhat is debugging\b|\bwhat does debugging mean\b/, a: "Debugging is finding and fixing the cause of a bug in a program, usually by reproducing the problem, narrowing it down with logs, breakpoints or tests, and then correcting the code." },
+    { m: /\bwhat is (?:a |an )?unit tests?\b/, a: "A unit test is a small automated test that checks one piece of code, such as a function, in isolation." },
+    { m: /\bwhat is agile\b|\bwhat is scrum\b/, a: "Agile is an approach to software development that works in short iterations, delivers working software often and adapts to feedback; Scrum and Kanban are common methods." },
+    { m: /\bwhat does ip stand for\b|\bwhat is ip\b|\bip stands for\b/, a: "IP stands for Internet Protocol, the set of rules for addressing and routing data across networks." },
+    { m: /\bwhat does (?:tcp) stand for\b/, a: "TCP stands for Transmission Control Protocol." },
+    { m: /\bwhat does (?:api) stand for\b/, a: "API stands for Application Programming Interface." },
+    { m: /\bwhat does (?:gpu) stand for\b/, a: "GPU stands for Graphics Processing Unit." },
+    { m: /\bwhat does (?:http) stand for\b/, a: "HTTP stands for HyperText Transfer Protocol." },
     { m: /\bwhat does (?:the )?len(?:gth)?(?: function)? do\b|\bwhat is (?:the )?len(?: function)?\b/, a: "len returns the number of items in a sequence or collection — the number of characters in a string, elements in a list, keys in a dictionary." },
     { m: /\bwhat does (?:the )?print(?: function| statement)? do\b/, a: "print writes its argument to the console (standard output)." },
     { m: /\bwhat does (?:the )?range(?: function)? do\b/, a: "range(a, b) produces the integers from a up to but not including b; range(n) starts at 0." },
@@ -316,7 +348,7 @@
     var t = String(text || "").replace(/\s+/g, " ").trim();
     if (!t || t.length > 300) return null;
     var l = t.toLowerCase().replace(/[?!.]+$/, "");
-    if (!/\b(?:if statement|if-else|conditional|statement|data structure|pointer|keyword|operator|python|javascript|js|java|code|coding|program(?:ming)?|function|variable|loop|array|list|string|algorithm|recursion|class|object|sql|git|html|css|json|api|bug|compile|compiler|syntax|database|stack|queue|hash|tuple|set|dictionary|binary|big[- ]?o|complexity|len|print|node|typescript|ruby|php|golang|rust|bash|shell|regex|http|lambda|import|method|repository|repo|commit|branch)\b/.test(l)) return null;
+    if (!/\b(?:if statement|if-else|conditional|statement|data structure|pointer|keyword|operator|python|javascript|js|java|code|coding|program(?:ming)?|function|variable|loop|array|list|string|algorithm|recursion|class|object|sql|git|html|css|json|api|bug|compile|compiler|syntax|database|stack|queue|hash|tuple|set|dictionary|binary|big[- ]?o|complexity|len|print|node|typescript|ruby|php|golang|rust|bash|shell|regex|http|lambda|import|method|repository|repo|commit|branch|framework|library|libraries|ram|rom|debugging|debug|unit test|agile|scrum|ip|tcp|udp|heap|inheritance|polymorphism|encapsulation|csv|package|pip|npm|let|const|var|get|post|c\+\+|dom|css|flexbox|responsive)\b/.test(l) && !/c\+\+/.test(l)) return null;
     var cx = complexity(l);
     if (cx) return { answer: cx.answer, steps: [], schema: cx.schema, confidence: 0.9 };
     var lang = langOf(l);
@@ -335,12 +367,15 @@
     HOWTO.forEach(function (h) {
       var m = l.match(h.m);
       if (!m || (h.not && h.not.test(l)) || (h.m2 && !h.m2.test(l))) return;
-      if (m[0].length > bestLen) { best = h; bestLen = m[0].length; }
+      /* an idiom written for the language the question names beats a general one */
+      var len = m[0].length + (h.pri || 0) + (lang && (h.lang === lang || (h.code && h.code[lang])) ? 100 : 0) + (h.lang === "html" || h.lang === "css" ? (lang === h.lang ? 100 : -1000) : 0);
+      if (len > bestLen) { best = h; bestLen = len; }
     });
     if (!best) return null;
     var useLang = lang;
     if (best.lang === "sql") useLang = "sql";
     else if (best.lang === "git") useLang = "bash";
+    else if (best.lang === "html" || best.lang === "css") useLang = best.lang;
     else if (best.lang && !lang) useLang = best.lang;
     if (!useLang) useLang = best.code.python ? "python" : Object.keys(best.code)[0];
     var snippet = best.code[useLang];

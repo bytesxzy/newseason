@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T13:51:04.298Z",
- "passed": 68,
- "total": 68,
+ "generated": "2026-10-01T14:44:25.734Z",
+ "passed": 71,
+ "total": 71,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -25,6 +25,11 @@
   },
   {
    "name": "syntax: c4-lm-evidence.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-advice.js",
    "ok": true,
    "detail": ""
   },
@@ -65,6 +70,11 @@
   },
   {
    "name": "syntax: c4-lm-facts-people.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-school.js",
    "ok": true,
    "detail": ""
   },
@@ -164,6 +174,11 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-write.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm.js",
    "ok": true,
    "detail": ""
@@ -241,7 +256,7 @@
   {
    "name": "edge input: regex metacharacters",
    "ok": true,
-   "detail": "Boron is a chemical element with the sym"
+   "detail": "Blood types are A, B, AB and O."
   },
   {
    "name": "edge input: very long input",
@@ -281,7 +296,7 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "11 -> 11"
+   "detail": "8 -> 8"
   },
   {
    "name": "offline: local computation unaffected",
@@ -291,7 +306,7 @@
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -301,7 +316,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2668 ms"
+   "detail": "2673 ms"
   },
   {
    "name": "garbage source response handled",
@@ -316,12 +331,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hey. Ask me something."
+   "detail": "Hi — what would you like to know?"
   },
   {
    "name": "dialogue sequence",

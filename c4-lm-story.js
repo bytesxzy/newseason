@@ -1470,6 +1470,20 @@
 
   /* ---- setups the generic quantity reader cannot see: goals, approach, reversals, circles, ranges, ages */
   function countOf(a, re) { var n = 0, m, r = new RegExp(re.source, "gi"); while ((m = r.exec(a))) n++; return n; }
+  /* "24 students, 6 are absent. How many are present?": the rest of a whole */
+  var OPPOSED = { absent: "present|here|attending", present: "absent", broken: "working|intact|unbroken|whole", working: "broken", sold: "unsold|left|remaining", late: "on time|early", sick: "healthy|well", empty: "full|filled", wet: "dry", open: "closed", closed: "open", old: "new", new: "old", boys: "girls", girls: "boys", male: "female", female: "male", red: "not red", cooked: "raw|uncooked", ripe: "unripe|green" };
+  function complement(S) {
+    var q = S.question.toLowerCase(), m = q.match(/\bhow many (?:of them |of the \w+ |[a-z]+ )?(?:are|were|is|was) (?:not )?([a-z ]+?)\??$/);
+    if (!m) return null;
+    var want = m[1].trim(), g = S.givens.join(" "), tm = g.match(/\b(\d+)\s+(?:[a-z]+\s+)?([a-z]{3,}s)\b/i), pm = g.match(/\b(\d+(?:\.\d+)?)\s*(%)?\s+(?:of them\s+)?(?:are|were|is|was)\s+(?:not\s+)?([a-z ]+?)(?:[.,;]|$)/i);
+    if (!tm || !pm) return null;
+    var pct = !!pm[2]; pm = [pm[0], pm[1], pm[3]];
+    var given = pm[2].trim().toLowerCase(), opp = OPPOSED[given];
+    if (!opp || !opp.split("|").some(function (w) { return want === w || want.indexOf(w) === 0; })) return null;
+    var total = +tm[1], part = pct ? total * +pm[1] / 100 : +pm[1];
+    if (numbersIn(g).length !== 2 || part > total) return null;
+    return result(total - part, tm[2].toLowerCase(), [total + " − " + nice(part) + " = " + nice(total - part)], "complement");
+  }
   function savingsGoal(S) {
     var a = S.all, ql = S.question.toLowerCase(), mu = ql.match(/\bhow many (weeks?|months?|days?|years?)\b/);
     if (!mu || !/\b(?:until|before|till|to|can)\b[^?]*\b(?:buy|afford|reach|save|enough|get|have)\b/.test(ql)) return null;
@@ -1661,7 +1675,7 @@
   }
   /* ---- "a number" algebra phrases handled elsewhere; here: X more than / twice plus */
   function dimsRated(S) { return dims(S, true); }
-  var READERS = [savingsGoal, basket, meeting, reversePercent, circleCalc, packPrice, fencePen, fuelRange, ageFuture, shapeFacts, angles, displacement, fractionOfNumber, pairSystem, geoInverse, geometry, probability, fractionAsk, averageNeeded, series, numPuzzle, statistics, clock, markup, prices, percent, rates, linear, dimsRated, narrative, dims];
+  var READERS = [complement, savingsGoal, basket, meeting, reversePercent, circleCalc, packPrice, fencePen, fuelRange, ageFuture, shapeFacts, angles, displacement, fractionOfNumber, pairSystem, geoInverse, geometry, probability, fractionAsk, averageNeeded, series, numPuzzle, statistics, clock, markup, prices, percent, rates, linear, dimsRated, narrative, dims];
 
   function parse(text) {
     var t = numify(text);
@@ -1676,12 +1690,25 @@
     if (splitAt > 0) { givens.push(qsent.slice(0, splitAt)); qsent = qsent.slice(splitAt + 1).trim(); }
     var em = qsent.match(/^(.*?)\b((?:how|what)\b.*)$/i);
     if (em && em[1] && /\d/.test(em[1]) && !/^(?:if|when|suppose)\b/i.test(em[1].trim() ? "" : "x")) { givens.push(em[1].replace(/[,;]\s*$/, "")); qsent = em[2]; }
-    givens = elideUnits(givens, qsent.trim());
-    return { all: t, givens: givens, question: qsent.trim() };
+    var qtrim = qsent.trim(), noun0 = counted(givens, qtrim);
+    if (noun0) qtrim = qtrim.replace(/\bhow many (are|is|do|does|did|were|was|have|has|will)\b/i, function (all, v) { return "How many " + noun0 + " " + v; });
+    givens = elideUnits(givens, qtrim);
+    return { all: t, givens: givens, question: qtrim };
   }
   /* "Priya had 45 stickers and gave away 18": the amount after a transfer verb keeps the counted noun */
+  /* "how many are left": the counted thing is the first plural noun a number counts in the givens */
+  function counted(givens, question) {
+    if (!/\bhow many (?:are|is|do|does|did|were|was|have|has|will)\s+(?:there\s+)?(?:left|remaining|remain|now|present|absent|working|broken|here|in total|altogether|in all|over|more|fewer)\b|\bhow many (?:do|does|did|will|have|has) (?:he|she|they|it)\b/i.test(question)) return null;
+    var fn = givens.join(" ").match(/\b\d+(?:\.\d+)?\s+(?:[a-z]+\s+)?([a-z]{3,}s)\b/i);
+    return fn && !NOUN_STOP.test(fn[1].toLowerCase()) ? fn[1].toLowerCase() : null;
+  }
   function elideUnits(givens, question) {
     var qm = question.toLowerCase().match(/\bhow many (?:more |fewer |other )?([a-z]+)\b/);
+    if (qm && NOUN_STOP.test(qm[1]) && /\b(?:left|remain\w*|now|in all|altogether|total|in total)\b/i.test(question)) {
+      /* "how many are left": the counted thing is the first one the givens count */
+      var fn = givens.join(" ").match(/\b\d+(?:\.\d+)?\s+(?:[a-z]+\s+)?([a-z]{3,}s)\b/i);
+      if (fn && !NOUN_STOP.test(fn[1].toLowerCase())) qm = [null, fn[1].toLowerCase()];
+    }
     if (!qm || NOUN_STOP.test(qm[1])) return givens;
     var noun = qm[1], established = false, VERB = "(?:gave away|gave|give|gives|ate|eats|eat|sold|sells|sell|lost|loses|lose|used|uses|use|broke|breaks|donated|donates|threw away|throws away|returned|returns|dropped|drops|took|takes|take|picked|picks|bought|buys|buy|found|finds|received|receives|got|gets|made|makes|baked|bakes|spent|spends|added|adds|wasted|shared|handed out|handed|sent|sends|burned|burnt|lent|lends|donate|put|puts|placed|removed|removes)";
     var re = new RegExp("\\b(" + VERB + ")\\s+((?:[A-Za-z]+\\s+)?)(\\d+(?:\\.\\d+)?)(?=\\s*(?:$|[.,;]|\\s(?:and|to|but|then|while|from|away|off|out|more|so)\\b))", "gi");

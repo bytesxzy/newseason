@@ -68,6 +68,7 @@
     return found;
   }
 
-  root.C4LMThesaurus = { opposites: opposites, synonyms: synonyms, size: function () { return ANT.length + SYN.length; } };
+  function all() { var o = {}; ANT.forEach(function (p) { p.forEach(function (w) { o[w] = 1; }); }); SYN.forEach(function (g) { g.forEach(function (w) { o[w] = 1; }); }); return Object.keys(o); }
+  root.C4LMThesaurus = { opposites: opposites, synonyms: synonyms, all: all, size: function () { return ANT.length + SYN.length; } };
   if (typeof module !== "undefined" && module.exports) module.exports = root.C4LMThesaurus;
 })(typeof window !== "undefined" ? window : globalThis);

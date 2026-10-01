@@ -229,6 +229,8 @@
     opts = opts || {};
     build();
     if (!DOCS.length) return null;
+    var asList = /^\s*(?:please\s+)?(?:list|name)\s+(?:all\s+)?(?:the\s+|some\s+|a few\s+)?/i.test(question);
+    if (asList) question = String(question).replace(/^\s*(?:please\s+)?(?:list|name)\s+(?:all\s+)?(?:the\s+)?/i, "What are the ");
     var qs = contentStems(question);
     if (!qs.length) return null;
     if (opts.minStems && qs.filter(function (w) { return /[a-z]/.test(w); }).length < opts.minStems) return null;
@@ -244,6 +246,9 @@
     var whoDef = /^\s*who\s+(?:is|was|were|are)\b/i.test(question) && qs.length <= 3;
     var defStem = qs.filter(function (x) { return !/^(?:word|term|phrase|mean|meaning|definition|define)$/.test(x); })[0] || qs[0];
     var bigNums = (String(question).match(/\b\d{3,}\b/g) || []);
+    var qMarker = (String(question).toLowerCase().match(/\b(most|least|fewest|biggest|smallest|first|last)\b/) || [])[1];
+    var listAsk = /^\s*(?:name|list|what are|which are|give me|tell me)\b/i.test(question) && /\b(?:the|all|some|few|three|four|five|six|seven|eight|nine|ten)\b/i.test(question);
+    var presentQ = /^\s*(?:who|what|which)\s+(?:is|are)\b/i.test(question) && !/\b(?:first|last|original|former|ex|previous|second|third|[0-9]+(?:st|nd|rd|th))\b/i.test(question);
     var qSup = (String(question).toLowerCase().match(/\b(?:longest|largest|biggest|tallest|highest|smallest|deepest|oldest|fastest|heaviest|richest|greatest|most [a-z]+)\b/) || [])[0];
     var supRe = qSup ? new RegExp("\\b" + qSup + "\\b[^.,;]{0,40}?\\b(?:wholly|entirely|solely|only|within|inside)\\b", "i") : null;
     var why = /\bwhy\b|\bhow (?:come|does|do|did) .* (?:work|happen|form)\b/i.test(question) || /\bwhat (?:causes|makes|caused)\b/i.test(question);
@@ -262,9 +267,9 @@
       if (!namesOk) continue;
       if (!carries(type, d.text, qTokens, frameWord)) continue;
       /* a bare "what is X" is answered by a sentence that defines X: X is its subject */
-      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:is|are|was|means|refers|stands)\\b", "i")).test(d.text)) continue;
+      if (opts.define && !(new RegExp("^(?:(?:a|an|the)\\s+)?(?:(?:word|term|phrase)\\s+)?" + defStem.replace(/[^a-z0-9]/g, "") + "[a-z]*\\s+(?:[a-z]+\\s+){0,2}(?:is|are|was|were|means|refers|stands|lived|combines|contains|consists|includes|has|uses|helps|works)\\b", "i")).test(d.text)) continue;
       /* a bare "what is X" is not answered by a life-event line about X */
-      if (opts.define && /\b(?:died|was born) in [0-9]{4}\.?$/.test(d.text) && !/\b(?:born|birth|die[ds]?|death)\b/i.test(question)) continue;
+      if (opts.define && /\b(?:died|was born) in [0-9]{1,4}(?: BCE| CE| BC| AD)?\.?$/.test(d.text) && !/\b(?:born|birth|die[ds]?|death)\b/i.test(question)) continue;
       /* a number the question states must be in the sentence: "the 2087 World Cup" is not any World Cup */
       var numsOk = true;
       for (k = 0; k < bigNums.length; k++) if (d.text.indexOf(bigNums[k]) < 0) { numsOk = false; break; }
@@ -275,8 +280,13 @@
       var focus = matched / (matched + 0.35 * Math.max(0, d.n - hits) + 1);
       var adj = 0;
       for (k = 0; k < qBi.length; k++) if (d.bi[qBi[k]]) adj++;
-      if (whoDef && /\b(?:died|was born) in [0-9]{4}\.?$/.test(d.text)) continue;
+      if (whoDef && /\b(?:died|was born) in [0-9]{1,4}(?: BCE| CE| BC| AD)?\.?$/.test(d.text)) continue;
       var score = (whoDef && /\b(?:is known for|lived from|was an?|is an?|was the|is the)\b/.test(d.text) ? 0.4 : 0) + cov + 0.35 * focus + (hits === qw.length ? 0.2 : 0) + 0.3 * (qBi.length ? adj / qBi.length : 0);
+      /* a present-tense question wants the present holder, not a past one in the list of holders */
+      if (presentQ && /\bwas the (?:[a-z]+ )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|[a-z-]+(?:th|st|nd|rd)|[a-z]+-[a-z]+)\b/i.test(d.text) && !/\b(?:is|are) the\b/i.test(d.text)) score -= 0.4;
+      if (presentQ && /^as of \d{4}/i.test(d.text)) score += 0.3;
+      if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;
+      if (listAsk && (d.text.match(/,/g) || []).length >= 3) score += Math.min(0.6, 0.06 * (d.text.match(/,/g) || []).length + 0.1);
       /* "the longest river wholly within Brazil" is a narrower claim than "the longest river in South America" */
       if (supRe && supRe.test(d.text)) score -= 0.4;
       var cand = { text: d.text, score: score, coverage: cov, hits: hits, total: qw.length, type: type };

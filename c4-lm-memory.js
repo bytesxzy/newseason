@@ -825,7 +825,8 @@
     if ((m = s.match(/^(?:do|did)\s+you\s+(?:still\s+)?know\s+((?:my|where I|what I|who I|when I|how old I)\b.*)$/i))) return this.remembers(m[1]);
     if ((m = s.match(/^(?:what|who|where|when|which|how old|how)\s+(?:is|are|was|were)\s+my\s+(.{1,40})$/i))) return this.attrAnswer(m[1]);
     if ((m = s.match(/^what\s+is\s+the\s+name\s+of\s+my\s+(.{1,30})$/i))) return this.attrAnswer(m[1] + " name");
-    if ((m = s.match(/^(what|where|who|when|how|which)\s+(?:do|did|does)\s+I\s+([a-z]+)\b\s*(.*)$/i))) return this.verbAnswer(m[1], m[2], m[3]);
+    /* "how do I write an essay" is a how-to question, not a request to recall what was written */
+    if ((m = s.match(/^(what|where|who|when|how|which)\s+(?:do|did|does)\s+I\s+([a-z]+)\b\s*(.*)$/i)) && !(/^how$/i.test(m[1]) && /^do(?:es)?\s/i.test(s.slice(m[1].length).trim()) && /^(?:say|ask|tell|type|write|mention)$/i.test(m[2]))) return this.verbAnswer(m[1], m[2], m[3]);
     return "";
   };
   P.attrAnswer = function (phrase) {

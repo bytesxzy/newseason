@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite;
 
   var state = {
     ready: false,
@@ -136,6 +136,8 @@
     if (off("dialogue")) return { frame: frame, carried: false };
     if (!disc || !disc.activeEntity) return { frame: frame, carried: false };
     if (frame.topicShift) return { frame: frame, carried: false };
+    /* a statement about the speaker ("I am sad") is never an elliptical follow-up about the last topic */
+    if (frame.queryForm === "statement" && /^(?:i|i'm|im|i've|ive|i'd|my|we|we're|me)\b/i.test(String(frame.body || "").trim()) && !/^(?:and|but|what about|how about)\b/i.test(frame.body)) return { frame: frame, carried: false };
 
     var needsCarry = false, reason = "";
     /* 1. a third-person pronoun with no competing entity in the message */
@@ -957,6 +959,8 @@
       var covered = 0;
       for (var c = 0; c < frame.contentStems.length; c++) if (r.doc.tf[frame.contentStems[c]]) covered++;
       if (frame.contentStems.length >= 2 && covered < 2) continue;
+      /* a long question or an advice question that shares one word with an entry is not about that entry */
+      if (covered < 2 && (frame.wordCount >= 9 || /^(?:what|how) (?:should|can|could|do|would) (?:i|we|you)\b/i.test(frame.body))) continue;
       pick = r;
       break;
     }
@@ -1135,6 +1139,16 @@
       return { text: sn, score: cover * 2 + defines - i * 0.05, cover: cover };
     }).sort(function (x, y) { return y.score - x.score; });
     if (!scored.length || scored[0].cover === 0) return null;
+    /* a question with several content words needs a sentence that holds more than one of them */
+    if (askedTokens.length >= 3 && scored[0].cover < 2) return null;
+    if (askedTokens.length >= 2 && frame.wordCount >= 6 && scored[0].cover < Math.min(2, askedTokens.length)) return null;
+    /* words like "way" and "best" do not make a sentence about the question */
+    var coreTokens = askedTokens.filter(function (w) { return w.length > 2 && !GENERIC_Q.test(w); });
+    if (coreTokens.length) {
+      var leadStems = {}; C.words(scored[0].text).forEach(function (w) { leadStems[C.stem(w)] = 1; });
+      var coreHit = coreTokens.filter(function (w) { return leadStems[w]; }).length;
+      if (coreHit === 0 || (coreTokens.length >= 2 && coreHit < 2 && frame.wordCount >= 5)) return null;
+    }
     var lead = scored[0].text;
     var second = scored.length > 1 && scored[1].cover > 0 ? scored[1].text : "";
     var plan = {
@@ -1429,19 +1443,31 @@
 
   function answerFacts(frame, min, only) {
     if (!FX || off("facts") || !FX.size()) return null;
-    if (frame.onlyValue || frame.requestedLength || (frame.requestedFormat && frame.requestedFormat !== "prose" && frame.requestedFormat !== "list")) return null;
+    var wantsBullets = frame.requestedFormat === "bullets" && /^\s*(?:please\s+)?(?:list|name)\b/i.test(frame.body || "");
+    if (frame.onlyValue || frame.requestedLength || (frame.requestedFormat && frame.requestedFormat !== "prose" && frame.requestedFormat !== "list" && !wantsBullets)) return null;
     var q = frame.semanticText || frame.body || frame.rawText || "";
     var hit = null;
     var o = { min: min };
     /* a numeric fragment ("3 power 4") is a computation, not a topic */
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
     if (cs0.length > alpha0.length && alpha0.length < 2) return null;
-    if (only === "strict") o.minStems = frame.queryForm === "why" ? 1 : 2;
-    else if (only === "relational") o.minStems = (/\b\w+est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
+    if (only === "strict") o.minStems = frame.queryForm === "why" || /^\s*(?:name|list)\b/i.test(q) ? 1 : 2;
+    else if (only === "relational") o.minStems = (/^\s*(?:name|list|what are|which are)\b/i.test(q) || /\b\w+est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
     else if (FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
     try { hit = FX.answer(q, o); } catch (e) { hit = null; }
     if (!hit) return null;
     var named = (String(frame.rawText || frame.body || "").match(/\b[A-Z][\w-]+(?:\s+[A-Z][\w-]+)*/g) || []).filter(function (w, i) { return i > 0 || w.split(" ").length > 1; });
+    if (wantsBullets) {
+      var cut = function (t) { return t.split(/,\s*(?:and\s+)?|\s+and\s+/).map(function (x) { return x.trim(); }).filter(Boolean); };
+      var tx = hit.text.replace(/\.\s*$/, ""), lead = "", items = null, m1, m2;
+      if ((m1 = tx.match(/^(.*?):\s*(.+)$/)) && cut(m1[2]).length >= 3) { lead = m1[1].replace(/^There are\s+/i, "The "); items = cut(m1[2]); }
+      else if ((m2 = tx.match(/^(.+?)\s+(?:are|were)\s+(.+)$/))) {
+        var a1 = m2[1], b1 = m2[2];
+        if (cut(a1).length >= 3 && cut(b1).length < 3) { lead = b1.charAt(0).toUpperCase() + b1.slice(1); items = cut(a1); }
+        else if (cut(b1).length >= 3) { lead = a1; items = cut(b1); }
+      } else if ((m2 = tx.match(/^(.+?)\s+(?:include|includes|consist of|consists of)\s+(.+)$/)) && cut(m2[2]).length >= 3) { lead = m2[1]; items = cut(m2[2]); }
+      if (items && items.length >= 3) hit.text = lead.replace(/:\s*$/, "") + ":\n" + items.map(function (x) { return "- " + x.charAt(0).toUpperCase() + x.slice(1); }).join("\n");
+    }
     return { text: hit.text, route: "knowledge", confidence: hit.confidence, sources: ["local fact library"],
              entity: named.length ? named[named.length - 1] : "", defects: [], fact: { coverage: hit.coverage, score: hit.score } };
   }
@@ -1476,7 +1502,7 @@
       return say("Good night — sleep well!");
     if (/^(?:good morning|morning)$/.test(l)) return say("Good morning! What can I help you with today?");
     if (/^(?:good afternoon|good evening)$/.test(l)) return say(l.indexOf("evening") >= 0 ? "Good evening! What can I help you with?" : "Good afternoon! What can I help you with?");
-    if (/^(?:can|could|would|will) you (?:please )?(?:help|assist)(?: me)?(?: out)?(?: with (?:my |a |an |some |the )?(?:homework|work|project|essay|assignment|problem|problems|question|questions|task|studying|studies|code|coding|something|this|that|it))?$/.test(l))
+    if (/^(?:can|could|would|will) you (?:please )?(?:help|assist)(?: me)?(?: out)?(?: with (?:my |a |an |some |the |this |that )?(?:homework|work|project|essay|assignment|problem|problems|question|questions|task|studying|studies|code|coding|something|this|that|it|math|maths|mathematics|algebra|geometry|calculus|science|physics|chemistry|biology|history|english|writing|reading|grammar|spelling|python|javascript|java|programming|a question|a problem|my homework|my essay|an essay|a project|a task))?$/.test(l))
       return say("Yes, happy to help. Tell me what you're working on — a question, a calculation, some code, a puzzle or a bit of reasoning — and I'll take it from there.");
     if (/^(?:i'?m|i am) (?:so |really |very )?bored$|^i'?m bored(?: today)?$|^i am bored$/.test(l))
       return say("Let's fix that. I can set you a puzzle, tell you a surprising fact, run a quick quiz, or answer anything you're curious about — which sounds good?");
@@ -1488,6 +1514,12 @@
     if (/^(?:how old are you|what is your age|what's your age|when were you born|when were you made)$/.test(l)) return say("I'm a program, so I don't have an age in years — I simply run whenever this page is open.");
     if (/^(?:are you|r you|are u) (?:a |an )?(?:robot|human|real|real person|person|bot|ai|machine|computer|program|chatbot|alive)$/.test(l))
       return say(/human|person|real|alive/.test(l) ? "No — I'm a computer program, a language system that runs locally here, not a person." : "Yes — I'm a computer program, a language system that runs locally in this page.");
+    if (/^(?:are|r) (?:you|u) (?:so |really |very )?(?:smart|intelligent|clever|conscious|sentient|self[- ]aware|thinking|aware|learning|improving)$/.test(l))
+      return say("I can do some things quickly and reliably, like arithmetic, algebra, word problems, logic puzzles, code snippets and lookups in my built-in knowledge, but I'm a program: I don't think or feel as a person does, and I'll tell you when something is outside what I know.");
+    if (/^(?:are|do) (?:you|u) (?:learn|remember|get better|improve)(?: from (?:me|this|our (?:chat|conversation)))?$/.test(l))
+      return say("I remember what you tell me during this conversation, and I can pick up new words and facts from what you say, but I don't carry anything into a brand-new session unless it was saved on this page.");
+    if (/^(?:what can you do|what are you able to do|what do you know|what are you good at|what are your skills|what are your abilities)$/.test(l))
+      return say("I can answer factual questions from a built-in knowledge base, do arithmetic, algebra, calculus and unit conversions, solve word problems and logic puzzles, work with dates and statistics, translate common words and phrases, write small programs and explain code, and chat. Ask me something and see.");
     if (/^(?:what'?s|what is) your favou?rite (.+)$/.test(l)) return say("As a program I don't have personal tastes, but I can tell you about popular choices or help you decide — what are you choosing between?");
     var like = l.match(/^do you (?:like|love|enjoy|prefer|listen to|watch|play|read|eat|drink) (?:the |a |an |to )?(.+)$/);
     if (like) return say("I don't experience " + like[1] + " the way a person does, but I'm happy to talk about it — what would you like to know?");
@@ -1569,6 +1601,9 @@
     /* Everyday skills: dates, number words, interest, statistics, translation, summaries, chemistry, physics, synonyms. */
     var skilled = answerSkills(frame);
     if (skilled) return skilled;
+    /* Spelling, counting, rhymes, words by letter, haiku, limericks, acrostics, short verse. */
+    var written = answerWrite(frame);
+    if (written) return written;
     var structured = answerProblem(frame);
     if (structured) { structured.interpretation = "structured"; return structured; }
     var r = RS.solve(frame);
@@ -1660,6 +1695,15 @@
     if (!hr || !hr.answer) return null;
     return { text: hr.answer, route: "code", confidence: hr.confidence || 0.88, sources: [], defects: [], code: hr.schema === "howto" ? hr.answer : undefined,
              language: hr.language, interpretation: "howto:" + hr.schema, howto: hr };
+  }
+
+  function answerWrite(frame) {
+    if (!WR || off("write")) return null;
+    var wr = null;
+    try { wr = WR.solve(frame.rawText || frame.body || ""); } catch (e) { wr = null; }
+    if (!wr || !wr.answer) return null;
+    return { text: wr.answer, route: "reason", confidence: wr.confidence || 0.8, sources: [], defects: [], composed: false,
+             interpretation: "write:" + wr.schema, write: wr };
   }
 
   function answerSkills(frame) {
@@ -2214,11 +2258,13 @@
       return hits >= Math.max(1, Math.ceil(about.length * 0.6));
     }).slice(0, 6);
     if (!docs.length) return null;
-    var ask = frame.contentTokens.filter(function (t) { return !neutralToken(t); }), best = null;
+    var ask = frame.contentTokens.filter(function (t) { return !neutralToken(t) && !GENERIC_Q.test(t) && !GENERIC_Q.test(C.stem(t)); }), best = null;
+    if (!ask.length || (ask.length === 1 && frame.wordCount >= 6)) return null;
     docs.forEach(function (h) {
       sentencesOf(docProse(h.doc)).forEach(function (sn) {
         var hay = C.flatten(sn), cov = ask.filter(function (t) { return stemIn(hay, t); }).length / Math.max(1, ask.length);
         var fit = typeFit(type, { text: sn }, frame);
+        if (ask.length >= 2 && cov < 0.66 && !(cov >= 0.5 && cov * ask.length >= 3) && !(fit > 0 && cov >= 0.4)) return;
         var agree = docs.filter(function (o) { return o !== h && C.flatten(o.doc.text || "").indexOf(hay.slice(0, 24)) < 0 &&
           (sn.match(/\b[A-Z][a-z]+|\d[\d,.]*/g) || []).some(function (k) { return (o.doc.text || "").indexOf(k) >= 0; }); }).length;
         var sc = cov + 0.5 * Math.max(0, fit) + 0.15 * Math.min(agree, 3);
@@ -2323,6 +2369,8 @@
      question, and it is withdrawn. */
   function offTopic(frame, result) {
     if (!result || !result.entity || result.multiHop) return false;
+    /* a fact sentence that covers every content word of the question is about what was asked */
+    if (result.fact && result.fact.coverage >= 0.95) return false;
     var subjText = frame.subject || (frame.entities && frame.entities.length ? frame.entities.join(" ") : "");
     if (!subjText) return false;
     var subj = C.words(subjText).filter(function (t) { return !neutralToken(t); });
@@ -2939,7 +2987,9 @@
     if (hopped) return Promise.resolve(finish(frame, hopped, t0, decision));
     /* A question the fact library covers well is answered from it before the
        general chain, whose entity matching can land on a shared word. */
-    if (frame.speechAct === "question" && !frame.requiresFreshInformation && frame.queryForm !== "whois") {
+    var roleAsk = /^\s*who\s+(?:is|was|are)\s+the\s+[a-z ]+?\s+(?:of|at|for)\s+\S/i.test(frame.body || "");
+    var nameList = frame.speechAct === "command" && /^\s*(?:name|list)\s+(?:the|all|some|a few|three|four|five|six|seven|eight|nine|ten)\b/i.test(frame.body || "");
+    if ((frame.speechAct === "question" || nameList) && !frame.requiresFreshInformation && (frame.queryForm !== "whois" || roleAsk)) {
       var plainForm = frame.queryForm !== "whatis" && frame.queryForm !== "topic";
       var fx = timed("facts", function () { return answerFacts(frame, plainForm ? 0.75 : 0.9, plainForm ? "strict" : "relational"); });
       if (fx) return Promise.resolve(finish(frame, fx, t0, decision));
@@ -3042,8 +3092,29 @@
 
   /* Confidence is assembled from the parts that produced the answer, and a
      low-confidence answer is softened rather than asserted. */
+  /* An answer that shares one word with a longer question is about something else:
+     "what should I do if I feel stressed" answered with how earthquakes store stress. */
+  var GENERIC_Q = /^(?:way|best|good|better|bad|thing|things|something|make|made|use|used|get|got|one|time|lot|need|want|know|take|give|find|help|work|like|people|person|come|go|see|tell|show|try|call|keep|let|put|seem|feel|look|think|mean|say|ask|become|leave|turn|start|end|new|old|big|small|long|high|low|great|different|important|possible|right|real|sure|able|much|many|more|most|other|another|every|each|also|really|always|never|often|ever|still|even|well|here|there|first|last|next|part|kind|type|sort|example|reason|question|answer)$/;
+  function irrelevantAnswer(frame, result) {
+    if (!result || !result.text || result.fact || result.relation || result.multiHop || result.guard || result.smallTalk || result.insufficient || result.conversational || result.clarification) return false;
+    if (!/^(?:knowledge|local)$/.test(result.route)) return false;
+    if (result.caveat || frame.requiresFreshInformation) return false;
+    if (frame.wordCount < 5 || frame.queryForm === "whois") return false;
+    var qs = (frame.contentStems || []).filter(function (w) { return w.length > 2 && !GENERIC_Q.test(w); });
+    if (qs.length < 2) return false;
+    var ans = {};
+    C.words(result.text + " " + (result.entity || "")).forEach(function (w) { ans[C.stem(w)] = 1; });
+    var hit = qs.filter(function (w) { return ans[w]; }).length;
+    return hit / qs.length <= 0.5 && hit < 2;
+  }
+
   function finish(frame, result, t0, decision) {
     result = result || { text: "", route: "none", confidence: 0 };
+    if (irrelevantAnswer(frame, result)) {
+      var none = fallback(frame, null);
+      none.deliberation = { trigger: "irrelevant", withdrawn: result.entity || result.route };
+      result = none;
+    }
     /* A weak first answer gets a second, deliberate reading before it is
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;
