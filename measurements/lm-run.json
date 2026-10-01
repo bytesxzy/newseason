@@ -1,7 +1,7 @@
 {
  "summary": {
   "label": "lm-run",
-  "generated": "2026-09-30T23:59:11.979Z",
+  "generated": "2026-10-01T01:43:35.609Z",
   "net": "off",
   "modules": [],
   "disabled": [],
@@ -15,16 +15,16 @@
   "timeouts": 0,
   "web_turns": 0,
   "latency": {
-   "p50": 26,
-   "p90": 112,
-   "p95": 127,
-   "p99": 190,
-   "mean": 46
+   "p50": 120,
+   "p90": 195,
+   "p95": 223,
+   "p99": 260,
+   "mean": 101
   },
   "local_latency": {
    "n": 197,
-   "p50": 26,
-   "p95": 127
+   "p50": 120,
+   "p95": 223
   },
   "web_latency": {
    "n": 0,
@@ -153,7 +153,7 @@
     "pass": 8
    }
   },
-  "wall_ms": 39629
+  "wall_ms": 62388
  },
  "records": [
   {
@@ -174,7 +174,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 97,
+     "latency_ms": 246,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -183,7 +183,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 97
+   "latency_ms": 246
   },
   {
    "id": 2,
@@ -194,7 +194,7 @@
    "turns": [
     {
      "question": "What is a high school?",
-     "output": "A high school is a secondary school, typically for students roughly aged 14 to 18, that comes after primary or middle school and before university. It is used for secondary education leading to a diploma or school-leaving qualification.",
+     "output": "A high school is a secondary school, usually for students roughly aged 14 to 18, that comes after primary or middle school and before university. It is used for secondary education leading to a diploma or school-leaving qualification.",
      "route": "knowledge",
      "subject": "high school",
      "relation": "",
@@ -203,7 +203,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 12,
+     "latency_ms": 126,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -212,7 +212,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 126
   },
   {
    "id": 3,
@@ -232,7 +232,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 119,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -241,7 +241,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 119
   },
   {
    "id": 4,
@@ -261,7 +261,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 117,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -270,7 +270,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 117
   },
   {
    "id": 5,
@@ -281,7 +281,7 @@
    "turns": [
     {
      "question": "What is the capital of France?",
-     "output": "Paris is the capital of France. France is in Western Europe.",
+     "output": "France's capital is Paris. It is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -290,7 +290,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 119,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -299,7 +299,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 119
   },
   {
    "id": 6,
@@ -310,16 +310,16 @@
    "turns": [
     {
      "question": "What is the capital of the United States?",
-     "output": "Washington, D.C. is the capital of United States. United States was created by the Founding Fathers.",
+     "output": "The capital of United States is Washington, D.C..",
      "route": "knowledge",
      "subject": "United States",
-     "relation": "capital",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 120,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -328,7 +328,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 120
   },
   {
    "id": 7,
@@ -348,7 +348,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 75,
+     "latency_ms": 133,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -357,7 +357,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 75
+   "latency_ms": 133
   },
   {
    "id": 8,
@@ -377,7 +377,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 71,
+     "latency_ms": 127,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -386,7 +386,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 71
+   "latency_ms": 127
   },
   {
    "id": 9,
@@ -399,14 +399,14 @@
      "question": "What is the chemical symbol for gold?",
      "output": "The chemical symbol for gold is Au.",
      "route": "knowledge",
-     "subject": "gold",
-     "relation": "symbol",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 123,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -415,7 +415,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 123
   },
   {
    "id": 10,
@@ -426,7 +426,7 @@
    "turns": [
     {
      "question": "Explain photosynthesis in one sentence.",
-     "output": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen.",
+     "output": "Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen.",
      "route": "explanation",
      "subject": "photosynthesis",
      "relation": "",
@@ -435,7 +435,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 16,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -444,7 +444,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 14
   },
   {
    "id": 11,
@@ -464,7 +464,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 81,
+     "latency_ms": 140,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -473,7 +473,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 81
+   "latency_ms": 140
   },
   {
    "id": 12,
@@ -493,7 +493,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 104,
+     "latency_ms": 131,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -502,7 +502,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 104
+   "latency_ms": 131
   },
   {
    "id": 13,
@@ -513,7 +513,7 @@
    "turns": [
     {
      "question": "What is the difference between mass and weight?",
-     "output": "Mass and weight differ in 3 main respects. Mass is the amount of matter in an object, while weight is the force gravity exerts on that matter. Mass is kilograms, while weight is newtons. Mass is the same everywhere, while weight changes with the local gravitational field.",
+     "output": "Mass and weight differ in 3 main ways. Mass is the amount of matter in an object, while weight is the force gravity exerts on that matter. Mass is kilograms, while weight is newtons. Mass is the same everywhere, while weight changes with the local gravitational field.",
      "route": "comparison",
      "subject": "mass / weight",
      "relation": "",
@@ -522,7 +522,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 26,
+     "latency_ms": 139,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -531,7 +531,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 26
+   "latency_ms": 139
   },
   {
    "id": 14,
@@ -551,7 +551,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 204,
+     "latency_ms": 260,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -560,7 +560,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 204
+   "latency_ms": 260
   },
   {
    "id": 15,
@@ -571,14 +571,14 @@
    "turns": [
     {
      "question": "What is 17 * 23?",
-     "output": "17 * 23 = 391.",
+     "output": "17 * 23 equals 391.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 9,
+     "latency_ms": 12,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -587,7 +587,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 9
+   "latency_ms": 12
   },
   {
    "id": 16,
@@ -605,7 +605,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -614,7 +614,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 15
   },
   {
    "id": 17,
@@ -625,14 +625,14 @@
    "turns": [
     {
      "question": "What is 2^10?",
-     "output": "2^10 equals 1024.",
+     "output": "2^10 works out to 1024.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -641,7 +641,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 8
   },
   {
    "id": 18,
@@ -659,7 +659,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 35,
+     "latency_ms": 33,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -668,7 +668,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 35
+   "latency_ms": 33
   },
   {
    "id": 19,
@@ -679,14 +679,14 @@
    "turns": [
     {
      "question": "A car travels 60 miles per hour for 2.5 hours. How far does it travel?",
-     "output": "It travels 150 miles.",
-     "route": "compute",
+     "output": "150 miles",
+     "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 43,
+     "latency_ms": 53,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -695,7 +695,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 43
+   "latency_ms": 53
   },
   {
    "id": 20,
@@ -706,14 +706,14 @@
    "turns": [
     {
      "question": "If all Bloops are Razzies and all Razzies are Lazzies, are all Bloops Lazzies?",
-     "output": "Yes. Every Bloop is in a category that is itself contained in Lazzies, so the containment carries through.",
+     "output": "Yes — all Bloops are Razzies, and all Razzies are Lazzies, so all bloops are lazzies.",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 46,
+     "latency_ms": 57,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -722,7 +722,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 46
+   "latency_ms": 57
   },
   {
    "id": 21,
@@ -733,14 +733,14 @@
    "turns": [
     {
      "question": "No poets are robots. Some artists are poets. Can all artists be robots?",
-     "output": "No. Some artists are poets, and no poets are robots. Those artists therefore cannot be robots, so not all of them can.",
+     "output": "No — some artists are poets, and no poets are robots, so not every artist can be a robot.",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 36,
+     "latency_ms": 39,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -749,7 +749,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 36
+   "latency_ms": 39
   },
   {
    "id": 22,
@@ -760,14 +760,14 @@
    "turns": [
     {
      "question": "What comes next: 2, 4, 8, 16, ?",
-     "output": "32. In 2, 4, 8, 16, each term multiplies by 2.",
+     "output": "32",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 22,
+     "latency_ms": 18,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -776,7 +776,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 22
+   "latency_ms": 18
   },
   {
    "id": 23,
@@ -787,7 +787,7 @@
    "turns": [
     {
      "question": "If A is older than B and B is older than C, who is youngest?",
-     "output": "C. Ordering the statements gives A > B > C.",
+     "output": "C",
      "route": "reason",
      "subject": "",
      "relation": "",
@@ -814,7 +814,7 @@
    "turns": [
     {
      "question": "Compare TCP and UDP.",
-     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, while UDP makes no ordering guarantee. TCP is larger headers and more round trips, while UDP is minimal header and no setup cost.",
+     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, whereas UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, whereas UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, whereas UDP makes no ordering guarantee. TCP is larger headers and more round trips, whereas UDP is minimal header and no setup cost.",
      "route": "comparison",
      "subject": "TCP / UDP",
      "relation": "",
@@ -843,7 +843,7 @@
    "turns": [
     {
      "question": "Compare RAM and SSD storage.",
-     "output": "RAM and SSD differ in 3 main ways. RAM is used for holding running programs and their working data, while SSD is used for persistent storage for the operating system, applications and files. RAM is volatile primary memory, while SSD is non-volatile secondary storage. RAM runs at nanosecond access times, while SSD runs at microsecond access times.",
+     "output": "RAM and SSD differ in 3 main respects. RAM is used for holding running programs and their working data, whereas SSD is used for persistent storage for the operating system, applications and files. RAM is volatile primary memory, whereas SSD is non-volatile secondary storage. RAM runs at nanosecond access times, whereas SSD runs at microsecond access times.",
      "route": "comparison",
      "subject": "RAM / SSD",
      "relation": "",
@@ -852,7 +852,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 51,
+     "latency_ms": 41,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -861,7 +861,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 51
+   "latency_ms": 41
   },
   {
    "id": 26,
@@ -881,7 +881,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 24,
+     "latency_ms": 145,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -890,7 +890,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 24
+   "latency_ms": 145
   },
   {
    "id": 27,
@@ -910,7 +910,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 26,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -919,7 +919,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 26
   },
   {
    "id": 28,
@@ -937,7 +937,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 54,
+     "latency_ms": 79,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -946,7 +946,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 54
+   "latency_ms": 79
   },
   {
    "id": 29,
@@ -966,7 +966,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 27,
+     "latency_ms": 22,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -975,7 +975,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 27
+   "latency_ms": 22
   },
   {
    "id": 30,
@@ -993,7 +993,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 30,
+     "latency_ms": 45,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1002,7 +1002,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 30
+   "latency_ms": 45
   },
   {
    "id": 31,
@@ -1020,7 +1020,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 23,
+     "latency_ms": 31,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1029,7 +1029,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 23
+   "latency_ms": 31
   },
   {
    "id": 32,
@@ -1078,7 +1078,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 19,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1087,7 +1087,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 19
+   "latency_ms": 20
   },
   {
    "id": 34,
@@ -1108,7 +1108,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 91,
+     "latency_ms": 190,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1117,7 +1117,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 91
+   "latency_ms": 190
   },
   {
    "id": 35,
@@ -1128,14 +1128,14 @@
    "turns": [
     {
      "question": "What time is it right now?",
-     "output": "It is 11:58 PM on Wednesday, September 30, 2026, by this device's clock.",
+     "output": "It is 01:42 AM on Thursday, October 1, 2026, by this device's clock.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 30,
+     "latency_ms": 42,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1144,7 +1144,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 30
+   "latency_ms": 42
   },
   {
    "id": 36,
@@ -1162,7 +1162,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 195,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1171,7 +1171,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 4
+   "latency_ms": 195
   },
   {
    "id": 37,
@@ -1189,7 +1189,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 6,
+     "latency_ms": 161,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1198,7 +1198,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 6
+   "latency_ms": 161
   },
   {
    "id": 38,
@@ -1216,7 +1216,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 63,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1225,7 +1225,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 63
+   "latency_ms": 9
   },
   {
    "id": 39,
@@ -1245,7 +1245,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 116,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1254,7 +1254,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 116
   },
   {
    "id": 40,
@@ -1272,7 +1272,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 98,
+     "latency_ms": 154,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1281,7 +1281,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 98
+   "latency_ms": 154
   },
   {
    "id": 41,
@@ -1301,7 +1301,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 149,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1311,16 +1311,16 @@
     },
     {
      "question": "When was he born?",
-     "output": "Albert Einstein was born on 14 March 1879. It is in born in Ulm, Germany.",
+     "output": "Albert Einstein was born in 1879.",
      "route": "knowledge",
-     "subject": "Albert Einstein",
-     "relation": "birth",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 63,
+     "latency_ms": 10,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1339,7 +1339,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1348,7 +1348,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 76
+   "latency_ms": 168
   },
   {
    "id": 42,
@@ -1368,7 +1368,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 113,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1387,7 +1387,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1396,7 +1396,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 119
   },
   {
    "id": 43,
@@ -1416,7 +1416,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 12,
+     "latency_ms": 138,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1435,7 +1435,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 7,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1444,7 +1444,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 145
   },
   {
    "id": 44,
@@ -1464,7 +1464,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 122,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1483,7 +1483,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1492,7 +1492,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 128
   },
   {
    "id": 45,
@@ -1503,68 +1503,10 @@
    "turns": [
     {
      "question": "capital France",
-     "output": "France has Paris as its capital. It is in Western Europe.",
+     "output": "Paris is the capital of France. France is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
-     "web_used": false,
-     "sources": [
-      "local knowledge base"
-     ],
-     "used": [],
-     "latency_ms": 15,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 15
-  },
-  {
-   "id": 46,
-   "cat": "robust",
-   "question": "what's teh capital of france",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "what's teh capital of france",
-     "output": "France has Paris as its capital. It is in Western Europe.",
-     "route": "knowledge",
-     "subject": "France",
-     "relation": "capital",
-     "web_used": false,
-     "sources": [
-      "local knowledge base"
-     ],
-     "used": [],
-     "latency_ms": 14,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 14
-  },
-  {
-   "id": 47,
-   "cat": "robust",
-   "question": "explain photosynthsis in 1 sentence",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "explain photosynthsis in 1 sentence",
-     "output": "Photosynthesis is the process by which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen.",
-     "route": "explanation",
-     "subject": "photosynthesis",
-     "relation": "",
      "web_used": false,
      "sources": [
       "local knowledge base"
@@ -1582,22 +1524,24 @@
    "latency_ms": 12
   },
   {
-   "id": 48,
-   "cat": "remark",
-   "question": "kind of self explanatory, but it needs better interpretation",
+   "id": 46,
+   "cat": "robust",
+   "question": "what's teh capital of france",
    "dialogue": false,
    "pass": true,
    "turns": [
     {
-     "question": "kind of self explanatory, but it needs better interpretation",
-     "output": "Got it. What would you like me to work out?",
-     "route": "conversation",
-     "subject": "",
-     "relation": "",
+     "question": "what's teh capital of france",
+     "output": "France's capital is Paris. It is in Western Europe.",
+     "route": "knowledge",
+     "subject": "France",
+     "relation": "capital",
      "web_used": false,
-     "sources": [],
+     "sources": [
+      "local knowledge base"
+     ],
      "used": [],
-     "latency_ms": 190,
+     "latency_ms": 121,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1606,7 +1550,63 @@
      "error": ""
     }
    ],
-   "latency_ms": 190
+   "latency_ms": 121
+  },
+  {
+   "id": 47,
+   "cat": "robust",
+   "question": "explain photosynthsis in 1 sentence",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "explain photosynthsis in 1 sentence",
+     "output": "Photosynthesis is the process through which plants, algae and some bacteria use light energy to convert carbon dioxide and water into sugars, releasing oxygen.",
+     "route": "explanation",
+     "subject": "photosynthesis",
+     "relation": "",
+     "web_used": false,
+     "sources": [
+      "local knowledge base"
+     ],
+     "used": [],
+     "latency_ms": 15,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 15
+  },
+  {
+   "id": 48,
+   "cat": "remark",
+   "question": "kind of self explanatory, but it needs better interpretation",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "kind of self explanatory, but it needs better interpretation",
+     "output": "Understood — say more and I'll dig in.",
+     "route": "conversation",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 182,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 182
   },
   {
    "id": 49,
@@ -1624,7 +1624,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1633,7 +1633,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 16
   },
   {
    "id": 50,
@@ -1644,7 +1644,7 @@
    "turns": [
     {
      "question": "Explain the difference between correlation and causation using one short example.",
-     "output": "Correlation and causation differ in 3 main respects. Correlation only says two variables move together, while causation says one variable actually produces the change in the other. Correlation can be measured from observational data alone, while causation usually needs an experiment or a causal model. Correlation can be produced by a third variable or by coincidence, while causation is what an intervention would actually change. For instance, ice-cream sales and drowning deaths rise together, but neither causes the other — hot weather drives both.",
+     "output": "Correlation and causation differ in 3 main ways. Correlation only says two variables move together, while causation says one variable actually produces the change in the other. Correlation can be measured from observational data alone, while causation usually needs an experiment or a causal model. Correlation can be produced by a third variable or by coincidence, while causation is what an intervention would actually change. For example, ice-cream sales and drowning deaths rise together, but neither causes the other — hot weather drives both.",
      "route": "comparison",
      "subject": "correlation / causation",
      "relation": "",
@@ -1653,7 +1653,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 45,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1662,7 +1662,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 32
+   "latency_ms": 45
   },
   {
    "id": 51,
@@ -1682,7 +1682,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 84,
+     "latency_ms": 124,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1691,7 +1691,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 84
+   "latency_ms": 124
   },
   {
    "id": 52,
@@ -1711,7 +1711,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 92,
+     "latency_ms": 133,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1720,7 +1720,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 92
+   "latency_ms": 133
   },
   {
    "id": 53,
@@ -1731,7 +1731,7 @@
    "turns": [
     {
      "question": "Tell me France's capital city",
-     "output": "Paris is the capital of France. France is in Western Europe.",
+     "output": "The capital of France is Paris. It is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -1740,7 +1740,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 20,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1749,7 +1749,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 20
+   "latency_ms": 25
   },
   {
    "id": 54,
@@ -1760,7 +1760,7 @@
    "turns": [
     {
      "question": "what is the capital of japan",
-     "output": "Japan has Tokyo as its capital. It is in East Asia.",
+     "output": "Japan's capital is Tokyo. It is in East Asia.",
      "route": "knowledge",
      "subject": "Japan",
      "relation": "capital",
@@ -1769,7 +1769,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 124,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1778,7 +1778,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 124
   },
   {
    "id": 55,
@@ -1798,7 +1798,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 81,
+     "latency_ms": 149,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1807,7 +1807,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 81
+   "latency_ms": 149
   },
   {
    "id": 56,
@@ -1818,7 +1818,7 @@
    "turns": [
     {
      "question": "capital of australia",
-     "output": "The capital of Australia is Canberra. It is in Oceania.",
+     "output": "Australia has Canberra as its capital. It is in Oceania.",
      "route": "knowledge",
      "subject": "Australia",
      "relation": "capital",
@@ -1827,7 +1827,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1836,7 +1836,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 10
+   "latency_ms": 8
   },
   {
    "id": 57,
@@ -1847,7 +1847,7 @@
    "turns": [
     {
      "question": "What is the currency of Japan?",
-     "output": "The currency of Japan is the yen. It is in East Asia.",
+     "output": "Japan uses the yen as its currency. It is in East Asia.",
      "route": "knowledge",
      "subject": "Japan",
      "relation": "currency",
@@ -1856,7 +1856,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 150,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1865,7 +1865,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 150
   },
   {
    "id": 58,
@@ -1876,16 +1876,16 @@
    "turns": [
     {
      "question": "What language do they speak in Brazil?",
-     "output": "Portuguese is spoken in Brazil. Brazil is in South America.",
+     "output": "The official language of Brazil is Portuguese, and people there speak it.",
      "route": "knowledge",
      "subject": "Brazil",
-     "relation": "language",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 76,
+     "latency_ms": 168,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1894,7 +1894,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 76
+   "latency_ms": 168
   },
   {
    "id": 59,
@@ -1914,7 +1914,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 77,
+     "latency_ms": 124,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1923,7 +1923,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 77
+   "latency_ms": 124
   },
   {
    "id": 60,
@@ -1943,7 +1943,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 80,
+     "latency_ms": 124,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1952,7 +1952,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 80
+   "latency_ms": 124
   },
   {
    "id": 61,
@@ -1963,16 +1963,16 @@
    "turns": [
     {
      "question": "What is the chemical symbol for iron?",
-     "output": "Iron has the chemical symbol Fe.",
+     "output": "The chemical symbol for iron is Fe.",
      "route": "knowledge",
-     "subject": "iron",
-     "relation": "symbol",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 22,
+     "latency_ms": 152,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -1981,7 +1981,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 22
+   "latency_ms": 152
   },
   {
    "id": 62,
@@ -1992,16 +1992,16 @@
    "turns": [
     {
      "question": "What's the symbol for sodium?",
-     "output": "Sodium's chemical symbol is Na.",
+     "output": "The chemical symbol for sodium is Na.",
      "route": "knowledge",
-     "subject": "sodium",
-     "relation": "symbol",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 117,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2010,7 +2010,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 117
   },
   {
    "id": 63,
@@ -2030,7 +2030,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 82,
+     "latency_ms": 130,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2039,7 +2039,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 82
+   "latency_ms": 130
   },
   {
    "id": 64,
@@ -2050,18 +2050,16 @@
    "turns": [
     {
      "question": "What is the largest planet in the solar system?",
-     "output": "Jupiter is the largest planet in the Solar System, a gas giant more than 300 times Earth's mass.",
+     "output": "Jupiter is the largest planet in the solar system and has a Great Red Spot storm.",
      "route": "knowledge",
-     "subject": "Jupiter",
+     "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [
-      "Solar System",
-      "Jupiter",
-      "Mercury (planet)"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 59,
+     "latency_ms": 147,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2070,7 +2068,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 59
+   "latency_ms": 147
   },
   {
    "id": 65,
@@ -2081,7 +2079,7 @@
    "turns": [
     {
      "question": "Who was the first person on the moon?",
-     "output": "Neil Armstrong was the first person to walk on the Moon, on 20 July 1969, during the Apollo 11 mission.",
+     "output": "Neil Armstrong lived from 1930 to 2012 and is known for being the first person on the Moon.",
      "route": "knowledge",
      "subject": "",
      "relation": "",
@@ -2090,7 +2088,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 118,
+     "latency_ms": 161,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2099,7 +2097,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 118
+   "latency_ms": 161
   },
   {
    "id": 66,
@@ -2110,14 +2108,14 @@
    "turns": [
     {
      "question": "17 times 23",
-     "output": "17 * 23 comes to 391.",
+     "output": "17 * 23 works out to 391.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 19,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2126,7 +2124,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 19
   },
   {
    "id": 67,
@@ -2144,7 +2142,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 30,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2153,7 +2151,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 30
+   "latency_ms": 35
   },
   {
    "id": 68,
@@ -2164,14 +2162,14 @@
    "turns": [
     {
      "question": "two to the power of ten",
-     "output": "2 ^ 10 equals 1024.",
+     "output": "2 ^ 10 = 1024.",
      "route": "compute",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 20,
+     "latency_ms": 25,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2180,7 +2178,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 20
+   "latency_ms": 25
   },
   {
    "id": 69,
@@ -2198,7 +2196,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2207,7 +2205,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 11
   },
   {
    "id": 70,
@@ -2225,7 +2223,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 35,
+     "latency_ms": 36,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2234,7 +2232,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 35
+   "latency_ms": 36
   },
   {
    "id": 71,
@@ -2245,14 +2243,14 @@
    "turns": [
     {
      "question": "If a train goes 80 km/h for 3 hours how far?",
-     "output": "It covers 240 kilometres.",
-     "route": "compute",
+     "output": "240 kilometers",
+     "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 32,
+     "latency_ms": 30,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2261,7 +2259,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 32
+   "latency_ms": 30
   },
   {
    "id": 72,
@@ -2272,8 +2270,8 @@
    "turns": [
     {
      "question": "Convert 100 kilometers to miles.",
-     "output": "That comes to 62.1371 miles.",
-     "route": "compute",
+     "output": "100 kilometers = 62.137119 miles",
+     "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
@@ -2299,14 +2297,14 @@
    "turns": [
     {
      "question": "How many minutes are in 3.5 hours?",
-     "output": "That comes to 210 minutes.",
-     "route": "compute",
+     "output": "210 minutes",
+     "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 19,
+     "latency_ms": 21,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2315,7 +2313,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 19
+   "latency_ms": 21
   },
   {
    "id": 74,
@@ -2333,7 +2331,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2342,7 +2340,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 14
   },
   {
    "id": 75,
@@ -2353,14 +2351,14 @@
    "turns": [
     {
      "question": "What is 20 degrees Celsius in Fahrenheit?",
-     "output": "That is 68 °F.",
-     "route": "compute",
+     "output": "68 °F",
+     "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 27,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2369,7 +2367,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 27
   },
   {
    "id": 76,
@@ -2380,14 +2378,14 @@
    "turns": [
     {
      "question": "Every Gleeb is a Florp, and every Florp is a Quon. Is every Gleeb a Quon?",
-     "output": "Yes. Every Gleeb is in a category that is itself contained in Quon, so the containment carries through.",
+     "output": "Yes — every Gleeb is a Florp, and every Florp is a Quon, so all gleeb are quons.",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 40,
+     "latency_ms": 39,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2396,7 +2394,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 40
+   "latency_ms": 39
   },
   {
    "id": 77,
@@ -2407,14 +2405,14 @@
    "turns": [
     {
      "question": "All squares are rectangles. All rectangles are shapes. Are all squares shapes?",
-     "output": "Yes. Every square is in a category that is itself contained in shapes, so the containment carries through.",
+     "output": "Yes — all squares are rectangles, and all rectangles are shapes, so all squares are shapes.",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 40,
+     "latency_ms": 48,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2423,7 +2421,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 40
+   "latency_ms": 48
   },
   {
    "id": 78,
@@ -2434,34 +2432,7 @@
    "turns": [
     {
      "question": "Some birds are parrots. All parrots are animals. Are some birds animals?",
-     "output": "Yes. Some birds are parrots, and every parrot is an animal.",
-     "route": "reason",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 45,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 45
-  },
-  {
-   "id": 79,
-   "cat": "reason",
-   "question": "No cats are dogs. Some pets are cats. Can all pets be dogs?",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "No cats are dogs. Some pets are cats. Can all pets be dogs?",
-     "output": "No. Some pets are cats, and no cats are dogs. Those pets therefore cannot be dogs, so not all of them can.",
+     "output": "Yes — some birds are parrots, so some birds are animals.",
      "route": "reason",
      "subject": "",
      "relation": "",
@@ -2480,6 +2451,33 @@
    "latency_ms": 43
   },
   {
+   "id": 79,
+   "cat": "reason",
+   "question": "No cats are dogs. Some pets are cats. Can all pets be dogs?",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "No cats are dogs. Some pets are cats. Can all pets be dogs?",
+     "output": "No — some pets are cats, and no cats are dogs, so not every pet can be a dog.",
+     "route": "reason",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 41,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 41
+  },
+  {
    "id": 80,
    "cat": "reason",
    "question": "What comes next: 3, 6, 12, 24, ?",
@@ -2488,7 +2486,34 @@
    "turns": [
     {
      "question": "What comes next: 3, 6, 12, 24, ?",
-     "output": "48. In 3, 6, 12, 24, each term multiplies by 2.",
+     "output": "48",
+     "route": "reason",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 22,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 22
+  },
+  {
+   "id": 81,
+   "cat": "reason",
+   "question": "Continue the sequence 1, 4, 9, 16, 25",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "Continue the sequence 1, 4, 9, 16, 25",
+     "output": "36",
      "route": "reason",
      "subject": "",
      "relation": "",
@@ -2507,33 +2532,6 @@
    "latency_ms": 20
   },
   {
-   "id": 81,
-   "cat": "reason",
-   "question": "Continue the sequence 1, 4, 9, 16, 25",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "Continue the sequence 1, 4, 9, 16, 25",
-     "output": "36. In 1, 4, 9, 16, 25, the terms are consecutive squares.",
-     "route": "reason",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 17,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 17
-  },
-  {
    "id": 82,
    "cat": "reason",
    "question": "What number comes next: 5, 10, 15, 20?",
@@ -2542,7 +2540,61 @@
    "turns": [
     {
      "question": "What number comes next: 5, 10, 15, 20?",
-     "output": "25. In 5, 10, 15, 20, each term adds 5.",
+     "output": "25",
+     "route": "reason",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 32,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 32
+  },
+  {
+   "id": 83,
+   "cat": "reason",
+   "question": "Tom is taller than Sue and Sue is taller than Ann. Who is tallest?",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "Tom is taller than Sue and Sue is taller than Ann. Who is tallest?",
+     "output": "Tom",
+     "route": "reason",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 68,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 68
+  },
+  {
+   "id": 84,
+   "cat": "reason",
+   "question": "If Monday is day 1, what day is day 10?",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "If Monday is day 1, what day is day 10?",
+     "output": "Wednesday. Day 10 is 9 days after day 1, and 9 mod 7 is 2.",
      "route": "reason",
      "subject": "",
      "relation": "",
@@ -2561,60 +2613,6 @@
    "latency_ms": 28
   },
   {
-   "id": 83,
-   "cat": "reason",
-   "question": "Tom is taller than Sue and Sue is taller than Ann. Who is tallest?",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "Tom is taller than Sue and Sue is taller than Ann. Who is tallest?",
-     "output": "Tom. Ordering the statements gives Tom > Sue > Ann.",
-     "route": "reason",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 45,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 45
-  },
-  {
-   "id": 84,
-   "cat": "reason",
-   "question": "If Monday is day 1, what day is day 10?",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "If Monday is day 1, what day is day 10?",
-     "output": "Wednesday. Day 10 is 9 days after day 1, and 9 mod 7 is 2.",
-     "route": "reason",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 24,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 24
-  },
-  {
    "id": 85,
    "cat": "reason",
    "question": "A bag has 3 red and 7 blue balls. What is the probability of drawing red?",
@@ -2623,14 +2621,14 @@
    "turns": [
     {
      "question": "A bag has 3 red and 7 blue balls. What is the probability of drawing red?",
-     "output": "The chance is 0.3 (3/10, or 30%).",
-     "route": "compute",
+     "output": "3/10 (0.3, or 30%)",
+     "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 42,
+     "latency_ms": 39,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2639,7 +2637,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 42
+   "latency_ms": 39
   },
   {
    "id": 86,
@@ -2659,7 +2657,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 129,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2668,7 +2666,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 129
   },
   {
    "id": 87,
@@ -2688,7 +2686,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 12,
+     "latency_ms": 138,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2697,7 +2695,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 138
   },
   {
    "id": 88,
@@ -2717,7 +2715,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 19,
+     "latency_ms": 140,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2726,7 +2724,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 19
+   "latency_ms": 140
   },
   {
    "id": 89,
@@ -2746,7 +2744,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 20,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2755,7 +2753,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 20
   },
   {
    "id": 90,
@@ -2775,7 +2773,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 144,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2784,7 +2782,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 4
+   "latency_ms": 144
   },
   {
    "id": 91,
@@ -2795,16 +2793,14 @@
    "turns": [
     {
      "question": "what is an api",
-     "output": "An API, or application programming interface, is a defined contract that lets one piece of software call another. It is used for letting programs use each other's functionality without sharing internals.",
-     "route": "knowledge",
-     "subject": "API",
+     "output": "An API (Application Programming Interface) is a defined way for one piece of software to request data or actions from another — for example a web service that answers HTTP requests.",
+     "route": "code",
+     "subject": "",
      "relation": "",
      "web_used": false,
-     "sources": [
-      "local knowledge base"
-     ],
+     "sources": [],
      "used": [],
-     "latency_ms": 6,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2813,7 +2809,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 6
+   "latency_ms": 4
   },
   {
    "id": 92,
@@ -2833,7 +2829,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 161,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2842,7 +2838,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 161
   },
   {
    "id": 93,
@@ -2862,7 +2858,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 121,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2871,7 +2867,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 121
   },
   {
    "id": 94,
@@ -2891,7 +2887,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 143,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2900,7 +2896,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 143
   },
   {
    "id": 95,
@@ -2911,7 +2907,7 @@
    "turns": [
     {
      "question": "what is a recession",
-     "output": "A recession is a significant, broad decline in economic activity lasting more than a few months, often marked by two consecutive quarters of falling GDP. It is caused by falling demand, tightening credit or an external shock.",
+     "output": "A recession is a significant, broad decline in economic activity lasting more than a few months, often marked by two consecutive quarters of falling GDP. It results from falling demand, tightening credit or an external shock.",
      "route": "knowledge",
      "subject": "recession",
      "relation": "",
@@ -2920,7 +2916,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 144,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2929,7 +2925,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 4
+   "latency_ms": 144
   },
   {
    "id": 96,
@@ -2949,7 +2945,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 88,
+     "latency_ms": 148,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2958,7 +2954,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 88
+   "latency_ms": 148
   },
   {
    "id": 97,
@@ -2978,7 +2974,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 67,
+     "latency_ms": 83,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -2987,7 +2983,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 67
+   "latency_ms": 83
   },
   {
    "id": 98,
@@ -3007,7 +3003,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 110,
+     "latency_ms": 163,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3016,7 +3012,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 110
+   "latency_ms": 163
   },
   {
    "id": 99,
@@ -3036,7 +3032,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 91,
+     "latency_ms": 167,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3045,7 +3041,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 91
+   "latency_ms": 167
   },
   {
    "id": 100,
@@ -3056,16 +3052,16 @@
    "turns": [
     {
      "question": "why is the ocean salty",
-     "output": "The ocean is salty because rivers carry dissolved minerals into it and evaporation leaves the salt behind. Rain is slightly acidic and slowly weathers rock, dissolving mineral ions. Rivers carry those ions to the sea. Water evaporates from the ocean but salt does not, so over hundreds of millions of years the dissolved salts have accumulated.",
-     "route": "explanation",
-     "subject": "ocean salinity",
+     "output": "The ocean is salty because rivers carry dissolved minerals from rocks into the sea, and the water evaporates and leaves the salt behind.",
+     "route": "knowledge",
+     "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 89,
+     "latency_ms": 138,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3074,7 +3070,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 89
+   "latency_ms": 138
   },
   {
    "id": 101,
@@ -3085,7 +3081,7 @@
    "turns": [
     {
      "question": "tcp vs udp",
-     "output": "TCP and UDP differ in 5 main ways. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, while UDP makes no ordering guarantee. TCP is larger headers and more round trips, while UDP is minimal header and no setup cost.",
+     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, while UDP makes no ordering guarantee. TCP is larger headers and more round trips, while UDP is minimal header and no setup cost.",
      "route": "comparison",
      "subject": "TCP / UDP",
      "relation": "",
@@ -3094,7 +3090,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 16,
+     "latency_ms": 18,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3103,7 +3099,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 18
   },
   {
    "id": 102,
@@ -3114,7 +3110,7 @@
    "turns": [
     {
      "question": "difference between ram and ssd",
-     "output": "RAM and SSD differ in 4 main respects. RAM loses its contents when power is removed, whereas SSD keeps data without power. RAM is nanosecond access, directly addressable by the CPU, whereas SSD is microsecond access over a storage bus. RAM is working memory for running programs, whereas SSD is persistent storage for files and programs. RAM is smaller and far more expensive per gigabyte, whereas SSD is much larger and cheaper per gigabyte.",
+     "output": "RAM and SSD differ in 4 main ways. RAM loses its contents when power is removed, while SSD keeps data without power. RAM is nanosecond access, directly addressable by the CPU, while SSD is microsecond access over a storage bus. RAM is working memory for running programs, while SSD is persistent storage for files and programs. RAM is smaller and far more expensive per gigabyte, while SSD is much larger and cheaper per gigabyte.",
      "route": "comparison",
      "subject": "RAM / SSD",
      "relation": "",
@@ -3123,7 +3119,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 26,
+     "latency_ms": 34,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3132,7 +3128,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 26
+   "latency_ms": 34
   },
   {
    "id": 103,
@@ -3143,7 +3139,7 @@
    "turns": [
     {
      "question": "how do http and https differ",
-     "output": "HTTP and HTTPS differ in 3 main ways. HTTP sends requests and responses in the clear, while HTTPS wraps the same protocol in TLS encryption. HTTP is no server authentication, while HTTPS are the server presents a certificate that the client verifies. HTTP is 80, while HTTPS are 443.",
+     "output": "HTTP and HTTPS differ in 3 main respects. HTTP sends requests and responses in the clear, while HTTPS wraps the same protocol in TLS encryption. HTTP is no server authentication, while HTTPS are the server presents a certificate that the client verifies. HTTP is 80, while HTTPS are 443.",
      "route": "comparison",
      "subject": "HTTP / HTTPS",
      "relation": "",
@@ -3152,7 +3148,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 121,
+     "latency_ms": 171,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3161,7 +3157,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 121
+   "latency_ms": 171
   },
   {
    "id": 104,
@@ -3172,7 +3168,7 @@
    "turns": [
     {
      "question": "compare sql and nosql databases",
-     "output": "SQL and NoSQL differ in one respect. SQL is SQL, Structured Query Language, is the declarative language for querying and modifying relational databases, whereas NoSQL is NoSQL databases relax the relational model for scale or flexibility, using document, key-value, column or graph structures.",
+     "output": "SQL and NoSQL differ in one respect. SQL is SQL, Structured Query Language, is the declarative language for querying and modifying relational databases, while NoSQL is NoSQL databases relax the relational model for scale or flexibility, using document, key-value, column or graph structures.",
      "route": "comparison",
      "subject": "SQL / NoSQL",
      "relation": "",
@@ -3181,7 +3177,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 39,
+     "latency_ms": 38,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3190,7 +3186,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 39
+   "latency_ms": 38
   },
   {
    "id": 105,
@@ -3210,7 +3206,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 9,
+     "latency_ms": 153,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3229,7 +3225,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 81,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3239,16 +3235,16 @@
     },
     {
      "question": "when was she born?",
-     "output": "Marie Curie's date of birth is 7 November 1867.",
+     "output": "Marie Curie was born in 1867.",
      "route": "knowledge",
-     "subject": "Marie Curie",
-     "relation": "birth",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 4,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3257,7 +3253,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 95
+   "latency_ms": 163
   },
   {
    "id": 106,
@@ -3277,7 +3273,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 143,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3296,7 +3292,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 75,
+     "latency_ms": 8,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3305,7 +3301,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 80
+   "latency_ms": 151
   },
   {
    "id": 107,
@@ -3316,7 +3312,7 @@
    "turns": [
     {
      "question": "Compare TCP and UDP.",
-     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, whereas UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, whereas UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, whereas UDP makes no ordering guarantee. TCP is larger headers and more round trips, whereas UDP is minimal header and no setup cost.",
+     "output": "TCP and UDP differ in 5 main respects. TCP sets up a connection with a three-way handshake, while UDP sends datagrams with no handshake. TCP retransmits lost segments and guarantees delivery, while UDP does not retransmit; losses are simply lost. TCP delivers bytes in the order they were sent, while UDP makes no ordering guarantee. TCP is larger headers and more round trips, while UDP is minimal header and no setup cost.",
      "route": "comparison",
      "subject": "TCP / UDP",
      "relation": "",
@@ -3325,7 +3321,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 32,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3344,7 +3340,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 109,
+     "latency_ms": 161,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3353,7 +3349,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 134
+   "latency_ms": 193
   },
   {
    "id": 108,
@@ -3364,7 +3360,7 @@
    "turns": [
     {
      "question": "What is the capital of France?",
-     "output": "The capital of France is Paris. It is in Western Europe.",
+     "output": "France's capital is Paris. It is in Western Europe.",
      "route": "knowledge",
      "subject": "France",
      "relation": "capital",
@@ -3373,7 +3369,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 10,
+     "latency_ms": 140,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3383,7 +3379,7 @@
     },
     {
      "question": "and Germany?",
-     "output": "Germany's capital is Berlin. It is in Central Europe.",
+     "output": "The capital of Germany is Berlin. It is in Central Europe.",
      "route": "knowledge",
      "subject": "Germany",
      "relation": "capital",
@@ -3392,7 +3388,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 6,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3401,7 +3397,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 146
   },
   {
    "id": 109,
@@ -3421,7 +3417,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 135,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3440,7 +3436,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 70,
+     "latency_ms": 9,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3449,7 +3445,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 77
+   "latency_ms": 144
   },
   {
    "id": 110,
@@ -3469,7 +3465,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 147,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3488,7 +3484,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 79,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3498,7 +3494,7 @@
     },
     {
      "question": "Never mind. What is 12 * 12?",
-     "output": "12 * 12 = 144.",
+     "output": "12 * 12 works out to 144.",
      "route": "compute",
      "subject": "",
      "relation": "",
@@ -3514,7 +3510,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 94
+   "latency_ms": 168
   },
   {
    "id": 111,
@@ -3534,7 +3530,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 26,
+     "latency_ms": 24,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3543,7 +3539,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 26
+   "latency_ms": 24
   },
   {
    "id": 112,
@@ -3563,7 +3559,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 12,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3572,7 +3568,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 12
+   "latency_ms": 14
   },
   {
    "id": 113,
@@ -3592,7 +3588,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 19,
+     "latency_ms": 15,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3601,7 +3597,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 19
+   "latency_ms": 15
   },
   {
    "id": 114,
@@ -3619,7 +3615,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 13,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3628,7 +3624,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 13
   },
   {
    "id": 115,
@@ -3648,7 +3644,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 35,
+     "latency_ms": 31,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3657,7 +3653,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 35
+   "latency_ms": 31
   },
   {
    "id": 116,
@@ -3675,7 +3671,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 37,
+     "latency_ms": 41,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3684,7 +3680,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 37
+   "latency_ms": 41
   },
   {
    "id": 117,
@@ -3722,7 +3718,7 @@
    "turns": [
     {
      "question": "Do spiders have six legs?",
-     "output": "Insects have six legs, three body parts and usually wings, and spiders have eight legs and are arachnids.",
+     "output": "Spiders are arachnids, not insects, and have eight legs, while insects have six legs.",
      "route": "knowledge",
      "subject": "",
      "relation": "",
@@ -3731,7 +3727,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 121,
+     "latency_ms": 179,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3740,7 +3736,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 121
+   "latency_ms": 179
   },
   {
    "id": 119,
@@ -3751,16 +3747,16 @@
    "turns": [
     {
      "question": "What is the capital of the country where the Eiffel Tower is?",
-     "output": "The capital of France is Paris.",
+     "output": "The capital of France is Paris. (France is the country with Eiffel Tower.)",
      "route": "knowledge",
-     "subject": "France",
-     "relation": "capital",
+     "subject": "Eiffel Tower",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 52,
+     "latency_ms": 145,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3769,7 +3765,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 52
+   "latency_ms": 145
   },
   {
    "id": 120,
@@ -3789,7 +3785,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 144,
+     "latency_ms": 197,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3798,7 +3794,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 144
+   "latency_ms": 197
   },
   {
    "id": 121,
@@ -3809,7 +3805,7 @@
    "turns": [
     {
      "question": "What language is spoken in the country whose capital is Lisbon?",
-     "output": "The language of Portugal is Portuguese.",
+     "output": "People in Portugal speak Portuguese.",
      "route": "knowledge",
      "subject": "Portugal",
      "relation": "language",
@@ -3818,7 +3814,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 153,
+     "latency_ms": 194,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3827,7 +3823,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 153
+   "latency_ms": 194
   },
   {
    "id": 122,
@@ -3838,14 +3834,14 @@
    "turns": [
     {
      "question": "hey",
-     "output": "Hi — what would you like to know?",
+     "output": "Hi there — what are we looking into?",
      "route": "conversation",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 9,
+     "latency_ms": 14,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3854,7 +3850,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 9
+   "latency_ms": 14
   },
   {
    "id": 123,
@@ -3865,14 +3861,14 @@
    "turns": [
     {
      "question": "thanks, that helps",
-     "output": "Any time.",
+     "output": "You're welcome.",
      "route": "conversation",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 15,
+     "latency_ms": 19,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -3881,7 +3877,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 19
   },
   {
    "id": 124,
@@ -3893,6 +3889,87 @@
     {
      "question": "hmm, that's interesting",
      "output": "Makes sense.",
+     "route": "conversation",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 11,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 11
+  },
+  {
+   "id": 125,
+   "cat": "chat",
+   "question": "what are you?",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "what are you?",
+     "output": "I'm a language system that runs locally in this page. I answer questions from a built-in knowledge base, work through arithmetic, algebra, word problems and logic, write small programs, and chat — without calling an outside AI service.",
+     "route": "conversation",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 4,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 4
+  },
+  {
+   "id": 126,
+   "cat": "remark",
+   "question": "you see the issue, it needs better lookup",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "you see the issue, it needs better lookup",
+     "output": "Got it. What would you like me to work out?",
+     "route": "conversation",
+     "subject": "",
+     "relation": "",
+     "web_used": false,
+     "sources": [],
+     "used": [],
+     "latency_ms": 79,
+     "correct": true,
+     "issues": [],
+     "synthesis_defects": [],
+     "hallucination": false,
+     "timed_out": false,
+     "error": ""
+    }
+   ],
+   "latency_ms": 79
+  },
+  {
+   "id": 127,
+   "cat": "edge",
+   "question": "",
+   "dialogue": false,
+   "pass": true,
+   "turns": [
+    {
+     "question": "",
+     "output": "Ask me anything — a fact, a calculation, an explanation, or something to build.",
      "route": "conversation",
      "subject": "",
      "relation": "",
@@ -3911,87 +3988,6 @@
    "latency_ms": 3
   },
   {
-   "id": 125,
-   "cat": "chat",
-   "question": "what are you?",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "what are you?",
-     "output": "I'm CELL4's local language system. I run in your browser: I answer from a local knowledge base and reasoning engine, and I only go to public data sources when a question needs current information.",
-     "route": "conversation",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 6,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 6
-  },
-  {
-   "id": 126,
-   "cat": "remark",
-   "question": "you see the issue, it needs better lookup",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "you see the issue, it needs better lookup",
-     "output": "Understood — say more and I'll dig in.",
-     "route": "conversation",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 78,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 78
-  },
-  {
-   "id": 127,
-   "cat": "edge",
-   "question": "",
-   "dialogue": false,
-   "pass": true,
-   "turns": [
-    {
-     "question": "",
-     "output": "Ask me anything — a fact, a calculation, an explanation, or something to build.",
-     "route": "conversation",
-     "subject": "",
-     "relation": "",
-     "web_used": false,
-     "sources": [],
-     "used": [],
-     "latency_ms": 7,
-     "correct": true,
-     "issues": [],
-     "synthesis_defects": [],
-     "hallucination": false,
-     "timed_out": false,
-     "error": ""
-    }
-   ],
-   "latency_ms": 7
-  },
-  {
    "id": 128,
    "cat": "edge",
    "question": "?????",
@@ -4007,7 +4003,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4016,7 +4012,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 11
   },
   {
    "id": 129,
@@ -4034,7 +4030,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 87,
+     "latency_ms": 154,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4043,7 +4039,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 87
+   "latency_ms": 154
   },
   {
    "id": 130,
@@ -4063,7 +4059,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 62,
+     "latency_ms": 67,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4072,7 +4068,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 62
+   "latency_ms": 67
   },
   {
    "id": 131,
@@ -4094,7 +4090,7 @@
      "used": [
       "this site"
      ],
-     "latency_ms": 15,
+     "latency_ms": 182,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4103,7 +4099,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 15
+   "latency_ms": 182
   },
   {
    "id": 132,
@@ -4123,7 +4119,7 @@
       "The text sibling"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 178,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4132,7 +4128,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 178
   },
   {
    "id": 133,
@@ -4152,7 +4148,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 11,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4161,7 +4157,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 11
   },
   {
    "id": 134,
@@ -4181,7 +4177,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 4,
+     "latency_ms": 152,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4190,7 +4186,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 4
+   "latency_ms": 152
   },
   {
    "id": 135,
@@ -4201,16 +4197,14 @@
    "turns": [
     {
      "question": "What is a compiler?",
-     "output": "A compiler translates source code in one language into another form — usually machine code — before the program runs. It is used for turning source code into executable form.",
-     "route": "knowledge",
-     "subject": "compiler",
+     "output": "A compiler translates source code written in a programming language into machine code (or another language) before the program runs.",
+     "route": "code",
+     "subject": "",
      "relation": "",
      "web_used": false,
-     "sources": [
-      "local knowledge base"
-     ],
+     "sources": [],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 16,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4219,7 +4213,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 16
   },
   {
    "id": 136,
@@ -4230,7 +4224,7 @@
    "turns": [
     {
      "question": "What is an engine?",
-     "output": "An engine is a machine or software component that converts input into useful work — a heat engine turns fuel into motion. It is also a software engine turns data and rules into results. It is used for converting an input into useful work.",
+     "output": "An engine is a machine or software component that converts input into useful work — a heat engine turns fuel into motion, a software engine turns data and rules into results. It is used for converting an input into useful work.",
      "route": "knowledge",
      "subject": "engine",
      "relation": "",
@@ -4239,7 +4233,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 161,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4248,7 +4242,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 7
+   "latency_ms": 161
   },
   {
    "id": 137,
@@ -4259,7 +4253,7 @@
    "turns": [
     {
      "question": "When did World War II end?",
-     "output": "World War II ended in 1945: Germany surrendered in May and Japan surrendered in August and September.",
+     "output": "World War II ended when Japan surrendered in 1945.",
      "route": "knowledge",
      "subject": "World War II",
      "relation": "",
@@ -4268,7 +4262,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 101,
+     "latency_ms": 151,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4277,7 +4271,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 101
+   "latency_ms": 151
   },
   {
    "id": 138,
@@ -4288,7 +4282,7 @@
    "turns": [
     {
      "question": "Who was the first president of the United States?",
-     "output": "George Washington was the first president of the United States, serving from 1789 to 1797.",
+     "output": "The first president of the United States was George Washington.",
      "route": "knowledge",
      "subject": "United States",
      "relation": "",
@@ -4297,7 +4291,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 98,
+     "latency_ms": 177,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4306,7 +4300,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 98
+   "latency_ms": 177
   },
   {
    "id": 139,
@@ -4326,7 +4320,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 156,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4335,7 +4329,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 156
   },
   {
    "id": 140,
@@ -4346,7 +4340,7 @@
    "turns": [
     {
      "question": "What is supply and demand?",
-     "output": "Supply and demand is the model in which price moves until the quantity buyers want equals the quantity sellers offer. It consists of a supply curve, a demand curve and an equilibrium price.",
+     "output": "Supply and demand is the model in which price moves until the quantity buyers want equals the quantity sellers offer. It is made up of a supply curve, a demand curve and an equilibrium price.",
      "route": "knowledge",
      "subject": "supply and demand",
      "relation": "",
@@ -4355,7 +4349,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 168,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4364,7 +4358,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 168
   },
   {
    "id": 141,
@@ -4384,7 +4378,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 8,
+     "latency_ms": 176,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4393,7 +4387,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 8
+   "latency_ms": 176
   },
   {
    "id": 142,
@@ -4404,16 +4398,16 @@
    "turns": [
     {
      "question": "How many bones are in the human body?",
-     "output": "The human body has 206 bones in an adult.",
+     "output": "The adult human body has 206 bones, and a baby is born with about 300.",
      "route": "knowledge",
-     "subject": "human body",
-     "relation": "count",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 92,
+     "latency_ms": 195,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4422,7 +4416,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 92
+   "latency_ms": 195
   },
   {
    "id": 143,
@@ -4433,16 +4427,16 @@
    "turns": [
     {
      "question": "What is the boiling point of water?",
-     "output": "Water boils at 100 °C at sea-level pressure.",
+     "output": "The boiling point of water at sea level is 100 degrees Celsius.",
      "route": "knowledge",
-     "subject": "water",
-     "relation": "boiling",
+     "subject": "",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 5,
+     "latency_ms": 174,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4451,7 +4445,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 5
+   "latency_ms": 174
   },
   {
    "id": 144,
@@ -4471,7 +4465,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 80,
+     "latency_ms": 156,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4480,7 +4474,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 80
+   "latency_ms": 156
   },
   {
    "id": 145,
@@ -4491,7 +4485,7 @@
    "turns": [
     {
      "question": "What is a black hole?",
-     "output": "A black hole is a region of spacetime where gravity is so strong that nothing, not even light, can escape. It results from the gravitational collapse of a massive star.",
+     "output": "A black hole is a region of spacetime where gravity is so strong that nothing, not even light, can escape. It is caused by the gravitational collapse of a massive star.",
      "route": "knowledge",
      "subject": "black hole",
      "relation": "",
@@ -4500,7 +4494,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 9,
+     "latency_ms": 197,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4509,7 +4503,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 9
+   "latency_ms": 197
   },
   {
    "id": 146,
@@ -4527,7 +4521,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 29,
+     "latency_ms": 54,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4536,7 +4530,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 29
+   "latency_ms": 54
   },
   {
    "id": 147,
@@ -4554,7 +4548,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 35,
+     "latency_ms": 50,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4563,7 +4557,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 35
+   "latency_ms": 50
   },
   {
    "id": 148,
@@ -4581,7 +4575,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 13,
+     "latency_ms": 26,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4590,7 +4584,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 13
+   "latency_ms": 26
   },
   {
    "id": 149,
@@ -4601,7 +4595,7 @@
    "turns": [
     {
      "question": "Explain what a REST API is.",
-     "output": "REST is an architectural style for web APIs: resources have URLs, HTTP methods express the operation, and each request carries everything the server needs. It consists of resources, HTTP verbs, statelessness and representations.",
+     "output": "REST is an architectural style for web APIs: resources have URLs, HTTP methods express the operation, and each request carries everything the server needs. It is made up of resources, HTTP verbs, statelessness and representations.",
      "route": "knowledge",
      "subject": "REST",
      "relation": "",
@@ -4610,7 +4604,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 14,
+     "latency_ms": 40,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4619,7 +4613,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 14
+   "latency_ms": 40
   },
   {
    "id": 150,
@@ -4637,7 +4631,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 34,
+     "latency_ms": 55,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4646,7 +4640,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 34
+   "latency_ms": 55
   },
   {
    "id": 151,
@@ -4666,7 +4660,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 87,
+     "latency_ms": 155,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4675,7 +4669,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 87
+   "latency_ms": 155
   },
   {
    "id": 152,
@@ -4695,7 +4689,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 92,
+     "latency_ms": 164,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4704,7 +4698,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 92
+   "latency_ms": 164
   },
   {
    "id": 153,
@@ -4724,7 +4718,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 99,
+     "latency_ms": 182,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4733,7 +4727,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 99
+   "latency_ms": 182
   },
   {
    "id": 154,
@@ -4753,7 +4747,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 86,
+     "latency_ms": 181,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4762,7 +4756,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 86
+   "latency_ms": 181
   },
   {
    "id": 155,
@@ -4782,7 +4776,7 @@
       "The volatility abstraction does not fire on these games"
      ],
      "used": [],
-     "latency_ms": 132,
+     "latency_ms": 206,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4791,7 +4785,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 132
+   "latency_ms": 206
   },
   {
    "id": 156,
@@ -4811,7 +4805,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 110,
+     "latency_ms": 212,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4820,7 +4814,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 110
+   "latency_ms": 212
   },
   {
    "id": 157,
@@ -4841,7 +4835,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 130,
+     "latency_ms": 205,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4850,7 +4844,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 130
+   "latency_ms": 205
   },
   {
    "id": 158,
@@ -4870,7 +4864,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 108,
+     "latency_ms": 195,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4879,7 +4873,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 108
+   "latency_ms": 195
   },
   {
    "id": 159,
@@ -4899,7 +4893,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 112,
+     "latency_ms": 218,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4908,7 +4902,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 112
+   "latency_ms": 218
   },
   {
    "id": 160,
@@ -4928,7 +4922,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 120,
+     "latency_ms": 228,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4937,7 +4931,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 120
+   "latency_ms": 228
   },
   {
    "id": 161,
@@ -4957,7 +4951,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 104,
+     "latency_ms": 273,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4966,7 +4960,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 104
+   "latency_ms": 273
   },
   {
    "id": 162,
@@ -4986,7 +4980,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 189,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -4995,7 +4989,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 7
+   "latency_ms": 189
   },
   {
    "id": 163,
@@ -5015,7 +5009,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 7,
+     "latency_ms": 173,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5024,7 +5018,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 7
+   "latency_ms": 173
   },
   {
    "id": 164,
@@ -5044,7 +5038,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 16,
+     "latency_ms": 180,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5053,7 +5047,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 180
   },
   {
    "id": 165,
@@ -5073,7 +5067,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 16,
+     "latency_ms": 181,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5082,7 +5076,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 16
+   "latency_ms": 181
   },
   {
    "id": 166,
@@ -5102,7 +5096,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 25,
+     "latency_ms": 183,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5111,7 +5105,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 25
+   "latency_ms": 183
   },
   {
    "id": 167,
@@ -5131,7 +5125,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 26,
+     "latency_ms": 188,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5140,7 +5134,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 26
+   "latency_ms": 188
   },
   {
    "id": 168,
@@ -5160,7 +5154,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 20,
+     "latency_ms": 189,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5169,7 +5163,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 20
+   "latency_ms": 189
   },
   {
    "id": 169,
@@ -5187,7 +5181,7 @@
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 24,
+     "latency_ms": 35,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5196,7 +5190,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 24
+   "latency_ms": 35
   },
   {
    "id": 170,
@@ -5207,14 +5201,14 @@
    "turns": [
     {
      "question": "If A is faster than B and C is faster than B, who is fastest?",
-     "output": "The premises don't settle that. The premises give A > B and C > B. A and C are not compared with each other, so the full order is not fixed.",
+     "output": "Not necessarily — the facts don't settle it.",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 27,
+     "latency_ms": 32,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5223,7 +5217,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 27
+   "latency_ms": 32
   },
   {
    "id": 171,
@@ -5234,14 +5228,14 @@
    "turns": [
     {
      "question": "If A is older than B and B is older than C, who is youngest?",
-     "output": "C. Ordering the statements gives A > B > C.",
+     "output": "C",
      "route": "reason",
      "subject": "",
      "relation": "",
      "web_used": false,
      "sources": [],
      "used": [],
-     "latency_ms": 31,
+     "latency_ms": 33,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5250,7 +5244,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 31
+   "latency_ms": 33
   },
   {
    "id": 172,
@@ -5261,16 +5255,16 @@
    "turns": [
     {
      "question": "Who founded Tesla?",
-     "output": "Martin Eberhard and Marc Tarpenning, later led by Elon Musk created Tesla. Tesla dates to 2003.",
+     "output": "Elon Musk founded SpaceX in 2002 and helped found Tesla.",
      "route": "knowledge",
      "subject": "Tesla",
-     "relation": "creator",
+     "relation": "",
      "web_used": false,
      "sources": [
-      "local knowledge base"
+      "local fact library"
      ],
      "used": [],
-     "latency_ms": 114,
+     "latency_ms": 163,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5279,7 +5273,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 114
+   "latency_ms": 163
   },
   {
    "id": 173,
@@ -5290,7 +5284,7 @@
    "turns": [
     {
      "question": "Who invented the telephone?",
-     "output": "Alexander Graham Bell invented the telephone in 1876.",
+     "output": "The inventor of telephone was Alexander Graham Bell.",
      "route": "knowledge",
      "subject": "",
      "relation": "",
@@ -5299,7 +5293,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 97,
+     "latency_ms": 202,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5308,7 +5302,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 97
+   "latency_ms": 202
   },
   {
    "id": 174,
@@ -5328,7 +5322,7 @@
       "local fact library"
      ],
      "used": [],
-     "latency_ms": 79,
+     "latency_ms": 183,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5337,7 +5331,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 79
+   "latency_ms": 183
   },
   {
    "id": 175,
@@ -5357,7 +5351,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 115,
+     "latency_ms": 301,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5366,7 +5360,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 115
+   "latency_ms": 301
   },
   {
    "id": 176,
@@ -5386,7 +5380,7 @@
       "local knowledge base"
      ],
      "used": [],
-     "latency_ms": 11,
+     "latency_ms": 32,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5395,7 +5389,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 11
+   "latency_ms": 32
   },
   {
    "id": 177,
@@ -5415,7 +5409,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 210,
+     "latency_ms": 230,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5424,7 +5418,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 210
+   "latency_ms": 230
   },
   {
    "id": 178,
@@ -5444,7 +5438,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 121,
+     "latency_ms": 233,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5453,7 +5447,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 121
+   "latency_ms": 233
   },
   {
    "id": 179,
@@ -5473,7 +5467,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 126,
+     "latency_ms": 230,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5482,7 +5476,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 126
+   "latency_ms": 230
   },
   {
    "id": 180,
@@ -5502,7 +5496,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 118,
+     "latency_ms": 206,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5511,7 +5505,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 118
+   "latency_ms": 206
   },
   {
    "id": 181,
@@ -5531,7 +5525,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 156,
+     "latency_ms": 193,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5540,7 +5534,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 156
+   "latency_ms": 193
   },
   {
    "id": 182,
@@ -5561,7 +5555,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 127,
+     "latency_ms": 223,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5570,7 +5564,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 127
+   "latency_ms": 223
   },
   {
    "id": 183,
@@ -5590,7 +5584,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 130,
+     "latency_ms": 242,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5599,7 +5593,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 130
+   "latency_ms": 242
   },
   {
    "id": 184,
@@ -5619,7 +5613,7 @@
       "word lexicon"
      ],
      "used": [],
-     "latency_ms": 148,
+     "latency_ms": 227,
      "correct": true,
      "issues": [],
      "synthesis_defects": [],
@@ -5628,7 +5622,7 @@
      "error": ""
     }
    ],
-   "latency_ms": 148
+   "latency_ms": 227
   }
  ]
 }

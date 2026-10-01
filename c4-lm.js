@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills;
 
   var state = {
     ready: false,
@@ -1525,6 +1525,9 @@
     /* Programming idioms and concepts: how do I read a file, what is recursion, what does git commit do. */
     var howto = answerHowTo(frame);
     if (howto) return howto;
+    /* Everyday skills: dates, number words, interest, statistics, translation, summaries, chemistry, physics, synonyms. */
+    var skilled = answerSkills(frame);
+    if (skilled) return skilled;
     var structured = answerProblem(frame);
     if (structured) { structured.interpretation = "structured"; return structured; }
     var r = RS.solve(frame);
@@ -1616,6 +1619,15 @@
     if (!hr || !hr.answer) return null;
     return { text: hr.answer, route: "code", confidence: hr.confidence || 0.88, sources: [], defects: [], code: hr.schema === "howto" ? hr.answer : undefined,
              language: hr.language, interpretation: "howto:" + hr.schema, howto: hr };
+  }
+
+  function answerSkills(frame) {
+    if (!SK || off("skills")) return null;
+    var sr = null;
+    try { sr = SK.solve(frame.rawText || frame.body || ""); } catch (e) { sr = null; }
+    if (!sr || !sr.answer) return null;
+    return { text: sr.answer, route: "reason", confidence: sr.confidence || 0.86, sources: [], defects: [],
+             interpretation: "skills:" + sr.schema, skills: sr };
   }
 
   function answerTools(frame) {
