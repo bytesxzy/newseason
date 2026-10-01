@@ -213,14 +213,14 @@
       return false;
     }
     if (type === "time") {
-      var yrs = text.match(/\b\d{3,4}\b|\b\d{1,2}(?:st|nd|rd|th) century\b|\bcentury\b/g) || [];
+      var yrs = text.match(/\b\d{3,4}\b|\b\d{1,2}(?:st|nd|rd|th) century\b|\bcentury\b|\b\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\b(?:January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}\b|\b(?:first|second|third|fourth|last) (?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/g) || [];
       return yrs.some(function (y) { return !inQ[String(y).toLowerCase()]; });
     }
     if (type === "quantity") {
       if (frameWord && UNIT[frameWord] && !UNIT[frameWord].test(text)) return false;
       var nums = text.match(/\b\d[\d,.]*\b/g) || [];
       return nums.some(function (n) { return !inQ[n.toLowerCase()]; }) ||
-             /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|hundred|thousand|million|billion|dozen)\b/i.test(text);
+             /\b(?:no|zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|hundred|thousand|million|billion|dozen)\b/i.test(text);
     }
     return true;
   }
@@ -252,6 +252,7 @@
     var presentQ = /^\s*(?:who|what|which)\s+(?:is|are)\b/i.test(question) && !/\b(?:first|last|original|former|ex|previous|second|third|[0-9]+(?:st|nd|rd|th))\b/i.test(question);
     var qSup = (String(question).toLowerCase().match(/\b(?:longest|largest|biggest|tallest|highest|smallest|deepest|oldest|fastest|heaviest|richest|greatest|most [a-z]+)\b/) || [])[0];
     var supRe = qSup ? new RegExp("\\b" + qSup + "\\b[^.,;]{0,40}?\\b(?:wholly|entirely|solely|only|within|inside)\\b", "i") : null;
+    var howWork = /\bhow (?:does|do|did|can)\b[^?]* (?:work|function|operate)\b/i.test(question);
     var why = /\bwhy\b|\bhow (?:come|does|do|did) .* (?:work|happen|form)\b/i.test(question) || /\bwhat (?:causes|makes|caused)\b/i.test(question);
     var pool = [];
     var best = null, second = null, i, d, k;
@@ -276,7 +277,7 @@
       for (k = 0; k < bigNums.length; k++) if (d.text.indexOf(bigNums[k]) < 0) { numsOk = false; break; }
       if (!numsOk) continue;
       /* a "why" question wants a reason, not a description of the same things */
-      if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive)|since)\b/i.test(d.text)) continue;
+      if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive)|since)\b/i.test(d.text) && !(howWork && /\bworks? by\b|\bby \w+ing\b|\bthrough\b|\busing\b|\bwhen\b|\bwhile\b|\bpumps?\b|\bconverts?\b|\bturns?\b/i.test(d.text))) continue;
       /* a focused sentence beats a long one that mentions the same words */
       var focus = matched / (matched + 0.35 * Math.max(0, d.n - hits) + 1);
       var adj = 0;

@@ -1422,6 +1422,9 @@
     if (!FX || off("facts") || !FX.size()) return null;
     var raw = String(frame.rawText || frame.body || "");
     var m = raw.match(/\b(?:differences?|distinction)\s+between\s+(?:a |an |the )?(.+?)\s+and\s+(?:a |an |the )?(.+?)[?.!]*$/i);
+    /* "Which is bigger, Texas or California?" and "Is Greenland bigger than Africa?": a sentence holding both names settles it */
+    if (!m) m = raw.match(/^\s*which\s+(?:is|was|are|were)\s+(?:the\s+)?(?:bigger|larger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|more\s+\w+|less\s+\w+)[,:]?\s+(?:the\s+)?(.+?)\s+or\s+(?:the\s+)?(.+?)[?.!]*$/i);
+    if (!m) m = raw.match(/^\s*(?:is|are|was|were)\s+(?:the\s+)?(.+?)\s+(?:bigger|larger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|more\s+\w+|less\s+\w+)\s+than\s+(?:the\s+)?(.+?)[?.!]*$/i);
     if (!m) return null;
     var A = FX.contentStems(m[1]), B = FX.contentStems(m[2]);
     if (!A.length || !B.length) return null;
@@ -1429,6 +1432,8 @@
     try { r = FX.answer(raw, { min: 0.3, top: 14 }); } catch (e) { r = null; }
     var cands = (r && r.all) || (r ? [r] : []);
     for (var i = 0; i < cands.length; i++) {
+      var isCmp = /^\s*(?:which|is|are|was|were)\b/i.test(raw) && !/\bdifference|distinction\b/i.test(raw);
+      if (isCmp && !/\b(?:than|larger|bigger|smaller|older|younger|taller|shorter|heavier|lighter|longer|faster|slower|hotter|colder|richer|farther|further|closer|higher|lower|before|after|earlier|later|more|less|while|whereas|same)\b/i.test(cands[i].text)) continue;
       var st = FX.contentStems(cands[i].text);
       if (A.every(function (w) { return st.indexOf(w) >= 0; }) && B.every(function (w) { return st.indexOf(w) >= 0; }))
         return { text: cands[i].text, route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], entity: m[1], fact: { coverage: cands[i].coverage, score: cands[i].score }, multiHop: true };
@@ -1971,6 +1976,8 @@
   }
   function stemIn(hay, t) {
     if (!t) return false;
+    /* a short word is a whole word (with an ending): "cat" is not in "category" */
+    if (t.length <= 4 && /^[a-z]+$/.test(t)) return new RegExp("(?:^|[^a-z])" + t + "(?:s|es|ed|ing|er|ers)?(?![a-z])").test(hay);
     if (hay.indexOf(t) >= 0) return true;
     var st = C.stem(t);
     if (st.length >= 3 && hay.indexOf(st) >= 0) return true;
@@ -2275,11 +2282,14 @@
     if (!docs.length) return null;
     var ask = frame.contentTokens.filter(function (t) { return !neutralToken(t) && !GENERIC_Q.test(t) && !GENERIC_Q.test(C.stem(t)); }), best = null;
     if (!ask.length || (ask.length === 1 && frame.wordCount >= 6)) return null;
+    var namedAsk = (frame.entities || []).map(function (e) { return C.flatten(e); }).filter(function (e) { return e && e.length > 2; });
     docs.forEach(function (h) {
       sentencesOf(docProse(h.doc)).forEach(function (sn) {
         var hay = C.flatten(sn), cov = ask.filter(function (t) { return stemIn(hay, t); }).length / Math.max(1, ask.length);
+        /* a sentence that leaves out the named thing asked about (France) is about something else (Mexico) */
+        if (namedAsk.length && !namedAsk.some(function (e) { return hay.indexOf(e) >= 0; })) return;
         var fit = typeFit(type, { text: sn }, frame);
-        if (ask.length >= 2 && cov < 0.66 && !(cov >= 0.5 && cov * ask.length >= 3) && !(fit > 0 && cov >= 0.4)) return;
+        if (ask.length >= 2 && cov < 0.66 && !(cov >= 0.5 && cov * ask.length >= 3) && !(fit > 0 && cov >= 0.4 && cov * ask.length >= 1.9)) return;
         var agree = docs.filter(function (o) { return o !== h && C.flatten(o.doc.text || "").indexOf(hay.slice(0, 24)) < 0 &&
           (sn.match(/\b[A-Z][a-z]+|\d[\d,.]*/g) || []).some(function (k) { return (o.doc.text || "").indexOf(k) >= 0; }); }).length;
         var sc = cov + 0.5 * Math.max(0, fit) + 0.15 * Math.min(agree, 3);

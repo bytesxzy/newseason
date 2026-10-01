@@ -592,8 +592,9 @@
     if ((m = l.match(/^is (\d+) (?:a )?prime(?: number)?$/)) || (m = l.match(/^is (\d+) prime$/))) {
       var q = +m[1];
       if (isPrime(q)) return res("Yes — " + q + " is prime.", [], "number");
+      if (q < 2) return res("No \u2014 " + q + " is not prime: a prime has exactly two different divisors, 1 and itself" + (q === 1 ? ", and 1 has only one" : "") + ".", [], "number");
       var fs = factorize(q);
-      return res("No — " + q + " = " + fs.join(" × ") + (q < 2 ? " is not prime" : "") + ".", [], "number");
+      return res("No \u2014 " + q + " = " + fs.join(" \u00d7 ") + ".", [], "number");
     }
     if ((m = l.match(/\bprime factori[sz]ation of (\d+)/)) || (m = l.match(/\bfactor (\d+) into primes/))) {
       var fz = factorize(+m[1]); var cnt = {}; fz.forEach(function (x) { cnt[x] = (cnt[x] || 0) + 1; });
@@ -966,6 +967,22 @@
     [/\b(?:play|played)\b[^?]*\b(?:video ?games?|playstation|xbox|nintendo)\b/, 1972, "video games"],
     [/\b(?:use|used|turn(?:ed)? on)\b[^?]*\b(?:light ?bulb|electric light)\b/, 1879, "the light bulb"]
   ];
+  /* continents are not countries, and Australia is both */
+  var CONTINENTS = ["africa", "antarctica", "asia", "australia", "europe", "north america", "south america", "oceania"];
+  function continentQ(text) {
+    var l = clean(text).toLowerCase().replace(/[?.!]+$/, ""), m;
+    if ((m = l.match(/^(?:is|are) (?:the )?([a-z ]+?) (?:a |an |one of the )?continents?$/))) {
+      var x = m[1].trim();
+      if (x === "australia") return res("Yes \u2014 Australia is both a country and, in the usual seven-continent model, a continent (sometimes called Oceania or Australia/Oceania).", [], "geography");
+      if (CONTINENTS.indexOf(x) >= 0) return res("Yes \u2014 " + cap0(x) + " is one of the seven continents.", [], "geography");
+      var K = root.C4LMKB, hit = K && K.resolve ? K.resolve(x, { strict: true }) : [];
+      if (hit && hit.length && /\b(?:country|island|city|ocean|sea|river|mountain|state|desert|lake)\b/i.test(hit[0].entity.defn || "")) return res("No \u2014 " + cap0(x) + " is not a continent; the seven continents are Africa, Antarctica, Asia, Australia, Europe, North America and South America.", [], "geography");
+    }
+    if ((m = l.match(/^(?:is|are) (?:the )?([a-z ]+?) (?:a |an )countr(?:y|ies)$/)) && CONTINENTS.indexOf(m[1].trim()) >= 0 && m[1].trim() !== "australia")
+      return res("No \u2014 " + cap0(m[1].trim()) + " is a continent, not a country.", [], "geography");
+    return null;
+  }
+  function cap0(w) { return w.replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
   /* "Who invented the smartphone in 1850?": the thing did not exist yet */
   var INVENTED = { telephone: 1876, phone: 1876, "light bulb": 1879, lightbulb: 1879, airplane: 1903, aeroplane: 1903, plane: 1903, television: 1926, tv: 1926, smartphone: 2007, iphone: 2007, internet: 1969, "world wide web": 1989, email: 1971, computer: 1945, laptop: 1981, radio: 1895, automobile: 1885, car: 1885, photograph: 1826, camera: 1826, "steam engine": 1712, "printing press": 1440, "atomic bomb": 1945, "nuclear bomb": 1945, "nuclear weapon": 1945, penicillin: 1928, telescope: 1608, microscope: 1590, battery: 1800, "social media": 2004, facebook: 2004, google: 1998, "video game": 1958, "space shuttle": 1981, satellite: 1957, rocket: 1926, helicopter: 1939, submarine: 1620, "electric car": 1881, "x-ray": 1895, "x-rays": 1895, laser: 1960, transistor: 1947, "microwave oven": 1945, "credit card": 1950, "gps": 1978 };
   function inventedBeforeQ(text) {
@@ -1064,7 +1081,7 @@
   }
 
   /* ----------------------------------------------------------------- solve */
-  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
+  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, continentQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
   function solve(text, ctx) {
     var t = clean(text);
     if (!t || t.length > 600) return null;

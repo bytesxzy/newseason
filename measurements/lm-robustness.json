@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T14:59:21.435Z",
- "passed": 72,
- "total": 72,
+ "generated": "2026-10-01T15:20:33.266Z",
+ "passed": 73,
+ "total": 73,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -95,6 +95,11 @@
   },
   {
    "name": "syntax: c4-lm-facts-things.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-trivia.js",
    "ok": true,
    "detail": ""
   },
@@ -301,17 +306,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "8 -> 8"
+   "detail": "9 -> 9"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 works out to 391."
+   "detail": "17 * 23 = 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -321,7 +326,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2659 ms"
+   "detail": "2691 ms"
   },
   {
    "name": "garbage source response handled",
@@ -336,12 +341,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hello. What can I look into for you?"
+   "detail": "Hi — what would you like to know?"
   },
   {
    "name": "dialogue sequence",
