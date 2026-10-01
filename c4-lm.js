@@ -134,7 +134,8 @@
 
   function resolveContext(frame, disc) {
     if (off("dialogue")) return { frame: frame, carried: false };
-    if (!disc || !disc.activeEntity) return { frame: frame, carried: false };
+    var personalAsk = /\b(?:he|she|him|his|her|hers)\b/i.test(frame.body || "") && !!(disc && disc.lastAnswer);
+    if (!disc || (!disc.activeEntity && !personalAsk)) return { frame: frame, carried: false };
     if (frame.topicShift) return { frame: frame, carried: false };
     /* a statement about the speaker ("I am sad") is never an elliptical follow-up about the last topic */
     if (frame.queryForm === "statement" && /^(?:i|i'm|im|i've|ive|i'd|my|we|we're|me)\b/i.test(String(frame.body || "").trim()) && !/^(?:and|but|what about|how about)\b/i.test(frame.body)) return { frame: frame, carried: false };
@@ -142,7 +143,12 @@
     var needsCarry = false, reason = "";
     /* 1. a third-person pronoun with no competing entity in the message */
     var hasPronoun = frame.pronouns.some(function (p) { return THIRD_PERSON.test(p); });
-    if (hasPronoun && !frame.entities.length) { needsCarry = true; reason = "pronoun"; }
+    /* "how far is it from the Sun": the pronoun is the subject even though another entity is named */
+    var subjectPronoun = /^(?:how|what|when|where|why|who|which)\b[^?]*?\b(?:is|are|was|were|does|do|did|has|have)\s+(?:it|he|she|they)\b/i.test(frame.body || "") || /^(?:is|are|was|were|does|do|did|has|have)\s+(?:it|he|she|they)\b/i.test(frame.body || "");
+    if (hasPronoun && (!frame.entities.length || (subjectPronoun && frame.entities.every(function (e) { return C.flatten(e) !== C.flatten(disc.activeEntity); })))) { needsCarry = true; reason = "pronoun"; }
+    /* "how many people live there": the place just discussed */
+    var hasThere = !needsCarry && !frame.entities.length && /\b(?:live|lives|located|found|spoken|speak|born|grown|made|from)\s+there\b|\bthere\s*\?*$/i.test(frame.body || "");
+    if (hasThere) { needsCarry = true; reason = "there"; }
     /* 2. an elliptical fragment: a bare noun phrase, a bare relation, or a
           bare "why"/"how" with nothing to attach to */
     /* A bare entity after a relational question repeats that question about
@@ -186,11 +192,18 @@
     /* Build the explicit question the fragment stands for, then parse it
        once. Downstream never sees a fragment. */
     var subject = disc.activeEntity;
+    /* "he", "she", "his", "her": a person, so the name in the last answer ("William Shakespeare wrote Hamlet") beats the work asked about */
+    if (hasPronoun && /\b(?:he|she|him|his|her|hers)\b/i.test(frame.body || "") && !/\b(?:it|its|they|them|their)\b/i.test(frame.body || "") && disc.lastAnswer) {
+      var pn = String(disc.lastAnswer).match(/\b((?!(?:Mount|Lake|River|The|United|New|North|South|East|West|Great|Republic|Kingdom|Cape|Port|Fort|Sea|Ocean|Bay|Gulf)\b)[A-Z][a-z]+(?:\s+(?:(?:de|da|van|von|der|di|le|la|bin|ibn|of|the)\s+)?[A-Z][a-z]+)+)/);
+      if (pn && C.flatten(pn[1]) !== C.flatten(subject)) subject = pn[1];
+    }
     var rebuilt = "";
     /* A pronoun is resolved in place: the rest of the message keeps its own
        syntax, so "when was he born" stays a birth-date question rather than
        being rebuilt from the relation label. */
-    if (hasPronoun) {
+    if (reason === "there") {
+      rebuilt = frame.body.replace(/\bthere\b/i, /\b(?:live|lives|located|found|spoken|speak|born|grown|made)\s+there\b/i.test(frame.body) ? "in " + subject : subject);
+    } else if (hasPronoun) {
       rebuilt = frame.body.replace(/\b(?:he|she|it|they|them|him|her|his|hers|its|their|theirs)\b/gi, function (m0) {
         return /^(?:his|her|its|their)$/i.test(m0) ? subject + "'s" : subject;
       });
@@ -209,6 +222,7 @@
     else if (/^how\b/i.test(frame.body)) rebuilt = "how does " + subject + " work";
     else rebuilt = frame.body + " of " + subject;
 
+    rebuilt = rebuilt.replace(/^\s*how many (?:people|persons|inhabitants|humans) (?:live|reside|inhabit) (?:in|at|on)\s+(?:the\s+)?(.+?)[?.!]*\s*$/i, "what is the population of $1");
     var carriedFrame = C.parse(rebuilt, disc.snapshot());
     /* Keep the user's own format and length requests: they belong to the
        message, not to the reconstructed question. */
@@ -1490,6 +1504,7 @@
   function answerSmallTalk(frame) {
     var said = String(state.userText || frame.rawText || frame.body || "").trim();
     var l = said.toLowerCase().replace(/[!.?]+$/g, "").replace(/\s+/g, " ").replace(/^(?:hey|hi|hello|ok|okay|so|well|um|please)[, ]+/, "").trim();
+    var prevKind = state.lastKind; state.lastKind = "";
     if (!l || l.length > 80) return null;
     function say(text) { return { text: text, route: "conversation", confidence: 0.8, conversational: true, smallTalk: true, sources: [], defects: [] }; }
     if (/^(?:how are you|how are you doing|how are you today|how are you doing today|how r u|how are u|how is it going|how's it going|how have you been|how's your day|how is your day|how do you do|what's up|whats up|sup)$/.test(l))
@@ -1506,8 +1521,8 @@
       return say("Yes, happy to help. Tell me what you're working on — a question, a calculation, some code, a puzzle or a bit of reasoning — and I'll take it from there.");
     if (/^(?:i'?m|i am) (?:so |really |very )?bored$|^i'?m bored(?: today)?$|^i am bored$/.test(l))
       return say("Let's fix that. I can set you a puzzle, tell you a surprising fact, run a quick quiz, or answer anything you're curious about — which sounds good?");
-    if (/^(?:tell me a joke|tell a joke|say a joke|give me a joke|got any jokes|do you know any jokes|make me laugh|tell me something funny)$/.test(l)) return say(JOKES[jokeIx++ % JOKES.length]);
-    if (/^(?:tell me|give me|share|say|got|do you have)\s+(?:me\s+)?(?:a |an |some |any )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)$|^(?:fun|random|interesting) fact$|^surprise me$/.test(l)) return say(FUN_FACTS[funIx++ % FUN_FACTS.length]);
+    if (/^(?:tell me a joke|tell a joke|say a joke|give me a joke|got any jokes|do you know any jokes|make me laugh|tell me something funny)$/.test(l) || (prevKind === "joke" && /^(?:another(?: one| joke)?|one more|again|more|next(?: one)?|tell me another(?: one)?|give me another(?: one)?|another please)$/.test(l))) { state.lastKind = "joke"; return say(JOKES[jokeIx++ % JOKES.length]); }
+    if (/^(?:tell me|give me|share|say|got|do you have)\s+(?:me\s+)?(?:a |an |some |any )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)$|^(?:fun|random|interesting) fact$|^surprise me$/.test(l) || (prevKind === "fact" && /^(?:another(?: one| fact)?|one more|again|more|next(?: one)?|tell me another(?: one)?|give me another(?: one)?|another please)$/.test(l))) { state.lastKind = "fact"; return say(FUN_FACTS[funIx++ % FUN_FACTS.length]); }
     if (/^(?:what(?:'s| is) the meaning of life|what(?:'s| is) the purpose of life|why are we here|what is the point of life)$/.test(l)) return say("There is no single agreed answer. Philosophers, religions and scientists give different ones, and many people find meaning in relationships, learning, creative work and helping others.");
     if (/^(?:you(?:'re| are) (?:so |really |very )?(?:smart|great|awesome|amazing|good|helpful|clever|cool|the best|brilliant|nice))$/.test(l)) return say("Thank you — that's kind of you to say. I'll keep trying to earn it.");
     if (/^(?:you(?:'re| are) (?:so |really |very )?(?:stupid|dumb|useless|bad|terrible|awful|wrong|annoying))$/.test(l)) return say("Sorry I fell short. Tell me what went wrong and I'll try again.");
@@ -2604,7 +2619,8 @@
     /* the form asked for is part of the request: "in one sentence" after the
        same question is a new request, not a repeat */
     var form = [frame.requestedFormat, frame.requestedLength, frame.requestedUnit, frame.requestedTone, frame.onlyValue ? 1 : 0].join("|");
-    return { norm: C.flatten(frame.rawText || frame.body || ""), stems: stems, form: form };
+    var wh = (String(frame.rawText || frame.body || "").toLowerCase().match(/^\s*(who|whom|what|when|where|why|how|which)\b/) || [])[1] || "";
+    return { norm: C.flatten(frame.rawText || frame.body || ""), stems: stems, form: form, wh: wh };
   }
   /* the same request: the same words, or the same content (stems overlap
      almost entirely -- "how do markov chains work" / "how does a markov
@@ -2612,6 +2628,7 @@
   function sameAsk(a, b) {
     if (a.norm && a.norm === b.norm) return true;
     if (a.form !== b.form) return false;
+    if (a.wh && b.wh && a.wh !== b.wh) return false;
     if (!a.stems.length || !b.stems.length) return false;
     var inter = a.stems.filter(function (s) { return b.stems.indexOf(s) >= 0; }).length;
     var union = a.stems.length + b.stems.length - inter;
@@ -2908,8 +2925,36 @@
     });
   }
 
+  /* Arithmetic that continues the last result: "multiply that by 2", "now subtract 4". */
+  var WORDNUM = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20, hundred: 100 };
+  function nv(x) { x = String(x).toLowerCase(); return WORDNUM[x] !== undefined ? WORDNUM[x] : x; }
+  function continueArithmetic(raw) {
+    if (state.lastNumber === null || state.lastNumber === undefined) return null;
+    var t = String(raw).trim().replace(/[?.!]+$/, "").replace(/^(?:now|then|and|next|ok|okay|so)[, ]+/i, ""), L = state.lastNumber, m;
+    var THAT = "(?:that|it|this|the (?:result|answer|total|number))";
+    if ((m = t.match(new RegExp("^(?:multiply|times) " + THAT + " (?:by|with) (\\S+)$", "i"))) || (m = t.match(new RegExp("^what(?:'s| is) " + THAT + " (?:times|multiplied by) (\\S+)$", "i")))) return L + " * " + nv(m[1]);
+    if ((m = t.match(new RegExp("^divide " + THAT + " by (\\S+)$", "i"))) || (m = t.match(new RegExp("^what(?:'s| is) " + THAT + " divided by (\\S+)$", "i")))) return L + " / " + nv(m[1]);
+    if ((m = t.match(new RegExp("^(?:add|plus) (\\S+)(?: to " + THAT + ")?$", "i"))) && /^[\d.]+$|^[a-z]+$/.test(m[1]) && !/^\d+(?:\.\d+)?[a-z]/.test(m[1])) return L + " + " + nv(m[1]);
+    if ((m = t.match(new RegExp("^what(?:'s| is) " + THAT + " (?:plus|\\+) (\\S+)$", "i")))) return L + " + " + nv(m[1]);
+    if ((m = t.match(new RegExp("^(?:subtract|take away|minus) (\\S+)(?: from " + THAT + ")?$", "i"))) && !/^from$/i.test(m[1])) return L + " - " + nv(m[1]);
+    if ((m = t.match(new RegExp("^subtract " + THAT + " from (\\S+)$", "i")))) return nv(m[1]) + " - " + L;
+    if ((m = t.match(new RegExp("^what(?:'s| is) " + THAT + " (?:minus|\\-) (\\S+)$", "i")))) return L + " - " + nv(m[1]);
+    if ((m = t.match(new RegExp("^(double|triple|halve|half|square|cube) " + THAT + "$", "i")))) { var op = m[1].toLowerCase(); return op === "double" ? L + " * 2" : op === "triple" ? L + " * 3" : (op === "halve" || op === "half") ? L + " / 2" : op === "square" ? L + " * " + L : L + " * " + L + " * " + L; }
+    if ((m = t.match(/^(?:and )?(?:times|multiplied by) (\S+)$/i))) return L + " * " + nv(m[1]);
+    if ((m = t.match(/^(?:and )?(?:plus|add) (\S+)$/i))) return L + " + " + nv(m[1]);
+    return null;
+  }
+
   function answerCore(text, opts) {
     opts = opts || {};
+    if (!opts.rewritten && !opts.internal) {
+      var cont = null, popM = null;
+      try { cont = continueArithmetic(text); } catch (eC) { cont = null; }
+      if (cont) { var oC = {}, kC; for (kC in opts) oC[kC] = opts[kC]; oC.rewritten = true; return answerCore(cont, oC); }
+      if ((popM = String(text == null ? "" : text).match(/^\s*how many (?:people|persons|inhabitants|humans) (?:live|reside|inhabit|are there) (?:in|at|on)\s+(?:the\s+)?(.+?)[?.!]*\s*$/i))) {
+        var oP = {}, kP; for (kP in opts) oP[kP] = opts[kP]; oP.rewritten = true; return answerCore("What is the population of " + popM[1] + "?", oP);
+      }
+    }
     var funAbout = String(text == null ? "" : text).match(/^\s*(?:tell me|give me|share|say)\s+(?:me\s+)?(?:a |an |some |one )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)\s+(?:about|on|regarding|concerning)\s+(.+?)[?.!]*\s*$/i);
     if (funAbout && !opts.rewritten) { var o9 = {}, k9; for (k9 in opts) o9[k9] = opts[k9]; o9.rewritten = true; return answerCore("Tell me about " + funAbout[1], o9); }
     if (!opts.part && !opts.internal && !off("multipart")) {
@@ -2972,6 +3017,7 @@
     if (RZ.variation) RZ.variation.begin(state.varyKey);
     var decision = timed("route", function () { return decide(frame, discourse); });
     decision.carried = ctx.carried;
+    decision.carryReason = ctx.reason || "";
 
     /* ---- Level 0: deterministic, no retrieval, no network ---- */
     /* Deterministic resolvers run before the social branch: "what time is it
@@ -2987,7 +3033,7 @@
     if (hopped) return Promise.resolve(finish(frame, hopped, t0, decision));
     /* A question the fact library covers well is answered from it before the
        general chain, whose entity matching can land on a shared word. */
-    var roleAsk = /^\s*who\s+(?:is|was|are)\s+the\s+[a-z ]+?\s+(?:of|at|for)\s+\S/i.test(frame.body || "");
+    var roleAsk = /^\s*who\s+(?:is|was|are)\s+the\s+[a-z ]+?\s+(?:of|at|for)\s+\S/i.test(frame.body || "") || /^\s*who\s+(?:is|was|were|are)\s+[^?]+?(?:'s|\u2019s)\s+[a-z]+\s*\??$/i.test(frame.body || "");
     var nameList = frame.speechAct === "command" && /^\s*(?:name|list)\s+(?:the|all|some|a few|three|four|five|six|seven|eight|nine|ten)\b/i.test(frame.body || "");
     if ((frame.speechAct === "question" || nameList) && !frame.requiresFreshInformation && (frame.queryForm !== "whois" || roleAsk)) {
       var plainForm = frame.queryForm !== "whatis" && frame.queryForm !== "topic";
@@ -3110,6 +3156,13 @@
 
   function finish(frame, result, t0, decision) {
     result = result || { text: "", route: "none", confidence: 0 };
+    if (result && !result.memoryTurn) {
+      /* remember the last number worked out, so "multiply that by 2" has something to continue */
+      if (/^(?:compute|reason)$/.test(result.route) && result.text) {
+        var lead = String(result.text).split(/(?<=[.!?])\s+(?=[A-Z])/)[0], nums = lead.match(/-?\d+(?:\.\d+)?/g);
+        state.lastNumber = nums ? parseFloat(nums[nums.length - 1]) : null;
+      } else if (!result.smallTalk) state.lastNumber = null;
+    }
     if (irrelevantAnswer(frame, result)) {
       var none = fallback(frame, null);
       none.deliberation = { trigger: "irrelevant", withdrawn: result.entity || result.route };
@@ -3119,6 +3172,8 @@
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;
     result.latency_ms = Math.round((now() - t0) * 100) / 100;
+    /* an answer about "it" or "there" leaves the topic where it was, even when it names another thing on the way */
+    if (decision && decision.carried && /^(?:pronoun|there|ellipsis|open-relation)$/.test(decision.carryReason || "")) result.carriedContext = true;
     result.frame = {
       subject: frame.subject, relation: frame.relation, form: frame.queryForm,
       fresh: frame.requiresFreshInformation, act: frame.speechAct

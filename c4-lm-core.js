@@ -257,6 +257,8 @@
     "states state united kingdom republic island islands north south east west central").split(" ");
   FUNCTION_WORDS.forEach(learnWord);
   CORE_WORDS.forEach(learnWord);
+  var CORE_SET = Object.create(null);
+  CORE_WORDS.forEach(function (w) { CORE_SET[String(w).toLowerCase()] = 1; });
 
   /* A word is "known" if the lexicon has it or has the form it inflects from.
      Without this, a regular plural looks one edit away from its own singular
@@ -343,6 +345,23 @@
        base and put the clitic back. */
     var poss = "";
     if (/['’]s$/.test(w)) { poss = "'s"; w = w.replace(/['’]s$/, ""); }
+    /* A four- or five-letter word that nothing knows, one keystroke from exactly one word of the
+       core vocabulary that starts the same way ("meny", "yaer", "julet"), is that word. */
+    if (w.length >= 4 && w.length < 6 && /^[a-z]+$/.test(w) && !knownWord(w)) {
+      if (repairCache[w] !== undefined) return repairCache[w] + poss;
+      var near = [], common = [];
+      for (var sL = w.length - 1; sL <= w.length + 1; sL++) {
+        var sb = VOCAB_BY_LEN[sL] || [];
+        for (var si = 0; si < sb.length; si++) {
+          var sc = sb[si];
+          if (sc.charAt(0) !== w.charAt(0) || inflectionOf(w, sc)) continue;
+          if (damerau(w, sc, 1) === 1) { near.push(sc); if (CORE_SET[sc]) common.push(sc); }
+        }
+      }
+      var pick = near.length === 1 ? near[0] : (common.length === 1 ? common[0] : "");
+      repairCache[w] = pick || w;
+      return (pick || w) + poss;
+    }
     if (w.length < 6 || knownWord(w) || !/^[a-z]+$/.test(w)) return w + poss;
     if (repairCache[w] !== undefined) return repairCache[w];
     var budget = w.length >= 9 ? 2 : 1, best = "", bestD = budget + 1;

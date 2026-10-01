@@ -67,6 +67,7 @@
     ["britain", "british"], ["france", "french"], ["germany", "german"], ["spain", "spanish"], ["italy", "italian"], ["greece", "greek"], ["egypt", "egyptian"], ["china", "chinese"], ["japan", "japanese"], ["russia", "russian"], ["india", "indian"], ["rome", "roman"],
     ["explorer", "explore", "explored", "exploration"], ["reach", "reached", "reaches", "arrive", "arrived"], ["meet", "met", "meets"], ["fall", "fell", "fallen", "falls", "collapse", "collapsed"], ["filter", "filters", "filtered"], ["pull", "pulls", "attract", "attracts", "attracted"]
   ];
+  SYN_GROUPS.push(["spouse", "wife", "husband", "partner", "married", "marry", "wed"]);
   var SYN = Object.create(null);
   SYN_GROUPS.forEach(function (g) { g.forEach(function (w) { SYN[w] = g[0]; }); });
   /* irregular verbs: the past forms meet the base form ("sank", "sunk" -> "sink") unless a group above already says otherwise */
@@ -281,6 +282,8 @@
       var adj = 0;
       for (k = 0; k < qBi.length; k++) if (d.bi[qBi[k]]) adj++;
       if (whoDef && /\b(?:died|was born) in [0-9]{1,4}(?: BCE| CE| BC| AD)?\.?$/.test(d.text)) continue;
+      /* life-event lines (birthplace, spouse) answer questions about those events, not "who was X" or "tell me about X" */
+      if (/\bwas born in\b|\bwas married to\b|\bspouse was\b|\bwife or husband was\b/i.test(d.text) && !/\b(?:born|birth|birthplace|where|married|wife|husband|spouse|wed|marry)\b/i.test(question)) continue;
       var score = (whoDef && /\b(?:is known for|lived from|was an?|is an?|was the|is the)\b/.test(d.text) ? 0.4 : 0) + cov + 0.35 * focus + (hits === qw.length ? 0.2 : 0) + 0.3 * (qBi.length ? adj / qBi.length : 0);
       /* a present-tense question wants the present holder, not a past one in the list of holders */
       if (presentQ && /\bwas the (?:[a-z]+ )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|[a-z-]+(?:th|st|nd|rd)|[a-z]+-[a-z]+)\b/i.test(d.text) && !/\b(?:is|are) the\b/i.test(d.text)) score -= 0.4;
