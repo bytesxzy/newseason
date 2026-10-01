@@ -5,6 +5,15 @@
   if (!F) return;
   F.add([
     "The capital of the United States is Washington, D.C., which sits on the Potomac River and is not part of any state.",
+    "Red blood cells carry oxygen from the lungs to every part of the body, and they carry some carbon dioxide back to the lungs to be breathed out.",
+    "White blood cells defend the body against infection and disease.",
+    "To get rid of a headache, rest in a quiet, dim place, drink water, apply a cool cloth, and take a simple pain reliever as directed; seek urgent help if it is sudden and severe or comes with confusion, a stiff neck or weakness.",
+    "To study for an exam, make a plan that spaces your revision over several days, test yourself with practice questions and active recall instead of just re-reading, use past papers, sleep well and take short breaks.",
+    "A refrigerator keeps food cold by moving heat from the inside to the outside, using a liquid that evaporates and condenses in a loop.",
+    "The Olympic Games are held every four years, with the Summer Games and the Winter Games alternating every two years.",
+    "The freezing point of water is 0 degrees Celsius, or 32 degrees Fahrenheit.",
+    "The boiling point of water is 100 degrees Celsius, or 212 degrees Fahrenheit, at sea level.",
+    "Water freezes at 0 degrees Celsius and boils at 100 degrees Celsius at sea level.",
     "The Pacific Ocean covers about 165 million square kilometres, the Atlantic about 106 million, the Indian about 70 million, the Southern about 20 million and the Arctic about 14 million.",
     "A day on Venus lasts about 243 Earth days, which is longer than its year of about 225 Earth days, because Venus rotates so slowly.",
     "A week is seven days long, a fortnight is 14 days, a common year is 365 days and a leap year is 366 days.",

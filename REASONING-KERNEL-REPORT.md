@@ -641,6 +641,39 @@ figures are kept beside them.
   list sentence and can be answered as bullets, and life-event sentences (birthplace, spouse) no longer answer
   "who was X".
 
+### 17. Everyday knowledge, text work, clock, languages and games (round three)
+
+Work on the local language stack only; no outside model or service is called anywhere. New modules: `c4-lm-clock.js`
+(time in other cities from the platform's own time-zone data, differences and conversions between places, holiday dates by
+rule, days until a holiday, weekday of any date), `c4-lm-textwork.js` (summaries, keywords, sentiment, tone, paraphrase, titles,
+counts, reading level, topic, passage question answering, extraction of numbers, dates, emails and names),
+`c4-lm-polyglot.js` (greetings and simple questions in Spanish, French, German, Italian and Portuguese; capitals are
+answered back in the language), `c4-lm-fun.js` (jokes, facts, riddles, a quiz that marks answers, rock-paper-scissors,
+dice, coin, random picks, quotes, tongue twisters, word of the day). About 5,000 new one-sentence facts in 20 files
+(`c4-lm-facts-nouns*.js`, `-health`, `-whys`, `-howto2`, `-differences`, `-finance`, `-grammar`, `-animals`, `-geodata`,
+`-years`, `-tech2`, `-acronyms`, `-sports`, `-music`, `-belief`, `-examples`).
+
+Mechanism fixes found by diffing 528 old and new answers and by probing: US and United States index as one token; a
+short unknown word is no longer "repaired" into a different real word ("canoe" to "cane", "swamp" to "swam", "Zeta" to
+"Meta"); fuzzy knowledge-base matching skips any word the system already knows; a "how big / how old / how long" question
+whose entity has no such measure falls through to the fact library instead of answering with the entity's definition; no
+measurement is inherited from the containing country ("Tokyo" is not "Japan"); "what does X do", "X vs Y", "examples of X",
+"what does NASA stand for" and "tell me more / give me an example / why" each have their own path; recipes are not used to
+answer "what is learning"; a roll-call sentence ("Zeus is the king of the gods, Hera is his wife, ...") no longer defines its
+first name.
+
+Measurements (frozen bank v8, 185 questions written before the first run; sealed third by hash, never read):
+
+| bank | first run | after fixes |
+|---|---|---|
+| v8 (this round) | 88.6% (dev 89.4, sealed 87.1) | 96.2% (dev 99.2, sealed 90.3), dev tuned |
+| v7 | 81.9% first run in the previous round | 93.5% |
+| v4, v5, v6 | 95.7, 96.7, 93.4 | unchanged by this round |
+| legacy 184, skills 125, robustness 96, everyday 117 | | all pass |
+
+The v8 first-run figure is the generalisation number for this round. The jump from 88.6 to 96.2 is mostly new facts for
+topics v8 happened to ask about (a chimney, a barometer, a raccoon), so it measures coverage growth, not reasoning.
+
 **Honest limits.**
 - Facts about offices (president, prime minister, CEOs) are stamped "As of 2025" and will go stale; there is no live source.
 - The phrasebook holds ordinary words and phrases; anything outside it is declined.

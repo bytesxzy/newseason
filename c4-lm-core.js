@@ -339,7 +339,8 @@
   function repairWord(w, proper) {
     w = String(w).toLowerCase();
     if (TYPO_FIX[w]) return TYPO_FIX[w];
-    if (proper) return w.length >= 4 ? repairProper(w) : w;
+    /* a short capitalised word is a name in its own right: Zeta is not a misspelling of Meta */
+    if (proper) return w.length >= 6 ? repairProper(w) : w;
     /* Short words are too easily confusable to respell: "spoon" is one edit
        from "soon" and rewriting it destroys the sentence. Six characters is
        where an edit stops being plausible as a coincidence. */

@@ -289,6 +289,13 @@
       if (/\b(?:who|whom)\b.*\b(?:met|saw|called|asked|told|invited|helped|visited|married|hired|thanked)\b/.test(ql) && nm.length) return nm.join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
       if (nm.length) return (nm.length > 1 && subjFirst && /^(?:who)\b/.test(ql) ? nm : nm).slice(0, 4).join(", ").replace(/, ([^,]*)$/, " and $1") + ".";
     }
+    /* "in total", "altogether": add up what the passage counts */
+    if (/^how (?:many|much)\b/.test(ql) && /\b(?:in total|altogether|combined|together|in all|total)\b/.test(ql)) {
+      var allNums = (passage.match(/\b\d+(?:\.\d+)?\b/g) || []).map(Number);
+      var scope = (sent.match(/\b\d+(?:\.\d+)?\b/g) || []).map(Number);
+      var pick = scope.length >= 2 ? scope : allNums;
+      if (pick.length >= 2) { var tot = pick.reduce(function (a2, b2) { return a2 + b2; }, 0); return (Math.round(tot * 1e6) / 1e6) + "."; }
+    }
     /* how many / how much */
     if ((m = ql.match(/^how (?:many|much)\s+(?:([a-z]+)\s+)?/))) {
       qnoun = m[1] && !/^(?:did|does|do|is|are|was|were|will|can|could|would)$/.test(m[1]) ? m[1] : "";

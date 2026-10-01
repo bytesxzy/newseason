@@ -57,6 +57,12 @@ RAW USER TEXT
 | `c4-lm-howto.js` | Programming idioms and concepts, including HTML, CSS and the DOM. |
 | `c4-lm-skills.js`, `c4-lm-thesaurus.js` | Dates, number words, interest, statistics, translation of ordinary words, summaries, chemistry, physics, synonyms and antonyms. |
 | `c4-lm-write.js` | Spelling, counting, rhymes, text transforms, and syllable-checked short poems. |
+| `c4-lm-clock.js` | World clock and holiday calendar: time in other cities, differences and conversions, holiday dates and countdowns, weekday of any date. |
+| `c4-lm-textwork.js` | Work on text the user supplies: summary, keywords, sentiment, tone, paraphrase, titles, counts, reading level, passage questions, extraction. |
+| `c4-lm-polyglot.js` | Greetings and simple questions in Spanish, French, German, Italian and Portuguese. |
+| `c4-lm-fun.js` | Jokes, facts, riddles, quiz with scoring, rock-paper-scissors, dice, coin, random picks, quotes. |
+| `c4-lm-facts-nouns.js` ... `c4-lm-facts-examples.js` | One-sentence fact files: everyday nouns, health, why and how, how-to, differences, finance, grammar, animals, sizes and populations, years, technology, acronyms, sport, music and art, myth and belief, examples. |
+| `tools/lm-everyday-test.js`, `tools/lm-heldout8.js` | Checks for the above (117), and the frozen fifth held-out bank. |
 | `c4-lm-facts*.js` | The fact library: one self-contained sentence per fact, retrieved by content stems, coverage, adjacency, answer type, tense and superlatives. |
 | `c4-lm.js` | The orchestrator: discourse state, the System-1 decision head, adaptive depth, confidence assembly, ablation switches. `answerReason` now (1) prefers a structured reading over a bare-arithmetic one when the text carries algebra (interpretation check), and (2) derives the confidence of operator-library results from an independent re-derivation of their own trace (`calibrateReason`). Ablate with `problem` / `calibration`. |
 

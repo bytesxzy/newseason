@@ -212,6 +212,14 @@
     var l = s.toLowerCase().replace(/[?!]+$/g, "").replace(/\s+/g, " ").replace(/^(?:hey|hi|please|ok|okay|so)[, ]+/, "").trim(), m, ans;
     var res = function (a, sch) { return a ? { answer: a, schema: sch, confidence: 0.9 } : null; };
 
+    /* "... in January" or "... in summer": work the clock out for the middle of that month, so daylight saving is the one in force then */
+    var MON = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"], mo = l.match(new RegExp("\\b(?:in|during|for)\\s+(" + MON.join("|") + "|winter|summer|spring|autumn|fall)\\b"));
+    if (mo && !/\b\d{4}\b/.test(l) && /\btime\b|\bhours?\b/.test(l) && !/\b(?:when is|what day|how many days|until|till)\b/.test(l)) {
+      var mi = MON.indexOf(mo[1]); if (mi < 0) mi = { winter: 0, summer: 6, spring: 3, autumn: 9, fall: 9 }[mo[1]];
+      now = new Date(now.getFullYear(), mi, 15, 12, 0, 0);
+      l = l.replace(mo[0], "").replace(/\s+/g, " ").replace(/\s+(?:,)/g, ",").trim();
+    }
+
     /* a time converted from one place to another */
     if ((m = l.match(new RegExp("^(?:if it(?:'s| is)|when it(?:'s| is)|when it is|if the time is)\\s+(" + TIMEPAT + ")\\s+(?:in|at)\\s+(.+?),?\\s+what(?:'s| is)? (?:the )?time (?:is it )?(?:there |over there )?in\\s+(.+)$"))) ||
         (m = l.match(new RegExp("^(?:what(?:'s| is)? )?(?:the )?time (?:is it )?in\\s+(.+?)\\s+when it(?:'s| is)\\s+(" + TIMEPAT + ")\\s+in\\s+(.+)$")))) {

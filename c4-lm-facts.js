@@ -199,7 +199,7 @@
     var l = " " + String(q).toLowerCase().replace(/[?!.,]+/g, " ") + " ";
     if (/^\s*(?:and |but |so |then )?(?:who|whom|whose)\b|\b(?:by|to|for|with|of|from) whom\b/.test(l) && !/\bwho (?:is|was) (?:the )?(?:first|last)\b.*\b(?:country|city)\b/.test(l)) return "person";
     if (/\bwhat (?:year|date|century|decade)\b|\bwhich (?:year|century|decade)\b|\bwhen\b|\bhow long ago\b/.test(l)) return "time";
-    if (/\bhow (?:many|much|long|far|tall|high|old|big|fast|deep|heavy|wide|hot|cold|large)\b|\bwhat (?:number|percentage|percent|temperature|speed|distance)\b/.test(l)) return "quantity";
+    if (/\bhow (?:many|much|long|far|tall|high|old|big|fast|deep|heavy|wide|hot|cold|large|often)\b|\bwhat (?:number|percentage|percent|temperature|speed|distance)\b/.test(l)) return "quantity";
     if (/\bwhere\b|\bwhich (?:country|city|continent|ocean|sea|river|state|region|place|island|mountain|desert|lake)\b|\bwhat (?:country|city|continent|ocean|sea|river|state|region|place|island|mountain|desert|lake)\b/.test(l)) return "place";
     return "thing";
   }
@@ -222,6 +222,7 @@
   };
   UNIT.long = /\b(?:m|km|cm|mm|metres?|meters?|kilomet\w+|miles?|feet|foot|ft|inch\w*|yards?|seconds?|minutes?|hours?|days?|weeks?|months?|years?|decades?|centuries)\b/i;
   UNIT.high = UNIT.tall; UNIT.deep = UNIT.tall; UNIT.wide = UNIT.tall;
+  UNIT.often = /\b(?:every|each|per|once|twice|times|daily|weekly|monthly|yearly|annually|hourly|nightly|regularly)\b/i;
   UNIT.big = /\b(?:square|sq|hectares?|acres?|m|km|metres?|meters?|kilomet\w+|miles?|feet|foot|diameter|across|area|size|wide|tall|long|litres?|gallons?|cubic)\b/i;
   function carries(type, text, qTokens, frameWord) {
     var inQ = Object.create(null);
@@ -260,6 +261,8 @@
     /* "when do I use who versus whom" and "cats vs dogs" ask for the difference between the two */
     question = String(question).replace(/^\s*(?:when|how)\s+(?:do|should|can)\s+(?:i|you|we|one)\s+(?:use|choose|say|write)\s+(.+?)\s+(?:versus|vs\.?|or)\s+(.+?)\s*\??\s*$/i, "What is the difference between $1 and $2?")
       .replace(/^\s*(?:what(?:'s| is) the )?(?:difference|comparison)?\s*(?:of |between )?([A-Za-z][\w' -]{1,30}?)\s+(?:versus|vs\.?)\s+([A-Za-z][\w' -]{1,30}?)\s*\??\s*$/i, "What is the difference between $1 and $2?");
+    /* "What do red blood cells do?" asks for their function */
+    question = String(question).replace(/^\s*what (?:do|does) (?:a |an |the )?(.+?) (?:actually )?do\s*\??\s*$/i, "What is the function of $1?");
     /* "How long do elephants live?" asks for a lifespan */
     question = String(question).replace(/^\s*how long (?:do|does|did|will|can|would) (?:a |an |the )?(.+?) (?:typically |usually |normally |generally |on average )?(?:live|survive|last)(?: for)?\s*\??\s*$/i, function (m0, who) { return "What is the lifespan of " + who + "?"; });
     var asList = LISTLEAD.test(question) && /^\s*(?:please\s+)?(?:list|name)\b|^\s*(?:give me|tell me)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|a few|some)\s/i.test(question);

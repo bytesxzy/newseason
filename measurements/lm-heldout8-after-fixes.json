@@ -1,0 +1,2155 @@
+{
+  "total": 185,
+  "all": {
+    "n": 185,
+    "pass": 178,
+    "honest": 2,
+    "wrong": 5,
+    "accuracy_pct": 96.2,
+    "by_category": {
+      "thingE": {
+        "n": 20,
+        "pass": 20,
+        "honest": 0,
+        "wrong": 0
+      },
+      "bodyE": {
+        "n": 15,
+        "pass": 15,
+        "honest": 0,
+        "wrong": 0
+      },
+      "howE": {
+        "n": 15,
+        "pass": 15,
+        "honest": 0,
+        "wrong": 0
+      },
+      "whyE": {
+        "n": 15,
+        "pass": 15,
+        "honest": 0,
+        "wrong": 0
+      },
+      "geoE": {
+        "n": 20,
+        "pass": 20,
+        "honest": 0,
+        "wrong": 0
+      },
+      "histE": {
+        "n": 15,
+        "pass": 14,
+        "honest": 1,
+        "wrong": 0
+      },
+      "cultE": {
+        "n": 15,
+        "pass": 15,
+        "honest": 0,
+        "wrong": 0
+      },
+      "timeE": {
+        "n": 10,
+        "pass": 9,
+        "honest": 1,
+        "wrong": 0
+      },
+      "convE": {
+        "n": 10,
+        "pass": 10,
+        "honest": 0,
+        "wrong": 0
+      },
+      "textE": {
+        "n": 10,
+        "pass": 8,
+        "honest": 0,
+        "wrong": 2
+      },
+      "langE": {
+        "n": 10,
+        "pass": 10,
+        "honest": 0,
+        "wrong": 0
+      },
+      "finE": {
+        "n": 6,
+        "pass": 6,
+        "honest": 0,
+        "wrong": 0
+      },
+      "gramE": {
+        "n": 9,
+        "pass": 9,
+        "honest": 0,
+        "wrong": 0
+      },
+      "funE": {
+        "n": 10,
+        "pass": 10,
+        "honest": 0,
+        "wrong": 0
+      },
+      "multiE": {
+        "n": 5,
+        "pass": 2,
+        "honest": 0,
+        "wrong": 3
+      }
+    }
+  },
+  "dev": {
+    "n": 123,
+    "pass": 122,
+    "honest": 0,
+    "wrong": 1,
+    "accuracy_pct": 99.2,
+    "by_category": {
+      "thingE": {
+        "n": 16,
+        "pass": 16,
+        "honest": 0,
+        "wrong": 0
+      },
+      "bodyE": {
+        "n": 9,
+        "pass": 9,
+        "honest": 0,
+        "wrong": 0
+      },
+      "howE": {
+        "n": 10,
+        "pass": 10,
+        "honest": 0,
+        "wrong": 0
+      },
+      "whyE": {
+        "n": 11,
+        "pass": 11,
+        "honest": 0,
+        "wrong": 0
+      },
+      "geoE": {
+        "n": 14,
+        "pass": 14,
+        "honest": 0,
+        "wrong": 0
+      },
+      "histE": {
+        "n": 9,
+        "pass": 9,
+        "honest": 0,
+        "wrong": 0
+      },
+      "cultE": {
+        "n": 11,
+        "pass": 11,
+        "honest": 0,
+        "wrong": 0
+      },
+      "timeE": {
+        "n": 8,
+        "pass": 8,
+        "honest": 0,
+        "wrong": 0
+      },
+      "convE": {
+        "n": 7,
+        "pass": 7,
+        "honest": 0,
+        "wrong": 0
+      },
+      "textE": {
+        "n": 3,
+        "pass": 3,
+        "honest": 0,
+        "wrong": 0
+      },
+      "langE": {
+        "n": 8,
+        "pass": 8,
+        "honest": 0,
+        "wrong": 0
+      },
+      "finE": {
+        "n": 3,
+        "pass": 3,
+        "honest": 0,
+        "wrong": 0
+      },
+      "gramE": {
+        "n": 8,
+        "pass": 8,
+        "honest": 0,
+        "wrong": 0
+      },
+      "funE": {
+        "n": 4,
+        "pass": 4,
+        "honest": 0,
+        "wrong": 0
+      },
+      "multiE": {
+        "n": 2,
+        "pass": 1,
+        "honest": 0,
+        "wrong": 1
+      }
+    }
+  },
+  "sealed": {
+    "n": 62,
+    "pass": 56,
+    "honest": 2,
+    "wrong": 4,
+    "accuracy_pct": 90.3,
+    "by_category": {
+      "thingE": {
+        "n": 4,
+        "pass": 4,
+        "honest": 0,
+        "wrong": 0
+      },
+      "bodyE": {
+        "n": 6,
+        "pass": 6,
+        "honest": 0,
+        "wrong": 0
+      },
+      "howE": {
+        "n": 5,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 0
+      },
+      "whyE": {
+        "n": 4,
+        "pass": 4,
+        "honest": 0,
+        "wrong": 0
+      },
+      "geoE": {
+        "n": 6,
+        "pass": 6,
+        "honest": 0,
+        "wrong": 0
+      },
+      "histE": {
+        "n": 6,
+        "pass": 5,
+        "honest": 1,
+        "wrong": 0
+      },
+      "cultE": {
+        "n": 4,
+        "pass": 4,
+        "honest": 0,
+        "wrong": 0
+      },
+      "timeE": {
+        "n": 2,
+        "pass": 1,
+        "honest": 1,
+        "wrong": 0
+      },
+      "convE": {
+        "n": 3,
+        "pass": 3,
+        "honest": 0,
+        "wrong": 0
+      },
+      "textE": {
+        "n": 7,
+        "pass": 5,
+        "honest": 0,
+        "wrong": 2
+      },
+      "langE": {
+        "n": 2,
+        "pass": 2,
+        "honest": 0,
+        "wrong": 0
+      },
+      "finE": {
+        "n": 3,
+        "pass": 3,
+        "honest": 0,
+        "wrong": 0
+      },
+      "gramE": {
+        "n": 1,
+        "pass": 1,
+        "honest": 0,
+        "wrong": 0
+      },
+      "funE": {
+        "n": 6,
+        "pass": 6,
+        "honest": 0,
+        "wrong": 0
+      },
+      "multiE": {
+        "n": 3,
+        "pass": 1,
+        "honest": 0,
+        "wrong": 2
+      }
+    }
+  },
+  "latency": {
+    "p50": 313,
+    "p90": 392,
+    "max": 592
+  },
+  "rows": [
+    {
+      "cat": "thingE",
+      "q": "What is a chimney?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A chimney is a vertical pipe or passage that carries smoke and gases from a fire or furnace up and out of a building.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 535
+    },
+    {
+      "cat": "thingE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a barometer?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A barometer is an instrument that measures air pressure and is used to forecast the weather.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 298
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a lantern?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A lantern is a portable lamp with a light inside a protective case, often made of glass and metal.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 287
+    },
+    {
+      "cat": "thingE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a raccoon?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A raccoon is a small North American mammal with a black mask around its eyes and a ringed tail, known for washing its food and raiding bins at night.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 324
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a lighthouse for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A lighthouse is a tall tower with a bright light at the top that warns ships of rocks and guides them to port.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 308
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a compass used for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A compass is used to find the direction of north.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 328
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a peninsula?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A peninsula is a piece of land surrounded by water on three sides.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 292
+    },
+    {
+      "cat": "thingE",
+      "q": "What is an archipelago?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "An archipelago is a group or chain of many islands.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 381
+    },
+    {
+      "cat": "thingE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a vaccine?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A vaccine trains the immune system to recognise a pathogen by exposing it to a harmless piece or weakened form of that pathogen. It is used for producing immunity without causing the disease.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 329
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a skeleton?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A skeleton is the framework of bones that supports and protects the body.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 320
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a recipe?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Recipe means instructions for preparing a dish.",
+      "route": "lexicon",
+      "conf": 0.75,
+      "ms": 287
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a passport?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A passport is an official document that proves who you are and lets you travel to other countries.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 296
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a pharmacy?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A pharmacy is a shop where medicines are prepared and sold.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 318
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a dentist?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A dentist is a doctor who looks after teeth and gums.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 296
+    },
+    {
+      "cat": "thingE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a harbour?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A harbour is a sheltered area of water where ships can safely stay.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 291
+    },
+    {
+      "cat": "thingE",
+      "q": "What is a wallet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A wallet is used to hold money and cards.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 282
+    },
+    {
+      "cat": "bodyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "bodyE",
+      "q": "What do red blood cells do?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The function of red blood cells is to carry oxygen from the lungs to the rest of the body using haemoglobin, and to carry some carbon dioxide back.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 301
+    },
+    {
+      "cat": "bodyE",
+      "q": "How many bones are in the adult human body?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The adult human body has 206 bones, and a baby is born with about 300.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 313
+    },
+    {
+      "cat": "bodyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "bodyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "bodyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "bodyE",
+      "q": "What is high blood pressure?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "High blood pressure, also called hypertension, is when the force of blood against the artery walls is too high, usually 140/90 or above, and it raises the risk of heart attack and stroke, often without symptoms.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 347
+    },
+    {
+      "cat": "bodyE",
+      "q": "What is a calorie?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A calorie is a unit of energy, used to measure the energy in food.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 400
+    },
+    {
+      "cat": "bodyE",
+      "q": "What is the function of the kidneys?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The function of the kidneys is to filter waste and extra water out of the blood to make urine.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 315
+    },
+    {
+      "cat": "bodyE",
+      "q": "How can I stop the hiccups?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To stop hiccups, try holding your breath for a short time, sipping cold water slowly, or breathing slowly into a paper bag, and they usually pass by themselves.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 315
+    },
+    {
+      "cat": "bodyE",
+      "q": "What is first aid for a nosebleed?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I don't have anything reliable on first aid for a nosebleed. I couldn't confirm it from the public sources I can reach either. If you can point me at a more specific term or a source, I'll work from that.",
+      "route": "insufficient",
+      "conf": 0.2,
+      "ms": 337
+    },
+    {
+      "cat": "bodyE",
+      "q": "What is the difference between a virus and a bacterium?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A virus is much smaller than a bacterium and can only reproduce inside the cells of a host, while bacteria are living single-celled organisms that reproduce on their own and are treated with antibiotics.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 296
+    },
+    {
+      "cat": "bodyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "bodyE",
+      "q": "What is asthma?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Asthma is a long-term condition in which the airways in the lungs become inflamed and narrow, causing wheezing, coughing, tightness in the chest and shortness of breath.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 283
+    },
+    {
+      "cat": "bodyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "howE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "howE",
+      "q": "How do I make a cup of tea?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To make a cup of tea, boil fresh water, pour it over a tea bag or leaves in a cup, steep for three to five minutes, remove the tea and add milk or sugar if you like.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 359
+    },
+    {
+      "cat": "howE",
+      "q": "How do I get rid of a headache?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To get rid of a headache, rest in a quiet, dim place, drink water, apply a cool cloth, and take a simple pain reliever as directed; seek urgent help if it is sudden and severe or comes with confusion, a stiff neck or weakness.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 322
+    },
+    {
+      "cat": "howE",
+      "q": "How do I change a light bulb?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To change a light bulb, switch the power off, let the bulb cool, twist the old bulb out, and screw the new one in the same direction.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 332
+    },
+    {
+      "cat": "howE",
+      "q": "How do I jump-start a car?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To jump-start a car, connect the red clamp to the positive terminal of the dead battery and then the good one, connect the black clamp to the good battery's negative and then to bare metal on the dead car, start the working car, then the de",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 351
+    },
+    {
+      "cat": "howE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "howE",
+      "q": "How do I write a cover letter?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To write a cover letter, address it to a named person if you can, say which job you are applying for and why you suit it, give two or three concrete examples, and end by thanking the reader.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 301
+    },
+    {
+      "cat": "howE",
+      "q": "How do I study for an exam?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To study for an exam, make a plan that spaces your revision over several days, test yourself with practice questions and active recall instead of just re-reading, use past papers, sleep well and take short breaks.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 311
+    },
+    {
+      "cat": "howE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "howE",
+      "q": "How do I save money each month?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To save money, make a budget, track your spending, save as soon as you are paid, cut unneeded subscriptions and build an emergency fund of three to six months of expenses.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 292
+    },
+    {
+      "cat": "howE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "howE",
+      "q": "How do I fix a flat bicycle tire?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To fix a bicycle puncture, remove the wheel, take out the inner tube, find the hole, patch it or replace the tube, check the tyre for the cause, and refit and pump it up.",
+      "route": "knowledge",
+      "conf": 0.841682945554993,
+      "ms": 381
+    },
+    {
+      "cat": "howE",
+      "q": "How do I tie shoelaces?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To tie a shoelace, make a loop with one lace, wrap the other around it, push it through the gap and pull both loops tight.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 306
+    },
+    {
+      "cat": "howE",
+      "q": "How do I back up my files?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "To back up your files, copy them to an external drive or cloud storage regularly, keep at least one copy somewhere else, and test that you can restore them.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 286
+    },
+    {
+      "cat": "howE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "whyE",
+      "q": "Why does ice float on water?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Ice floats on water because it is less dense than liquid water.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 304
+    },
+    {
+      "cat": "whyE",
+      "q": "Why do we have time zones?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "We have time zones because the Earth rotates, so the Sun is overhead at different times in different places, and zones keep clocks roughly matching the Sun.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 287
+    },
+    {
+      "cat": "whyE",
+      "q": "Why do birds migrate?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A bird is a warm-blooded vertebrate with feathers, wings and a beak.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 338
+    },
+    {
+      "cat": "whyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "whyE",
+      "q": "How does a refrigerator keep food cold?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A refrigerator keeps food cold by moving heat from the inside to the outside, using a liquid that evaporates and condenses in a loop.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 340
+    },
+    {
+      "cat": "whyE",
+      "q": "What causes tides?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Moon affects the Earth by causing the tides and by stabilising the tilt of the Earth's axis.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 349
+    },
+    {
+      "cat": "whyE",
+      "q": "Why is the ocean salty?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The ocean is salty because rivers carry dissolved minerals from rocks into the sea, and the water evaporates and leaves the salt behind.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 282
+    },
+    {
+      "cat": "whyE",
+      "q": "Why do we get hungry?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "We get hungry when the stomach is empty and hormones such as ghrelin signal the brain that the body needs food.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 316
+    },
+    {
+      "cat": "whyE",
+      "q": "What causes lightning?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Lightning is caused by the build-up of electric charge in storm clouds, which is released as a giant spark between the cloud and the ground or another cloud.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 296
+    },
+    {
+      "cat": "whyE",
+      "q": "How do solar panels work?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A solar panel works by using light to knock electrons loose in a semiconductor, which creates an electric current.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 302
+    },
+    {
+      "cat": "whyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "whyE",
+      "q": "Why is the sky red at sunset?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The sky is blue because the atmosphere scatters short blue wavelengths of sunlight more than longer red ones, and sunsets are red because the light travels through more air and the blue is scattered away.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 313
+    },
+    {
+      "cat": "whyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "whyE",
+      "q": "Why do volcanoes erupt?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Volcanoes erupt when molten rock, called magma, rises through the Earth's crust.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 293
+    },
+    {
+      "cat": "whyE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "q": "What is the capital of Kenya?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Kenya has Nairobi as its capital. It is in East Africa.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 292
+    },
+    {
+      "cat": "geoE",
+      "q": "What is the capital of Norway?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Norway's capital is Oslo. It is in Northern Europe.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 352
+    },
+    {
+      "cat": "geoE",
+      "q": "Which ocean is the largest?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Pacific Ocean is the largest and deepest ocean on Earth.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 296
+    },
+    {
+      "cat": "geoE",
+      "q": "How big is Texas?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Texas is bigger than France: Texas covers about 696,000 square kilometres and France about 552,000.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 319
+    },
+    {
+      "cat": "geoE",
+      "q": "Which is the longest river in Africa?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The longest river in Africa is the Nile, at about 6,650 kilometres.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 346
+    },
+    {
+      "cat": "geoE",
+      "q": "What continent is Brazil in?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The country of Brazil is located on the continent of South America.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 278
+    },
+    {
+      "cat": "geoE",
+      "q": "What currency does Japan use?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Japan uses the yen as its currency.",
+      "route": "knowledge",
+      "conf": 0.82,
+      "ms": 433
+    },
+    {
+      "cat": "geoE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "q": "How many people live in Tokyo?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The population of Tokyo is about 14 million people (the city proper, and the Greater Tokyo area has about 37 million).",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 311
+    },
+    {
+      "cat": "geoE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "q": "What is the smallest country in the world?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The smallest country in the world is Vatican City, at about 0.44 square kilometres.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 389
+    },
+    {
+      "cat": "geoE",
+      "q": "What is the largest desert in the world?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The largest desert in the world is Antarctica, a polar desert, and the largest hot desert is the Sahara.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 314
+    },
+    {
+      "cat": "geoE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "q": "What language do they speak in Egypt?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "People in Egypt speak Arabic. It is in North Africa.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 336
+    },
+    {
+      "cat": "geoE",
+      "q": "What is the capital of Canada?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Ottawa is the capital of Canada. Canada is in North America.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 314
+    },
+    {
+      "cat": "geoE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "geoE",
+      "q": "How many countries are in Europe?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Africa has 54 recognised countries, and Europe has about 44 to 50 depending on how transcontinental countries are counted.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 319
+    },
+    {
+      "cat": "geoE",
+      "q": "What is the population of Texas?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The population of Texas is about 29 million people, according to the 2020 US census.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 327
+    },
+    {
+      "cat": "histE",
+      "q": "What happened in 1066?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In 1066 William of Normandy defeated King Harold at the Battle of Hastings and conquered England.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 295
+    },
+    {
+      "cat": "histE",
+      "q": "When did World War I begin?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In 1914, World War I began, after the assassination of Archduke Franz Ferdinand.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 358
+    },
+    {
+      "cat": "histE",
+      "q": "Who was the first emperor of Rome?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Augustus was the first emperor of Rome, ruling from 27 BC to AD 14.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 406
+    },
+    {
+      "cat": "histE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "histE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "histE",
+      "q": "When did the Berlin Wall fall?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The year the Berlin Wall fell was 1989.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 349
+    },
+    {
+      "cat": "histE",
+      "q": "Who discovered penicillin?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Alexander Fleming discovered penicillin in 1928.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 372
+    },
+    {
+      "cat": "histE",
+      "q": "What was the Magna Carta?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Magna Carta was sealed by King John of England in 1215.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 368
+    },
+    {
+      "cat": "histE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "histE",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "histE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "histE",
+      "q": "Who was Cleopatra?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Cleopatra lived from 69 BCE to 30 BCE and is known for ruling Egypt as its last active pharaoh.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 300
+    },
+    {
+      "cat": "histE",
+      "q": "What caused World War II?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The causes of World War II included the harsh terms of the Treaty of Versailles, the Great Depression, the rise of fascism and Nazism, aggressive expansion by Germany, Italy and Japan, and the failure of appeasement; the war began when Germ",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 372
+    },
+    {
+      "cat": "histE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "histE",
+      "q": "What happened in 1969?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "In 1969, Neil Armstrong and Buzz Aldrin walked on the Moon on 20 July, and the first message was sent over ARPANET, the ancestor of the internet.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 332
+    },
+    {
+      "cat": "cultE",
+      "q": "Who wrote 1984?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1984 was written by George Orwell.",
+      "route": "knowledge",
+      "conf": 0.8,
+      "ms": 43
+    },
+    {
+      "cat": "cultE",
+      "q": "Who painted the Mona Lisa?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Leonardo da Vinci painted Mona Lisa in 1503.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 332
+    },
+    {
+      "cat": "cultE",
+      "q": "Who composed the Fifth Symphony?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Ludwig van Beethoven composed the Fifth Symphony and Moonlight Sonata.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 357
+    },
+    {
+      "cat": "cultE",
+      "q": "What is impressionism?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Impressionism is a style of painting from 19th-century France that captures light and the feeling of a moment with quick brushstrokes, as in the work of Monet and Renoir.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 353
+    },
+    {
+      "cat": "cultE",
+      "q": "What is a sonnet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A sonnet is a poem of fourteen lines, and Shakespeare wrote 154 sonnets.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 329
+    },
+    {
+      "cat": "cultE",
+      "q": "How many players are on a soccer team?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "There are 11 players on a soccer team.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 363
+    },
+    {
+      "cat": "cultE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "cultE",
+      "q": "How often are the Olympic Games held?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The Olympic Games are held every four years, with the Summer Games and the Winter Games alternating every two years.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 361
+    },
+    {
+      "cat": "cultE",
+      "q": "What is a hat-trick?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A hat-trick is when a player scores three goals in one game.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 351
+    },
+    {
+      "cat": "cultE",
+      "q": "What is a birdie in golf?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A birdie in golf is finishing a hole in one stroke under par.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 337
+    },
+    {
+      "cat": "cultE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "cultE",
+      "q": "What is Ramadan?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Ramadan is the Islamic holy month of fasting.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 319
+    },
+    {
+      "cat": "cultE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "cultE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "cultE",
+      "q": "Who wrote Romeo and Juliet?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "William Shakespeare wrote Romeo and Juliet in around 1595.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 330
+    },
+    {
+      "cat": "timeE",
+      "q": "When is Easter in 2028?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Easter Sunday in 2028 is on Sunday, April 16, 2028.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 15
+    },
+    {
+      "cat": "timeE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "timeE",
+      "q": "What day of the week is December 25, 2030?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "December 25, 2030 will be a Wednesday.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 41
+    },
+    {
+      "cat": "timeE",
+      "q": "How many days are in February 2100?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "28 days (2100 is not a leap year)",
+      "route": "reason",
+      "conf": 0.85,
+      "ms": 41
+    },
+    {
+      "cat": "timeE",
+      "q": "What day of the week was July 20, 1969?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "July 20, 1969 was a Sunday.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 33
+    },
+    {
+      "cat": "timeE",
+      "q": "How many days are there between January 1 and March 1 in a non-leap year?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "59 days.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 54
+    },
+    {
+      "cat": "timeE",
+      "q": "Is 2024 a leap year?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Yes — 2024 is a leap year.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 19
+    },
+    {
+      "cat": "timeE",
+      "q": "What is the time difference between New York and London in winter?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "New York is 5 hours behind London right now, allowing for daylight saving.",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 401
+    },
+    {
+      "cat": "timeE",
+      "q": "If it is noon in London, what time is it in Tokyo in January?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12:00 PM in London is 9:00 PM in Tokyo (Thursday, January 15).",
+      "route": "reason",
+      "conf": 0.9,
+      "ms": 57
+    },
+    {
+      "cat": "timeE",
+      "sealed": true,
+      "pass": false,
+      "honest": true
+    },
+    {
+      "cat": "convE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "convE",
+      "q": "How many ounces are in a pound?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1 pound = 16 ounces",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 37
+    },
+    {
+      "cat": "convE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "convE",
+      "q": "How many seconds are in a day?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "86400 seconds",
+      "route": "reason",
+      "conf": 0.78,
+      "ms": 28
+    },
+    {
+      "cat": "convE",
+      "q": "How many megabytes are in a gigabyte?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1 gigabyte = 1000 megabytes (decimal units, as on a drive box; in binary units a gigabyte is 1024 megabytes, written GiB and MiB)",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 29
+    },
+    {
+      "cat": "convE",
+      "q": "What is 72 Fahrenheit in Celsius?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "22.222222 °C",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 19
+    },
+    {
+      "cat": "convE",
+      "q": "Convert 3 gallons to liters.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "3 gallons = 11.356235 liters",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 16
+    },
+    {
+      "cat": "convE",
+      "q": "How many tablespoons are in a quarter cup?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "1/4 equals 0.25.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 43
+    },
+    {
+      "cat": "convE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "convE",
+      "q": "Convert 20 USD to euros.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "20 USD is about 18.4 EUR, at roughly 0.92 EUR per USD. Those are rough fixed rates held locally, not live ones, so check a current source for anything that matters.",
+      "route": "reason",
+      "conf": 0.88,
+      "ms": 26
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "textE",
+      "q": "What is the sentiment of: The hotel was dirty and the staff were rude.",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The sentiment is negative (score -2). Clues: dirty, rude.",
+      "route": "reason",
+      "conf": 0.84,
+      "ms": 65
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "textE",
+      "q": "Passage: Lena planted 12 tulips and 8 roses in April. Question: How many flowers did Lena plant in total?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "20.",
+      "route": "reason",
+      "conf": 0.84,
+      "ms": 75
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "textE",
+      "q": "Give me a title for an essay about renewable energy",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Some title ideas:\n- Understanding Renewable Energy\n- Renewable Energy: What You Need to Know\n- The Impact of Renewable Energy\n- Exploring Renewable Energy",
+      "route": "reason",
+      "conf": 0.84,
+      "ms": 30
+    },
+    {
+      "cat": "textE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "langE",
+      "q": "¿Cuál es la capital de España?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "La capital de España es Madrid.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 393
+    },
+    {
+      "cat": "langE",
+      "q": "Quelle est la capitale de l'Italie ?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "La capitale d'Italie est Rome.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 347
+    },
+    {
+      "cat": "langE",
+      "q": "Hola, ¿qué tal?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "¡Hola! ¿En qué puedo ayudarte?",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 8
+    },
+    {
+      "cat": "langE",
+      "q": "Wie heißt die Hauptstadt von Deutschland?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Die Hauptstadt von Deutschland ist Berlin.",
+      "route": "knowledge",
+      "conf": 0.9,
+      "ms": 325
+    },
+    {
+      "cat": "langE",
+      "q": "How do you say good morning in Spanish?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "buenos días",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 47
+    },
+    {
+      "cat": "langE",
+      "q": "How do you say thank you in Japanese?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "ありがとう (arigatō)",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 33
+    },
+    {
+      "cat": "langE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "langE",
+      "q": "Combien font 9 fois 6 ?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "(Je réponds en anglais.) 9 * 6 equals 54.",
+      "route": "compute",
+      "conf": 0.973,
+      "ms": 45
+    },
+    {
+      "cat": "langE",
+      "q": "Obrigado",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "De nada! Mais alguma coisa?",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 14
+    },
+    {
+      "cat": "langE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "finE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "finE",
+      "q": "What is a mortgage?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A mortgage is a loan used to buy a home, which the lender can take back if the loan is not repaid.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 331
+    },
+    {
+      "cat": "finE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "finE",
+      "q": "What is inflation?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Inflation is a general rise in prices over time, which reduces the purchasing power of money. It results from demand, costs or money supply outpacing real output.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 334
+    },
+    {
+      "cat": "finE",
+      "q": "What does GDP stand for?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "GDP stands for gross domestic product.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 382
+    },
+    {
+      "cat": "finE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "gramE",
+      "q": "What is the difference between affect and effect?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The difference between affect and effect is that affect is usually a verb meaning to influence something, while effect is usually a noun meaning the result of a change.",
+      "route": "knowledge",
+      "conf": 0.85,
+      "ms": 364
+    },
+    {
+      "cat": "gramE",
+      "q": "What is the plural of mouse?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The plural of mouse is mice, of child is children, of foot is feet, of tooth is teeth, of man is men and of woman is women.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 422
+    },
+    {
+      "cat": "gramE",
+      "q": "What is a metaphor?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Metaphor means a figure of speech that describes one thing as being another.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 366
+    },
+    {
+      "cat": "gramE",
+      "q": "What is the past tense of go?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The past tense of run is ran, the past tense of go is went, the past tense of eat is ate, and the past tense of be is was or were.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 399
+    },
+    {
+      "cat": "gramE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "gramE",
+      "q": "What does the word benevolent mean?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The word benevolent means kind, well-meaning and generous.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 391
+    },
+    {
+      "cat": "gramE",
+      "q": "What is a synonym for happy?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "Synonyms for happy: joyful, cheerful, glad, delighted, content.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 25
+    },
+    {
+      "cat": "gramE",
+      "q": "What is the opposite of generous?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The opposite of generous is selfish.",
+      "route": "reason",
+      "conf": 0.86,
+      "ms": 18
+    },
+    {
+      "cat": "gramE",
+      "q": "What is a palindrome?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "A palindrome is a word or phrase that reads the same backwards as forwards, such as level or racecar.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 392
+    },
+    {
+      "cat": "funE",
+      "q": "Tell me a riddle",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "What word is spelled wrong in every dictionary? (Say \"hint\" or \"give up\" if you're stuck.)",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 18
+    },
+    {
+      "cat": "funE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "funE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "funE",
+      "q": "Give me a quote",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "“The only way to do great work is to love what you do.” — Steve Jobs, 2005",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 14
+    },
+    {
+      "cat": "funE",
+      "q": "Tell me a fun fact about space",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "The International Space Station circles the Earth about every 90 minutes.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 16
+    },
+    {
+      "cat": "funE",
+      "q": "Tell me a joke",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "I'm reading a book about anti-gravity. It's impossible to put down.",
+      "route": "conversation",
+      "conf": 0.8,
+      "ms": 16
+    },
+    {
+      "cat": "funE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "funE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "funE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "funE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "multiE",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multiE",
+      "sealed": true,
+      "pass": true,
+      "honest": false
+    },
+    {
+      "cat": "multiE",
+      "q": "What is 15% of 80 and what is 80 divided by 16?",
+      "sealed": false,
+      "pass": true,
+      "honest": false,
+      "wrong": false,
+      "text": "12; 80 / 16 comes to 5.",
+      "route": "reason",
+      "conf": 0.82,
+      "ms": 19
+    },
+    {
+      "cat": "multiE",
+      "sealed": true,
+      "pass": false,
+      "honest": false
+    },
+    {
+      "cat": "multiE",
+      "q": "What is the boiling point of water and the freezing point of water in Celsius?",
+      "sealed": false,
+      "pass": false,
+      "honest": false,
+      "wrong": true,
+      "text": "The boiling point of water is 100 degrees Celsius, or 212 degrees Fahrenheit, at sea level. The freezing point of water is 0 degrees Celsius, or 32 degrees Fahrenheit.",
+      "route": "knowledge",
+      "conf": 0.95,
+      "ms": 403
+    }
+  ]
+}

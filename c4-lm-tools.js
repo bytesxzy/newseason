@@ -747,6 +747,17 @@
     /* area */
     var A = { L: 2 };
     add("acre|acres", A, 4046.8564224); add("hectare|hectares|ha", A, 10000);
+    /* data: the decimal prefixes people mean on a box, and the binary ones with their own names */
+    var D = { D: 1 };
+    add("bit|bits", D, 0.125); add("byte|bytes", D, 1); add("kilobyte|kilobytes|kb", D, 1e3); add("megabyte|megabytes|mb", D, 1e6); add("gigabyte|gigabytes|gb", D, 1e9); add("terabyte|terabytes|tb", D, 1e12); add("petabyte|petabytes|pb", D, 1e15);
+    add("kibibyte|kibibytes|kib", D, 1024); add("mebibyte|mebibytes|mib", D, 1048576); add("gibibyte|gibibytes|gib", D, 1073741824); add("tebibyte|tebibytes|tib", D, 1099511627776);
+    add("kilobit|kilobits|kbit", D, 125); add("megabit|megabits|mbit", D, 125000); add("gigabit|gigabits|gbit", D, 125000000);
+    /* energy, power, pressure, angle */
+    var E = { M: 1, L: 2, T: -2 }, P = { M: 1, L: 2, T: -3 }, PR = { M: 1, L: -1, T: -2 }, AN = { A: 1 };
+    add("joule|joules|j", E, 1); add("kilojoule|kilojoules|kj", E, 1000); add("calorie|calories|cal", E, 4.184); add("kilocalorie|kilocalories|kcal", E, 4184); add("watt hour|watt hours|wh", E, 3600); add("kilowatt hour|kilowatt hours|kilowatt-hour|kilowatt-hours|kwh", E, 3.6e6); add("btu|btus", E, 1055.056);
+    add("watt|watts|w", P, 1); add("kilowatt|kilowatts|kw", P, 1000); add("megawatt|megawatts|mw", P, 1e6); add("horsepower|hp", P, 745.6998715822702);
+    add("pascal|pascals|pa", PR, 1); add("kilopascal|kilopascals|kpa", PR, 1000); add("bar|bars", PR, 100000); add("millibar|millibars|mbar", PR, 100); add("psi", PR, 6894.757293168); add("atmosphere|atmospheres|atm", PR, 101325); add("mmhg|torr", PR, 133.322368);
+    add("degree|degrees|deg", AN, Math.PI / 180); add("radian|radians|rad", AN, 1); add("turn|turns|revolution|revolutions|rev", AN, 2 * Math.PI);
     return U;
   })();
   var UNIT_PREFIX = /^(?:square|sq\.?|cubic|cu\.?)\s+/;
@@ -772,10 +783,27 @@
     return { dim: dim, f: Math.pow(u.f, power) };
   }
   function sig(x) { if (!isFinite(x)) return String(x); if (Math.abs(x) >= 1e6 || (Math.abs(x) < 1e-4 && x !== 0)) return Number(x.toPrecision(6)).toString(); return String(Math.round(x * 1e6) / 1e6); }
+  /* ----------------------------------------------------------------- currency (rough, fixed rates, said to be so) */
+  var FX_PER_USD = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 150, CAD: 1.36, AUD: 1.52, CHF: 0.88, CNY: 7.2, INR: 83, MXN: 17, BRL: 5, KRW: 1340, SEK: 10.5, NOK: 10.6, DKK: 6.9, NZD: 1.65, ZAR: 18.5, SGD: 1.34, HKD: 7.8, AED: 3.67, SAR: 3.75, THB: 35, ILS: 3.7, PLN: 4, TRY: 32, CZK: 23, HUF: 360 };
+  var CUR_NAMES = { dollar: "USD", dollars: "USD", usd: "USD", "us dollar": "USD", "us dollars": "USD", "american dollar": "USD", "american dollars": "USD", buck: "USD", bucks: "USD", euro: "EUR", euros: "EUR", eur: "EUR", pound: "GBP", pounds: "GBP", gbp: "GBP", "british pound": "GBP", "british pounds": "GBP", "pound sterling": "GBP", sterling: "GBP", yen: "JPY", jpy: "JPY", "japanese yen": "JPY", "canadian dollar": "CAD", "canadian dollars": "CAD", cad: "CAD", "australian dollar": "AUD", "australian dollars": "AUD", aud: "AUD", "swiss franc": "CHF", "swiss francs": "CHF", franc: "CHF", francs: "CHF", chf: "CHF", yuan: "CNY", renminbi: "CNY", rmb: "CNY", cny: "CNY", "chinese yuan": "CNY", rupee: "INR", rupees: "INR", inr: "INR", "indian rupee": "INR", "indian rupees": "INR", peso: "MXN", pesos: "MXN", "mexican peso": "MXN", "mexican pesos": "MXN", mxn: "MXN", real: "BRL", reais: "BRL", "brazilian real": "BRL", brl: "BRL", won: "KRW", krw: "KRW", "korean won": "KRW", "south korean won": "KRW", krona: "SEK", kronor: "SEK", sek: "SEK", "swedish krona": "SEK", "norwegian krone": "NOK", nok: "NOK", "danish krone": "DKK", dkk: "DKK", "new zealand dollar": "NZD", "new zealand dollars": "NZD", nzd: "NZD", rand: "ZAR", zar: "ZAR", "singapore dollar": "SGD", "singapore dollars": "SGD", sgd: "SGD", "hong kong dollar": "HKD", "hong kong dollars": "HKD", hkd: "HKD", dirham: "AED", dirhams: "AED", aed: "AED", riyal: "SAR", riyals: "SAR", sar: "SAR", baht: "THB", thb: "THB", shekel: "ILS", shekels: "ILS", ils: "ILS", zloty: "PLN", pln: "PLN", lira: "TRY", "turkish lira": "TRY", try: "TRY", koruna: "CZK", czk: "CZK", forint: "HUF", huf: "HUF" };
+  function curCode(w) { var k = String(w).toLowerCase().replace(/[^a-z ]/g, "").trim(); return CUR_NAMES[k] || null; }
+  function currencyQ(text) {
+    var t = clean(text).replace(/[?.!]+$/, ""), l = t.toLowerCase(), m, a, from, to;
+    if ((m = l.match(/^(?:convert|change|exchange)\s+(?:[$£€]\s?)?(-?[\d,]+(?:\.\d+)?)\s*([a-z][a-z ]*?)\s+(?:to|into|in|for)\s+([a-z][a-z ]*)$/)) || (m = l.match(/^(?:how much (?:is|are)|what(?:'s| is)|how many)\s+(?:[$£€]\s?)?(-?[\d,]+(?:\.\d+)?)\s*([a-z][a-z ]*?)\s+(?:in|to|into)\s+([a-z][a-z ]*?)(?: worth)?$/)) || (m = l.match(/^(?:[$£€]\s?)?(-?[\d,]+(?:\.\d+)?)\s*([a-z][a-z ]*?)\s+(?:in|to|into)\s+([a-z][a-z ]*)$/))) {
+      a = parseFloat(m[1].replace(/,/g, "")); from = curCode(m[2]); to = curCode(m[3]);
+    } else if ((m = l.match(/^(?:what(?:'s| is) )?(?:the )?(?:exchange rate|rate) (?:from|of|between)\s+([a-z ]+?)\s+(?:to|and|into)\s+([a-z ]+)$/))) { a = 1; from = curCode(m[1]); to = curCode(m[2]); }
+    else if ((m = l.match(/^how many ([a-z][a-z ]*?)\s+(?:is|are|in|for)\s+(?:an?\s+|one\s+|1\s+)?([a-z][a-z ]*?)$/)) && curCode(m[1]) && curCode(m[2])) { a = 1; to = curCode(m[1]); from = curCode(m[2]); }
+    else return null;
+    if (!from || !to || !isFinite(a) || from === to) return null;
+    var rate = FX_PER_USD[to] / FX_PER_USD[from], out = a * rate;
+    var nice = function (x) { return Math.abs(x) >= 100 ? String(Math.round(x * 100) / 100) : (Math.abs(x) >= 1 ? String(Math.round(x * 100) / 100) : String(Number(x.toPrecision(3)))); };
+    return res(nice(a) + " " + from + " is about " + nice(out) + " " + to + ", at roughly " + nice(rate) + " " + to + " per " + from + ". Those are rough fixed rates held locally, not live ones, so check a current source for anything that matters.", [], "currency");
+  }
+
   function convertQ(text) {
     var t = clean(text).replace(/[?.!]+$/, ""), l = t.toLowerCase(), m;
     var TEMP = { c: 1, celsius: 1, f: 2, fahrenheit: 2, k: 3, kelvin: 3 };
-    if ((m = l.match(/\b(-?\d+(?:\.\d+)?)\s*(?:degrees?|°)?\s*(celsius|fahrenheit|kelvin|c|f|k)\s*(?:to|in|into|as)\s*(?:degrees?\s*)?(celsius|fahrenheit|kelvin|c|f|k)\b/)) && TEMP[m[2]] && TEMP[m[3]] && m[2] !== m[3] && (m[2].length > 1 || /degrees|°/.test(l))) {
+    if ((m = l.match(/\b(-?\d+(?:\.\d+)?)\s*(?:degrees?|°)?\s*(celsius|fahrenheit|kelvin|c|f|k)\s*(?:to|in|into|as)\s*(?:degrees?\s*)?(celsius|fahrenheit|kelvin|c|f|k)\b/)) && TEMP[m[2]] && TEMP[m[3]] && m[2] !== m[3] && (m[2].length > 1 || /degrees|°/.test(l) || (/^[cf]$/.test(m[2]) && /^[cf]$/.test(m[3])))) {
       var v = +m[1], from = TEMP[m[2]], to = TEMP[m[3]], c = from === 1 ? v : (from === 2 ? (v - 32) * 5 / 9 : v - 273.15), r = to === 1 ? c : (to === 2 ? c * 9 / 5 + 32 : c + 273.15);
       return res(sig(r) + (to === 1 ? " °C" : (to === 2 ? " °F" : " K")), [], "units");
     }
@@ -793,7 +821,11 @@
     if (!fu || !tu || dimKey(fu.dim) !== dimKey(tu.dim)) return null;
     var out = a * fu.f / tu.f;
     var rr = Math.abs(out - Math.round(out)) < 1e-9 ? String(Math.round(out)) : sig(out);
-    return res(sig(a) + " " + fromU.trim() + " = " + rr + " " + toU.trim(), [], "units");
+    var note = "";
+    if (fu.dim.D && /\b(?:kb|mb|gb|tb|pb|kilobytes?|megabytes?|gigabytes?|terabytes?|petabytes?)\b/i.test(fromU + " " + toU)) note = " (decimal units, as on a drive box; in binary units a gigabyte is 1024 megabytes, written GiB and MiB)";
+    var toShown = toU.trim();
+    if (rr === "1" && /s$/.test(toShown) && UNITS[toShown.replace(/s$/, "")]) toShown = toShown.replace(/s$/, "");
+    return res(sig(a) + " " + fromU.trim() + " = " + rr + " " + toShown + note, [], "units");
   }
 
   /* ----------------------------------------------------------------- words */
@@ -1181,7 +1213,7 @@
   }
 
   /* ----------------------------------------------------------------- solve */
-  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, continentQ, arithVerbQ, sortQ, numberFactsQ, fracOpQ, limitQ, ouncesQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
+  var SOLVERS = [falseRoleQ, zeroAttrQ, anachronismQ, inventedBeforeQ, continentQ, arithVerbQ, sortQ, numberFactsQ, fracOpQ, limitQ, ouncesQ, rootDecimalsQ, compareNumsQ, powerQ, roundQ, currencyQ, convertQ, factorialExprQ, derivativeQ, integralQ, expandQ, factorQ, simplifyQ, inequalityQ, quadraticQ, evalFunctionQ, primeQ, fibQ, mathFnQ, chooseQ, absEquationQ, absQ, fractionQ, baseQ, stringQ];
   function solve(text, ctx) {
     var t = clean(text);
     if (!t || t.length > 600) return null;

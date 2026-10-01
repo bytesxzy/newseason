@@ -1490,6 +1490,27 @@
     return done(c[0].text);
   }
 
+  /* "What does the liver do?", "What does a nurse do?": its function, else what it is */
+  function answerRole(frame) {
+    if (!FX || off("facts") || !FX.size()) return null;
+    var raw = String(frame.rawText || frame.body || ""), m = raw.match(/^\s*what (?:do|does) (?:a |an |the )?((?!you\b|i\b|we\b|they\b|he\b|she\b|it\b|people\b|this\b|that\b)[A-Za-z][A-Za-z' -]{2,40}?) (?:actually )?do\s*\??\s*$/i);
+    if (!m) return null;
+    var X = m[1].trim(), qs = FX.contentStems(X);
+    if (!qs.length) return null;
+    var tries = ["What is the function of " + X + "?", "What is " + (/^[aeiou]/i.test(X) ? "an " : "a ") + X + "?"];
+    for (var t = 0; t < tries.length; t++) {
+      var r = null;
+      try { r = FX.answer(tries[t], { min: 0.5, top: 14 }); } catch (e) { r = null; }
+      var cands = (r && r.all) || (r ? [r] : []);
+      for (var i = 0; i < cands.length; i++) {
+        var st = FX.contentStems(cands[i].text);
+        if (qs.every(function (w) { return st.indexOf(w) >= 0; }))
+          return { text: cands[i].text, route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], multiHop: true, entity: X, fact: { coverage: cands[i].coverage, score: cands[i].score } };
+      }
+    }
+    return null;
+  }
+
   /* "Give me an example of a metaphor", "Examples of renewable energy": the line that opens with "Examples of" */
   function answerExamples(frame) {
     if (!FX || off("facts") || !FX.size()) return null;
@@ -3325,7 +3346,7 @@
     /* Deterministic resolvers run before the social branch: "what time is it
        right now" is a clock question with a chatty shape, and a computation
        is never small talk. */
-    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerAcronym(frame) || answerExamples(frame) || answerPreference(frame); });
+    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerAcronym(frame) || answerExamples(frame) || answerRole(frame) || answerPreference(frame); });
     if (diff) return Promise.resolve(finish(frame, diff, t0, decision));
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));

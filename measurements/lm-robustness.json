@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T20:37:42.913Z",
- "passed": 95,
- "total": 95,
+ "generated": "2026-10-01T21:19:51.331Z",
+ "passed": 96,
+ "total": 96,
  "results": [
   {
    "name": "syntax: c4-lm-clock.js",
@@ -140,6 +140,11 @@
   },
   {
    "name": "syntax: c4-lm-facts-nouns.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-nouns2.js",
    "ok": true,
    "detail": ""
   },
@@ -366,7 +371,7 @@
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "edge input: sql-ish input",
@@ -406,7 +411,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -416,12 +421,12 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "9 -> 8"
+   "detail": "14 -> 12"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 equals 391."
+   "detail": "17 * 23 comes to 391."
   },
   {
    "name": "offline: local knowledge unaffected",
@@ -436,7 +441,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2878 ms"
+   "detail": "2804 ms"
   },
   {
    "name": "garbage source response handled",
@@ -451,12 +456,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "Paris is the capital of France. France i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hi there — what are we looking into?"
+   "detail": "Hi — what would you like to know?"
   },
   {
    "name": "dialogue sequence",
