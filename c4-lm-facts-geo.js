@@ -47,6 +47,8 @@
     "Vanuatu|Port Vila|Oceania;Vatican City|Vatican City|Europe;Venezuela|Caracas|South America;Vietnam|Hanoi|Asia;Yemen|Sanaa|Asia;" +
     "Zambia|Lusaka|Africa;Zimbabwe|Harare|Africa"
   ).split(";");
+  F.registry = F.registry || {};
+  F.registry.country = COUNTRIES.map(function (r) { return r.split("|")[0]; }).filter(Boolean);
   COUNTRIES.forEach(function (row) {
     var p = row.split("|"), n = p[0], c = p[1], k = p[2];
     out.push("The capital of " + n + " is " + c + ".");

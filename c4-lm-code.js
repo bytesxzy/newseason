@@ -264,6 +264,102 @@
     }
   };
 
+
+  /* More small functions, each verified against its own example before it is
+     offered. Added through one helper so the concept (markers) and the
+     program (IMPL) stay together. */
+  function addOp(id, markers, impl) { OPERATIONS.push({ id: id, needs: [], markers: markers }); IMPL[id] = impl; }
+  addOp("add-two", [/\badds?\s+(?:two|2)\s+numbers\b/i, /\bsum\s+of\s+(?:two|2)\s+numbers\b/i, /\badd\s+(?:two|2)\s+(?:numbers|values|integers)\b/i], {
+    javascript: function () { return "function add(a, b) {\n  return a + b;\n}"; },
+    python: function () { return "def add(a, b):\n    return a + b"; },
+    java: function () { return "static int add(int a, int b) {\n    return a + b;\n}"; },
+    go: function () { return "func add(a, b int) int {\n    return a + b\n}"; },
+    ruby: function () { return "def add(a, b)\n  a + b\nend"; },
+    explain: "The function takes two parameters and returns their sum.",
+    test: { call: "add(2,3)", expect: "5" } });
+  addOp("square", [/\bsquare\s+of\s+(?:a\s+)?(?:given\s+)?(?:number|value|integer)\b/i, /\bsquares?\s+a\s+number\b/i, /\breturns?\s+the\s+square\b/i], {
+    javascript: function () { return "function square(n) {\n  return n * n;\n}"; },
+    python: function () { return "def square(n):\n    return n * n"; },
+    java: function () { return "static int square(int n) {\n    return n * n;\n}"; },
+    go: function () { return "func square(n int) int {\n    return n * n\n}"; },
+    explain: "Multiplying a number by itself squares it; n ** 2 (Python) or Math.pow(n, 2) would do the same.",
+    test: { call: "square(7)", expect: "49" } });
+  addOp("is-even", [/\b(?:check|test|determine|decide|see)\b[^.?]*\b(?:if|whether)\b[^.?]*\b(?:is )?(?:even|odd)\b/i, /\bis[_ ]?even\b/i, /\beven\s+or\s+odd\b/i, /\bnumber\s+is\s+(?:even|odd)\b/i], {
+    javascript: function () { return "function isEven(n) {\n  return n % 2 === 0;\n}"; },
+    python: function () { return "def is_even(n):\n    return n % 2 == 0"; },
+    java: function () { return "static boolean isEven(int n) {\n    return n % 2 == 0;\n}"; },
+    go: function () { return "func isEven(n int) bool {\n    return n%2 == 0\n}"; },
+    explain: "A number is even exactly when dividing it by two leaves no remainder; an odd number is the negation.",
+    test: { call: "isEven(10) && !isEven(7)", expect: "true" } });
+  addOp("is-prime", [/\b(?:check|test|determine|decide|is)\b[^.?]*\bprime\b/i, /\bprime\s+(?:number\s+)?(?:checker|check|test|function)\b/i], {
+    javascript: function () { return "function isPrime(n) {\n  if (n < 2) return false;\n  for (let i = 2; i * i <= n; i++) {\n    if (n % i === 0) return false;\n  }\n  return true;\n}"; },
+    python: function () { return "def is_prime(n):\n    if n < 2:\n        return False\n    i = 2\n    while i * i <= n:\n        if n % i == 0:\n            return False\n        i += 1\n    return True"; },
+    go: function () { return "func isPrime(n int) bool {\n    if n < 2 {\n        return false\n    }\n    for i := 2; i*i <= n; i++ {\n        if n%i == 0 {\n            return false\n        }\n    }\n    return true\n}"; },
+    explain: "Only divisors up to the square root need testing, because any larger divisor pairs with a smaller one.",
+    test: { call: "isPrime(13) && !isPrime(15) && !isPrime(1)", expect: "true" } });
+  addOp("max-two", [/\b(?:larger|greater|bigger|largest|greatest|maximum|max)\s+of\s+(?:the\s+)?(?:two|2)\b/i, /\bmax(?:imum)?\s+(?:of|between)\s+(?:two|2)\b/i], {
+    javascript: function () { return "function larger(a, b) {\n  return a > b ? a : b;\n}"; },
+    python: function () { return "def larger(a, b):\n    return a if a > b else b"; },
+    java: function () { return "static int larger(int a, int b) {\n    return a > b ? a : b;\n}"; },
+    go: function () { return "func larger(a, b int) int {\n    if a > b {\n        return a\n    }\n    return b\n}"; },
+    explain: "A single comparison picks the bigger of the two.",
+    test: { call: "larger(3,9)", expect: "9" } });
+  addOp("min-two", [/\b(?:smaller|lesser|smallest|least|minimum|min)\s+of\s+(?:the\s+)?(?:two|2)\b/i, /\bmin(?:imum)?\s+(?:of|between)\s+(?:two|2)\b/i], {
+    javascript: function () { return "function smaller(a, b) {\n  return a < b ? a : b;\n}"; },
+    python: function () { return "def smaller(a, b):\n    return a if a < b else b"; },
+    explain: "A single comparison picks the smaller of the two.",
+    test: { call: "smaller(3,9)", expect: "3" } });
+  addOp("gcd", [/\b(?:greatest\s+common\s+(?:divisor|factor)|gcd|hcf)\b/i], {
+    javascript: function () { return "function gcd(a, b) {\n  while (b !== 0) [a, b] = [b, a % b];\n  return Math.abs(a);\n}"; },
+    python: function () { return "def gcd(a, b):\n    while b:\n        a, b = b, a % b\n    return abs(a)"; },
+    explain: "Euclid's algorithm replaces the pair (a, b) with (b, a mod b) until the remainder is zero; the last non-zero value is the greatest common divisor.",
+    test: { call: "gcd(48,18)", expect: "6" } });
+  addOp("count-vowels", [/\bcount\s+(?:the\s+)?vowels\b/i, /\bnumber\s+of\s+vowels\b/i], {
+    javascript: function () { return "function countVowels(text) {\n  return (text.match(/[aeiou]/gi) || []).length;\n}"; },
+    python: function () { return "def count_vowels(text):\n    return sum(1 for ch in text.lower() if ch in 'aeiou')"; },
+    explain: "Each character is tested against the vowel set, case-insensitively.",
+    test: { call: "countVowels(\"Education\")", expect: "5" } });
+  addOp("reverse-words", [/\brevers\w*\s+(?:the\s+)?(?:order\s+of\s+(?:the\s+)?)?words\b/i], {
+    javascript: function () { return "function reverseWords(text) {\n  return text.trim().split(/\\s+/).reverse().join(\" \");\n}"; },
+    python: function () { return "def reverse_words(text):\n    return ' '.join(reversed(text.split()))"; },
+    explain: "The sentence is split into words, the words are reversed, and they are joined back with single spaces.",
+    test: { call: "reverseWords(\"one two three\")", expect: "\"three two one\"" } });
+  addOp("sum-to-n", [/\bsum\s+(?:of\s+)?(?:the\s+)?(?:numbers|integers)\s+(?:from\s+)?1\s+to\s+n\b/i, /\bsum\s+(?:of\s+)?(?:all\s+)?(?:numbers|integers)\s+up\s+to\s+n\b/i, /\bsum\s+(?:of\s+)?(?:the\s+)?first\s+n\b/i], {
+    javascript: function () { return "function sumTo(n) {\n  return n * (n + 1) / 2;\n}"; },
+    python: function () { return "def sum_to(n):\n    return n * (n + 1) // 2"; },
+    explain: "Gauss's formula n(n+1)/2 gives the sum 1 + 2 + ... + n in constant time.",
+    test: { call: "sumTo(100)", expect: "5050" } });
+  addOp("c-to-f", [/\bcelsius\s+to\s+fahrenheit\b/i], {
+    javascript: function () { return "function celsiusToFahrenheit(c) {\n  return c * 9 / 5 + 32;\n}"; },
+    python: function () { return "def celsius_to_fahrenheit(c):\n    return c * 9 / 5 + 32"; },
+    explain: "Multiply by 9/5 and add 32.",
+    test: { call: "celsiusToFahrenheit(100)", expect: "212" } });
+  addOp("f-to-c", [/\bfahrenheit\s+to\s+celsius\b/i], {
+    javascript: function () { return "function fahrenheitToCelsius(f) {\n  return (f - 32) * 5 / 9;\n}"; },
+    python: function () { return "def fahrenheit_to_celsius(f):\n    return (f - 32) * 5 / 9"; },
+    explain: "Subtract 32, then multiply by 5/9.",
+    test: { call: "fahrenheitToCelsius(212)", expect: "100" } });
+  addOp("circle-area", [/\barea\s+of\s+(?:a\s+)?circle\b/i], {
+    javascript: function () { return "function circleArea(r) {\n  return Math.PI * r * r;\n}"; },
+    python: function () { return "import math\n\ndef circle_area(r):\n    return math.pi * r * r"; },
+    explain: "The area of a circle of radius r is pi times r squared.",
+    test: { call: "Math.round(circleArea(1) * 1000)", expect: "3142" } });
+  addOp("leap-year", [/\bleap\s+year\b/i], {
+    javascript: function () { return "function isLeapYear(y) {\n  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;\n}"; },
+    python: function () { return "def is_leap_year(y):\n    return (y % 4 == 0 and y % 100 != 0) or y % 400 == 0"; },
+    explain: "A year is a leap year when divisible by 4, except centuries, which must also be divisible by 400.",
+    test: { call: "isLeapYear(2024) && !isLeapYear(1900) && isLeapYear(2000)", expect: "true" } });
+  addOp("print-range", [/\bprints?\s+(?:out\s+)?(?:the\s+)?numbers\s+(?:from\s+)?1\s+to\s+\d+\b/i, /\bloop\b[^.?]*\b1\s+to\s+\d+\b/i, /\bcount\s+from\s+1\s+to\s+\d+\b/i], {
+    javascript: function (spec) { var n = spec.n || 5; return "for (let i = 1; i <= " + n + "; i++) {\n  console.log(i);\n}"; },
+    python: function (spec) { var n = spec.n || 5; return "for i in range(1, " + (n + 1) + "):\n    print(i)"; },
+    java: function (spec) { var n = spec.n || 5; return "for (int i = 1; i <= " + n + "; i++) {\n    System.out.println(i);\n}"; },
+    explain: "The loop variable starts at 1 and the condition keeps it running up to and including the last number." });
+  addOp("power", [/\braise\w*\s+(?:a\s+)?(?:number|value|base)\s+to\s+(?:the\s+)?(?:a\s+)?power\b/i, /\b(?:compute|calculate)\s+(?:a\s+)?(?:number\s+)?(?:to\s+the\s+power|exponent)\b/i], {
+    javascript: function () { return "function power(base, exponent) {\n  return base ** exponent;\n}"; },
+    python: function () { return "def power(base, exponent):\n    return base ** exponent"; },
+    explain: "The ** operator raises the base to the exponent.",
+    test: { call: "power(2,10)", expect: "1024" } });
+
   /* Verification. A JavaScript program is run against its own example before
      it is shown; a program that does not satisfy its example is not offered. */
   function verify(code, test) {
@@ -292,9 +388,11 @@
     }
     var impl = IMPL[op.id];
     if (!impl) return null;
-    var emit = impl[lang] || impl.javascript;
+    var emit = impl[lang];
+    if (!emit) { emit = impl.javascript; lang = "javascript"; }
     if (!emit) return null;
     var spec = { op: op.id, language: lang };
+    var nm = frame.normalizedText.match(/\b1 to (\d+)\b/); if (nm) spec.n = +nm[1];
     if (op.preserveOrder) spec.preserveOrder = op.preserveOrder.test(frame.normalizedText);
     var code = emit(spec);
     var verified = lang === "javascript" ? verify(code, impl.test) : { ran: false, ok: true };
@@ -308,7 +406,8 @@
     if (!frame.requiresCode) return false;
     if (/\b(?:what is|what are|explain|define|difference between|compare)\b/i.test(frame.normalizedText) &&
         !/\bwrite|implement|create a function|show me (?:a |the )?code\b/i.test(frame.normalizedText)) return false;
-    return /\b(?:write|implement|create|build|make|generate|give me|show me|code|function|query|script|snippet)\b/i.test(frame.normalizedText);
+    return /\b(?:write|implement|create|build|make|generate|give me|show me|code|function|query|script|snippet)\b/i.test(frame.normalizedText) ||
+           (/\bhow (?:do|can|would|should) (?:i|you|we)\b/i.test(frame.normalizedText) && !!detectLanguage(frame));
   }
 
   root.C4LMCode = {

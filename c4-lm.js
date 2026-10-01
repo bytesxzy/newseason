@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo;
 
   var state = {
     ready: false,
@@ -1394,6 +1394,9 @@
     var q = frame.semanticText || frame.body || frame.rawText || "";
     var hit = null;
     var o = { min: min };
+    /* a numeric fragment ("3 power 4") is a computation, not a topic */
+    var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
+    if (cs0.length > alpha0.length && alpha0.length < 2) return null;
     if (only === "strict") o.minStems = 2;
     else if (FX.contentStems(q).length < 2) o.define = true;
     try { hit = FX.answer(q, o); } catch (e) { hit = null; }
@@ -1439,12 +1442,21 @@
        (an equation, a system, calculus, combinatorics ...), reading it as
        bare arithmetic over its digits is a MISINTERPRETATION -- "solve
        x^2 - 5x + 6 = 0" is not "2 - 5". The structured reading wins. */
-    var structured = answerProblem(frame);
-    if (structured) { structured.interpretation = "structured"; return structured; }
     /* Story problems: read the English into quantities and relations, derive the answer,
        and decline unless every number in the text was used. */
     var story = answerStory(frame);
     if (story) return story;
+    /* Puzzles and premises: syllogisms, ordering, calendar, kinship, sequences, riddles. */
+    var puzzle = answerLogic(frame);
+    if (puzzle) return puzzle;
+    /* Symbolic and word tools: derivatives, factoring, primes, logs, spelling, multiple choice. */
+    var tooled = answerTools(frame);
+    if (tooled) return tooled;
+    /* Programming idioms and concepts: how do I read a file, what is recursion, what does git commit do. */
+    var howto = answerHowTo(frame);
+    if (howto) return howto;
+    var structured = answerProblem(frame);
+    if (structured) { structured.interpretation = "structured"; return structured; }
     var r = RS.solve(frame);
     /* Arithmetic read compositionally from the English comes before the
        numeral re-read below: "three quarters of 200" re-read as "3/4 of 200"
@@ -1475,6 +1487,83 @@
     var out = answerReasonText(frame, r);
     if (out && cal) { out.confidence = cal.confidence; out.calibration = cal; }
     return out;
+  }
+
+  /* Two-step questions: "the capital of the country that has the city of Kyoto".
+     The inner clause is answered first, its answer is matched against the
+     known members of the asked kind (countries, cities), and the question is
+     asked again with that name in place of the clause. */
+  var HOP_NAME = "([A-Z][\\w'’-]*(?:\\s+[A-Z][\\w'’-]*)*)";
+  var HOP_PATTERNS = [
+    new RegExp("\\b(?:the )?(country|city|state)\\s+(?:that|which)\\s+has\\s+(?:the\\s+)?(?:(?:city|town|capital|landmark|river|mountain|lake|island|monument|building|tower|temple|castle)\\s+(?:of\\s+)?)?" + HOP_NAME),
+    new RegExp("\\b(?:the )?(country|city|state)\\s+(?:where|in which)\\s+(?:the\\s+)?" + HOP_NAME + "\\s+(?:is|are|stands?|lies|sits|is located|can be found)\\b"),
+    new RegExp("\\b(?:the )?(country|city|state)\\s+(?:that|which)\\s+(?:the\\s+)?" + HOP_NAME + "\\s+(?:is|are)\\s+(?:in|located in|part of)\\b")
+  ];
+  function answerHop(frame, decision) {
+    try { return answerHopCore(frame, decision); } catch (e) { if (typeof console !== "undefined" && root.__C4_DEBUG) console.log("hop error", e && e.stack); return null; }
+  }
+  function cloneDecision(d) { var c = Object.assign({}, d); c.features = Object.assign({}, d.features || {}); return c; }
+  function answerHopCore(frame, decision) {
+    if (off("hop") || !FX) return null;
+    var raw = String(frame.rawText || frame.body || ""), m = null, i;
+    for (i = 0; i < HOP_PATTERNS.length && !m; i++) m = raw.match(HOP_PATTERNS[i]);
+    if (!m) return null;
+    var type = m[1].toLowerCase(), ent = m[2].replace(/\s+$/, ""), pool = {};
+    ((FX.registry && FX.registry[type]) || []).forEach(function (n) { pool[String(n).toLowerCase()] = n; });
+    if (KB && KB.byType) KB.byType(type).forEach(function (e) { var n = e.name || e.id; if (n) pool[String(n).toLowerCase()] = n; });
+    if (!Object.keys(pool).length) return null;
+    /* what is known about the inner entity, read without running the answer chain */
+    var texts = [];
+    try {
+      if (KB) KB.resolve(ent, { strict: true }).slice(0, 2).forEach(function (h) {
+        var e = h.entity; texts.push(e.defn || "");
+        [e.rel, e.extra].forEach(function (o) { if (o) Object.keys(o).forEach(function (k) { if (typeof o[k] === "string") texts.push(o[k]); }); });
+      });
+      ["Where is " + ent + "?", ent + " is located in", "Which country is " + ent + " in?"].forEach(function (q) {
+        var h = FX.answer(q, { min: 0.5 }); if (h && h.text && new RegExp(ent.split(" ")[0], "i").test(h.text)) texts.push(h.text);
+      });
+    } catch (e) { return null; }
+    var found = null, bestAt = 1e9;
+    texts.forEach(function (tx) {
+      var low = String(tx).toLowerCase();
+      Object.keys(pool).forEach(function (nm) {
+        var at = low.indexOf(nm);
+        if (at >= 0 && at < bestAt && nm !== ent.toLowerCase() && ent.toLowerCase().indexOf(nm) < 0 && !/[a-z]/.test(low.charAt(at - 1) || " ") && !/[a-z]/.test(low.charAt(at + nm.length) || " ")) { bestAt = at; found = pool[nm]; }
+      });
+    });
+    if (!found) return null;
+    var outerText = raw.replace(m[0], found), r3 = null;
+    try { r3 = FX.answer(outerText, { min: 0.6 }); } catch (e2) { r3 = null; }
+    if (!r3 || !r3.text) return null;
+    return { text: "The " + type + " with " + ent + " is " + found + ". " + r3.text, route: "knowledge", confidence: Math.min(0.8, r3.confidence || 0.8),
+             sources: ["local fact library"], defects: [], entity: ent, multiHop: true, hop: { inner: ent, found: found } };
+  }
+
+  function answerHowTo(frame) {
+    if (!HW || off("howto")) return null;
+    var hr = null;
+    try { hr = HW.solve(frame.rawText || frame.body || ""); } catch (e) { hr = null; }
+    if (!hr || !hr.answer) return null;
+    return { text: hr.answer, route: "code", confidence: hr.confidence || 0.88, sources: [], defects: [], code: hr.schema === "howto" ? hr.answer : undefined,
+             language: hr.language, interpretation: "howto:" + hr.schema, howto: hr };
+  }
+
+  function answerTools(frame) {
+    if (!TL || off("tools")) return null;
+    var tr = null;
+    try { tr = TL.solve(frame.rawText || frame.body || ""); } catch (e) { tr = null; }
+    if (!tr || !tr.answer) return null;
+    return { text: tr.answer, route: "reason", confidence: tr.confidence || 0.88, sources: [], defects: [],
+             interpretation: "tools:" + tr.schema, tools: tr };
+  }
+
+  function answerLogic(frame) {
+    if (!LG || off("logic")) return null;
+    var lg = null;
+    try { lg = LG.solve(frame.rawText || frame.body || ""); } catch (e) { lg = null; }
+    if (!lg || !lg.answer) return null;
+    return { text: lg.answer, route: "reason", confidence: lg.confidence || 0.85, sources: [], defects: [],
+             interpretation: "logic:" + lg.schema, logic: lg };
   }
 
   function answerStory(frame) {
@@ -2310,7 +2399,7 @@
         else if (rd.resolver === "content") cand = answerKBByContent(frame, decision);
         else {
           var f2 = C.parse(rd.text, discourse.snapshot());
-          if (f2 && !f2.empty) cand = localResolvers(f2, decide(f2, discourse));
+          if (f2 && !f2.empty) cand = localResolvers(f2, cloneDecision(decision));
         }
       } catch (e) { cand = null; }
       considered++;
@@ -2654,6 +2743,8 @@
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
     var guarded = timed("guard", function () { return off("guard") ? null : answerGuard(frame); });
     if (guarded) return Promise.resolve(finish(frame, guarded, t0, decision));
+    var hopped = timed("hop", function () { return answerHop(frame, decision); });
+    if (hopped) return Promise.resolve(finish(frame, hopped, t0, decision));
     /* A question the fact library covers well is answered from it before the
        general chain, whose entity matching can land on a shared word. */
     if (frame.speechAct === "question" && !frame.requiresFreshInformation && frame.queryForm !== "whatis" && frame.queryForm !== "topic") {
@@ -2816,6 +2907,8 @@
   function init(opts) {
     opts = opts || {};
     if (KB) KB.build();
+    /* every word the fact library holds is a real word, not a typo to be repaired into a neighbour */
+    if (C && C.learnVocabulary && FX && FX._docs) { try { C.learnVocabulary(FX._docs().map(function (d) { return d.text || d.raw || ""; })); } catch (e) {} }
     if (C && KB) {
       C.setEntityOracle(function (phrase) {
         var hits = KB.resolve(phrase, { strict: true });

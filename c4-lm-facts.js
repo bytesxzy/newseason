@@ -217,7 +217,7 @@
     if (!DOCS.length) return null;
     var qs = contentStems(question);
     if (!qs.length) return null;
-    if (opts.minStems && qs.length < opts.minStems) return null;
+    if (opts.minStems && qs.filter(function (w) { return /[a-z]/.test(w); }).length < opts.minStems) return null;
     var qTokens = tokens(question), type = askType(question);
     var qw = qs.map(function (s) { return { s: s, w: idf(s) }; });
     var total = 0;
