@@ -205,12 +205,19 @@
 
   /* ============================================================ clauses */
   var BOUNDARY = /([.;:!?]+)(?=\s|$)|,?\s+\b(but|except|however|though|although|whereas|and|then|plus)\b\s+|\s+[-\u2013\u2014]+\s+/gi;
+  /* "I have a dog named Rex and a bird named Tweety": the second item is a second thing the speaker has */
+  function distribute(raw) {
+    return String(raw).replace(/\b(I (?:have|own|keep|got|'ve got|have got))\s+((?:a|an|two|three|four|five|six|\d+)\s+[a-z]+(?:\s+(?:named|called)\s+[A-Z][\w'-]*)?)\s+and\s+((?:a|an|two|three|four|five|six|\d+)\s+[a-z]+(?:\s+(?:named|called)\s+[A-Z][\w'-]*)?)(?=\s*[.!]?\s*$)/, "$1 $2. $1 $3");
+  }
   function clauses(raw) {
+    raw = distribute(raw);
     var out = [], last = 0, conj = "", m;
     BOUNDARY.lastIndex = 0;
     while ((m = BOUNDARY.exec(raw))) {
       if (!m[0].length) { BOUNDARY.lastIndex++; continue; }
       var seg = raw.slice(last, m.index);
+      /* "two cats named Milo and Luna": the "and" joins names, it does not start a new clause */
+      if (m[2] && /^(?:and|plus)$/i.test(m[2]) && /\b(?:named|called|names? (?:are|is))\s+[A-Z][\w'-]*(?:\s*,\s*[A-Z][\w'-]*)*\s*$/.test(seg) && /^[A-Z][\w'-]*(?:\s*(?:,|and|\.|!|$))/.test(raw.slice(m.index + m[0].length))) continue;
       if (seg.trim()) out.push({ text: seg.trim(), start: last, end: m.index + (m[1] ? m[1].length : 0), conj: conj });
       conj = (m[2] || "").toLowerCase();
       last = m.index + m[0].length;
@@ -311,8 +318,10 @@
       if (v === "have" && /^(?:(?:a|an)\s+(?:question|idea|problem|issue|doubt|request|suggestion|thought|concern|feeling|point|minute|second|moment)|questions?)\b/i.test(obj)) return null;
       var L2 = LX();
       if (!((L2 && L2.has(v)) || (C.knownWord && C.knownWord(v)))) return null;
-      var lv = lemma(v);
-      return { key: "v:" + lv, attr: lv, verb: lv, verbSurface: v, value: obj };
+      var lv = lemma(v), hk = "";
+      /* what a person has is kept thing by thing: a dog and a bird are two facts, not one that is overwritten */
+      if (/^(?:have|own|keep|got|like|love|enjoy|play|speak|eat|drink|read|watch|collect|study|visit|hate|dislike|prefer)$/.test(lv)) { var hn = obj.replace(/^(?:a|an|the|my|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+/i, "").match(/^[a-z][a-z-]*/i); if (hn) hk = ":" + hn[0].toLowerCase().replace(/ies$/, "y").replace(/(?:es|s)$/, ""); }
+      return { key: "v:" + lv + hk, attr: lv, verb: lv, verbSurface: v, value: obj };
     }
     return null;
   }
@@ -823,11 +832,20 @@
         /^what\s+(?:did|have)\s+I\s+(?:told|tell|asked|ask)\s+you\s+to\s+do$/i.test(s)) return this.directiveList();
     if ((m = s.match(/^(?:do|did)\s+you\s+(?:still\s+)?(?:remember|recall)\s+(.+)$/i))) return this.remembers(m[1]);
     if ((m = s.match(/^(?:do|did)\s+you\s+(?:still\s+)?know\s+((?:my|where I|what I|who I|when I|how old I)\b.*)$/i))) return this.remembers(m[1]);
+    if ((m = s.match(/^how many\s+([a-z][a-z -]{0,25}?)\s+(?:do|did)\s+I\s+(?:have|own|keep)$/i))) return this.countAnswer(m[1]);
+    if ((m = s.match(/^(?:what|which)\s+([a-z]+)\s+do\s+I\s+(speak|like|love|play|eat|drink|read|watch|own|study|visit|enjoy|prefer)$/i))) return this.verbAnswer("which " + m[1], m[2], "");
     if ((m = s.match(/^(?:what|who|where|when|which|how old|how)\s+(?:is|are|was|were)\s+my\s+(.{1,40})$/i))) return this.attrAnswer(m[1]);
     if ((m = s.match(/^what\s+is\s+the\s+name\s+of\s+my\s+(.{1,30})$/i))) return this.attrAnswer(m[1] + " name");
     /* "how do I write an essay" is a how-to question, not a request to recall what was written */
     if ((m = s.match(/^(what|where|who|when|how|which)\s+(?:do|did|does)\s+I\s+([a-z]+)\b\s*(.*)$/i)) && !(/^how$/i.test(m[1]) && /^do(?:es)?\s/i.test(s.slice(m[1].length).trim()) && /^(?:say|ask|tell|type|write|mention)$/i.test(m[2]))) return this.verbAnswer(m[1], m[2], m[3]);
     return "";
+  };
+  P.countAnswer = function (noun) {
+    var base = String(noun).toLowerCase().trim().replace(/ies$/, "y").replace(/(?:es|s)$/, "");
+    var fs = this.byKind("fact").filter(function (f) { return String(f.value).toLowerCase().indexOf(base) >= 0 || String(f.attr || "").toLowerCase().indexOf(base) >= 0; });
+    if (fs.length) return fs.map(factSentence).join(" ");
+    if (this.tombstones[base] || this.tombstones[base + "s"]) return "You asked me to forget that, so I don't have it anymore.";
+    return pick(["You haven't told me how many " + noun + " you have.", "I don't know how many " + noun + " you have — you haven't mentioned it."]);
   };
   P.attrAnswer = function (phrase) {
     phrase = trimEnd(phrase);
@@ -860,7 +878,7 @@
     if (fs.length) return fs.map(factSentence).join(" ");
     var phrase = String(wh).toLowerCase() + " you " + verb.toLowerCase();
     if (this.tombstones["v:" + v] || this.tombstones[v]) return "You asked me to forget " + phrase + ", so I don't have it anymore.";
-    if (/^(?:live|work|like|love|do|come|study|prefer)$/.test(v) && !String(rest || "").trim()) return "You haven't told me " + phrase + " yet.";
+    if (/^(?:live|work|like|love|do|come|study|prefer|speak|play|eat|drink|read|watch|own|enjoy|visit)$/.test(v) && !String(rest || "").trim()) return "You haven't told me " + phrase + " yet.";
     return "";
   };
   P.turnAt = function (which, anyKind) {
