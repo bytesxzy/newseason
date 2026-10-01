@@ -192,7 +192,8 @@
       },
       purpose: function () { return capitalize(subj) + " " + copula(subj) + " used for " + val + "."; },
       cause: function () { return capitalize(subj) + " " + copula(subj) + " caused by " + val + "."; },
-      time: function () { return capitalize(subj) + " " + (/^\d/.test(val) ? "dates to " : "was ") + val + "."; },
+      time: function () { return /\byears? old\b/.test(val) ? capitalize(subj) + " is " + val + "." : capitalize(subj) + " " + (/^\d/.test(val) ? "dates to " : "was ") + val + "."; },
+      size: function () { return /\b(?:square|sq\.?)\b|km\u00b2|km2/.test(val) ? capitalize(subj) + " covers " + val + "." : (/\b(?:diameter|wide|across|tall|long|deep|high)\b/.test(val) ? capitalize(subj) + " is " + val + "." : capitalize(subj) + " is " + val + " in size."); },
       version: function () { return "The current version of " + subj + " is " + val + "."; },
       price: function () { return capitalize(subj) + " " + copula(subj) + " trading at " + val + "."; },
       part: function () { return capitalize(subj) + " " + copula(subj) + " made of " + val + "."; },
@@ -525,7 +526,7 @@
     return subj + " " + m[2] + " " + head + ". " + pron + " " + m[2] + " also " + tail + m[4] + rest;
   }
   /* country names that take "the": the Netherlands, the United States ... */
-  var THE_NAMES = /^(?:United States(?: of America)?|United Kingdom|United Arab Emirates|Netherlands|Philippines|Bahamas|Gambia|Czech Republic|Central African Republic|Maldives|Seychelles|Comoros|Marshall Islands|Solomon Islands|Democratic Republic of the Congo|Republic of the Congo|Ukraine)$/i;
+  var THE_NAMES = /^(?:United States(?: of America)?|United Kingdom|United Arab Emirates|Netherlands|Philippines|Bahamas|Gambia|Czech Republic|Central African Republic|Maldives|Seychelles|Comoros|Marshall Islands|Solomon Islands|Democratic Republic of the Congo|Republic of the Congo|Ukraine|Nile|Amazon|Danube|Thames|Mississippi|Missouri|Yangtze|Volga|Rhine|Ganges|Congo|Niger|Mekong|Seine|Euphrates|Tigris|Orinoco|Himalayas|Alps|Andes|Rockies|Sahara|Gobi|Kalahari|Pacific|Pacific Ocean|Atlantic Ocean|Indian Ocean|Arctic Ocean|Southern Ocean|Sahara Desert|Gobi Desert|Atlantic|Arctic|Antarctic|Mediterranean|Mediterranean Sea|Caribbean|Baltic|Great Wall of China|Eiffel Tower|Statue of Liberty|Colosseum|Great Barrier Reef|Grand Canyon|Sun|Moon)$/i;
   function theName(s) {
     s = s == null ? s : String(s);
     return s && THE_NAMES.test(s.trim()) && !/^ukraine$/i.test(s.trim()) ? "the " + s.trim() : s;
@@ -693,6 +694,7 @@
     cleanClause: cleanClause,
     clipSentences: clipSentences,
     trimDangling: trimDangling,
+    theName: theName,
     PLANS: PLANS
   };
   if (typeof module !== "undefined" && module.exports) module.exports = root.C4LMRealize;

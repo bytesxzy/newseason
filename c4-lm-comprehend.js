@@ -419,6 +419,8 @@
      leaves open. Returns null when the question is not quantitative. */
   function solveQuantity(text) {
     if (String(text).split(/\s+/).length > 80) return null;
+    /* "How much water should I drink a day?" asks for advice; "a day" is not a given */
+    if (!/\d/.test(text) && /\b(?:should|ought to|recommended|is it (?:ok|okay|safe|bad|good))\b/i.test(text)) return null;
     var r = read(text);
     if (!r.asked || !r.givens.length) return null;
     var known = knowledgeQuantities(r.glossary).filter(function (k) { return !r.givens.some(function (g) { return deq(g.dim, k.dim); }); });
@@ -445,6 +447,8 @@
         "assuming a typical " + ent + "'s " + lab + " of " + show(rec.kn.q) + " (from the knowledge base; the question doesn't state it)";
     }
     var formula = num_.join(" × ") + (den.length ? " ÷ " + den.join(" ÷ ") : "");
+    /* an answer that only restates the single quantity the question mentions ("1 day — a day") is no answer */
+    if (d.status === "solved" && num_.length <= 1 && !den.length && !rec.kn) return null;
     var out = { reading: r, status: d.status, summary: r.summary, assumption: assumption };
     if (d.status === "solved") {
       var u = unitFor(r.asked.dim, r.asked, r.givens.concat(rec.kn ? [rec.kn.q] : []));

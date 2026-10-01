@@ -105,12 +105,12 @@
 
   E("Eiffel Tower", "landmark",
     "The Eiffel Tower is a wrought-iron lattice tower in Paris, completed in 1889 for the World's Fair.",
-    { location: "Paris, France", country: "France", height: "330 metres (1,083 feet) including antennas",
+    { location: "Paris, France", country: "France", height: "330 metres (1,083 feet)",
       creator: "Gustave Eiffel", time: "completed in 1889", type: "iron lattice tower" },
     ["eiffel", "la tour eiffel"]);
   E("Great Wall of China", "landmark",
     "The Great Wall of China is a series of fortifications built across northern China over many centuries.",
-    { location: "northern China", country: "China", length: "over 21,000 kilometres in total" }, ["great wall"]);
+    { location: "northern China", country: "China", length: "over 21,000 kilometres" }, ["great wall"]);
   E("Mount Everest", "landmark",
     "Mount Everest is the highest mountain above sea level, on the border of Nepal and Tibet.",
     { height: "8,849 metres (29,032 feet)", location: "the Himalayas, on the Nepal–China border" },

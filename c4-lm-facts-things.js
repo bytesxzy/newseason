@@ -109,7 +109,7 @@
     "A flute is a woodwind instrument played by blowing across a hole.",
     "A computer is an electronic machine that stores and processes data by following instructions.",
     "A smartphone is a mobile phone that also runs apps and connects to the internet.",
-    "An internet is a worldwide network of connected computers.",
+    "The internet is a worldwide network of connected computers.",
     "A robot is a machine that can carry out tasks automatically.",
     "A camera is a device for taking photographs or recording video.",
     "A television is a device that receives broadcasts and shows moving pictures with sound.",

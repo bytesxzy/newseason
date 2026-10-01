@@ -34,6 +34,10 @@
   /* words the library treats as one. The first of each group is canonical. */
   var SYN_GROUPS = [
     ["function", "purpose", "role", "job"],
+    ["weigh", "weighs", "weighed", "weight", "heavy", "heavier", "heaviest"],
+    ["lifespan", "lifetime", "lifespans"],
+    ["tire", "tyre"],
+    ["versus", "vs"],
     ["largest", "biggest", "greatest", "largest"],
     ["smallest", "tiniest", "littlest"],
     ["highest", "tallest"],
@@ -125,7 +129,8 @@
   function contentStems(s, keepFrame) {
     var out = [], seen = Object.create(null);
     tokens(s).forEach(function (w) {
-      if (STOP[w] || (FRAME[w] && !(keepFrame && /^(?:story|proverb|saying|idiom|expression|phrase)$/.test(w)))) return;
+      if (w === "jr" || w === "sr") return;
+      if (STOP[w] || (FRAME[w] && !(keepFrame === true || (keepFrame === 2 && /^(?:high|low|big|long|old|fast|tall|far)$/.test(w)) || (keepFrame && /^(?:story|proverb|saying|idiom|expression|phrase)$/.test(w))))) return;
       var c = canon(w);
       if (STOP[c] || seen[c]) return;
       seen[c] = 1; out.push(c);
@@ -138,7 +143,7 @@
   function contentSeq(s) {
     var out = [];
     tokens(s).forEach(function (w) {
-      if (STOP[w] || FRAME[w]) return;
+      if (STOP[w] || FRAME[w] || w === "jr" || w === "sr") return;
       var c = canon(w);
       if (!STOP[c]) out.push(c);
     });
@@ -192,7 +197,7 @@
   /* what kind of thing does the question ask for? */
   function askType(q) {
     var l = " " + String(q).toLowerCase().replace(/[?!.,]+/g, " ") + " ";
-    if (/\b(?:who|whom|whose)\b/.test(l) && !/\bwho (?:is|was) (?:the )?(?:first|last)\b.*\b(?:country|city)\b/.test(l)) return "person";
+    if (/^\s*(?:and |but |so |then )?(?:who|whom|whose)\b|\b(?:by|to|for|with|of|from) whom\b/.test(l) && !/\bwho (?:is|was) (?:the )?(?:first|last)\b.*\b(?:country|city)\b/.test(l)) return "person";
     if (/\bwhat (?:year|date|century|decade)\b|\bwhich (?:year|century|decade)\b|\bwhen\b|\bhow long ago\b/.test(l)) return "time";
     if (/\bhow (?:many|much|long|far|tall|high|old|big|fast|deep|heavy|wide|hot|cold|large)\b|\bwhat (?:number|percentage|percent|temperature|speed|distance)\b/.test(l)) return "quantity";
     if (/\bwhere\b|\bwhich (?:country|city|continent|ocean|sea|river|state|region|place|island|mountain|desert|lake)\b|\bwhat (?:country|city|continent|ocean|sea|river|state|region|place|island|mountain|desert|lake)\b/.test(l)) return "place";
@@ -215,7 +220,9 @@
     fast: /(?:km\/h|mph|per (?:hour|second)|kilomet\w+ per|metres? per|meters? per|speed)/i,
     heavy: /\b(?:kg|kilograms?|tonnes?|pounds?|grams?|tons?|lbs?)\b/i
   };
-  UNIT.high = UNIT.tall; UNIT.long = UNIT.tall; UNIT.deep = UNIT.tall; UNIT.wide = UNIT.tall;
+  UNIT.long = /\b(?:m|km|cm|mm|metres?|meters?|kilomet\w+|miles?|feet|foot|ft|inch\w*|yards?|seconds?|minutes?|hours?|days?|weeks?|months?|years?|decades?|centuries)\b/i;
+  UNIT.high = UNIT.tall; UNIT.deep = UNIT.tall; UNIT.wide = UNIT.tall;
+  UNIT.big = /\b(?:square|sq|hectares?|acres?|m|km|metres?|meters?|kilomet\w+|miles?|feet|foot|diameter|across|area|size|wide|tall|long|litres?|gallons?|cubic)\b/i;
   function carries(type, text, qTokens, frameWord) {
     var inQ = Object.create(null);
     qTokens.forEach(function (w) { inQ[w] = 1; });
@@ -234,7 +241,8 @@
       return yrs.some(function (y) { return !inQ[String(y).toLowerCase()]; });
     }
     if (type === "quantity") {
-      if (frameWord && UNIT[frameWord] && !UNIT[frameWord].test(text)) return false;
+      /* a speed such as 55 km/h is not a height or a length */
+      if (frameWord && UNIT[frameWord] && !UNIT[frameWord].test(frameWord === "fast" ? text : text.replace(/\b(?:km|m|mi)\s*\/\s*(?:h|s|hr)\b|\b(?:kilometres?|miles?|metres?) per (?:hour|second)\b/gi, " "))) return false;
       var nums = text.match(/\b\d[\d,.]*\b/g) || [];
       return nums.some(function (n) { return !inQ[n.toLowerCase()]; }) ||
              /\b(?:no|zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|hundred|thousand|million|billion|dozen)\b/i.test(text);
@@ -249,9 +257,14 @@
     if (!DOCS.length) return null;
     var LISTLEAD = /^\s*(?:please\s+)?(?:list|name|give me|tell me)\s+(?:all\s+)?(?:(?:the|some|a few|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)/i;
     question = usTok(question);
+    /* "when do I use who versus whom" and "cats vs dogs" ask for the difference between the two */
+    question = String(question).replace(/^\s*(?:when|how)\s+(?:do|should|can)\s+(?:i|you|we|one)\s+(?:use|choose|say|write)\s+(.+?)\s+(?:versus|vs\.?|or)\s+(.+?)\s*\??\s*$/i, "What is the difference between $1 and $2?")
+      .replace(/^\s*(?:what(?:'s| is) the )?(?:difference|comparison)?\s*(?:of |between )?([A-Za-z][\w' -]{1,30}?)\s+(?:versus|vs\.?)\s+([A-Za-z][\w' -]{1,30}?)\s*\??\s*$/i, "What is the difference between $1 and $2?");
+    /* "How long do elephants live?" asks for a lifespan */
+    question = String(question).replace(/^\s*how long (?:do|does|did|will|can|would) (?:a |an |the )?(.+?) (?:typically |usually |normally |generally |on average )?(?:live|survive|last)(?: for)?\s*\??\s*$/i, function (m0, who) { return "What is the lifespan of " + who + "?"; });
     var asList = LISTLEAD.test(question) && /^\s*(?:please\s+)?(?:list|name)\b|^\s*(?:give me|tell me)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|a few|some)\s/i.test(question);
     if (asList) question = String(question).replace(LISTLEAD, "What are the ");
-    var qs = contentStems(question);
+    var qs = contentStems(question, /^\s*what\s+(?:is|are)\s+(?:a |an |the )?(?:high|low|big|long|old|fast|tall|far)\s+[a-z]/i.test(question) ? 2 : false);
     if (!qs.length) return null;
     /* "World War I" and "World War II" differ only by a letter the stemmer drops */
     var wwOne = /\bworld war (?:i|1|one)\b(?!\s*(?:i|1|two|2))/i.test(question) || /\bfirst world war\b/i.test(question);
@@ -268,9 +281,10 @@
     var frameWord = tokens(question).filter(function (w) { return FRAME[w]; })[0] || "";
     var whoDef = /^\s*who\s+(?:is|was|were|are)\b/i.test(question) && qs.length <= 3;
     var defStem = qs.filter(function (x) { return !/^(?:word|term|phrase|mean|meaning|definition|define)$/.test(x); })[0] || qs[0];
-    var bigNums = (String(question).match(/\b\d{3,}\b/g) || []);
+    var bigNums = (String(question).match(/\b\d{3,}\b/g) || []).concat((String(question).match(/\b\d{1,4}\s*(?:BCE|BC)\b/gi) || []).map(function (x) { return x.replace(/\s+/, " ").toUpperCase(); }));
     var dm = String(question).match(/^\s*what\s+(?:is|are|was|were)\s+(?:a |an |the )?([A-Za-z][A-Za-z' -]{2,40}?)\s*\??\s*$/i);
-    var defSubj = dm ? dm[1].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-\s]+/g, "[- ]") : "";
+    var defSubj = dm ? dm[1].trim().replace(/(?<=[a-z]{3})s$/i, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-\s]+/g, "[- ]") : "";
+    var howTo = /^\s*(?:how\s+(?:do|can|should|would|could|to|does one)\b|what(?:'s| is) the best way to\b|what should i do (?:to|if)\b)/i.test(question);
     var qMarker = (String(question).toLowerCase().match(/\b(most|least|fewest|biggest|smallest|first|last)\b/) || [])[1];
     var listAsk = /^\s*(?:name|list|what are|which are|give me|tell me)\b/i.test(question) && /\b(?:the|all|some|few|three|four|five|six|seven|eight|nine|ten)\b/i.test(question);
     var presentQ = /^\s*(?:who|what|which)\s+(?:is|are)\b/i.test(question) && !/\b(?:first|last|original|former|ex|previous|second|third|[0-9]+(?:st|nd|rd|th))\b/i.test(question);
@@ -301,7 +315,9 @@
       for (k = 0; k < bigNums.length; k++) if (d.text.indexOf(bigNums[k]) < 0) { numsOk = false; break; }
       if (!numsOk) continue;
       /* a "why" question wants a reason, not a description of the same things */
-      if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive)|since|(?:happens?|occurs?|forms?|appears?|arises?) when)\b/i.test(d.text) && !(howWork && /\bworks? by\b|\bby \w+ing\b|\bthrough\b|\busing\b|\bwhen\b|\bwhile\b|\bpumps?\b|\bconverts?\b|\bturns?\b/i.test(d.text))) continue;
+      if (why && !/\b(?:because|cause[sd]?|due to|so that|result(?:s|ed)? (?:from|in)|scatter|tilt|which is why|that is why|this is why|in order to|to (?:protect|prevent|stay|keep|remove|rest|survive|save|cool|clear|avoid|attract|catch|warn|communicate|signal|control|grip|wash|sort|fight|defend|hunt|hide|escape|warm|breathe|reproduce|mate|reflect|absorb|store|digest|sense)|(?:erupt|erupts|melt|melts|freeze|freezes|rise|rises|fall|falls|sink|sinks|burst|bursts|bubble|bubbles|pop|pops|float|floats|glow|glows) (?:when|because|as|if)|since|[a-z]+ when|(?:happens?|occurs?|forms?|appears?|arises?) when)\b/i.test(d.text) && !(howWork && /\bworks? by\b|\bby \w+ing\b|\bthrough\b|\busing\b|\bwhen\b|\bwhile\b|\bpumps?\b|\bconverts?\b|\bturns?\b/i.test(d.text))) continue;
+      /* "What is learning?" is not answered by a recipe: "To learn a language, ..." is the steps, for a how question */
+      if (defSubj && !howTo && /^To [a-z]+\b/.test(d.text)) continue;
       /* a focused sentence beats a long one that mentions the same words */
       if (/^Simply put, /.test(d.text) !== !!opts.simple) continue;
       if (wwOne && (!/\bworld war (?:i|one|1)\b(?!\s*i)|\b1914\b|\bfirst world war\b/i.test(d.text) || /\bworld war ii\b|\b1939\b|\bsecond world war\b/i.test(d.text) && !/\bworld war i\b(?!i)/i.test(d.text))) continue;
@@ -318,12 +334,23 @@
       if (presentQ && /^as of \d{4}/i.test(d.text)) score += 0.3;
       /* "what is X": the sentence that is about X (starts with it) beats one that merely mentions it */
       if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\b(?:[^.,:]{0,40}?\\s(?:is|are|was|were|means|refers|stands|happens|occurs)\\b|[,:])", "i").test(d.text)) score += 0.35;
+      /* "A vitamin is a ..." defines the thing itself, ahead of "Vitamin C is ..." which defines one kind of it */
+      if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\s+(?:is|are|means|refers to)\\b", "i").test(d.text)) score += 0.2;
+      /* an abbreviation line answers "what does X stand for", while "what is X" wants the explanation */
+      if (defSubj && /\bstands? for\b/i.test(d.text) && !/\b(?:stand|stands|stood|abbreviat\w*|acronym|initials?|short for|mean|means)\b/i.test(question)) score -= 0.3;
       /* "X is a ..., and the Y is a ..." defines two things at once; the sentence about X alone is the better definition */
       if (defSubj && /,\s*(?:and|while|whereas)\s+(?:the|a|an)\s+[a-z-]+\s+(?:is|are|has|have)\b/i.test(d.text)) score -= 0.25;
       if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;
       if (listAsk && (d.text.match(/,/g) || []).length >= 3) score += Math.min(0.6, 0.06 * (d.text.match(/,/g) || []).length + 0.1);
+      /* "How do plants grow?" is answered by "Plants grow by using sunlight ..." */
+      if (/^\s*how\s+(?:do|does|did|can)\b/i.test(question) && /\b(?:by|through) [a-z]+ing\b|\bworks? by\b/i.test(d.text)) score += 0.3;
+      /* "How do I cook rice?" wants the steps ("To cook rice, ..."), not a number about cooked rice */
+      if (howTo) {
+        if (/^To [a-z]+/.test(d.text)) score += 0.5;
+        else if (/\b(?:has|have|contains?) (?:about |around )?[\d,.]+ (?:calories|grams|kilograms|milligrams)\b/i.test(d.text) && !/\b(?:calorie|nutrition|nutrient|fat|protein|carb|sugar|vitamin)\w*\b/i.test(question)) score -= 0.4;
+      }
       /* a sentence that settles four different questions in a row is a roll-call, not the answer to one of them */
-      if (!listAsk && (d.text.match(/\b(?:is|are)\b/g) || []).length >= 4 && (d.text.match(/,/g) || []).length >= 2 && (d.text.match(/\b(?:[a-z]+est|most|least)\b/gi) || []).length >= 3) score -= 0.55;
+      if (!listAsk && (d.text.match(/\b(?:is|are)\b/g) || []).length >= 4 && (d.text.match(/,/g) || []).length >= 2 && (d.text.match(/\b(?:[a-z]+est|most|least)\b/gi) || []).length >= 3) score -= 0.8;
       /* "the longest river wholly within Brazil" is a narrower claim than "the longest river in South America" */
       if (supRe && supRe.test(d.text)) score -= 0.4;
       var cand = { text: d.text, score: score, coverage: cov, hits: hits, total: qw.length, type: type };

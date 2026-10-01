@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T18:12:47.206Z",
- "passed": 77,
- "total": 77,
+ "generated": "2026-10-01T19:14:11.043Z",
+ "passed": 88,
+ "total": 88,
  "results": [
   {
    "name": "syntax: c4-lm-code.js",
@@ -29,12 +29,27 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-acronyms.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-advice.js",
    "ok": true,
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-animals.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-culture.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-differences.js",
    "ok": true,
    "detail": ""
   },
@@ -49,12 +64,37 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-finance.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-geo.js",
    "ok": true,
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-geodata.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-grammar.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-health.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-history.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-howto2.js",
    "ok": true,
    "detail": ""
   },
@@ -109,6 +149,11 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-tech2.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-things.js",
    "ok": true,
    "detail": ""
@@ -119,12 +164,22 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-facts-whys.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-facts-words.js",
    "ok": true,
    "detail": ""
   },
   {
    "name": "syntax: c4-lm-facts-world.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "syntax: c4-lm-facts-years.js",
    "ok": true,
    "detail": ""
   },
@@ -261,7 +316,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: emoji only",
@@ -271,12 +326,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "edge input: sql-ish input",
@@ -296,7 +351,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: non-latin script",
@@ -316,7 +371,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -326,17 +381,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "9 -> 10"
+   "detail": "7 -> 9"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 works out to 391."
+   "detail": "17 * 23 comes to 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "Paris is the capital of France. France i"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -346,7 +401,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2690 ms"
+   "detail": "2794 ms"
   },
   {
    "name": "garbage source response handled",
@@ -361,12 +416,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France has Paris as its capital. It is i"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hello. What can I look into for you?"
+   "detail": "Hi there — what are we looking into?"
   },
   {
    "name": "dialogue sequence",

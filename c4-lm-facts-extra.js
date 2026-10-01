@@ -5,6 +5,17 @@
   if (!F) return;
   F.add([
     "The capital of the United States is Washington, D.C., which sits on the Potomac River and is not part of any state.",
+    "The Pacific Ocean covers about 165 million square kilometres, the Atlantic about 106 million, the Indian about 70 million, the Southern about 20 million and the Arctic about 14 million.",
+    "A day on Venus lasts about 243 Earth days, which is longer than its year of about 225 Earth days, because Venus rotates so slowly.",
+    "A week is seven days long, a fortnight is 14 days, a common year is 365 days and a leap year is 366 days.",
+    "A day on Mars lasts about 24 hours and 37 minutes, a day on Jupiter about 10 hours and a day on Mercury about 59 Earth days.",
+    "The Atlantic Ocean covers about 106 million square kilometres and is the second largest ocean, and it separates the Americas from Europe and Africa.",
+    "The Indian Ocean covers about 70 million square kilometres and is the third largest ocean.",
+    "The Arctic Ocean covers about 14 million square kilometres and is the smallest and shallowest ocean.",
+    "The Southern Ocean covers about 20 million square kilometres and surrounds Antarctica.",
+    "The Earth is about 4.54 billion years old, and the universe is about 13.8 billion years old.",
+    "The Sun is about 4.6 billion years old and is roughly halfway through its life as a star.",
+    "The Moon is about 4.5 billion years old, and it probably formed from debris after a giant impact on the early Earth.",
     "Washington, D.C. is the capital of the United States.",
     "The capital of the USA is Washington, D.C.",
     "The Atlantic Ocean is smaller than the Pacific Ocean: the Pacific is the largest and deepest ocean, covering about a third of the Earth, and the Atlantic is the second largest.",

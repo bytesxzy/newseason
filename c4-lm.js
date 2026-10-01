@@ -614,6 +614,17 @@
       }
     }
 
+    /* "How big is France?" with no size on record is not answered by what France is: the fact library may hold the number */
+    if (frame.relation && /^(?:size|height|length|speed|distance|population|price|weight|depth|age)$/.test(frame.relation) && !frame.requiresExplanation) return null;
+    if (!frame.relation && (frame.queryForm === "howmany" || /\b(?:lifespan|life span)\b/i.test(frame.rawText || "")) && /\b(?:lifespan|life span|weigh|weighs|weight|heavy|how (?:long|fast|far|big|tall|old|deep|wide|high|large))\b/i.test(frame.rawText || "")) return null;
+
+    /* "Why do cats purr?" is not answered by what a cat is: with no causal account on record, and more asked than the thing's name, step aside */
+    if ((frame.requiresExplanation || frame.queryForm === "why") && !off("kb")) {
+      var nameBag = {};
+      [entity.name].concat(entity.aliases || []).forEach(function (nm) { C.words(String(nm)).forEach(function (w) { nameBag[C.stem(w)] = 1; nameBag[w] = 1; }); });
+      var extraAsk = (frame.contentTokens || []).filter(function (t) { return !nameBag[t] && !nameBag[C.stem(t)] && !neutralToken(t) && !GENERIC_Q.test(t); });
+      if (extraAsk.length) return null;
+    }
     /* Otherwise: the definition, with one elaboration if there is room. */
     if (!entity.defn) return null;
     var defPlan = {
@@ -679,9 +690,18 @@
         case "cause": return "It is caused by " + v;
         case "creator": return "It was created by " + v;
         case "location": return /^(?:born|died|raised|buried|based)\b/i.test(String(v)) ? String(v).charAt(0).toUpperCase() + String(v).slice(1) : "It is in " + v;
-        case "time": if (PARTICIPLE.test(String(v))) return "It was " + v; return "It dates to " + String(v)
-          .replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "")
-          .replace(/^in\s+/i, "");
+        case "time": {
+          var tv = String(v), yrs = tv.match(/\d{3,4}/g) || [];
+          /* a date the definition already states is not said twice */
+          if (yrs.length && entity.defn && yrs.every(function (y) { return String(entity.defn).indexOf(y) >= 0; })) return "";
+          if (/\bcentur(?:y|ies)\b/.test(tv) && entity.defn && /\bcentur(?:y|ies)\b/.test(entity.defn)) return "";
+          if (/\byears? old$/.test(tv)) return "It is " + v;
+          if (/^from\s+/i.test(tv) && !/\bto\b/i.test(tv)) return "It began " + tv.replace(/^from\s+about\b/i, "around").replace(/^from\s+/i, "in ");
+          if (/^(?:from\s+)?(?:about |around |roughly |approximately )?[\dBCE ]+(?:BCE?|CE|AD)?\s+(?:to|until|-)\s+\d/.test(tv)) return "It ran from " + tv.replace(/^from\s+/i, "");
+          if (/^(?:roughly |approximately |about )?the .*\bcentur/i.test(tv)) return "It spanned " + tv;
+          if (PARTICIPLE.test(tv)) return "It was " + v;
+          return "It dates to " + tv.replace(/^(?:founded|published|released|created|written|completed|first released)\s+/i, "").replace(/^in\s+/i, "");
+        }
         /* A bare number with no noun ("79") says nothing on its own. */
         case "count": return /\s/.test(String(v)) ? "It has " + v : "";
       }
@@ -692,6 +712,8 @@
   /* One hop through a relation the entity DOES have, to an entity that has
      the asked relation. Bounded to a single hop on purpose. */
   function multiHop(entity, relation) {
+    /* what a thing is in, or made by, does not share its measurements: Tokyo is not as populous as Japan */
+    if (/^(?:population|size|height|length|speed|distance|price|weight|depth|age|time|count)$/.test(relation)) return null;
     var links = ["country", "location", "author", "creator", "person"];
     for (var i = 0; i < links.length; i++) {
       var target = entity.rel && entity.rel[links[i]];
@@ -934,7 +956,7 @@
       case "location": return /^(?:born|died|raised|buried|based)\b/i.test(String(value)) ? "was " + value : "is in " + value;
       case "creator": return "was created by " + value;
       case "author": return "was written by " + value;
-      case "time": return PARTICIPLE.test(String(value)) ? "was " + value : "dates to " + String(value).replace(/^in\s+/i, "");
+      case "time": return /\byears? old$/.test(String(value)) ? "is " + value : (PARTICIPLE.test(String(value)) ? "was " + value : "dates to " + String(value).replace(/^in\s+/i, ""));
       case "count": return "has " + value;
       case "capital": return "has the capital " + value;
       case "currency": return "uses " + value;
@@ -1427,6 +1449,27 @@
      the kind of thing asked for. A question it covers only in part is declined,
      so a shared word never selects an unrelated sentence. */
   /* A matter of taste or circumstance has no single answer; saying so, and what would settle it, is the honest reply. */
+  /* "What does NASA stand for?", "What is the full form of HTML?", "What is NASA short for?": the line that spells the letters out */
+  function answerAcronym(frame) {
+    if (!FX || off("facts") || !FX.size()) return null;
+    var raw = String(frame.rawText || frame.body || ""), m;
+    if (!(m = raw.match(/^\s*what\s+(?:does|do)\s+(?:the\s+)?(?:acronym\s+|abbreviation\s+|letters\s+)?["'\u201c]?([A-Za-z][A-Za-z0-9.&-]{1,12})["'\u201d]?\s+(?:stand|mean)s?(?:\s+for)?\s*[?.!]*\s*$/i)) &&
+        !(m = raw.match(/^\s*what\s+(?:is|are)\s+(?:the\s+)?(?:full form|long form|expansion|meaning)\s+of\s+["'\u201c]?([A-Za-z][A-Za-z0-9.&-]{1,12})["'\u201d]?\s*[?.!]*\s*$/i)) &&
+        !(m = raw.match(/^\s*what\s+(?:is|are)\s+["'\u201c]?([A-Za-z][A-Za-z0-9.&-]{1,12})["'\u201d]?\s+short\s+for\s*[?.!]*\s*$/i)) &&
+        !(m = raw.match(/^\s*(?:the\s+)?(?:acronym|abbreviation)\s+["'\u201c]?([A-Za-z][A-Za-z0-9.&-]{1,12})["'\u201d]?\s+(?:stands|stand)\s+for\s+what\s*[?.!]*\s*$/i))) return null;
+    var term = m[1].replace(/\./g, "");
+    if (term.length < 2 || !/^[A-Z0-9&-]+$/i.test(term)) return null;
+    var r = null;
+    try { r = FX.answer(term + " stands for", { min: 0.3, top: 12 }); } catch (e) { r = null; }
+    var cands = (r && r.all) || (r ? [r] : []);
+    var re = new RegExp("(?:^|[^A-Za-z])" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:[^A-Za-z]|$)", "i");
+    for (var i = 0; i < cands.length; i++) {
+      if (re.test(cands[i].text) && /\b(?:stands? for|short for|stood for|abbreviation|acronym|means)\b/i.test(cands[i].text))
+        return { text: cands[i].text, route: "knowledge", confidence: 0.85, sources: ["local fact library"], defects: [], multiHop: true, entity: term, fact: { coverage: cands[i].coverage, score: cands[i].score } };
+    }
+    return null;
+  }
+
   function answerPreference(frame) {
     var raw = String(frame.rawText || frame.body || ""), m;
     if (!(m = raw.match(/^\s*(?:which|what)\s+is\s+(?:the\s+)?(?:better|best|worse|nicer|tastier|healthier|cooler|more fun|easier|harder|cheaper)[,:]?\s+(?:a |an |the )?(.+?)\s+or\s+(?:a |an |the )?(.+?)[?.!]*\s*$/i)) &&
@@ -1518,7 +1561,10 @@
     var o = { min: min };
     /* a numeric fragment ("3 power 4") is a computation, not a topic */
     var cs0 = FX.contentStems(q), alpha0 = cs0.filter(function (w) { return /[a-z]/.test(w); });
-    if (cs0.length > alpha0.length && alpha0.length < 2) return null;
+    if (cs0.length > alpha0.length && alpha0.length < 2 && !/\b(?:happened|happen|occurred|took place|events?|significant|famous|important)\b[^?]*\b\d{1,4}\b/i.test(rawq)) return null;
+    /* a command to work something out is not a topic to look up, and a bare comparative ("which one is faster?") has no subject of its own */
+    if (/^\s*(?:please\s+)?(?:convert|calculate|compute|solve|simplify|evaluate|expand|factori[sz]e|factor|differentiate|integrate|round|multiply|divide|subtract)\b/i.test(rawq) && /\d/.test(rawq)) return null;
+    if (/^\s*(?:and\s+)?(?:which|what)(?:\s+one)?\s+(?:is|was|are)\s+(?:the\s+)?(?:faster|slower|bigger|larger|smaller|better|worse|cheaper|older|younger|taller|longer|shorter|heavier|lighter|stronger|easier|harder|safer|more\s+\w+|less\s+\w+)\s*\?*\s*$/i.test(rawq)) return null;
     if (only === "strict") o.minStems = frame.queryForm === "why" || /^\s*(?:name|list)\b/i.test(q) ? 1 : 2;
     else if (only === "relational") o.minStems = (/^\s*(?:name|list|what are|which are)\b/i.test(rawq) || /\b(?:mean|means|meaning|called|named|known as)\b/i.test(rawq) || /\b(?!(?:test|best|west|rest|nest|chest|guest|quest|forest|honest|interest|harvest|request|arrest|contest|protest|suggest|invest|digest|ancest)\b)\w{3,}est\b|\bfirst\b|\blast\b|\bmost\b|\bleast\b/i.test(q) || /\b(?:plural|past tense|opposite|antonym|synonym|abbreviation|symbol|formula)\b[^.?]*\b(?:of|for)\b/i.test(q)) ? 2 : 3;
     else if ((FX.contentStems(q).length < 3 && (frame.queryForm === "whatis" || frame.queryForm === "topic") && !/\b(?:\w{3,}est|most|least|first|last|best|worst|called|named|mean|means|meaning)\b/i.test(rawq)) || FX.contentStems(q).length < 2 || frame.queryForm === "topic" || frame.queryForm === "whatis") o.define = true;
@@ -1987,6 +2033,11 @@
     if (subject.split(/\s+/).length > 6) {
       subject = frame.entities[0] || frame.contentTokens.slice(0, 3).join(" ");
     }
+    /* name the thing asked about, not the question's frame: "1999", not "What happened in 1999" */
+    if (/^(?:what|who|where|when|why|how|which)\b/i.test(subject)) {
+      var trimmed = subject.replace(/[?.!]+$/, "").replace(/^(?:what|who|where|when|why|how|which)\s+(?:happened|happens|is|are|was|were|do|does|did|can|could|would|will|has|have)\s+(?:in|on|at|about|to|during)?\s*(?:the|a|an)?\s*/i, "").trim();
+      if (trimmed && trimmed.split(/\s+/).length <= 5) subject = trimmed;
+    }
     if (subject) {
       return {
         text: "I don't have anything reliable on " + subject + ". " +
@@ -2314,8 +2365,8 @@
     });
     if (!best) return null;
     /* the fact pool speaks of "it"; a standalone answer names its subject */
-    var name = displayName(entity);
-    best.text = best.text.replace(/^Its\s/, name + "'s ").replace(/^It\s/, name + " ");
+    var name = displayName(entity), tn = RZ.theName ? RZ.capitalize(RZ.theName(name)) : name;
+    best.text = best.text.replace(/^Its\s/, tn + "'s ").replace(/^It\s/, tn + " ");
     return { text: RZ.polish(RZ.terminate(best.text)), route: "knowledge", entity: entity.name, confidence: 0.75,
              sources: ["local knowledge base"], defects: [], factSelected: true, accounted: best.via };
   }
@@ -3105,6 +3156,8 @@
         var oP = {}, kP; for (kP in opts) oP[kP] = opts[kP]; oP.rewritten = true; return answerCore("What is the population of " + popM[1] + "?", oP);
       }
     }
+    var vsM = !(opts && opts.rewritten) && String(text == null ? "" : text).match(/^\s*(?:what(?:'s| is) the )?(?:difference |comparison )?(?:of |between )?([A-Za-z][\w.+#' -]{0,30}?)\s+(?:versus|vs\.?)\s+([A-Za-z][\w.+#' -]{0,30}?)\s*[?.!]*\s*$/i);
+    if (vsM) { var ov = {}, kv; for (kv in opts) ov[kv] = opts[kv]; ov.rewritten = true; return answerCore("What is the difference between " + vsM[1].trim() + " and " + vsM[2].trim() + "?", ov); }
     var funAbout = String(text == null ? "" : text).match(/^\s*(?:tell me|give me|share|say)\s+(?:me\s+)?(?:a |an |some |one )?(?:random |fun |interesting |cool |surprising |neat |good )*(?:fact|facts|trivia)\s+(?:about|on|regarding|concerning)\s+(.+?)[?.!]*\s*$/i);
     if (funAbout && !opts.rewritten && !root.C4LMFun) { var o9 = {}, k9; for (k9 in opts) o9[k9] = opts[k9]; o9.rewritten = true; return answerCore("Tell me about " + funAbout[1], o9); }
     if (!opts.part && !opts.internal && !off("multipart")) {
@@ -3176,7 +3229,7 @@
     /* Deterministic resolvers run before the social branch: "what time is it
        right now" is a clock question with a chatty shape, and a computation
        is never small talk. */
-    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerPreference(frame); });
+    var diff = timed("difference", function () { return answerDifference(frame) || answerMembers(frame) || answerAcronym(frame) || answerPreference(frame); });
     if (diff) return Promise.resolve(finish(frame, diff, t0, decision));
     var reasoned = timed("reason", function () { return answerReason(frame, decision); });
     if (reasoned) return Promise.resolve(finish(frame, reasoned, t0, decision));
@@ -3332,6 +3385,9 @@
     /* A weak first answer gets a second, deliberate reading before it is
        committed; the time it takes is part of the reported latency. */
     if (decision) result = deliberate(frame, decision, result) || result;
+    /* "The date of Earth is about 4.54 billion years old." is an age, said plainly */
+    if (result && typeof result.text === "string" && /^The (?:date|age|time) of /.test(result.text))
+      result.text = result.text.replace(/^The (?:date|age|time) of (.+?) is ((?:about |around |roughly |over |nearly )?[\d.,]+(?: [a-z]+)? years old)\b/, function (m0, nm, ag) { return (RZ && RZ.theName ? RZ.capitalize(RZ.theName(nm)) : nm) + " is " + ag; });
     if (result && typeof result.text === "string" && /[A-Za-z]\.\.(?!\.)/.test(result.text)) result.text = result.text.replace(/([A-Za-z])\.\.(?!\.)/g, "$1.");
     /* page furniture from web sources never reaches the reader: style blocks, template braces, footnote marks */
     if (result && typeof result.text === "string" && /mw-|\{\{|\[\d+\]|\[citation needed\]/.test(result.text)) {
