@@ -61,8 +61,13 @@ RAW USER TEXT
 | `c4-lm-textwork.js` | Work on text the user supplies: summary, keywords, sentiment, tone, paraphrase, titles, counts, reading level, passage questions, extraction. |
 | `c4-lm-polyglot.js` | Greetings and simple questions in Spanish, French, German, Italian and Portuguese. |
 | `c4-lm-fun.js` | Jokes, facts, riddles, quiz with scoring, rock-paper-scissors, dice, coin, random picks, quotes. |
+| `c4-lm-distance.js` | Distances between about 300 cities and countries (great-circle), flight, drive, bike and walking times, which of two places is closer or farther north, latitude, longitude and hemisphere. |
+| `c4-lm-wordlab.js` | Past tense and participles (irregular table plus rules), plurals and singulars, comparatives, rhymes, pronunciation of about 250 tricky words, "is it a word?", misspellings, parts of speech, example sentences. |
+| `c4-lm-money.js` | Tips and splitting a bill, discounts, sales tax and VAT, price per item and best value, loan payments, compound interest, doubling time, wages, markup and margin, fuel economy. |
+| `c4-lm-advice.js` | Things to watch, read, play and listen to (with "another"), how to get better at about 60 skills, everyday life advice, letters and messages to adapt, simple plans (workout, running, study, meal, budget, trip). |
+| `c4-lm-facts-events.js`, `c4-lm-facts-words2.js` | World Cup winners and hosts, Olympic host cities by year; harder vocabulary, slang, phobias, the -ologies, Latin phrases, collective nouns. |
 | `c4-lm-facts-nouns.js` ... `c4-lm-facts-examples.js` | One-sentence fact files: everyday nouns, health, why and how, how-to, differences, finance, grammar, animals, sizes and populations, years, technology, acronyms, sport, music and art, myth and belief, examples. |
-| `tools/lm-everyday-test.js`, `tools/lm-heldout8.js` | Checks for the above (117), and the frozen fifth held-out bank. |
+| `tools/lm-everyday-test.js`, `tools/lm-heldout8.js` | Checks for the above (213), and the frozen fifth held-out bank. |
 | `c4-lm-facts*.js` | The fact library: one self-contained sentence per fact, retrieved by content stems, coverage, adjacency, answer type, tense and superlatives. |
 | `c4-lm.js` | The orchestrator: discourse state, the System-1 decision head, adaptive depth, confidence assembly, ablation switches. `answerReason` now (1) prefers a structured reading over a bare-arithmetic one when the text carries algebra (interpretation check), and (2) derives the confidence of operator-library results from an independent re-derivation of their own trace (`calibrateReason`). Ablate with `problem` / `calibration`. |
 

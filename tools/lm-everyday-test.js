@@ -213,6 +213,20 @@ function ok(name, cond, detail) { if (cond) pass++; else { fail++; console.log("
     var mm = await say(rt.boot({}), MON[mo][0]);
     ok("money: " + MON[mo][0], MON[mo][1].test(mm), mm.slice(0, 160));
   }
+  /* advice, recommendations, letters and plans */
+  var ADVQ = [
+    ["How do I get better at chess?", /play regularly.*tactics/], ["How do I become a better writer?", /write a little every day/], ["How do I learn guitar?", /^To learn guitar, practise/], ["How do I deal with stress?", /manage stress/],
+    ["How can I be more productive?", /focused blocks/], ["How do I ask someone out?", /choose a relaxed moment/], ["What's a good hobby to pick up?", /^How about .+\? Say "another"/], ["Suggest a movie", /^How about .+\(\d{4}\)/],
+    ["Recommend a sci-fi book", /^How about .+ by /], ["What should I name my dog?", /^Some ideas: /], ["What should I do this weekend?", /^A few ideas: /], ["Help me write a thank you note", /^Dear \[Name\]/],
+    ["Write a resignation letter", /notice of my resignation/], ["Give me a beginner workout plan", /Day 1:/], ["Can you help me plan a trip to Japan?", /plan a trip to Japan/], ["Plan my budget", /50\/30\/20/],
+    ["How do I save money?", /^To save money/], ["How do I make friends?", /^To make friends/]
+  ];
+  for (var av = 0; av < ADVQ.length; av++) {
+    var ad = await say(rt.boot({}), ADVQ[av][0]);
+    ok("advice: " + ADVQ[av][0], ADVQ[av][1].test(ad), ad.slice(0, 160));
+  }
+  var anw = rt.boot({}), an1 = await say(anw, "Recommend a book"), an2 = await say(anw, "another");
+  ok("advice: another recommendation is a different one", /^How about /.test(an2) && an2.slice(0, 40) !== an1.slice(0, 40), an2.slice(0, 120));
   /* things that change by the minute are declined, not answered with something unrelated */
   var LIVE = [["What's the weather today?", /can't check the weather/], ["What's the weather like in Paris?", /can't check the weather/], ["What's the news?", /can't read the news/],
               ["What is the price of Bitcoin?", /can't look up prices/], ["Who won the game last night?", /can't look up scores/], ["Is the library open now?", /can't check opening hours/],

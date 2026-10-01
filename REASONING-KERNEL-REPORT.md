@@ -680,3 +680,24 @@ topics v8 happened to ask about (a chimney, a barometer, a raccoon), so it measu
 - Poems come from checked banks, not from a language model: the haikus are real 5-7-5 but repeat after a few requests.
 - ARC-AGI-1/2/3 numbers in section 15 were not re-measured here; this round changed only the language stack.
 - Wall-clock scheduling is not involved in any LM number above; the runs are deterministic.
+
+### 18. Distances, word lab, money, advice and conversation (round four)
+
+Local only again; nothing outside the page is called. New modules: `c4-lm-distance.js` (haversine distances between about 300
+cities and countries, trip times by plane, car, bike and on foot with an honest "no road between" for islands and oceans,
+closer/farther and north/south comparisons, coordinates, hemisphere), `c4-lm-wordlab.js` (inflections, rhymes, pronunciation,
+"is it a word?", misspellings, parts of speech, example sentences), `c4-lm-money.js` (tips, bill splitting, discounts, tax, loans,
+compound interest, doubling time, wages, unit-price comparison, markup, fuel economy) and `c4-lm-advice.js` (recommendations with
+"another", skill tips, life advice, letters, plans). Questions about things that change by the minute (weather, news, prices,
+scores, traffic, opening hours) now get an honest "I can't check that, I run offline" instead of an unrelated fact.
+
+Bugs found by probing and fixed: "How much is 15% off 80?" answered $0.95 (the story reader mangled it; money now runs first);
+"Spell 'necessary'" kept the closing quote; "What is the capital..." quiz answers matched when the user asked a real question that
+contained the answer; "How do I ask someone out?" returned the previous topic's definition (a "how" question with an "I" in it is
+never an ellipsis); "Tell me about elephants" answered "An elephant trumpets" (topic questions now rank definitions first and
+penalise measurement lines and sentences about a different head noun such as "elephant seal"); "they" after a topic question had
+nothing to refer to (the topic is now the active entity); "a American" and "A elephant" articles; "It lives in worldwide";
+`Who won the 1966 World Cup?` returned every winner (one fact per tournament now); "How many X" no longer accepts a year as a count;
+"3 power 4" and "5 raised to the 3rd" computed.
+
+Checks: `tools/lm-everyday-test.js` now has 213 checks (distance, words, money, advice, live-information and memory dialogue).

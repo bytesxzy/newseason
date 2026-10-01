@@ -1,8 +1,13 @@
 {
- "generated": "2026-10-01T22:18:03.985Z",
- "passed": 101,
- "total": 101,
+ "generated": "2026-10-01T22:32:00.152Z",
+ "passed": 102,
+ "total": 102,
  "results": [
+  {
+   "name": "syntax: c4-lm-advice.js",
+   "ok": true,
+   "detail": ""
+  },
   {
    "name": "syntax: c4-lm-clock.js",
    "ok": true,
@@ -381,7 +386,7 @@
   {
    "name": "edge input: single character",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: emoji only",
@@ -391,12 +396,12 @@
   {
    "name": "edge input: control characters",
    "ok": true,
-   "detail": "Got it. What would you like me to work o"
+   "detail": "Understood — say more and I'll dig in."
   },
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "edge input: sql-ish input",
@@ -416,7 +421,7 @@
   {
    "name": "edge input: repeated word",
    "ok": true,
-   "detail": "Understood — say more and I'll dig in."
+   "detail": "Got it. What would you like me to work o"
   },
   {
    "name": "edge input: non-latin script",
@@ -446,17 +451,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "13 -> 9"
+   "detail": "9 -> 9"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 equals 391."
+   "detail": "17 * 23 comes to 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -466,7 +471,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "6 ms"
+   "detail": "8 ms"
   },
   {
    "name": "garbage source response handled",

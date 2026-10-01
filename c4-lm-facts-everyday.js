@@ -10,9 +10,10 @@
    "lion|cub|roars;tiger|cub|roars;bear|cub|growls;wolf|pup|howls;fox|kit|barks;deer|fawn|bleats;kangaroo|joey|thumps;rabbit|kit|thumps;frog|tadpole|croaks;" +
    "swan|cygnet|trumpets;goose|gosling|honks;owl|owlet|hoots;elephant|calf|trumpets;whale|calf|sings;seal|pup|barks;bee|larva|buzzes;snake|snakelet|hisses").split(";").forEach(function (row) {
     var p = row.split("|");
-    out.push("A baby " + p[0] + " is called a " + p[1] + ".");
-    out.push("The young of a " + p[0] + " is called a " + p[1] + ".");
-    out.push("A " + p[0] + " " + p[2] + ".");
+    var art = function (w) { return /^[aeiou]/.test(w) ? "an" : "a"; };
+    out.push("A baby " + p[0] + " is called " + art(p[1]) + " " + p[1] + ".");
+    out.push("The young of " + art(p[0]) + " " + p[0] + " is called " + art(p[1]) + " " + p[1] + ".");
+    out.push(art(p[0]).replace(/^a/, "A") + " " + p[0] + " " + p[2] + ".");
   });
   [
     "Cows give us milk, hens give us eggs, sheep give us wool, and bees give us honey.",

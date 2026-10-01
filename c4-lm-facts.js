@@ -260,6 +260,9 @@
     if (!DOCS.length) return null;
     var LISTLEAD = /^\s*(?:please\s+)?(?:list|name|give me|tell me)\s+(?:all\s+)?(?:(?:the|some|a few|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+)/i;
     question = usTok(question);
+    /* "tell me about X" and "describe X" ask what X is */
+    var topicAsk = String(question).match(/^\s*(?:please\s+)?(?:tell me (?:more )?about|describe|what can you tell me about|what do you know about|give me (?:some )?(?:info|information|facts) (?:about|on)|i want to know about|talk about|say something about)\s+(.+?)\s*[?.!]*\s*$/i);
+    if (topicAsk && !/\b(?:and|or|vs|versus|between|how|why)\b/i.test(topicAsk[1]) && topicAsk[1].split(/\s+/).length <= 5) { question = topicAsk[1]; opts = Object.assign({}, opts, { define: true }); }
     /* "the word 'serendipity'" is just serendipity; "a person who is afraid of clowns" asks for the name of the fear */
     question = String(question).replace(/\b(?:the\s+)?(?:word|term|phrase|expression|idiom|slang|abbreviation|acronym)\s+(?=['"\u2018\u201c])/gi, "").replace(/\b(?:a\s+person|someone|somebody|people|anyone)\s+(?:who\s+is|who's|who\s+are|that\s+is|that's)\s+(?:afraid|scared|terrified|frightened)\s+of\b/gi, "the fear of").replace(/\bwhat(?:'s|\s+is)\s+(?:the\s+)?(?:word|name|term)\s+for\s+(?:the\s+)?fear\s+of\b/gi, "what is the fear of").replace(/\bwhat(?:'s|\s+is)\s+(?:the\s+)?(?:word|name|term)\s+for\s+(?:the\s+)?study\s+of\b/gi, "what is the study of");
     /* "when do I use who versus whom" and "cats vs dogs" ask for the difference between the two */
@@ -289,7 +292,8 @@
     var whoDef = /^\s*who\s+(?:is|was|were|are)\b/i.test(question) && qs.length <= 3;
     var defStem = qs.filter(function (x) { return !/^(?:word|term|phrase|mean|meaning|definition|define)$/.test(x); })[0] || qs[0];
     var bigNums = (String(question).match(/\b\d{3,}\b/g) || []).concat((String(question).match(/\b\d{1,4}\s*(?:BCE|BC)\b/gi) || []).map(function (x) { return x.replace(/\s+/, " ").toUpperCase(); }));
-    var dm = String(question).match(/^\s*what\s+(?:is|are|was|were)\s+(?:a |an |the )?([A-Za-z][A-Za-z' -]{2,40}?)\s*\??\s*$/i);
+    var dm = String(question).match(/^\s*what\s+(?:is|are|was|were)\s+(?:a |an |the )?([A-Za-z][A-Za-z' -]{2,40}?)\s*\??\s*$/i) || String(question).match(/^\s*(?:please\s+)?(?:tell me (?:more )?about|describe|what can you tell me about|what do you know about|give me (?:some )?(?:info|information|facts) (?:about|on)|i want to know about|talk about|say something about)\s+(?:a |an |the |some )?([A-Za-z][A-Za-z' -]{2,40}?)\s*[?.!]*\s*$/i);
+    if (!dm && opts.define) dm = String(question).match(/^\s*(?:about\s+)?(?:a |an |the )?([A-Za-z][A-Za-z' -]{2,40}?)\s*[?.!]*\s*$/);
     var defSubj = dm ? dm[1].trim().replace(/(?<=[a-z]{3})s$/i, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[-\s]+/g, "[- ]") : "";
     var howTo = /^\s*(?:how\s+(?:do|can|should|would|could|to|does one)\b|what(?:'s| is) the best way to\b|what should i do (?:to|if)\b)/i.test(question);
     var qMarker = (String(question).toLowerCase().match(/\b(most|least|fewest|biggest|smallest|first|last)\b/) || [])[1];
@@ -343,10 +347,21 @@
       if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\b(?:[^.,:]{0,40}?\\s(?:is|are|was|were|means|refers|stands|happens|occurs)\\b|[,:])", "i").test(d.text)) score += 0.35;
       /* "A vitamin is a ..." defines the thing itself, ahead of "Vitamin C is ..." which defines one kind of it */
       if (defSubj && new RegExp("^(?:(?:the|a|an)\\s+)?" + defSubj + "(?:s|es)?\\s+(?:is|are|means|refers to)\\b", "i").test(d.text)) score += 0.2;
+      /* "An elephant seal is ..." is about a seal, not an elephant: a stem that only modifies a different head noun does not make the sentence about it */
+      var sh = d.text.match(/^(?:(?:the|a|an)\s+)?([A-Za-z-]+(?:\s[A-Za-z-]+){1,3}?)\s+(?:is|are|was|were|eats|eat|lives|live|can|has|have|weighs|grows|makes|measures|produces)\b/);
+      if (sh) {
+        var shw = sh[1].toLowerCase().split(/\s+/), shl = canon(shw[shw.length - 1]);
+        if (shw.length >= 2 && !d.stems[shl + "_"] && qs.indexOf(shl) < 0) {
+          var modHit = false; for (k = 0; k < shw.length - 1; k++) if (qs.indexOf(canon(shw[k])) >= 0) modHit = true;
+          if (modHit && qs.length >= 2) score -= 0.35;
+        }
+      }
+      /* a bare definition is not a height, weight or speed: "An elephant is about 3 metres tall" does not say what an elephant is */
+      if (defSubj && /^(?:(?:the|a|an)\s+)?[^.,:]{0,40}?\s(?:is|are)\s+(?:about|around|roughly|approximately|up to|over|nearly|\d)/i.test(d.text) && !/\b(?:how|tall|high|long|big|heavy|weigh|size|fast|old|many|much)\b/i.test(question)) score -= 0.3;
       /* an abbreviation line answers "what does X stand for", while "what is X" wants the explanation */
       if (defSubj && /\bstands? for\b/i.test(d.text) && !/\b(?:stand|stands|stood|abbreviat\w*|acronym|initials?|short for|mean|means)\b/i.test(question)) score -= 0.3;
       /* "X is a ..., and the Y is a ..." defines two things at once; the sentence about X alone is the better definition */
-      if (defSubj && /,\s*(?:and|while|whereas)\s+(?:the|a|an)\s+[a-z-]+\s+(?:is|are|has|have)\b/i.test(d.text)) score -= 0.25;
+      if (defSubj && (/,\s*(?:and|while|whereas)\s+(?:the|a|an)\s+[a-z-]+\s+(?:is|are|has|have)\b/i.test(d.text) || /,\s*(?:and|while|whereas)\s+(?!(?:it|they|this|that|these|those|he|she|which|its|their|there|so|then|also|both)\b)[a-z-]+s?\s+(?:is|are|has|have)\b/i.test(d.text))) score -= 0.25;
       /* "Zeus is the king of the gods, Hera is his wife, Poseidon rules the sea" is a cast list, not a definition of Zeus */
       if (defSubj && (d.text.match(/,\s*(?:and\s+)?[A-Z][A-Za-z-]+(?:\s[A-Z][A-Za-z-]+)?\s+(?:is|are|was|rules|ends|began|has)\b/g) || []).length >= 1) score -= 0.3;
       if (qMarker && new RegExp("\\b" + qMarker + "\\b", "i").test(d.text)) score += 0.45;

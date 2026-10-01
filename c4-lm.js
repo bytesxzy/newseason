@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock, TXW = root.C4LMTextwork, DST = root.C4LMDistance, WL = root.C4LMWordlab, MN = root.C4LMMoney;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock, TXW = root.C4LMTextwork, DST = root.C4LMDistance, WL = root.C4LMWordlab, MN = root.C4LMMoney, ADV = root.C4LMAdvice;
 
   var state = {
     ready: false,
@@ -178,7 +178,7 @@
          (KB && frame.contentTokens.some(function (t) { return KB.resolve(t, { strict: true }).length > 0; })));
       if (frame.leadMarker === "and" || frame.leadMarker === "but" ||
           /^(?:and|what about|how about|what else|more|and what of)\b/i.test(frame.body) ||
-          /^(?:why|how|when|where)\b/i.test(frame.body) && frame.contentTokens.length <= 1 && !frame.entities.length && !(KB && KB.resolve(frame.body.replace(/^(?:why|how|when|where)\s+(?:is|are|was|were|do|does|did|can|could|would|will|has|have)?\s*/i, "").replace(/[?.!]+$/, "").trim(), { strict: true }).length) ||
+          /^(?:why|how|when|where)\b/i.test(frame.body) && frame.contentTokens.length <= 1 && !frame.entities.length && !/\b(?:i|me|my|we|our|you)\b/i.test(frame.body || "") && !(KB && KB.resolve(frame.body.replace(/^(?:why|how|when|where)\s+(?:is|are|was|were|do|does|did|can|could|would|will|has|have)?\s*/i, "").replace(/[?.!]+$/, "").trim(), { strict: true }).length) ||
           (frame.relation && !frame.subject) ||
           (!namesSomething && frame.queryForm === "statement" && !frame.entities.length &&
            frame.contentTokens.length <= 2)) {
@@ -1687,8 +1687,14 @@
       if (items && frame.requestedLength >= 2 && frame.requestedLength < items.length) items = items.slice(0, frame.requestedLength);
       if (items && items.length >= 3) hit.text = lead.replace(/:\s*$/, "") + ":\n" + items.map(function (x) { return "- " + x.charAt(0).toUpperCase() + x.slice(1); }).join("\n");
     }
+    /* a topic asked about without a capital ("tell me about elephants", "what is a volcano") is still what the next "they" or "it" means */
+    var topicEnt = "";
+    if (!named.length) {
+      var tq = String(rawq).replace(/^\s*(?:please\s+)?(?:tell me (?:more )?about|describe|what can you tell me about|what do you know about|what\s+(?:is|are|was|were)|who\s+(?:is|are)|give me (?:some )?(?:info|information|facts) (?:about|on))\s+/i, "").replace(/^(?:a |an |the |some )/i, "").replace(/[?.!]+\s*$/, "").trim();
+      if (/^[a-z][a-z' -]{2,28}$/i.test(tq) && tq.split(/\s+/).length <= 3 && tq !== String(rawq).trim().replace(/[?.!]+\s*$/, "")) topicEnt = tq.toLowerCase();
+    }
     return { text: hit.text, route: "knowledge", confidence: hit.confidence, sources: ["local fact library"],
-             entity: named.length ? named[named.length - 1] : "", defects: [], fact: { coverage: hit.coverage, score: hit.score } };
+             entity: named.length ? named[named.length - 1] : topicEnt, defects: [], fact: { coverage: hit.coverage, score: hit.score } };
   }
 
   /* Questions that cannot have a reliable answer from knowledge: the future,
@@ -2004,6 +2010,8 @@
     if ((!sr || !sr.answer) && CK) { try { sr = CK.solve(raw1); } catch (e) { sr = null; } }
     /* inflections, rhymes, pronunciation, "is it a word?", parts of speech, example sentences */
     if ((!sr || !sr.answer) && WL && !off("wordlab")) { try { sr = WL.solve(raw0); } catch (e) { sr = null; } }
+    /* things to watch, read and play; getting better at a skill; everyday life advice; letters; simple plans */
+    if ((!sr || !sr.answer) && ADV && !off("advice")) { try { sr = ADV.solve(raw0, { fact: function (q) { var h = FX && FX.answer(q, { min: 0.8 }); return h && h.text ? h.text : ""; } }); } catch (e) { sr = null; } if (sr && sr.answer) state.advTurn = state.stats.turns; }
     /* distances between cities and countries, trip times, coordinates */
     if ((!sr || !sr.answer) && DST && !off("distance")) { try { sr = DST.solve(raw1); } catch (e) { sr = null; } }
     if (!sr || !sr.answer) return null;
@@ -3306,6 +3314,12 @@
       if (cont) { var oC = {}, kC; for (kC in opts) oC[kC] = opts[kC]; oC.rewritten = true; return answerCore(cont, oC); }
       var recase = String(text == null ? "" : text).match(/^\s*(?:please\s+)?(?:make|write|put|say|convert|turn|give me)\s+(?:it|that|this|the (?:answer|result))\s+(?:in\s+|into\s+|to\s+)?(upper ?case|lower ?case|all caps|title ?case|capital letters)[.!?]*\s*$/i);
       if (recase && discourse.lastAnswer) { var oR = {}, kR; for (kR in opts) oR[kR] = opts[kR]; oR.rewritten = true; return answerCore('Convert "' + String(discourse.lastAnswer).replace(/"/g, "'") + '" to ' + recase[1], oR); }
+      /* "another" straight after a recommendation asks for a different one */
+      if (ADV && state.advTurn && state.advTurn === state.stats.turns && /^\s*(?:another(?: one)?|give me another|one more|something else|next(?: one)?|different one|more|show me another|any others?|what else)\s*[?.!]*\s*$/i.test(String(text == null ? "" : text))) {
+        var anR = null;
+        try { anR = ADV.solve(String(text), {}); } catch (eA) { anR = null; }
+        if (anR && anR.answer) { state.stats.turns++; state.advTurn = state.stats.turns; state.userText = String(text); var fA = C.parse(text, discourse.snapshot()); return Promise.resolve(finish(fA, { text: anR.answer, route: "reason", confidence: 0.84, sources: [], defects: [], interpretation: "advice:more" }, now())); }
+      }
       var wordFor = String(text == null ? "" : text).match(/^\s*(?:what(?:'s| is)|tell me|do you know)\s+(?:the|a)\s+(?:word|term|name)\s+for\s+((?:the\s+)?(?:fear|study|science|love|hatred|worship|belief)\s+of\s+.+?|(?:a|an)\s+(?:group|baby|young|male|female|home|house|flock|herd|collection)\s+of\s+.+?|(?:a|an)\s+(?:baby|young|male|female)\s+.+?)[?.!]*\s*$/i);
       if (wordFor) { var oW = {}, kW; for (kW in opts) oW[kW] = opts[kW]; oW.rewritten = true; return answerCore("What is " + (/^(?:the|a|an)\s/i.test(wordFor[1]) ? "" : "the ") + wordFor[1] + " called?", oW); }
       if ((popM = String(text == null ? "" : text).match(/^\s*how many (?:people|persons|inhabitants|humans) (?:live|reside|inhabit|are there) (?:in|at|on)\s+(?:the\s+)?(.+?)[?.!]*\s*$/i))) {
