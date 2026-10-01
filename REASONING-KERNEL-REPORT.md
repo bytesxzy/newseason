@@ -577,3 +577,73 @@ timing differences flipped 1-3 tasks per 400. Every comparison above is a single
 **Not done, stated plainly.** No ARC-AGI-3 environment is available here, so nothing about ARC-AGI-3
 was measured or changed. No language-model benchmark (HLE, MMLU, GSM8K) data is in the project and the
 language stack was not modified in this round; its suites still pass (`npm test`).
+
+## 16. Follow-up: the language model, answered and probed in bulk
+
+Method, as asked: answer a large number of questions, find the wrong ones, fix the mechanism behind them, and
+measure on questions written *before* the fix. Everything here is local; nothing calls an outside model.
+
+**New modules** (all offline, all registered in `c4-mini.html`, none of them a lookup of benchmark answers):
+
+| file | what it does |
+|---|---|
+| `c4-lm-story.js` | word-problem solver: readers for rates, percents, fractions, ages, averages, geometry, clocks, goals ("weeks until I can buy it"), approach ("trains toward each other"), reversed percents, baskets, complements ("24 students, 6 absent: how many present"), plus a dimensional-analysis fallback; declines unless every number in the text was used |
+| `c4-lm-logic.js` | syllogisms and their refutation, conditionals (modus ponens/tollens), transitive orderings (taller/ahead of/east of, with "town A"-style names), calendar and neighbours ("what comes after Thursday"), kinship, compass, clock angles, sequence induction, riddles |
+| `c4-lm-tools.js` | symbolic derivative/integral/factor/expand, equations including |x - a| = k, limits, exact fractions, comparisons, divisors/parity/divisibility, sorting, plain command arithmetic ("Add 15 and 27"), anachronisms ("When did Napoleon land on the Moon?"), unit conversion |
+| `c4-lm-howto.js` | programming idioms and concepts across languages including HTML, CSS and the DOM |
+| `c4-lm-skills.js` + `c4-lm-thesaurus.js` | dates and day-of-week, number words, interest and percent change, statistics, a 14-language phrasebook plus a 120-word table in five languages (it declines a word it does not hold instead of guessing), summaries, letter arrangements, molar mass, physics formulas, synonyms and antonyms |
+| `c4-lm-write.js` | spelling, counting, rhymes, words by letter, text transforms, and short poems (haiku whose lines are syllable-checked, limerick, acrostic, rhyming verse) |
+| `c4-lm-facts-*.js` | about 6,200 one-sentence facts: world, people, lifespans, nature, life, everyday things, school basics, advice, a dictionary of about 190 words, planets, birthplaces, trivia |
+
+**Banks.** Each was frozen in git *before* its first run; v4 and v5 were read while fixing and are development
+sets. "ALL" mixes a development part (read while fixing) and a SEALED third chosen by hash and never opened;
+the sealed number is the honest one.
+
+| bank | questions | first run | now (ALL) | now (SEALED third) |
+|---|---|---|---|---|
+| legacy `lm-eval` | 184 | 184 | 184/184 | - |
+| v4 | 438 | 46.1% | 95.7% | 90.5% |
+| v5 | 275 | 58.5% | 96.4% | 90.6% |
+| v6 (frozen `6228d46`) | 290 | 75.5% | 92.1% | 83.5% |
+| v7 (frozen `b04ac34`) | 260 | **81.9%** (213/260) | 93.5% as scored, **95.8%** (249/260) once the scoring quirk below is removed | 81.6% as scored, **85.5%** (65/76) corrected |
+
+The v7 first run, 81.9%, is the generalisation figure to quote: the questions were written after the skills layer
+existed and before they were run, and the first run is what an unseen set looks like. The gap between the
+development part (100% after fixes) and the sealed third (85.5%) is the size of the overfitting that remains.
+
+**Scoring quirk, disclosed.** `tools/lm-heldout4.js` judges any category whose name matches `/multi/` on the
+first sentence only, intended for its own `multi` category. v7's two-part questions were named `multiD`, so a
+correct two-part answer was scored on its first half. The bank was left frozen; the corrected figures above
+re-judge only those ten cases on the whole answer (`multiD`: 4/10 as scored, 10/10 full-text), and the as-scored
+figures are kept beside them.
+
+**What probing found beyond the banks** (none of these questions are in a bank; each is a regression test now in
+`tools/lm-skills-test.js`, 125 checks):
+
+- *Conversation poisoning.* Any question starting "how/why/when/where" with six words or fewer was treated as an
+  elliptical follow-up and rebuilt on the previous topic ("How do magnets work?" after "What is inflation?" returned
+  inflation). Now only subjectless fragments carry. Related: "it" is the subject even when another entity is named
+  ("How far is it from the Sun?" about Mars), "there" resolves to the last place, "he/she/his" resolve to the person
+  named in the last answer rather than the work asked about, a topic survives a pronoun answer, and "Where was he
+  born?" is no longer called a repeat of "When was he born?" because the wh-word differs.
+- *Single shared word.* Answers drawn from the project's own documents or an unrelated entry for a question that
+  shared one word ("What sound does a cat make?" returned a paragraph about self-improvement, because "cat" was
+  matched inside "category"; "What should I do if I feel stressed?" returned how earthquakes store stress). Short
+  stems now match whole words, generic words ("way", "best", "feel") do not count as coverage, a sentence that
+  leaves out the named thing asked about is rejected, and an answer that covers at most half of a multi-word question
+  is withdrawn for an honest "I don't have that".
+- *Dictionary glosses* arrived with page furniture (`.mw-parser-output{...}`) and run-on senses; they are cleaned,
+  the main sense leads, and other parts of speech are noted briefly.
+- *Memory module* treated "How do I write a good essay?" as "what did I write?"; a four- or five-letter typo one
+  keystroke from exactly one core word is now repaired ("meny", "yaer").
+- *Ranking* in the fact library: a present-tense question prefers "As of 2025, the president is ..." over the list of
+  past holders, a superlative question prefers the sentence carrying the superlative, "name/list the X" prefers a
+  list sentence and can be answered as bullets, and life-event sentences (birthplace, spouse) no longer answer
+  "who was X".
+
+**Honest limits.**
+- Facts about offices (president, prime minister, CEOs) are stamped "As of 2025" and will go stale; there is no live source.
+- The phrasebook holds ordinary words and phrases; anything outside it is declined.
+- Poems come from checked banks, not from a language model: the haikus are real 5-7-5 but repeat after a few requests.
+- ARC-AGI-1/2/3 numbers in section 15 were not re-measured here; this round changed only the language stack.
+- Wall-clock scheduling is not involved in any LM number above; the runs are deterministic.
