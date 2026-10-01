@@ -22,7 +22,7 @@
   var C = root.C4LMCore, KB = root.C4LMKB, RS = root.C4LMReason,
       PRB = root.C4LMProblem, KER = root.C4ReasonKernel, CMP = root.C4LMComprehend,
       RT = root.C4LMRetrieve, EV = root.C4LMEvidence, RZ = root.C4LMRealize,
-      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock;
+      CD = root.C4LMCode, MEM = root.C4LMMemory, FX = root.C4LMFacts, STY = root.C4LMStory, LG = root.C4LMLogic, TL = root.C4LMTools, HW = root.C4LMHowTo, SK = root.C4LMSkills, WR = root.C4LMWrite, CK = root.C4LMClock, TXW = root.C4LMTextwork;
 
   var state = {
     ready: false,
@@ -1790,6 +1790,9 @@
        x^2 - 5x + 6 = 0" is not "2 - 5". The structured reading wins. */
     /* Story problems: read the English into quantities and relations, derive the answer,
        and decline unless every number in the text was used. */
+    /* text the user supplied: summarise it, find its keywords, judge its sentiment, change its tone, reword it, title it, count it */
+    var textwork = answerTextwork(frame);
+    if (textwork) return textwork;
     var story = answerStory(frame);
     if (story) return story;
     /* Puzzles and premises: syllogisms, ordering, calendar, kinship, sequences, riddles. */
@@ -1907,6 +1910,14 @@
     if (!wr || !wr.answer) return null;
     return { text: wr.answer, route: "reason", confidence: wr.confidence || 0.8, sources: [], defects: [], composed: false,
              interpretation: "write:" + wr.schema, write: wr };
+  }
+
+  function answerTextwork(frame) {
+    if (!TXW || off("textwork")) return null;
+    var tr = null;
+    try { tr = TXW.solve(state.userText || frame.rawText || frame.body || ""); } catch (e) { tr = null; }
+    if (!tr || !tr.answer) return null;
+    return { text: tr.answer, route: "reason", confidence: tr.confidence || 0.84, sources: [], defects: [], interpretation: "textwork:" + tr.schema, textwork: tr };
   }
 
   function answerSkills(frame) {
@@ -3045,7 +3056,9 @@
      Whatever else the message asks is answered as usual, after it. */
   /* "I give up" and "I don't know" answer an open riddle or quiz question; they are not facts about the user */
   function openGameReply(raw) {
-    return !!(state.fun && state.fun.pending && /^\s*(?:i\b|my\b|no\b)/i.test(raw) && String(raw).length < 60);
+    if (state.fun && state.fun.pending && /^\s*(?:i\b|my\b|no\b)/i.test(raw) && String(raw).length < 60) return true;
+    /* "Extract the numbers from: I have 3 cats ..." is work on a text, not a statement about the user */
+    return !!(TXW && TXW.matches && TXW.matches(raw));
   }
   function answer(text, opts) {
     var M = state.memory, raw = String(text == null ? "" : text);

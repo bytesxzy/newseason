@@ -1,7 +1,7 @@
 {
- "generated": "2026-10-01T19:46:39.355Z",
- "passed": 94,
- "total": 94,
+ "generated": "2026-10-01T20:37:42.913Z",
+ "passed": 95,
+ "total": 95,
  "results": [
   {
    "name": "syntax: c4-lm-clock.js",
@@ -279,6 +279,11 @@
    "detail": ""
   },
   {
+   "name": "syntax: c4-lm-textwork.js",
+   "ok": true,
+   "detail": ""
+  },
+  {
    "name": "syntax: c4-lm-thesaurus.js",
    "ok": true,
    "detail": ""
@@ -361,7 +366,7 @@
   {
    "name": "edge input: html injection",
    "ok": true,
-   "detail": "Paris is the capital of France. France i"
+   "detail": "The capital of France is Paris. It is in"
   },
   {
    "name": "edge input: sql-ish input",
@@ -401,7 +406,7 @@
   {
    "name": "edge input: newlines",
    "ok": true,
-   "detail": "The capital of France is Paris. It is in"
+   "detail": "France's capital is Paris. It is in West"
   },
   {
    "name": "repeated question keeps its facts, worded afresh",
@@ -411,17 +416,17 @@
   {
    "name": "repeat is not slower",
    "ok": true,
-   "detail": "11 -> 11"
+   "detail": "9 -> 8"
   },
   {
    "name": "offline: local computation unaffected",
    "ok": true,
-   "detail": "17 * 23 = 391."
+   "detail": "17 * 23 equals 391."
   },
   {
    "name": "offline: local knowledge unaffected",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "France has Paris as its capital. It is i"
   },
   {
    "name": "offline: current question degrades honestly",
@@ -431,7 +436,7 @@
   {
    "name": "hanging source does not hang the answer",
    "ok": true,
-   "detail": "2792 ms"
+   "detail": "2878 ms"
   },
   {
    "name": "garbage source response handled",
@@ -446,12 +451,12 @@
   {
    "name": "corrupted cached artifacts tolerated",
    "ok": true,
-   "detail": "France's capital is Paris. It is in West"
+   "detail": "Paris is the capital of France. France i"
   },
   {
    "name": "missing conversation pack tolerated",
    "ok": true,
-   "detail": "Hey. Ask me something."
+   "detail": "Hi there — what are we looking into?"
   },
   {
    "name": "dialogue sequence",

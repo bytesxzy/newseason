@@ -146,6 +146,33 @@ function ok(name, cond, detail) { if (cond) pass++; else { fail++; console.log("
     var lt = await say(rt.boot({}), LANGS[lgi][0]);
     ok("language: " + LANGS[lgi][0], LANGS[lgi][1].test(lt), lt.slice(0, 120));
   }
+  /* text the user supplies */
+  var TXT = [
+    ["Summarize this: The Industrial Revolution began in Britain in the late 18th century. It shifted production from hand tools to machines. Factories grew, cities expanded, and new forms of transport such as railways appeared. Living conditions were often poor at first, but over time wages and health improved.", /^The Industrial Revolution began in Britain/],
+    ["What is the sentiment of: I absolutely loved this movie, it was fantastic!", /sentiment is positive/], ["Is this positive or negative: The service was terrible and the food was cold.", /sentiment is negative/],
+    ["Is this positive or negative: I did not enjoy it at all.", /sentiment is negative/], ["What is the sentiment of: The food was not bad.", /positive|neutral/],
+    ["Make this more formal: hey, can u send me the report asap", /^Hello, could you please send me the report as soon as possible\?$/],
+    ["Make this more casual: I would like to inquire regarding the purchase of additional items.", /I'd like to ask about the purchase/],
+    ["Paraphrase: The quick brown fox jumps over the lazy dog.", /^The fast brown fox leaps over the idle dog\.$/],
+    ["Give me a title for an essay about climate change", /Understanding Climate Change/], ["How many words are in: the quick brown fox jumps", /^There are 5 words\.$/],
+    ["Count the characters in 'hello world'", /11 characters/], ["Turn this into bullet points: The meeting starts at 9. Bring your laptop. Lunch is provided.", /^- The meeting starts at 9\n- Bring your laptop\n- Lunch is provided$/],
+    ["What is this about: The team won the championship after a thrilling match, and the coach praised every player.", /sports/],
+    ["Extract the keywords from: Machine learning models learn patterns from large datasets to make predictions.", /Keywords: .*(?:learning|models|patterns)/],
+    ["What is the reading level of: The cat sat on the mat. It was a sunny day.", /very easy/],
+    ["Read this: Maria went to the market on Tuesday and bought 3 apples, 2 loaves of bread and a bottle of milk. She paid 12 dollars. Question: How much did Maria pay?", /^12 dollars\.$/],
+    ["Passage: The Amazon is the largest rainforest on Earth. It covers about 5.5 million square kilometres across nine countries. Question: How many countries does the Amazon cover?", /^Nine countries\.$/],
+    ["Based on the following text, who founded the company? Apple was founded by Steve Jobs, Steve Wozniak and Ronald Wayne in 1976.", /^Steve Jobs, Steve Wozniak and Ronald Wayne\.$/],
+    ["Text: The festival takes place in Edinburgh every August. Thousands of visitors attend. Question: When does the festival take place?", /^August\.$/],
+    ["Passage: Sara missed the bus because it rained heavily. She walked to school instead. Question: Why did Sara miss the bus?", /^Because it rained heavily\.$/],
+    ["Passage: The sky is blue. Question: Who won the World Cup?", /doesn't say/],
+    ["Extract all the numbers from: I have 3 cats, 12 fish and 100 books.", /^Numbers: 3, 12, 100\.$/],
+    ["Find the emails in: contact bob@example.com or alice@test.org", /bob@example\.com, alice@test\.org/],
+    ["What are the dates in: The event is on 5 May 2025 and ends on 7 May 2025.", /5 May 2025, 7 May 2025/]
+  ];
+  for (var tx = 0; tx < TXT.length; tx++) {
+    var tt = await say(rt.boot({}), TXT[tx][0]);
+    ok("text: " + TXT[tx][0].slice(0, 60), TXT[tx][1].test(tt), tt.slice(0, 160));
+  }
   console.log((fail ? "FAIL " : "") + pass + "/" + (pass + fail) + " everyday checks passed");
   process.exit(fail ? 1 : 0);
 })();
