@@ -6,9 +6,9 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const E = require('../c4-arc-engine.js');
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf('--' + k); return i < 0 ? d : args[i + 1]; };
+const E = require(arg('engine', path.join(__dirname, '..', 'c4-arc-engine.js')));
 const frame = arg('frame', 'all'); const dir = args[0], budget = +arg('budget', 3), only = (arg('only', '') || '').split(',').filter(Boolean), outFile = arg('out', null), verbose = args.includes('--verbose');
 const shard = (arg('shard', '0/1')).split('/').map(Number);
 const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().filter((f, i) => i % shard[1] === shard[0]).filter(f => !only.length || only.includes(f.replace(/\.json$/, '')));

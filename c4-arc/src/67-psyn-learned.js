@@ -104,7 +104,9 @@
     /* keep a kind when its predicted probability clears the floor chosen at training time to retain >= 97% of the kinds that solved */
     keepKind: function (feat, kind) {
       if (P.off(kind)) return false;
-      if (!this.loaded || !this.enabled || P.off("kind") || !this.kindW[kind]) return true;
+      /* OPT-IN (PSYN_ON=kindprune). Ablation: pruning removed 13% of the search nodes but cost one held-out solve on each of
+         two dev splits (the recall floor, set from few training solves, did not transfer), so by default it only RANKS. */
+      if (!P.on("kindprune") || !this.loaded || !this.enabled || P.off("kind") || !this.kindW[kind]) return true;
       var p = this.sig(this.dot(this.kindW[kind], vec(feat))), keep = p >= (this.kindW[kind].floor || 0);
       if (keep) this.stats.kindKept++; else this.stats.kindPruned++;
       return keep;

@@ -354,7 +354,7 @@
   }
   var mod = defSolver("psyn", "psyn", generate, 1, 1.2);
   mod.EXTRA = true;                                     /* runs on its own time, added to the task deadline (50-portfolio.js) */
-  mod.DIAG = function () { return LAST.acct ? { accounts: LAST.acct.toJSON(), near: LAST.near.length, error: LAST.error || null } : null; };
+  mod.DIAG = function () { return LAST.acct ? { accounts: LAST.acct.toJSON(), near: LAST.near.length, error: LAST.error || null, sched: LAST.sched || null } : null; };
 
   P.ObjFX = { runProgram: runProgram, progStr: progStr, search: search, looScore: looScore, learnStage: learnStage, mode: MODE, last: function () { return LAST; }, module: mod };
 })();

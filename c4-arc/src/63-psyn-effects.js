@@ -308,7 +308,7 @@
      when that object has the same colour -- "connect the aligned pairs"). Unlike a ray it paints only when something is
      hit, so the line has two witnessed ends. Parameters: axis (0 row, 1 column, 2 both), same-colour partner, colour. */
   function betweenWrites(o, sc, ax, same, col) {
-    var w = W(), i, k, r, c, d, dd, nr, nc, run, seen = {}, dirs = ax === 0 ? [2, 3] : ax === 1 ? [0, 1] : [0, 1, 2, 3];
+    var w = W(), i, k, r, c, d, dd, nr, nc, run, seen = {}, dirs = ax === 0 ? [2, 3] : ax === 1 ? [0, 1] : ax === 2 ? [0, 1, 2, 3] : ax === 3 ? [4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
     for (i = 0; i < o.cells.length; i++) {
       k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W;
       for (d = 0; d < dirs.length; d++) {
@@ -327,7 +327,7 @@
     writes: function (o, th, sc) { return betweenWrites(o, sc, th.ax, th.same, th.col); },
     infer: function (o, sc, I, O) {
       var out = [], ax, same, w, ok, i, r, c, col;
-      for (ax = 0; ax < 3; ax++) for (same = 0; same < 2; same++) {
+      for (ax = 0; ax < 5; ax++) for (same = 0; same < 2; same++) {
         w = betweenWrites(o, sc, ax, same, -1); if (!w.pnt.length) continue;
         ok = true; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) { ok = false; break; } }
         if (ok) { out.push({ ax: ax, same: same, col: -1 }); continue; }
@@ -337,8 +337,8 @@
       }
       return out;
     },
-    bits: function (th) { return 2.0 + (th.ax === 2 ? 0 : 0.5) + (th.same ? 0.7 : 0) + (th.col < 0 ? 0.5 : 3.4); },
-    str: function (th) { return "between." + ["row", "col", "rc"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
+    bits: function (th) { return 2.0 + (th.ax === 2 || th.ax === 4 ? 0 : 0.5) + (th.same ? 0.7 : 0) + (th.col < 0 ? 0.5 : 3.4); },
+    str: function (th) { return "between." + ["row", "col", "rc", "diag", "all"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
   };
 
   /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,

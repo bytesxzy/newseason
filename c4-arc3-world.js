@@ -144,9 +144,10 @@
   /* The floor is the colour revealed under the agent when it moves away. The most frequent colour of a frame is NOT a safe
      guess (on small boards the walls can outnumber the floor, which turns walls into "background" and the floor into an object). */
   WorldModel.prototype.floorColor = function () {
-    var best = null, bn = 0, k;
-    for (k in this.floorVotes) if (this.floorVotes[k] > bn) { bn = this.floorVotes[k]; best = +k; }
-    return bn >= 1 ? best : null;
+    var best = null, bn = 0, second = 0, k;
+    for (k in this.floorVotes) if (this.floorVotes[k] > bn) { second = bn; bn = this.floorVotes[k]; best = +k; } else if (this.floorVotes[k] > second) second = this.floorVotes[k];
+    /* two vacated cells at least, and a clear lead: the start cell may hold something special (a teleporter, a key) */
+    return bn >= 2 && bn > second ? best : null;
   };
   WorldModel.prototype.adoptFloor = function (c) {
     /* knowledge accumulated about a colour later recognised as the floor was an artefact of the wrong background */
@@ -255,17 +256,8 @@
        of the frame suggested */
     if (d && (d[0] || d[1]) && !teleported)
       landing(p0, ent0, d[0], d[1]).forEach(function (c) { if (c !== -1) self.entered[c] = (self.entered[c] || 0) + 1; });
-    /* a large jump from an action with no established rule is ambiguous (step size? teleporter?). It only counts as the
-       action's displacement once the SAME vector has been seen twice; teleports land elsewhere each time. */
-    var jumpUnknown = false;
-    if (d && !teleported && !rule && Math.abs(d[0]) + Math.abs(d[1]) > 1) {
-      am.jump = am.jump || {};
-      var jk = d[0] + "," + d[1];
-      am.jump[jk] = (am.jump[jk] || 0) + 1;
-      if (am.jump[jk] < 2) jumpUnknown = true;
-    }
     /* action semantics with residual-driven repair */
-    if (d && !teleported && !jumpUnknown) {
+    if (d && !teleported) {
       var dk = d[0] + "," + d[1];
       if (d[0] || d[1]) {
         counterOf(am.disp, dk).confirm++;
