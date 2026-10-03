@@ -53,7 +53,7 @@ if (!isMainThread) {
     const top1=ranks.every(n=>n===1), top2=ranks.every(n=>n>0&&n<=2), oracle=ranks.every(n=>n>0);
     const d=r?r.diagnostics:{};
     const failure=top1?'SOLVED':msg.error?'ERROR':oracle?'RIGHT_OUTPUT_OUTRANKED':r.n_fit===0?'NO_CANDIDATE':d.unrun_modules>0?'SCHEDULER_STARVED':'NO_CORRECT_RETAINED_PREDICTION';
-    const rec={task_id:t.id,solved_top1:top1,solved_top2:top2,oracle_retained:oracle,runtime:r?r.elapsed:null,candidate_count:r?r.n_hyps:0,fitted_count:r?r.n_fit:0,winning_program:r?r.chosen:null,winning_family:r?r.solver:null,winning_program_cost:null,ranked_hypotheses:r?r.hyps:null,rank_of_correct_if_generated:ranks,failure_class:failure,error:msg.error||null,diagnostics:d};
+    const rec={task_id:t.id,solved_top1:top1,solved_top2:top2,oracle_retained:oracle,runtime:r?r.elapsed:null,candidate_count:r?r.n_hyps:0,fitted_count:r?r.n_fit:0,winning_program:r?r.chosen:null,winning_family:r?r.solver:null,winning_program_cost:null,ranked_hypotheses:r?r.hyps:null,ranked_ok:r&&r.hyp_out?r.hyp_out.map(o=>o.every((x,i)=>x>0&&x===ranks[i])):null,ranked_info:r?r.hyp_info:null,ranked_out:r?r.hyp_out:null,rank_of_correct_if_generated:ranks,failure_class:failure,error:msg.error||null,diagnostics:d};
     atomic(path.join(out,t.id+'.json'),JSON.stringify(rec)); records.push(rec);
     if(records.length%25===0) console.log(`${records.length}/${tasks.length}, top1=${records.filter(r=>r.solved_top1).length}`);
   }

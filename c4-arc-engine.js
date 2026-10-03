@@ -16191,8 +16191,12 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   catch (exc) { res.diagnostics.counterfactual_error = String(exc && exc.message ? exc.message : exc).slice(0, 160); }
   fitted.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
   res.hyps = [];
-  for (i = 0; i < Math.min(8, fitted.length); i++)
+  res.hyp_idx = []; res.hyp_info = [];
+  for (i = 0; i < Math.min(16, fitted.length); i++) {
     res.hyps.push([fitted[i][2].solver + ":" + fitted[i][2].name, Math.round(fitted[i][0] * 100) / 100]);
+    res.hyp_idx.push(fitted[i][1]); res.hyp_info.push(fitted[i][2].psyn || null);
+  }
+  var rankMaps = [];
 
   var pool = [], seenBehaviours = new Set();
   for (i = 0; i < fitted.length; i++) {
@@ -16262,8 +16266,9 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       scored.push([-weight, first.get(gk), gg2, violations, families.size]);
     });
     scored.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
-    var predictions = [];
-    for (i = 0; i < scored.length; i++) predictions.push(scored[i][2]);
+    var predictions = [], rmap = new Map();
+    for (i = 0; i < scored.length; i++) { predictions.push(scored[i][2]); rmap.set(G.gkey(scored[i][2]), i + 1); }
+    rankMaps.push(rmap);
     res.predictions.push(collectAll ? predictions : predictions.slice(0, k));
     res.chosen.push(predictions.length ? author.get(G.gkey(predictions[0])) : null);
     res.diagnostics.predictions.push({
@@ -16273,6 +16278,11 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       log_weight_margin: scored.length > 1 ? (scored[1][0] - scored[0][0]) : null
     });
   }
+  /* diagnostic only: where each of the leading hypotheses' own prediction landed in the final ranking, per test input
+     (0 = none). Lets offline tools judge a hypothesis against the labels without re-running the task. */
+  res.hyp_out = res.hyp_idx.map(function (idx) {
+    return ctx.test_inputs.map(function (_, t2) { var g = sigsByIdx.get(idx)[t2]; return g === null || g === undefined ? 0 : (rankMaps[t2].get(G.gkey(g)) || 0); });
+  });
   res.solver = null;
   for (i = 0; i < res.chosen.length; i++) if (res.chosen[i]) { res.solver = res.chosen[i][0]; break; }
   res.elapsed = (nowMs() - t0) / 1000;
@@ -21873,10 +21883,14 @@ var PSYN = (function () {
   var OFF = {};
   if (typeof process !== "undefined" && process.env && process.env.PSYN_OFF) process.env.PSYN_OFF.split(",").forEach(function (k) { if (k) OFF[k] = 1; });
   function off(name) { return !!OFF[name]; }
+  /* opt-in switches for components that did not earn a place by ablation (PSYN_ON=transduce) */
+  var ON = {};
+  if (typeof process !== "undefined" && process.env && process.env.PSYN_ON) process.env.PSYN_ON.split(",").forEach(function (k) { if (k) ON[k] = 1; });
+  function on(name) { return !!ON[name]; }
   function setOff(list) { OFF = {}; (list || []).forEach(function (k) { OFF[k] = 1; }); }
 
   return {
-    off: off, setOff: setOff,
+    off: off, setOff: setOff, on: on,
     Accounts: Accounts, Bits: Bits, Dom: Dom, Hole: Hole, Node: Node, PP: PP, EStore: EStore, NearMiss: NearMiss, Trace: Trace,
     isHole: isHole, isNode: isNode, render: render, canon: canon, d4Compose: d4Compose, d4Apply: d4Apply, d4Index: d4Index,
     rules: RULES, pixelResidual: pixelResidual, D4_NAMES: D4_NAMES
@@ -22488,6 +22502,43 @@ var PSYN = (function () {
       return out;
     },
     bits: function (th) { return 2.5 + (th.col < 0 ? 0.5 : 3.4); }, str: function (th) { return "ray." + DIRN[th.d] + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
+  };
+
+  /* BETWEEN: bridge the background gap from this object to the next object met along a row and/or column (optionally only
+     when that object has the same colour -- "connect the aligned pairs"). Unlike a ray it paints only when something is
+     hit, so the line has two witnessed ends. Parameters: axis (0 row, 1 column, 2 both), same-colour partner, colour. */
+  function betweenWrites(o, sc, ax, same, col) {
+    var w = W(), i, k, r, c, d, dd, nr, nc, run, seen = {}, dirs = ax === 0 ? [2, 3] : ax === 1 ? [0, 1] : [0, 1, 2, 3];
+    for (i = 0; i < o.cells.length; i++) {
+      k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W;
+      for (d = 0; d < dirs.length; d++) {
+        dd = D4v[dirs[d]]; nr = r + dd[0]; nc = c + dd[1]; run = [];
+        while (inb(sc, nr, nc) && sc.grid[nr][nc] === sc.bg && sc.at[nr * sc.W + nc] < 0) { run.push(nr * sc.W + nc); nr += dd[0]; nc += dd[1]; }
+        if (!run.length || !inb(sc, nr, nc)) continue;
+        var hit = sc.at[nr * sc.W + nc];
+        if (hit < 0 || hit === o.id || (same && sc.objs[hit].color !== o.color)) continue;
+        for (var q = 0; q < run.length; q++) if (!seen[run[q]]) { seen[run[q]] = 1; w.pnt.push(run[q], col < 0 ? o.color : col); }
+      }
+    }
+    return w;
+  }
+  FX.between = {
+    name: "between", param: "axis+color", own: false, facts: { addsCells: true },
+    writes: function (o, th, sc) { return betweenWrites(o, sc, th.ax, th.same, th.col); },
+    infer: function (o, sc, I, O) {
+      var out = [], ax, same, w, ok, i, r, c, col;
+      for (ax = 0; ax < 3; ax++) for (same = 0; same < 2; same++) {
+        w = betweenWrites(o, sc, ax, same, -1); if (!w.pnt.length) continue;
+        ok = true; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) { ok = false; break; } }
+        if (ok) { out.push({ ax: ax, same: same, col: -1 }); continue; }
+        col = -3; ok = true;
+        for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (col === -3) col = O[r][c]; else if (O[r][c] !== col) { ok = false; break; } }
+        if (ok && col >= 0 && col !== sc.bg) out.push({ ax: ax, same: same, col: col });
+      }
+      return out;
+    },
+    bits: function (th) { return 2.0 + (th.ax === 2 ? 0 : 0.5) + (th.same ? 0.7 : 0) + (th.col < 0 ? 0.5 : 3.4); },
+    str: function (th) { return "between." + ["row", "col", "rc"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
   };
 
   /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,
@@ -23253,7 +23304,9 @@ var PSYN = (function () {
     if (P.Policy && P.Policy.loaded && P.Policy.enabled && P.Policy.solveW && !P.off("sched")) {
       var pf0 = P.taskFeatures(ctx.train), ps0 = P.Policy.solveProb(pf0);
       LAST.sched = { p: ps0 };
-      if (ps0 < (P.Policy.solveFloor || 0)) { LAST.sched.skipped = true; P.Policy.stats.skippedTasks++; return []; }
+      /* the floor is calibrated on training traces and did not transfer (it silenced five held-out solves), so a low score now
+         only SHORTENS the budget (cheap exact search still runs) instead of skipping the family */
+      if (ps0 < (P.Policy.solveFloor || 0)) { LAST.sched.capped = true; P.Policy.stats.skippedTasks++; if (ctx.deadline) ctx.deadline = Math.min(ctx.deadline, Date.now() + 700); }
       acct._feat = pf0;
     }
     var found;
@@ -23270,7 +23323,7 @@ var PSYN = (function () {
       }, prog);
       if (adm.status !== "new") return;
       var h = _h("psyn:" + key, prog.run, 2.0 + prog.rank / 8.0);
-      h.psyn = { kind: prog.kind, bits: prog.bits };
+      h.psyn = { kind: prog.kind, bits: prog.bits, rank: prog.rank, loo: prog.loo === undefined ? null : prog.loo, pf: P.programFeatures(prog.raw, { loo: prog.loo === undefined ? null : prog.loo, nTrain: ctx.train.length, extract: prog.kind === "extract" }) };
       hyps.push(h);
     });
     LAST.programs = found.programs; LAST.near = found.near;
@@ -23717,6 +23770,9 @@ PSYN.Policy.load({"parseW":{"c4":{"w":[0.1463,0.2871,-0.5551,-0.2583,-0.0618,0.2
   var _h = mkHyp("transduce");
   function generate(ctx) {
     if (!ctx.same_shape() || P.off("transduce")) return [];
+    /* a tree that reproduces two demonstrations certifies nothing: on dev, exact-fit tasks with n=2 were right 1/65 times and
+       with LOO 0/3 right 2/215. Only n>=3 with LOO >= 2/3 passes (right 7/7 on dev); everything else stays out. */
+    if (ctx.train.length < 3) return [];
     var pairs = ctx.train, t0 = Date.now(), cap = t0 + 900, M = fit(pairs, 3, cap);
     if (!M.exact) return [];
     /* leave-one-demonstration-out: refit on the others and predict the held-out pair */
@@ -23730,11 +23786,14 @@ PSYN.Policy.load({"parseW":{"c4":{"w":[0.1463,0.2871,-0.5551,-0.2583,-0.0618,0.2
       if (pass / n < 0.66) return [];
     }
     var conf = n >= 3 ? pass / n : 0.5;
-    var h = _h("transduce:tree" + M.models.length, (function (mm) { return function (g) { return apply(mm.models, mm.info, g); }; })(M), 4.0 + 6.0 * (1 - conf));
+    var h = _h("transduce:tree" + M.models.length, (function (mm) { return function (g) { return apply(mm.models, mm.info, g); }; })(M), 3.0 + 4.0 * (1 - conf));
+    h.psyn = { kind: "transduce", bits: 0, rank: 0, loo: conf, pf: { nRules: 0, looKnown: 1, loo: conf } };
     return [h];
   }
   var mod = defSolver("transduce", "transduce", generate, 2, 1.6);
-  mod.EXTRA = true; mod.ONLY_IF_UNSOLVED = true;
+  /* NOT an EXTRA family: it must run after the symbolic families so ONLY_IF_UNSOLVED can see their explanations (as an EXTRA
+     family it ran first, always fired, and outranked correct symbolic answers). */
+  mod.ONLY_IF_UNSOLVED = true;
   P.Transduce = { fit: fit, apply: apply, module: mod };
 })();
 /* ===== src/90-engine.js ===== */

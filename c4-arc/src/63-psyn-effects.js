@@ -304,6 +304,43 @@
     bits: function (th) { return 2.5 + (th.col < 0 ? 0.5 : 3.4); }, str: function (th) { return "ray." + DIRN[th.d] + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
   };
 
+  /* BETWEEN: bridge the background gap from this object to the next object met along a row and/or column (optionally only
+     when that object has the same colour -- "connect the aligned pairs"). Unlike a ray it paints only when something is
+     hit, so the line has two witnessed ends. Parameters: axis (0 row, 1 column, 2 both), same-colour partner, colour. */
+  function betweenWrites(o, sc, ax, same, col) {
+    var w = W(), i, k, r, c, d, dd, nr, nc, run, seen = {}, dirs = ax === 0 ? [2, 3] : ax === 1 ? [0, 1] : [0, 1, 2, 3];
+    for (i = 0; i < o.cells.length; i++) {
+      k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W;
+      for (d = 0; d < dirs.length; d++) {
+        dd = D4v[dirs[d]]; nr = r + dd[0]; nc = c + dd[1]; run = [];
+        while (inb(sc, nr, nc) && sc.grid[nr][nc] === sc.bg && sc.at[nr * sc.W + nc] < 0) { run.push(nr * sc.W + nc); nr += dd[0]; nc += dd[1]; }
+        if (!run.length || !inb(sc, nr, nc)) continue;
+        var hit = sc.at[nr * sc.W + nc];
+        if (hit < 0 || hit === o.id || (same && sc.objs[hit].color !== o.color)) continue;
+        for (var q = 0; q < run.length; q++) if (!seen[run[q]]) { seen[run[q]] = 1; w.pnt.push(run[q], col < 0 ? o.color : col); }
+      }
+    }
+    return w;
+  }
+  FX.between = {
+    name: "between", param: "axis+color", own: false, facts: { addsCells: true },
+    writes: function (o, th, sc) { return betweenWrites(o, sc, th.ax, th.same, th.col); },
+    infer: function (o, sc, I, O) {
+      var out = [], ax, same, w, ok, i, r, c, col;
+      for (ax = 0; ax < 3; ax++) for (same = 0; same < 2; same++) {
+        w = betweenWrites(o, sc, ax, same, -1); if (!w.pnt.length) continue;
+        ok = true; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) { ok = false; break; } }
+        if (ok) { out.push({ ax: ax, same: same, col: -1 }); continue; }
+        col = -3; ok = true;
+        for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (col === -3) col = O[r][c]; else if (O[r][c] !== col) { ok = false; break; } }
+        if (ok && col >= 0 && col !== sc.bg) out.push({ ax: ax, same: same, col: col });
+      }
+      return out;
+    },
+    bits: function (th) { return 2.0 + (th.ax === 2 ? 0 : 0.5) + (th.same ? 0.7 : 0) + (th.col < 0 ? 0.5 : 3.4); },
+    str: function (th) { return "between." + ["row", "col", "rc"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
+  };
+
   /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,
      left/right half, border versus interior, ring depth, number of in-object neighbours). The output fixes that function
      cell by cell; the inverse returns it as a table. */

@@ -140,6 +140,9 @@
   var _h = mkHyp("transduce");
   function generate(ctx) {
     if (!ctx.same_shape() || P.off("transduce")) return [];
+    /* a tree that reproduces two demonstrations certifies nothing: on dev, exact-fit tasks with n=2 were right 1/65 times and
+       with LOO 0/3 right 2/215. Only n>=3 with LOO >= 2/3 passes (right 7/7 on dev); everything else stays out. */
+    if (ctx.train.length < 3) return [];
     var pairs = ctx.train, t0 = Date.now(), cap = t0 + 900, M = fit(pairs, 3, cap);
     if (!M.exact) return [];
     /* leave-one-demonstration-out: refit on the others and predict the held-out pair */
@@ -153,10 +156,13 @@
       if (pass / n < 0.66) return [];
     }
     var conf = n >= 3 ? pass / n : 0.5;
-    var h = _h("transduce:tree" + M.models.length, (function (mm) { return function (g) { return apply(mm.models, mm.info, g); }; })(M), 4.0 + 6.0 * (1 - conf));
+    var h = _h("transduce:tree" + M.models.length, (function (mm) { return function (g) { return apply(mm.models, mm.info, g); }; })(M), 3.0 + 4.0 * (1 - conf));
+    h.psyn = { kind: "transduce", bits: 0, rank: 0, loo: conf, pf: { nRules: 0, looKnown: 1, loo: conf } };
     return [h];
   }
   var mod = defSolver("transduce", "transduce", generate, 2, 1.6);
-  mod.EXTRA = true; mod.ONLY_IF_UNSOLVED = true;
+  /* NOT an EXTRA family: it must run after the symbolic families so ONLY_IF_UNSOLVED can see their explanations (as an EXTRA
+     family it ran first, always fired, and outranked correct symbolic answers). */
+  mod.ONLY_IF_UNSOLVED = true;
   P.Transduce = { fit: fit, apply: apply, module: mod };
 })();

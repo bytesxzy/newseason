@@ -561,8 +561,12 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   catch (exc) { res.diagnostics.counterfactual_error = String(exc && exc.message ? exc.message : exc).slice(0, 160); }
   fitted.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
   res.hyps = [];
-  for (i = 0; i < Math.min(8, fitted.length); i++)
+  res.hyp_idx = []; res.hyp_info = [];
+  for (i = 0; i < Math.min(16, fitted.length); i++) {
     res.hyps.push([fitted[i][2].solver + ":" + fitted[i][2].name, Math.round(fitted[i][0] * 100) / 100]);
+    res.hyp_idx.push(fitted[i][1]); res.hyp_info.push(fitted[i][2].psyn || null);
+  }
+  var rankMaps = [];
 
   var pool = [], seenBehaviours = new Set();
   for (i = 0; i < fitted.length; i++) {
@@ -632,8 +636,9 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       scored.push([-weight, first.get(gk), gg2, violations, families.size]);
     });
     scored.sort(function (a, b) { return (a[0] - b[0]) || (a[1] - b[1]); });
-    var predictions = [];
-    for (i = 0; i < scored.length; i++) predictions.push(scored[i][2]);
+    var predictions = [], rmap = new Map();
+    for (i = 0; i < scored.length; i++) { predictions.push(scored[i][2]); rmap.set(G.gkey(scored[i][2]), i + 1); }
+    rankMaps.push(rmap);
     res.predictions.push(collectAll ? predictions : predictions.slice(0, k));
     res.chosen.push(predictions.length ? author.get(G.gkey(predictions[0])) : null);
     res.diagnostics.predictions.push({
@@ -643,6 +648,11 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
       log_weight_margin: scored.length > 1 ? (scored[1][0] - scored[0][0]) : null
     });
   }
+  /* diagnostic only: where each of the leading hypotheses' own prediction landed in the final ranking, per test input
+     (0 = none). Lets offline tools judge a hypothesis against the labels without re-running the task. */
+  res.hyp_out = res.hyp_idx.map(function (idx) {
+    return ctx.test_inputs.map(function (_, t2) { var g = sigsByIdx.get(idx)[t2]; return g === null || g === undefined ? 0 : (rankMaps[t2].get(G.gkey(g)) || 0); });
+  });
   res.solver = null;
   for (i = 0; i < res.chosen.length; i++) if (res.chosen[i]) { res.solver = res.chosen[i][0]; break; }
   res.elapsed = (nowMs() - t0) / 1000;

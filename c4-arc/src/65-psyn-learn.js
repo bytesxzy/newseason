@@ -327,7 +327,9 @@
     if (P.Policy && P.Policy.loaded && P.Policy.enabled && P.Policy.solveW && !P.off("sched")) {
       var pf0 = P.taskFeatures(ctx.train), ps0 = P.Policy.solveProb(pf0);
       LAST.sched = { p: ps0 };
-      if (ps0 < (P.Policy.solveFloor || 0)) { LAST.sched.skipped = true; P.Policy.stats.skippedTasks++; return []; }
+      /* the floor is calibrated on training traces and did not transfer (it silenced five held-out solves), so a low score now
+         only SHORTENS the budget (cheap exact search still runs) instead of skipping the family */
+      if (ps0 < (P.Policy.solveFloor || 0)) { LAST.sched.capped = true; P.Policy.stats.skippedTasks++; if (ctx.deadline) ctx.deadline = Math.min(ctx.deadline, Date.now() + 700); }
       acct._feat = pf0;
     }
     var found;
@@ -344,7 +346,7 @@
       }, prog);
       if (adm.status !== "new") return;
       var h = _h("psyn:" + key, prog.run, 2.0 + prog.rank / 8.0);
-      h.psyn = { kind: prog.kind, bits: prog.bits };
+      h.psyn = { kind: prog.kind, bits: prog.bits, rank: prog.rank, loo: prog.loo === undefined ? null : prog.loo, pf: P.programFeatures(prog.raw, { loo: prog.loo === undefined ? null : prog.loo, nTrain: ctx.train.length, extract: prog.kind === "extract" }) };
       hyps.push(h);
     });
     LAST.programs = found.programs; LAST.near = found.near;

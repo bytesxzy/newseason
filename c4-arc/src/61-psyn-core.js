@@ -356,10 +356,14 @@ var PSYN = (function () {
   var OFF = {};
   if (typeof process !== "undefined" && process.env && process.env.PSYN_OFF) process.env.PSYN_OFF.split(",").forEach(function (k) { if (k) OFF[k] = 1; });
   function off(name) { return !!OFF[name]; }
+  /* opt-in switches for components that did not earn a place by ablation (PSYN_ON=transduce) */
+  var ON = {};
+  if (typeof process !== "undefined" && process.env && process.env.PSYN_ON) process.env.PSYN_ON.split(",").forEach(function (k) { if (k) ON[k] = 1; });
+  function on(name) { return !!ON[name]; }
   function setOff(list) { OFF = {}; (list || []).forEach(function (k) { OFF[k] = 1; }); }
 
   return {
-    off: off, setOff: setOff,
+    off: off, setOff: setOff, on: on,
     Accounts: Accounts, Bits: Bits, Dom: Dom, Hole: Hole, Node: Node, PP: PP, EStore: EStore, NearMiss: NearMiss, Trace: Trace,
     isHole: isHole, isNode: isNode, render: render, canon: canon, d4Compose: d4Compose, d4Apply: d4Apply, d4Index: d4Index,
     rules: RULES, pixelResidual: pixelResidual, D4_NAMES: D4_NAMES

@@ -119,6 +119,7 @@
   function WorldModel(actions, prior) {
     this.actions = actions.slice();
     this.agentVotes = {};            /* colour -> evidence it is the controllable entity */
+    this.floorVotes = {};            /* colour -> evidence it is the floor: what a vacated agent cell turns into */
     this.actionModels = {};          /* action -> { dispKey -> Counter, rule: Hypothesis } */
     this.blockers = {};              /* colour -> Counter */
     this.hazards = {};               /* colour -> Counter */
@@ -138,6 +139,19 @@
     var best = null, bn = 0, k;
     for (k in this.agentVotes) if (this.agentVotes[k] > bn) { bn = this.agentVotes[k]; best = +k; }
     return bn >= 1 ? best : null;
+  };
+
+  /* The floor is the colour revealed under the agent when it moves away. The most frequent colour of a frame is NOT a safe
+     guess (on small boards the walls can outnumber the floor, which turns walls into "background" and the floor into an object). */
+  WorldModel.prototype.floorColor = function () {
+    var best = null, bn = 0, k;
+    for (k in this.floorVotes) if (this.floorVotes[k] > bn) { bn = this.floorVotes[k]; best = +k; }
+    return bn >= 1 ? best : null;
+  };
+  WorldModel.prototype.adoptFloor = function (c) {
+    /* knowledge accumulated about a colour later recognised as the floor was an artefact of the wrong background */
+    delete this.contacts[c]; delete this.goals[c]; delete this.hazards[c]; delete this.blockers[c];
+    this.floorAdopted = (this.floorAdopted || 0) + 1;
   };
 
   WorldModel.prototype.agentEntity = function (p) {
@@ -206,6 +220,18 @@
     var d = mv ? [mv.dr, mv.dc] : (ent1 ? [ent1.r0 - ent0.r0, ent1.c0 - ent0.c0] : null);
     residual.observed = ent1 ? [ent1.r0, ent1.c0] : null;
 
+    /* floor evidence: cells the agent left, as they look in the next frame */
+    if (ent1 && d && (d[0] || d[1]) && !info.gameOver) {
+      var cov = {}, fv = this.floorColor();
+      ent1.cells.forEach(function (q) { cov[q[0] + "," + q[1]] = 1; });
+      ent0.cells.forEach(function (q) {
+        if (cov[q[0] + "," + q[1]]) return;
+        var fc = cellColor(p1, q[0], q[1]);
+        if (fc !== -1 && fc !== ac) self.floorVotes[fc] = (self.floorVotes[fc] || 0) + 1;
+      });
+      if (this.floorColor() !== fv && this.floorColor() !== null) this.adoptFloor(this.floorColor());
+    }
+
     /* contact: what the agent entered, read from the frame before */
     var contact = [];
     if (d && (d[0] || d[1])) contact = landing(p0, ent0, d[0], d[1]).filter(function (c) { return c !== p0.bg && c !== -1; });
@@ -229,8 +255,17 @@
        of the frame suggested */
     if (d && (d[0] || d[1]) && !teleported)
       landing(p0, ent0, d[0], d[1]).forEach(function (c) { if (c !== -1) self.entered[c] = (self.entered[c] || 0) + 1; });
+    /* a large jump from an action with no established rule is ambiguous (step size? teleporter?). It only counts as the
+       action's displacement once the SAME vector has been seen twice; teleports land elsewhere each time. */
+    var jumpUnknown = false;
+    if (d && !teleported && !rule && Math.abs(d[0]) + Math.abs(d[1]) > 1) {
+      am.jump = am.jump || {};
+      var jk = d[0] + "," + d[1];
+      am.jump[jk] = (am.jump[jk] || 0) + 1;
+      if (am.jump[jk] < 2) jumpUnknown = true;
+    }
     /* action semantics with residual-driven repair */
-    if (d && !teleported) {
+    if (d && !teleported && !jumpUnknown) {
       var dk = d[0] + "," + d[1];
       if (d[0] || d[1]) {
         counterOf(am.disp, dk).confirm++;
@@ -331,7 +366,7 @@
   /* ----------------------------------------------------------------- compress */
 
   WorldModel.prototype.compress = function () {
-    var self = this, out = { agent: this.agentColor(), actions: {}, blockers: [], hazards: [], goals: [], contacts: {} };
+    var self = this, out = { agent: this.agentColor(), floor: this.floorColor(), actions: {}, blockers: [], hazards: [], goals: [], contacts: {} };
     this.actions.forEach(function (a) {
       var r = self.actionRule(a);
       if (r && r.stage !== "retired" && r.counter.confirm >= 2) out.actions[key(a)] = { dr: r.dr, dc: r.dc, stage: r.stage };
@@ -352,6 +387,7 @@
   WorldModel.prototype.loadPrior = function (pr) {
     var self = this;
     if (pr.agent !== null && pr.agent !== undefined) this.agentVotes[pr.agent] = 2;
+    if (pr.floor !== null && pr.floor !== undefined) this.floorVotes[pr.floor] = 2;
     Object.keys(pr.actions || {}).forEach(function (a) {
       var m = self.actionModels[a] || (self.actionModels[a] = { disp: {}, noop: new Counter() });
       counterOf(m.disp, pr.actions[a].dr + "," + pr.actions[a].dc).confirm = 2;
@@ -428,13 +464,17 @@
   function gridKey(g) { return g.map(function (r) { return r.join(""); }).join("|"); }
 
   Agent.prototype.observe = function (grid, info) {
-    var p = perceive(grid, this.prev ? this.prev.bg : undefined);
+    var fl = this.model.floorColor();
+    var p = perceive(grid, fl !== null ? fl : (this.prev ? this.prev.bg : undefined));
+    if (this.prev && fl !== null && this.prev.bg !== fl) this.prev = perceive(this.prev.grid, fl);
     var res = null;
     if (this.prev && this.lastAction !== null) {
       var k0 = gridKey(this.prev.grid);
       if (k0 === gridKey(grid)) { var fk = k0 + "|" + key(this.lastAction); this.futile[fk] = (this.futile[fk] || 0) + 1; }
     }
     if (this.prev && this.lastAction !== null) res = this.model.learn(this.prev, this.lastAction, p, info);
+    var fl2 = this.model.floorColor();
+    if (fl2 !== null && fl2 !== p.bg) p = perceive(grid, fl2);
     this.prev = p;
     var ent = this.model.agentEntity(p);
     if (ent) { var k = ent.r0 + "," + ent.c0; this.visits[k] = (this.visits[k] || 0) + 1; }
