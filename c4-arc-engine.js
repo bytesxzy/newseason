@@ -21557,6 +21557,10 @@ var PSYN = (function () {
     var o = {}, k;
     for (k in this) if (this.hasOwnProperty(k) && typeof this[k] === "number") o[k] = this[k];
     o.dup_rate = Math.round(this.dupRate() * 1000) / 1000;
+    /* duplicate rates at the two places duplicates arise: effect templates (syntactic keys, then equal writes on every demo
+       object) and complete programs (rendered text, then equal outputs on every demonstration and test input) */
+    o.tmpl_dup_rate = this.tmpl_raw ? Math.round((1 - this.tmpl_classes / this.tmpl_raw) * 1000) / 1000 : 0;
+    o.prog_dup_rate = this.prog_raw ? Math.round((1 - (this.prog_classes || 0) / this.prog_raw) * 1000) / 1000 : 0;
     return o;
   };
 
@@ -22508,7 +22512,7 @@ var PSYN = (function () {
      when that object has the same colour -- "connect the aligned pairs"). Unlike a ray it paints only when something is
      hit, so the line has two witnessed ends. Parameters: axis (0 row, 1 column, 2 both), same-colour partner, colour. */
   function betweenWrites(o, sc, ax, same, col) {
-    var w = W(), i, k, r, c, d, dd, nr, nc, run, seen = {}, dirs = ax === 0 ? [2, 3] : ax === 1 ? [0, 1] : [0, 1, 2, 3];
+    var w = W(), i, k, r, c, d, dd, nr, nc, run, seen = {}, dirs = ax === 0 ? [2, 3] : ax === 1 ? [0, 1] : ax === 2 ? [0, 1, 2, 3] : ax === 3 ? [4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
     for (i = 0; i < o.cells.length; i++) {
       k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W;
       for (d = 0; d < dirs.length; d++) {
@@ -22527,7 +22531,7 @@ var PSYN = (function () {
     writes: function (o, th, sc) { return betweenWrites(o, sc, th.ax, th.same, th.col); },
     infer: function (o, sc, I, O) {
       var out = [], ax, same, w, ok, i, r, c, col;
-      for (ax = 0; ax < 3; ax++) for (same = 0; same < 2; same++) {
+      for (ax = 0; ax < 5; ax++) for (same = 0; same < 2; same++) {
         w = betweenWrites(o, sc, ax, same, -1); if (!w.pnt.length) continue;
         ok = true; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) { ok = false; break; } }
         if (ok) { out.push({ ax: ax, same: same, col: -1 }); continue; }
@@ -22537,8 +22541,43 @@ var PSYN = (function () {
       }
       return out;
     },
-    bits: function (th) { return 2.0 + (th.ax === 2 ? 0 : 0.5) + (th.same ? 0.7 : 0) + (th.col < 0 ? 0.5 : 3.4); },
-    str: function (th) { return "between." + ["row", "col", "rc"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
+    bits: function (th) { return 2.0 + (th.ax === 2 || th.ax === 4 ? 0 : 0.5) + (th.same ? 0.7 : 0) + (th.col < 0 ? 0.5 : 3.4); },
+    str: function (th) { return "between." + ["row", "col", "rc", "diag", "all"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
+  };
+
+  /* STAMP: paint a small relative pattern (offsets from the object's top-left corner, colours literal or "self") on the
+     background around the object. The inverse reads the pattern off the output: the changed background cells within
+     STAMP_R of the object's box that are closer to this object than to any other (a Voronoi cut, so neighbouring stamps do
+     not contaminate each other). One value of the pattern must then recur on several objects to survive the support test. */
+  var STAMP_R = 2, STAMP_MAX = 8;
+  function boxDist(o, r, c) { return Math.max(0, o.r0 - r, r - o.r1, o.c0 - c, c - o.c1); }
+  FX.stamp = {
+    name: "stamp", param: "pattern", own: false, facts: { addsCells: true, addsColors: true },
+    writes: function (o, th, sc) {
+      var w = W(), i, q, r, c;
+      for (i = 0; i < th.length; i++) {
+        q = th[i]; r = o.r0 + q[0]; c = o.c0 + q[1];
+        if (inb(sc, r, c) && sc.grid[r][c] === sc.bg && sc.at[r * sc.W + c] < 0) w.pnt.push(r * sc.W + c, q[2] < 0 ? o.color : q[2]);
+      }
+      return w;
+    },
+    infer: function (o, sc, I, O) {
+      var lit = [], self = [], r, c, d, j, mine, other, hasSelf = false;
+      for (r = Math.max(0, o.r0 - STAMP_R); r <= Math.min(sc.H - 1, o.r1 + STAMP_R); r++) for (c = Math.max(0, o.c0 - STAMP_R); c <= Math.min(sc.W - 1, o.c1 + STAMP_R); c++) {
+        if (I[r][c] === O[r][c] || I[r][c] !== sc.bg || sc.at[r * sc.W + c] >= 0) continue;
+        mine = boxDist(o, r, c);
+        for (j = 0; j < sc.n; j++) if (j !== o.id && boxDist(sc.objs[j], r, c) < mine) break;
+        if (j < sc.n) continue;
+        lit.push([r - o.r0, c - o.c0, O[r][c]]);
+        if (O[r][c] === o.color) { self.push([r - o.r0, c - o.c0, -1]); hasSelf = true; } else self.push([r - o.r0, c - o.c0, O[r][c]]);
+      }
+      if (!lit.length || lit.length > STAMP_MAX) return [];
+      var key = function (a) { return a[0] * 100 + a[1]; };
+      lit.sort(function (a, b) { return key(a) - key(b); }); self.sort(function (a, b) { return key(a) - key(b); });
+      return hasSelf ? [self, lit] : [lit];
+    },
+    bits: function (th) { var b = 2.0, i; for (i = 0; i < th.length; i++) b += 5.0 + (th[i][2] < 0 ? 0.5 : 3.4); return b; },
+    str: function (th) { return "stamp[" + th.map(function (q) { return q[0] + "," + q[1] + ":" + (q[2] < 0 ? "self" : q[2]); }).join(" ") + "]"; }
   };
 
   /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,
@@ -23000,7 +23039,7 @@ var PSYN = (function () {
   var P = PSYN, FX = P.FX, Bits = P.Bits;
   var COLOR_KINDS = ["recolor", "fillbox", "fillholes", "halo8", "halo4"];
   var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1, partmap: 1 };       /* touch the object's own cells */
-  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6;
+  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6, BEAM_PARSES = 2, BEAM_ALT = 2, CELL_BITS = 1 / 0.6, CONT_N = +(typeof process !== "undefined" && process.env && process.env.PSYN_CONT_N || 2), MARGINAL = +(typeof process !== "undefined" && process.env && process.env.PSYN_MARGINAL || 0.5), RULE_GROW = +(typeof process !== "undefined" && process.env && process.env.PSYN_RULE_GROW || 0);
 
   function deltaOf(I, O) {
     var H = I.length, W = I[0].length, d = new Uint8Array(H * W), n = 0, r, c;
@@ -23059,14 +23098,42 @@ var PSYN = (function () {
   function stageStr(st) { return st.parse + "{" + st.rules.map(function (r) { return ruleStr(r); }).join("; ") + "}"; }
   function progStr(p) { return p.stages.map(stageStr).join(" >> "); }
 
+  /* ABLATION ONLY (PSYN_OFF=inverse): the forward alternative to inverse semantics for the effects whose parameter domains are
+     small enough to sweep -- every colour, direction and axis -- leaving consistency checking to do the filtering. Effects with
+     unbounded domains (move/copy vectors, stamp patterns, position tables) cannot be swept and keep their inferred values. */
+  var NAIVE = (function () {
+    function colors() { var o = [], c; for (c = 0; c < 10; c++) o.push(c); return o; }
+    var nv = {};
+    ["recolor", "fillbox", "fillholes", "halo8", "halo4"].forEach(function (k) { nv[k] = colors; });
+    nv.ray = function () { var o = [], d, c; for (d = 0; d < 8; d++) { o.push({ d: d, col: -1 }); for (c = 0; c < 10; c++) o.push({ d: d, col: c }); } return o; };
+    nv.between = function () { var o = [], a, sm, c; for (a = 0; a < 5; a++) for (sm = 0; sm < 2; sm++) { o.push({ ax: a, same: sm, col: -1 }); for (c = 0; c < 10; c++) o.push({ ax: a, same: sm, col: c }); } return o; };
+    return nv;
+  })();
+
+  /* size of the parameter domain a forward enumerator would sweep for one (object, effect) pair; 1e6 stands for 'effectively unbounded' */
+  function naiveDomain(kind, H, W) {
+    switch (kind) {
+      case "delete": return 1;
+      case "recolor": case "fillbox": case "fillholes": case "halo8": case "halo4": return 10;
+      case "ray": return 8 * 11;
+      case "between": return 5 * 2 * 11;
+      case "move": case "copy": return (2 * H - 1) * (2 * W - 1) - 1;
+      case "slide": return 4;
+      case "d4": return 8;
+      case "cmap": return 100;
+      case "partmap": case "stamp": return 1000000;
+      default: return 10;
+    }
+  }
+
   /* ------------------------------------------------------------------ one stage */
   /* pairs: [[I, O], ...] with I,O of equal shape. Returns a list of {stage, uncoveredCells, bits, accounts}. */
-  function learnStage(pairs, parseId, ctx, acct, trace) {
+  function learnStage(pairs, parseId, ctx, acct, trace, forbid) {
     var scenes = pairs.map(function (p) { return P.parse(p[0], parseId, "mode"); }), d, s, total = 0;
     for (d = 0; d < scenes.length; d++) { if (scenes[d].tooMany) return null; total += scenes[d].n; }
     if (!total || total > MAX_OBJ_TOTAL) return null;
     /* identical partitions under different parse names are the same representation: perceive once */
-    if (acct._partSeen) {
+    if (acct._partSeen && !forbid) {
       var pk = scenes.map(function (sc9) { return sc9.objs.map(function (o9) { return o9.cells.join(","); }).join(";"); }).join("|") + "#" + pairs.map(function (p9) { return G.gkey(p9[0]); }).join("~");
       if (acct._partSeen[pk]) { acct.parses_duplicate = (acct.parses_duplicate || 0) + 1; return null; }
       acct._partSeen[pk] = 1;
@@ -23109,7 +23176,8 @@ var PSYN = (function () {
     var templates = [], tkeys = {};
     function addT(t) {
       var key = t.kind + "|" + (t.ref ? P.refKey(t.ref) : JSON.stringify(t.th === undefined ? null : t.th));
-      if (!tkeys[key]) { tkeys[key] = t; t.n = 0; templates.push(t); }
+      acct.tmpl_raw = (acct.tmpl_raw || 0) + 1;
+      if (!tkeys[key]) { tkeys[key] = t; t.n = 0; t.key = key; templates.push(t); }
       tkeys[key].n++;
     }
     var refsFor = function (sc, o, col) {
@@ -23124,7 +23192,11 @@ var PSYN = (function () {
       for (j = 0; j < allowed.length; j++) {
         fxk = allowed[j];
         if (fxk === "delete") { if (u === 0) addT({ kind: "delete", th: null }); continue; }
-        inf = FX[fxk].infer(item.o, scU, IU, OU);
+        inf = P.off("inverse") && NAIVE[fxk] ? NAIVE[fxk]() : FX[fxk].infer(item.o, scU, IU, OU);
+        /* what the forward direction would have had to enumerate for this (object, effect) pair, against what the output dictated */
+        acct.naive_params = (acct.naive_params || 0) + naiveDomain(fxk, scU.H, scU.W);
+        acct.inferred_params = (acct.inferred_params || 0) + inf.length;
+        if (!inf.length) acct.pruned_inverse++;
         inf.forEach(function (v) {
           if (FX[fxk].param === "color") {
             if (v === item.o.color && (fxk === "recolor")) return;               /* no-op recolour is not evidence */
@@ -23148,7 +23220,8 @@ var PSYN = (function () {
     /* keep the best-witnessed templates per kind: a vector seen on one object only is a coincidence far more often than a rule */
     var perKind = {}, kept = [];
     templates.sort(function (x, y) { return y.n - x.n; });
-    templates.forEach(function (t0) { perKind[t0.kind] = (perKind[t0.kind] || 0) + 1; if (perKind[t0.kind] <= 14) kept.push(t0); });
+    templates.forEach(function (t0) { if (t0.kind === "stamp" && t0.n < Math.min(3, Math.ceil(U.n / 2))) return;   /* a pattern seen on one or two objects is memorised, not learned */
+      perKind[t0.kind] = (perKind[t0.kind] || 0) + 1; if (perKind[t0.kind] <= 14 || (P.off("inverse") && NAIVE[t0.kind])) kept.push(t0); });
     templates = kept;
     acct.nodes += templates.length;
 
@@ -23163,7 +23236,17 @@ var PSYN = (function () {
         ccache[ti][u] = w && P.consistent(w, sc, pairs[item.s][0], pairs[item.s][1]) ? 1 : 0;
       }
     });
-    var ownHandled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta;
+    (function () {
+      var fps = {}, ti3, u3, fp, w3, nc = 0;
+      for (ti3 = 0; ti3 < templates.length; ti3++) {
+        fp = [];
+        for (u3 = 0; u3 < U.n; u3++) { w3 = wcache[ti3][u3]; fp.push(w3 && ccache[ti3][u3] ? w3.pnt.join(",") + "/" + w3.clr.join(",") : "x"); }
+        fp = fp.join("|");
+        if (!fps[fp]) { fps[fp] = 1; nc++; }
+      }
+      acct.tmpl_syntactic = (acct.tmpl_syntactic || 0) + templates.length; acct.tmpl_classes = (acct.tmpl_classes || 0) + nc;
+    })();
+    var ownHandled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta, firstKey = null;
     var uncoveredCount = function () { var n = 0; uncovered.forEach(function (x) { for (var i = 0; i < x.length; i++) n += x[i]; }); return n; };
     var vsInfo = [];
     for (iter = 0; iter < MAX_RULES; iter++) {
@@ -23171,6 +23254,7 @@ var PSYN = (function () {
       if (!uncoveredCount()) break;
       var best = null, ti2;
       for (ti2 = 0; ti2 < templates.length; ti2++) {
+        if (iter === 0 && forbid && forbid[templates[ti2].key]) continue;      /* alternative-first-pick branch of the cover */
         var pos = Bits.make(U.n), neg = Bits.make(U.n), wts = new Array(U.n), any = false, tot = 0;
         var ownKind = !!OWN_KINDS[templates[ti2].kind];
         for (u = 0; u < U.n; u++) {
@@ -23194,7 +23278,7 @@ var PSYN = (function () {
         }
         if (!sol2) { if (acct.diag) acct.diag.push({ parse: parseId, iter: iter, kind: templates[ti2].kind, why: "support" }); continue; }
         var s0 = sol2, tb = FX[templates[ti2].kind].bits(templates[ti2].th, templates[ti2].ref);
-        var gain = s0.w - LAMBDA * (s0.bits + tb + RULE_PENALTY);
+        var gain = s0.w - LAMBDA * (s0.bits + tb + RULE_PENALTY + RULE_GROW * iter);       /* each further rule in a stage must pay more: cells it explains may be cheaper for the next stage */
         if (s0.w < 1) continue;
         if (!best || gain > best.gain) best = { ti: ti2, sol: s0, sols: sols, gain: gain, w: s0.w, tb: tb, st: st };
       }
@@ -23202,7 +23286,9 @@ var PSYN = (function () {
       var t = templates[best.ti];
       var rule = { kind: t.kind, th: t.th, ref: t.ref, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }), bits: Math.max(1, best.sol.bits + best.tb + RULE_PENALTY - (P.Policy ? P.Policy.macroBonus(P.ruleSig({ kind: t.kind, ref: t.ref, th: t.th, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }) })) : 0)),
                    alt: best.sols.slice(1, 4).map(function (s2) { return { atoms: s2.ids.map(function (i) { return atoms[i].spec; }), bits: s2.bits }; }) };
+      rule.gain = best.gain;
       rules.push(rule);
+      if (rules.length === 1) firstKey = t.key;
       vsInfo.push({ vs: best.st.classes || 0, estimate: best.st.consistent || 0 });
       /* mark selected objects handled and their covered cells explained */
       for (u = 0; u < U.n; u++) {
@@ -23216,7 +23302,11 @@ var PSYN = (function () {
     }
     if (!rules.length) return null;
     var stage = { parse: parseId, bgMode: "mode", rules: rules, bits: 2.0 + rules.reduce(function (a, r2) { return a + r2.bits; }, 0), vs: vsInfo };
-    return { stage: stage, left: uncoveredCount() };
+    /* every PREFIX of the rule list is itself a candidate stage: a later stage may explain the remaining cells more cheaply than
+       one more rule would (greedy per-stage cover cannot see that) */
+    var prefixes = [];
+    if (P.on("prefix") && rules.length > 1) for (var kk = 1; kk < rules.length; kk++) if (rules[kk].gain < MARGINAL * rules[kk].bits) prefixes.push({ parse: parseId, bgMode: "mode", rules: rules.slice(0, kk), bits: 2.0 + rules.slice(0, kk).reduce(function (a, r2) { return a + r2.bits; }, 0), vs: vsInfo.slice(0, kk) });
+    return { stage: stage, left: uncoveredCount(), first: firstKey, prefixes: prefixes };
   }
 
   /* ------------------------------------------------------------------ the pipeline search */
@@ -23232,6 +23322,19 @@ var PSYN = (function () {
     acct._partSeen = {};
     acct._feat = acct._feat || P.taskFeatures(train);
     if (P.Policy) parses = P.Policy.parseOrder(acct._feat, parses);
+    var pseen = {}, pfp = {};
+    function emit(prog) {
+      acct.prog_raw = (acct.prog_raw || 0) + 1;
+      var key = progStr(prog);
+      if (pseen[key]) { acct.prog_syntactic = (acct.prog_syntactic || 0) + 1; return; }
+      pseen[key] = 1;
+      var fp = [], i4, g4, ok = true;
+      for (i4 = 0; i4 < train.length && ok; i4++) { g4 = runProgram(prog, train[i4][0]); if (!g4) ok = false; else fp.push(G.gkey(g4)); }
+      for (i4 = 0; i4 < testInputs.length && ok; i4++) { g4 = runProgram(prog, testInputs[i4]); fp.push(g4 ? G.gkey(g4) : "x"); }
+      var fk = fp.join("|");
+      if (pfp[fk]) acct.prog_semantic = (acct.prog_semantic || 0) + 1; else { pfp[fk] = 1; acct.prog_classes = (acct.prog_classes || 0) + 1; }
+      out.push(prog);
+    }
     function residualCells(inter, pairs) {
       var after = 0, i2, r2, c2;
       for (i2 = 0; i2 < pairs.length; i2++) for (r2 = 0; r2 < pairs[i2][0].length; r2++) for (c2 = 0; c2 < pairs[i2][0][0].length; c2++) if (inter[i2][r2][c2] !== pairs[i2][1][r2][c2]) after++;
@@ -23246,27 +23349,58 @@ var PSYN = (function () {
        they explained and only the best two continue, so the stage tree stays small instead of 5^depth. */
     function rec(pairs, prefix, depth, bitsSoFar) {
       var pi, res, prog, inter, cont = [], b0 = before(pairs);
+      var tried = [];
+      function consider(res, pName) {
+        var prog = { stages: prefix.concat([res.stage]), bits: bitsSoFar + res.stage.bits };
+        if (trace) trace.add({ a: "stage", parse: pName, depth: depth, rules: res.stage.rules.length, left: res.left });
+        var inter = pairs.map(function (p) { return runStage(res.stage, p[0]); });
+        if (inter.some(function (x) { return x === null; })) return -1;
+        var after = residualCells(inter, pairs);
+        if (after === 0) { emit(prog); return 0; }
+        if (after < b0) cont.push({ prog: prog, inter: inter, after: after });
+        else near.push({ prog: prog, residual: after / Math.max(1, b0) });
+        return after;
+      }
       for (pi = 0; pi < parses.length; pi++) {
         if (ctx && ctx.timed_out()) return;
         res = learnStage(pairs, parses[pi], ctx, acct, trace);
         if (!res) continue;
-        prog = { stages: prefix.concat([res.stage]), bits: bitsSoFar + res.stage.bits };
-        if (trace) trace.add({ a: "stage", parse: parses[pi], depth: depth, rules: res.stage.rules.length, left: res.left });
-        inter = pairs.map(function (p) { return runStage(res.stage, p[0]); });
-        if (inter.some(function (x) { return x === null; })) continue;
-        var after = residualCells(inter, pairs);
-        if (after === 0) { out.push(prog); continue; }
-        if (after < b0) cont.push({ prog: prog, inter: inter, after: after });
-        else near.push({ prog: prog, residual: after / Math.max(1, b0) });
+        var aft = consider(res, parses[pi]);
+        if (aft > 0 && res.first) tried.push({ parse: parses[pi], after: aft, first: res.first });
+        (res.prefixes || []).forEach(function (pst) {
+          var pprog = { stages: prefix.concat([pst]), bits: bitsSoFar + pst.bits };
+          var pinter = pairs.map(function (p) { return runStage(pst, p[0]); });
+          if (pinter.some(function (x) { return x === null; })) return;
+          var paft = residualCells(pinter, pairs);
+          if (paft === 0) emit(pprog); else if (paft < b0) { cont.push({ prog: pprog, inter: pinter, after: paft }); acct.prefix_branches = (acct.prefix_branches || 0) + 1; }
+        });
+      }
+      /* GREEDY COVER IS NOT EXHAUSTIVE: the best first rule by gain can be a distraction (a many-cell pattern that explains a lot
+         but not the right thing). For the two most promising incomplete parses, branch on the second and third best FIRST rule. */
+      if (P.on("beam")) {   /* opt-in: no gain on the learning splits, +45% nodes */
+        tried.sort(function (a, b) { return a.after - b.after; });
+        tried.slice(0, BEAM_PARSES).forEach(function (tr) {
+          var forbid = {}, k3, alt;
+          forbid[tr.first] = 1;
+          for (k3 = 0; k3 < BEAM_ALT; k3++) {
+            if (ctx && ctx.timed_out()) return;
+            alt = learnStage(pairs, tr.parse, ctx, acct, trace, forbid);
+            if (!alt) break;
+            acct.beam_branches = (acct.beam_branches || 0) + 1;
+            consider(alt, tr.parse);
+            if (!alt.first) break;
+            forbid[alt.first] = 1;
+          }
+        });
       }
       if (depth + 1 >= (P.off("stages") ? 1 : MAX_STAGES_DEFAULT)) { cont.forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); }); return; }
-      cont.sort(function (a, b) { return a.after - b.after; });
-      cont.slice(0, 2).forEach(function (c) {
+      cont.sort(function (a, b) { return (a.prog.bits + CELL_BITS * a.after) - (b.prog.bits + CELL_BITS * b.after); });
+      cont.slice(0, CONT_N).forEach(function (c) {
         if (ctx && ctx.timed_out()) return;
         acct.stage_chains++;
         rec(c.inter.map(function (g2, k2) { return [g2, pairs[k2][1]]; }), c.prog.stages, depth + 1, c.prog.bits);
       });
-      cont.slice(2).forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); });
+      cont.slice(CONT_N).forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); });
     }
     rec(train, [], 0, 0);
     return { programs: out, near: near };
@@ -23327,11 +23461,24 @@ var PSYN = (function () {
       hyps.push(h);
     });
     LAST.programs = found.programs; LAST.near = found.near;
+    /* NearMiss protocol: the closest non-exact partial programs are handed to the portfolio as ordinary hypotheses. They fail
+       validation by construction (residual > 0), which is exactly what routes them to the residual-driven refinement stage as
+       seeds -- a near-miss is never an answer, but it is a structured starting point for repair. */
+    if (P.on("nearseed")) {   /* opt-in: on dev it traded one regression (crowded the refinement stage) for one solve */
+      var seen = {}, k;
+      found.near.filter(function (n) { return n.prog && n.residual > 0 && n.residual < 0.6; }).sort(function (a, b) { return a.residual - b.residual; }).slice(0, 3).forEach(function (n) {
+        var key = "near:" + progStr(n.prog);
+        if (seen[key]) return; seen[key] = 1;
+        var h = _h("psyn:" + key, (function (pr) { return function (g) { return runProgram(pr, g); }; })(n.prog), 14.0);
+        h.psyn = { kind: "near", bits: n.prog.bits, rank: 99, loo: null, pf: { nRules: 0 } };
+        hyps.push(h);
+      });
+    }
     return hyps;
   }
   var mod = defSolver("psyn", "psyn", generate, 1, 1.2);
   mod.EXTRA = true;                                     /* runs on its own time, added to the task deadline (50-portfolio.js) */
-  mod.DIAG = function () { return LAST.acct ? { accounts: LAST.acct.toJSON(), near: LAST.near.length, error: LAST.error || null } : null; };
+  mod.DIAG = function () { return LAST.acct ? { accounts: LAST.acct.toJSON(), near: LAST.near.length, error: LAST.error || null, sched: LAST.sched || null } : null; };
 
   P.ObjFX = { runProgram: runProgram, progStr: progStr, search: search, looScore: looScore, learnStage: learnStage, mode: MODE, last: function () { return LAST; }, module: mod };
 })();
@@ -23612,7 +23759,9 @@ var PSYN = (function () {
     /* keep a kind when its predicted probability clears the floor chosen at training time to retain >= 97% of the kinds that solved */
     keepKind: function (feat, kind) {
       if (P.off(kind)) return false;
-      if (!this.loaded || !this.enabled || P.off("kind") || !this.kindW[kind]) return true;
+      /* OPT-IN (PSYN_ON=kindprune). Ablation: pruning removed 13% of the search nodes but cost one held-out solve on each of
+         two dev splits (the recall floor, set from few training solves, did not transfer), so by default it only RANKS. */
+      if (!P.on("kindprune") || !this.loaded || !this.enabled || P.off("kind") || !this.kindW[kind]) return true;
       var p = this.sig(this.dot(this.kindW[kind], vec(feat))), keep = p >= (this.kindW[kind].floor || 0);
       if (keep) this.stats.kindKept++; else this.stats.kindPruned++;
       return keep;

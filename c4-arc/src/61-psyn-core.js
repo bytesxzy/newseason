@@ -30,6 +30,10 @@ var PSYN = (function () {
     var o = {}, k;
     for (k in this) if (this.hasOwnProperty(k) && typeof this[k] === "number") o[k] = this[k];
     o.dup_rate = Math.round(this.dupRate() * 1000) / 1000;
+    /* duplicate rates at the two places duplicates arise: effect templates (syntactic keys, then equal writes on every demo
+       object) and complete programs (rendered text, then equal outputs on every demonstration and test input) */
+    o.tmpl_dup_rate = this.tmpl_raw ? Math.round((1 - this.tmpl_classes / this.tmpl_raw) * 1000) / 1000 : 0;
+    o.prog_dup_rate = this.prog_raw ? Math.round((1 - (this.prog_classes || 0) / this.prog_raw) * 1000) / 1000 : 0;
     return o;
   };
 

@@ -341,6 +341,41 @@
     str: function (th) { return "between." + ["row", "col", "rc", "diag", "all"][th.ax] + (th.same ? ".same" : "") + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
   };
 
+  /* STAMP: paint a small relative pattern (offsets from the object's top-left corner, colours literal or "self") on the
+     background around the object. The inverse reads the pattern off the output: the changed background cells within
+     STAMP_R of the object's box that are closer to this object than to any other (a Voronoi cut, so neighbouring stamps do
+     not contaminate each other). One value of the pattern must then recur on several objects to survive the support test. */
+  var STAMP_R = 2, STAMP_MAX = 8;
+  function boxDist(o, r, c) { return Math.max(0, o.r0 - r, r - o.r1, o.c0 - c, c - o.c1); }
+  FX.stamp = {
+    name: "stamp", param: "pattern", own: false, facts: { addsCells: true, addsColors: true },
+    writes: function (o, th, sc) {
+      var w = W(), i, q, r, c;
+      for (i = 0; i < th.length; i++) {
+        q = th[i]; r = o.r0 + q[0]; c = o.c0 + q[1];
+        if (inb(sc, r, c) && sc.grid[r][c] === sc.bg && sc.at[r * sc.W + c] < 0) w.pnt.push(r * sc.W + c, q[2] < 0 ? o.color : q[2]);
+      }
+      return w;
+    },
+    infer: function (o, sc, I, O) {
+      var lit = [], self = [], r, c, d, j, mine, other, hasSelf = false;
+      for (r = Math.max(0, o.r0 - STAMP_R); r <= Math.min(sc.H - 1, o.r1 + STAMP_R); r++) for (c = Math.max(0, o.c0 - STAMP_R); c <= Math.min(sc.W - 1, o.c1 + STAMP_R); c++) {
+        if (I[r][c] === O[r][c] || I[r][c] !== sc.bg || sc.at[r * sc.W + c] >= 0) continue;
+        mine = boxDist(o, r, c);
+        for (j = 0; j < sc.n; j++) if (j !== o.id && boxDist(sc.objs[j], r, c) < mine) break;
+        if (j < sc.n) continue;
+        lit.push([r - o.r0, c - o.c0, O[r][c]]);
+        if (O[r][c] === o.color) { self.push([r - o.r0, c - o.c0, -1]); hasSelf = true; } else self.push([r - o.r0, c - o.c0, O[r][c]]);
+      }
+      if (!lit.length || lit.length > STAMP_MAX) return [];
+      var key = function (a) { return a[0] * 100 + a[1]; };
+      lit.sort(function (a, b) { return key(a) - key(b); }); self.sort(function (a, b) { return key(a) - key(b); });
+      return hasSelf ? [self, lit] : [lit];
+    },
+    bits: function (th) { var b = 2.0, i; for (i = 0; i < th.length; i++) b += 5.0 + (th[i][2] < 0 ? 0.5 : 3.4); return b; },
+    str: function (th) { return "stamp[" + th.map(function (q) { return q[0] + "," + q[1] + ":" + (q[2] < 0 ? "self" : q[2]); }).join(" ") + "]"; }
+  };
+
   /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,
      left/right half, border versus interior, ring depth, number of in-object neighbours). The output fixes that function
      cell by cell; the inverse returns it as a table. */

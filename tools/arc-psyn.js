@@ -38,5 +38,5 @@ for (const f of files) {
   rows.push(row);
   if (verbose) console.log(id.padEnd(10), String(row.fits).padStart(3), ok ? 'SOLVED' : okAny ? 'any' : '', row.ms + 'ms', row.prog ? row.prog.slice(0, 150) : '');
 }
-console.log(JSON.stringify({ tasks: files.length, sameShape, fit, solvedTop1: solved, anyCorrect: rows.filter(r => r.any).length, accounts: totals }, null, 1));
+console.log(JSON.stringify({ tasks: files.length, sameShape, fit, solvedTop1: solved, anyCorrect: rows.filter(r => r.any).length, totalMs: rows.reduce((a, r) => a + (r.ms || 0), 0), accounts: totals }, null, 1));
 if (outFile) fs.writeFileSync(outFile, JSON.stringify(rows, null, 1));
