@@ -1,0 +1,469 @@
+{
+ "protocol": "dev = ARC-1 eval half A + ARC-2-style odd half; learning = ARC-1 training + ARC-2-style even half + synthetic; sealed = ARC-1 eval half B (aggregate only) + ARC-2 eval (final run only). 3 s per task, 3 workers.",
+ "engine": "final (git HEAD of this report)",
+ "splits": {
+  "e1A_development": {
+   "n": 200,
+   "top1": {
+    "before": 66,
+    "after": 67,
+    "kept": 64,
+    "lost": 2,
+    "gained": 3
+   },
+   "top2": {
+    "before": 69,
+    "after": 69,
+    "kept": 67,
+    "lost": 2,
+    "gained": 2
+   },
+   "oracle": {
+    "before": 71,
+    "after": 73
+   },
+   "runtime": {
+    "before": {
+     "total_s": 661.4,
+     "p50": 3.2359999999999998,
+     "p90": 4.234,
+     "p99": 4.469
+    },
+    "after": {
+     "total_s": 733.5,
+     "p50": 3.492,
+     "p90": 5.331,
+     "p99": 6.17
+    }
+   }
+  },
+  "t2new_odd_development": {
+   "n": 116,
+   "top1": {
+    "before": 7,
+    "after": 8,
+    "kept": 7,
+    "lost": 0,
+    "gained": 1
+   },
+   "top2": {
+    "before": 7,
+    "after": 8,
+    "kept": 7,
+    "lost": 0,
+    "gained": 1
+   },
+   "oracle": {
+    "before": 8,
+    "after": 9
+   },
+   "runtime": {
+    "before": {
+     "total_s": 408.5,
+     "p50": 3.691,
+     "p90": 4.203,
+     "p99": 4.34
+    },
+    "after": {
+     "total_s": 446.4,
+     "p50": 3.857,
+     "p90": 5.168,
+     "p99": 5.835
+    }
+   }
+  },
+  "t2new_even_learning": {
+   "n": 117,
+   "top1": {
+    "before": 7,
+    "after": 10,
+    "kept": 7,
+    "lost": 0,
+    "gained": 3
+   },
+   "top2": {
+    "before": 9,
+    "after": 10,
+    "kept": 8,
+    "lost": 1,
+    "gained": 2
+   },
+   "oracle": {
+    "before": 11,
+    "after": 13
+   },
+   "runtime": {
+    "before": {
+     "total_s": 414.3,
+     "p50": 3.6479999999999997,
+     "p90": 4.248,
+     "p99": 4.423
+    },
+    "after": {
+     "total_s": 461.2,
+     "p50": 3.95,
+     "p90": 5.194,
+     "p99": 6.429
+    }
+   }
+  },
+  "e1B_sealed": {
+   "n": 200,
+   "top1": {
+    "before": 46,
+    "after": 50,
+    "kept": 46,
+    "lost": 0,
+    "gained": 4
+   },
+   "top2": {
+    "before": 49,
+    "after": 53,
+    "kept": 49,
+    "lost": 0,
+    "gained": 4
+   },
+   "oracle": {
+    "before": 50,
+    "after": 54
+   },
+   "runtime": {
+    "before": {
+     "total_s": 682,
+     "p50": 3.443,
+     "p90": 4.242,
+     "p99": 4.401
+    },
+    "after": {
+     "total_s": 741.8,
+     "p50": 3.494,
+     "p90": 5.1129999999999995,
+     "p99": 6.862
+    }
+   }
+  },
+  "e2_sealed": {
+   "n": 120,
+   "top1": {
+    "before": 1,
+    "after": 2,
+    "kept": 1,
+    "lost": 0,
+    "gained": 1
+   },
+   "top2": {
+    "before": 1,
+    "after": 2,
+    "kept": 1,
+    "lost": 0,
+    "gained": 1
+   },
+   "oracle": {
+    "before": 1,
+    "after": 2
+   },
+   "runtime": {
+    "before": {
+     "total_s": 448.3,
+     "p50": 3.868,
+     "p90": 4.3100000000000005,
+     "p99": 4.414
+    },
+    "after": {
+     "total_s": 501.6,
+     "p50": 4.287,
+     "p90": 5.459,
+     "p99": 6.002000000000001
+    }
+   }
+  },
+  "arc1_training_learning": {
+   "n": 400,
+   "top1": {
+    "before": 233,
+    "after": 243,
+    "kept": 233,
+    "lost": 0,
+    "gained": 10
+   },
+   "top2": {
+    "before": 236,
+    "after": 245,
+    "kept": 236,
+    "lost": 0,
+    "gained": 9
+   },
+   "oracle": {
+    "before": 237,
+    "after": 246
+   },
+   "runtime": {
+    "before": {
+     "total_s": 1189.8,
+     "p50": 3,
+     "p90": 4.093999999999999,
+     "p99": 4.651
+    },
+    "after": {
+     "total_s": 1253.3,
+     "p50": 3.006,
+     "p90": 4.3629999999999995,
+     "p99": 5.8629999999999995
+    }
+   }
+  }
+ },
+ "rerun_noise_psyn_off_vs_frozen_base": {
+  "e1A": {
+   "n": 200,
+   "top1": {
+    "before": 66,
+    "after": 67,
+    "kept": 66,
+    "lost": 0,
+    "gained": 1
+   },
+   "top2": {
+    "before": 69,
+    "after": 69,
+    "kept": 69,
+    "lost": 0,
+    "gained": 0
+   },
+   "oracle": {
+    "before": 71,
+    "after": 71
+   },
+   "runtime": {
+    "before": {
+     "total_s": 661.4,
+     "p50": 3.2359999999999998,
+     "p90": 4.234,
+     "p99": 4.469
+    },
+    "after": {
+     "total_s": 662.1,
+     "p50": 3.1079999999999997,
+     "p90": 4.414,
+     "p99": 4.837
+    }
+   }
+  },
+  "t2new": {
+   "n": 233,
+   "top1": {
+    "before": 14,
+    "after": 13,
+    "kept": 13,
+    "lost": 1,
+    "gained": 0
+   },
+   "top2": {
+    "before": 16,
+    "after": 15,
+    "kept": 15,
+    "lost": 1,
+    "gained": 0
+   },
+   "oracle": {
+    "before": 19,
+    "after": 18
+   },
+   "runtime": {
+    "before": {
+     "total_s": 822.8,
+     "p50": 3.665,
+     "p90": 4.203,
+     "p99": 4.423
+    },
+    "after": {
+     "total_s": 825.7,
+     "p50": 3.649,
+     "p90": 4.322,
+     "p99": 4.938
+    }
+   }
+  }
+ },
+ "rerun_noise_psyn_on": {
+  "e1A": {
+   "n": 200,
+   "top1": {
+    "before": 67,
+    "after": 66,
+    "kept": 66,
+    "lost": 1,
+    "gained": 0
+   },
+   "top2": {
+    "before": 69,
+    "after": 69,
+    "kept": 69,
+    "lost": 0,
+    "gained": 0
+   },
+   "oracle": {
+    "before": 73,
+    "after": 73
+   },
+   "runtime": {
+    "before": {
+     "total_s": 733.5,
+     "p50": 3.492,
+     "p90": 5.331,
+     "p99": 6.17
+    },
+    "after": {
+     "total_s": 721.7,
+     "p50": 3.417,
+     "p90": 5.186,
+     "p99": 5.86
+    }
+   }
+  },
+  "t2new": {
+   "n": 233,
+   "top1": {
+    "before": 18,
+    "after": 18,
+    "kept": 18,
+    "lost": 0,
+    "gained": 0
+   },
+   "top2": {
+    "before": 18,
+    "after": 18,
+    "kept": 18,
+    "lost": 0,
+    "gained": 0
+   },
+   "oracle": {
+    "before": 22,
+    "after": 22
+   },
+   "runtime": {
+    "before": {
+     "total_s": 907.6,
+     "p50": 3.9130000000000003,
+     "p90": 5.168,
+     "p99": 6.223000000000001
+    },
+    "after": {
+     "total_s": 889.4,
+     "p50": 3.824,
+     "p90": 5.0120000000000005,
+     "p99": 6.16
+    }
+   }
+  }
+ },
+ "scheduler_ablation_ensemble": {
+  "e1A": {
+   "n": 200,
+   "top1": {
+    "before": 66,
+    "after": 66,
+    "kept": 66,
+    "lost": 0,
+    "gained": 0
+   },
+   "top2": {
+    "before": 69,
+    "after": 69,
+    "kept": 69,
+    "lost": 0,
+    "gained": 0
+   },
+   "oracle": {
+    "before": 73,
+    "after": 73
+   },
+   "runtime": {
+    "before": {
+     "total_s": 721.7,
+     "p50": 3.417,
+     "p90": 5.186,
+     "p99": 5.86
+    },
+    "after": {
+     "total_s": 720.3,
+     "p50": 3.407,
+     "p90": 5.2379999999999995,
+     "p99": 6.07
+    }
+   }
+  }
+ },
+ "standalone_ablation_markdown": "| configuration | e1A fit/top-1/any (ms) | t2new_odd fit/top-1/any (ms) | t2new_even fit/top-1/any (ms) | a1train fit/top-1/any (ms) |\n|---|---|---|---|---|\n| full | 23/9/11 (49018) | 5/2/2 (17260) | 7/5/5 (27483) | 95/73/78 (47150) |\n| no_multiparse | 17/9/9 (12994) | 3/1/1 (6388) | 7/4/5 (8389) | 83/61/64 (13298) |\n| no_roles | 23/10/11 (49860) | 4/2/2 (17668) | 5/3/3 (26068) | 95/72/78 (47393) |\n| no_relations | 16/7/8 (37108) | 3/2/2 (13005) | 6/4/4 (22390) | 91/67/73 (34419) |\n| no_stages | 16/8/9 (18863) | 1/0/0 (7757) | 7/5/5 (14115) | 77/63/66 (18993) |\n| no_extract | 19/6/8 (48765) | 4/2/2 (17795) | 7/5/5 (27496) | 79/57/61 (47616) |\n| no_loo | 23/9/11 (42456) | 5/2/2 (17499) | 7/5/5 (24567) | - |\n| no_partmap | 20/9/11 (45761) | 4/2/2 (15202) | 7/5/5 (27115) | - |\n| no_between | 23/9/11 (50718) | 4/2/2 (17177) | 7/5/5 (26024) | 89/68/73 (44284) |\n| no_stamp | 23/9/11 (48556) | 5/2/2 (17237) | 8/5/5 (27637) | 91/71/74 (46318) |\n| no_inverse | 23/9/11 (66790) | 5/2/2 (27570) | 7/5/5 (39622) | 95/73/78 (83245) |\n| no_value | 23/9/11 (50414) | 5/2/2 (17992) | 7/5/5 (28970) | - |\n| no_fam | 23/9/11 (49604) | 4/2/2 (16759) | 8/5/5 (29704) | - |\n| no_parseorder | 23/9/11 (49647) | 5/2/2 (17272) | 7/5/5 (27919) | - |\n| no_macro | 23/9/11 (49199) | 5/2/2 (16339) | 7/5/5 (27991) | - |\n| no_sched | 23/9/11 (49941) | 5/2/2 (17359) | 7/5/5 (27450) | - |\n| on_kindprune | 23/9/11 (47570) | 3/1/1 (16193) | 7/5/5 (26658) | - |\n| on_beam | 21/9/11 (58068) | 5/2/2 (24375) | 9/5/5 (37232) | - |\n| on_prefix | 22/9/11 (46632) | 4/1/1 (15724) | 7/5/5 (26135) | - |\n",
+ "accounts_standalone_full": [
+  "e1A_json: tasks 200  fits 23  nodes 35811  template proposals 765940 -> syntactically distinct 35811 (95.3% syntactic duplicates) -> observationally distinct 30736 (14.2% further semantic duplicates)  complete programs 48 -> classes 29 (0 syntactic + 19 semantic duplicates = 39.6%)  naive params 43456150110 vs inferred 766408  object-effect pairs pruned by inversion 278926  kinds pruned by abstract execution 5638  parses tried 2269 duplicate 806  vs-members 5422230 -> classes 247386  alternatives 1",
+  "t2new_odd: tasks 116  fits 5  nodes 21578  template proposals 283420 -> syntactically distinct 21578 (92.4% syntactic duplicates) -> observationally distinct 18188 (15.7% further semantic duplicates)  complete programs 7 -> classes 5 (0 syntactic + 2 semantic duplicates = 28.6%)  naive params 19796698906 vs inferred 278943  object-effect pairs pruned by inversion 118601  kinds pruned by abstract execution 2419  parses tried 1394 duplicate 605  vs-members 2413644 -> classes 110304  alternatives 0",
+  "t2new_even: tasks 117  fits 7  nodes 27388  template proposals 204829 -> syntactically distinct 27388 (86.6% syntactic duplicates) -> observationally distinct 23384 (14.6% further semantic duplicates)  complete programs 14 -> classes 12 (0 syntactic + 2 semantic duplicates = 14.3%)  naive params 26085525120 vs inferred 199725  object-effect pairs pruned by inversion 168164  kinds pruned by abstract execution 3100  parses tried 1605 duplicate 729  vs-members 3760971 -> classes 170048  alternatives 2",
+  "a1train_json: tasks 400  fits 95  nodes 49566  template proposals 806845 -> syntactically distinct 49566 (93.9% syntactic duplicates) -> observationally distinct 41283 (16.7% further semantic duplicates)  complete programs 183 -> classes 112 (0 syntactic + 71 semantic duplicates = 38.8%)  naive params 50410855796 vs inferred 800238  object-effect pairs pruned by inversion 333868  kinds pruned by abstract execution 8897  parses tried 4157 duplicate 1732  vs-members 4393159 -> classes 276606  alternatives 12"
+ ],
+ "arc3_synthetic": "see measurements/arc3-synth-before-after.json",
+ "baseline_reference": "measurements/arc-psyn-baseline.json",
+ "sealed_same_engine_control": {
+  "e1B_psyn_off_vs_on": {
+   "n": 200,
+   "top1": [
+    46,
+    50
+   ],
+   "top2": [
+    49,
+    53
+   ],
+   "oracle": [
+    50,
+    54
+   ]
+  },
+  "e2_psyn_off_vs_on": {
+   "n": 120,
+   "top1": [
+    1,
+    2
+   ],
+   "top2": [
+    1,
+    2
+   ],
+   "oracle": [
+    1,
+    2
+   ]
+  },
+  "e1B_frozen_base_vs_psyn_off": {
+   "n": 200,
+   "top1": [
+    46,
+    46
+   ],
+   "top2": [
+    49,
+    49
+   ],
+   "oracle": [
+    50,
+    50
+   ]
+  },
+  "e2_frozen_base_vs_psyn_off": {
+   "n": 120,
+   "top1": [
+    1,
+    1
+   ],
+   "top2": [
+    1,
+    1
+   ],
+   "oracle": [
+    1,
+    1
+   ]
+  },
+  "note": "aggregate counts only; per-task results of the sealed splits were not opened"
+ }
+}

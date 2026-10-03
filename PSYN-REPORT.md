@@ -8,8 +8,10 @@ LLM, no API): the "learned" parts are small logistic models and frequency tables
 search traces and written as plain source (`c4-arc/src/68-psyn-policy.js`).
 
 **Honest summary.** The family solves real tasks by genuine inverse-semantics induction (examples in section 14), the
-sealed ARC-AGI-1 half moved 46 -> 50 top-1 with no task lost, and ARC-AGI-2 evaluation moved 1 -> 2. These are small
-absolute gains: the dominant bottleneck is the vocabulary of effects/representations, not search depth or search
+sealed ARC-AGI-1 half moved 46 -> 50 top-1 with no task lost (a same-engine control with the family switched off reproduces
+the baseline exactly), ARC-AGI-2 evaluation moved 1 -> 2, ARC-1 training 233 -> 243, and the ARC-2-style set 14 -> 18; on the
+development half A the top-1 count is flat against the control (67 -> 67) while the retained-output count rises 71 -> 73.
+These are small absolute gains: the dominant bottleneck is the vocabulary of effects/representations, not search depth or search
 efficiency (section 18). Several components I built did **not** earn a place by ablation and are off by default (transduction,
 learned operator pruning, beam/prefix stage search, near-miss seeding, calibrated arbitration, consensus second attempts);
 they are reported as negative results (section 13). Synthetic numbers (latent-program curriculum, ARC-3 fixtures) are never
@@ -90,7 +92,7 @@ first attempt is exactly right; top-2 is the official two-attempt metric.
 
 | split | role | n | top-1 before -> after | top-2 before -> after | oracle (right output retained) |
 |---|---|---|---|---|---|
-| ARC-1 eval half A | development | 200 | 66 -> 67 (kept 64, lost 2, gained 3) | 69 -> 69 | 71 -> 73 |
+| ARC-1 eval half A | development | 200 | 66 -> 67 (kept 64, lost 2, gained 3); same-engine psyn-off control 67 -> 67 | 69 -> 69 | 71 -> 73 |
 | ARC-1 eval half B | **sealed** | 200 | 46 -> **50** (lost 0, gained 4) | 49 -> **53** | 50 -> 54 |
 | ARC-1 eval, both halves | | 400 | 112 -> 117 (28.0% -> 29.25%) | 118 -> 122 (29.5% -> 30.5%) | 121 -> 127 |
 | ARC-2 public evaluation | **sealed** | 120 | 1 -> **2** | 1 -> 2 | 1 -> 2 |
@@ -98,9 +100,10 @@ first attempt is exactly right; top-2 is the official two-attempt metric.
 | ARC-2-style tasks, even half | learning | 117 | 7 -> 10 | 9 -> 10 | 11 -> 13 |
 | ARC-1 training (psyn switched off vs on, same engine) | learning | 400 | 233 -> 243 (lost 0, gained 10) | 236 -> 245 | 237 -> 246 |
 
-The sealed half moved by +4 with no loss, which agrees with the development direction (+1 on A, +1 on the odd half) but is
-four tasks: a paired sign test on 4-0 gives p = 0.125 two-sided, so this is encouraging evidence, not proof. The ARC-2 evaluation
-change is one task.
+On development half A the top-1 count is flat against the same-engine control (67 -> 67: three tasks gained, three lost, see
+section 12) and the gains are in the retained-output (oracle) count (71 -> 73). The sealed half moved by +4 with no loss, and
+the same-engine control reproduces the baseline exactly (46/49/50), so the change is due to psyn; but it is four tasks (a paired
+sign test on 4-0 gives p = 0.125 two-sided), so this is encouraging evidence, not proof. The ARC-2 evaluation change is one task.
 
 ## 5. ARC-1 deltas
 
@@ -138,7 +141,11 @@ other families):
 | ARC-2-style (233) | 823 s / 3.67 / 4.20 / 4.42 | 908 s / 3.91 / 5.17 / 6.22 |
 
 About +9-11 % total time. psyn's own extra time per task: p50 ~70 ms, p90 ~740 ms, max ~1.2 s (about 50 s per 200 tasks).
-Re-run noise of the *unchanged* portfolio, same machine, same engine with psyn switched off: <<NOISE>>.
+Noise and controls (same machine): re-running the *unchanged* portfolio (frozen baseline engine) vs the final engine with psyn
+switched off (`PSYN_MODE=off`) gave identical sealed results (ARC-1 half B 46/49/50 -> 46/49/50 top-1/top-2/oracle; ARC-2
+evaluation 1 -> 1) and +1 on development half A (66 -> 67). Re-running the final engine with psyn on moved half A by one task
+(67 -> 66) and left the ARC-2-style set unchanged (18 -> 18). So the run-to-run noise is about +-1 per 200 tasks and the
+sealed +4 / +1 are attributable to psyn: the same-engine control reproduces the baseline exactly.
 
 ## 9. Semantic duplicate rate (accounts, standalone family, 1.08 s per task)
 
@@ -288,9 +295,10 @@ the newer engine) did **not** improve held-out quality and was not adopted:
   learned order vs 3.18 in the default order (tried first for 5 vs 3 tasks); on learning tasks 1.63 vs 2.55 (38 vs 25 of 62).
   Because the budget covers every parse, solves per time budget are unchanged (7/9/9 solves at 0.05/0.15/0.4 s with and without).
 * operator proposer: -13 % nodes, but one lost solve on each of two development sets -> opt-in only.
-* scheduler: AUC 0.69 for "psyn produces an exact program" on development tasks (0.62 held-out in training); capping the budget
-  of the lower half saves 26 % of psyn's extra time (about 3.5 % of total runtime); skipping outright had silenced five
-  held-out solves, so it caps instead.
+* scheduler: AUC 0.69 for "psyn produces an exact program" on development tasks (0.62 held-out in training). Skipping the
+  family on the lowest-scored tasks had silenced five held-out solves, so low scores only cap the budget at 0.7 s. Ensemble
+  ablation (`PSYN_OFF=sched`): identical solves (66 = 66 on half A, 18 = 18 on the ARC-2-style set); psyn's extra time 50.6 -> 44.9 s
+  and 46.6 -> 44.2 s, i.e. 5-11 % of psyn's time and under 1 % of total runtime. A real but marginal saving.
 * value function: held-out AUC 0.76 (round 1) / 0.68 (round 2, different held-out set), ranking among alternatives picks the
   right program 9 vs 8 times of 10 (value vs description length).
 
