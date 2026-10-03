@@ -701,3 +701,13 @@ nothing to refer to (the topic is now the active entity); "a American" and "A el
 "3 power 4" and "5 raised to the 3rd" computed.
 
 Checks: `tools/lm-everyday-test.js` now has 213 checks (distance, words, money, advice, live-information and memory dialogue).
+
+## 17. Follow-up: constrained program induction (ARC), and an ARC-3 world-model upgrade
+
+A second route to ARC programs was added beside the forward solver portfolio: inverse-semantics induction over object effects with
+an exact selector version space, learned proposers/value function from verified search history, and a measurement protocol with
+sealed splits. Sealed ARC-AGI-1 evaluation half B: 46 -> 50 top-1 (49 -> 53 top-2), no task lost; ARC-AGI-2 evaluation 1 -> 2;
+about +10 % runtime. Several components were built, ablated and left off because they did not earn a place (transduction, learned
+operator pruning, beam/prefix stage search, calibrated arbitration, consensus second attempts). The ARC-3 world model gained floor
+inference and action-contingent agent identification (synthetic fixtures: 62.2 % -> 80.9 % levels completed with a patrolling decoy,
+78.9 % -> 82.4 % on the standard suites; not ARC-AGI-3 scores). Full report, ablations and reproduction commands: `PSYN-REPORT.md`.
