@@ -23,7 +23,7 @@
   var P = PSYN, FX = P.FX, Bits = P.Bits;
   var COLOR_KINDS = ["recolor", "fillbox", "fillholes", "halo8", "halo4"];
   var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1, partmap: 1 };       /* touch the object's own cells */
-  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6, BEAM_PARSES = 2, BEAM_ALT = 2, CELL_BITS = 1 / 0.6, CONT_N = +(typeof process !== "undefined" && process.env && process.env.PSYN_CONT_N || 2), MARGINAL = +(typeof process !== "undefined" && process.env && process.env.PSYN_MARGINAL || 0.5), RULE_GROW = +(typeof process !== "undefined" && process.env && process.env.PSYN_RULE_GROW || 0);
+  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6, BEAM_PARSES = 2, BEAM_ALT = 2, IDLE_COST = 2.5, CELL_BITS = 1 / 0.6, CONT_N = +(typeof process !== "undefined" && process.env && process.env.PSYN_CONT_N || 2), MARGINAL = +(typeof process !== "undefined" && process.env && process.env.PSYN_MARGINAL || 0.5), RULE_GROW = +(typeof process !== "undefined" && process.env && process.env.PSYN_RULE_GROW || 0);
 
   function deltaOf(I, O) {
     var H = I.length, W = I[0].length, d = new Uint8Array(H * W), n = 0, r, c;
@@ -390,6 +390,32 @@
     return { programs: out, near: near };
   }
 
+  /* NOVELTY OF THE TEST INPUT relative to what each rule was fitted on. A program can be exact and simple and still be asked to
+     act on objects unlike any it has seen (a ragged region where every demonstration had a rectangle). For every first-stage
+     rule: the distance, in a small normalised object-feature space, from each test object the rule fires on to the nearest
+     TRAINING object it fired on; the program's novelty is the worst such distance. Rules that fire in the demonstrations but
+     nowhere on the test input are counted as idle. */
+  var NOV_SCALE = [1.0, 3, 3, 0.25, 1, 1];
+  function objFeat(o) { return [Math.log(1 + o.size), o.h, o.w, o.size / (o.h * o.w), o.holes ? 1 : 0, o.border ? 1 : 0]; }
+  function noveltyOf(prog, train, tests) {
+    var st = prog.stages[0], worst = 0, idle = 0, nr = 0;
+    var trSc = train.map(function (p) { return P.parse(p[0], st.parse, st.bgMode); }), teSc = tests.map(function (g) { return P.parse(g, st.parse, st.bgMode); });
+    st.rules.forEach(function (rule) {
+      var trF = [], teF = [];
+      trSc.forEach(function (sc) { if (!sc.tooMany) sc.objs.forEach(function (o) { if (matches(rule, sc, o)) trF.push(objFeat(o)); }); });
+      teSc.forEach(function (sc) { if (!sc.tooMany) sc.objs.forEach(function (o) { if (matches(rule, sc, o)) teF.push(objFeat(o)); }); });
+      if (!trF.length) return;
+      nr++;
+      if (!teF.length) { idle++; return; }
+      teF.forEach(function (f) {
+        var best = Infinity;
+        trF.forEach(function (g) { var d = 0, k; for (k = 0; k < f.length; k++) d += Math.pow((f[k] - g[k]) / NOV_SCALE[k], 2); d = Math.sqrt(d); if (d < best) best = d; });
+        if (best > worst) worst = best;
+      });
+    });
+    return { novelty: worst, idle: idle, rules: nr };
+  }
+
   /* Leave-one-demonstration-out generalisation: relearn from the other demonstrations and ask whether the held-out one is
      reproduced exactly. A program that merely memorises its demonstrations cannot pass. Returns the fraction passed. */
   function looScore(train, ctx, acct, deadlineMs) {
@@ -440,8 +466,12 @@
         return fp.join("|");
       }, prog);
       if (adm.status !== "new") return;
-      var h = _h("psyn:" + key, prog.run, 2.0 + prog.rank / 8.0);
-      h.psyn = { kind: prog.kind, bits: prog.bits, rank: prog.rank, loo: prog.loo === undefined ? null : prog.loo, pf: P.programFeatures(prog.raw, { loo: prog.loo === undefined ? null : prog.loo, nTrain: ctx.train.length, extract: prog.kind === "extract" }) };
+      /* a rule that fires in the demonstrations but on NOTHING in the test input is a loose end of the fit: on the learning and dev
+         splits such programs were right 2 times in 12 (against 60 of 79 otherwise), so they carry a fixed cost */
+      var idle = 0;
+      if (prog.kind === "objfx" && !P.off("idle")) { try { idle = noveltyOf(prog.raw, ctx.train, ctx.test_inputs).idle; } catch (e) { idle = 0; } }
+      var h = _h("psyn:" + key, prog.run, 2.0 + prog.rank / 8.0 + (idle ? IDLE_COST : 0));
+      h.psyn = { idle: idle, kind: prog.kind, bits: prog.bits, rank: prog.rank, loo: prog.loo === undefined ? null : prog.loo, pf: P.programFeatures(prog.raw, { loo: prog.loo === undefined ? null : prog.loo, nTrain: ctx.train.length, extract: prog.kind === "extract" }) };
       hyps.push(h);
     });
     LAST.programs = found.programs; LAST.near = found.near;
@@ -464,5 +494,5 @@
   mod.EXTRA = true;                                     /* runs on its own time, added to the task deadline (50-portfolio.js) */
   mod.DIAG = function () { return LAST.acct ? { accounts: LAST.acct.toJSON(), near: LAST.near.length, error: LAST.error || null, sched: LAST.sched || null } : null; };
 
-  P.ObjFX = { runProgram: runProgram, progStr: progStr, search: search, looScore: looScore, learnStage: learnStage, mode: MODE, last: function () { return LAST; }, module: mod };
+  P.ObjFX = { noveltyOf: noveltyOf, runProgram: runProgram, progStr: progStr, search: search, looScore: looScore, learnStage: learnStage, mode: MODE, last: function () { return LAST; }, module: mod };
 })();
