@@ -120,6 +120,8 @@
     this.actions = actions.slice();
     this.agentVotes = {};            /* colour -> evidence it is the controllable entity */
     this.floorVotes = {};            /* colour -> evidence it is the floor: what a vacated agent cell turns into */
+    this.log = [];                   /* per transition: the action and the displacement of every colour that kept a single entity */
+    this._contig = null;
     this.actionModels = {};          /* action -> { dispKey -> Counter, rule: Hypothesis } */
     this.blockers = {};              /* colour -> Counter */
     this.hazards = {};               /* colour -> Counter */
@@ -135,10 +137,34 @@
     if (prior) this.loadPrior(prior);
   }
 
+  /* AGENT IDENTIFICATION BY CONTINGENCY. The controllable entity is the one whose displacement depends on the action taken;
+     an entity that patrols on its own moves the same way whatever is pressed. Mutual information between action and the
+     displacement of each colour (a zero displacement counts as a displacement) separates them as soon as two different actions
+     have been tried; before that, plain "it moved" votes (split among everything that moved) decide. */
+  WorldModel.prototype.contingency = function () {
+    if (this._contig && this._contig.n === this.log.length) return this._contig.v;
+    var byColor = {}, i, c, out = {};
+    for (i = 0; i < this.log.length; i++) for (c in this.log[i].d) (byColor[c] = byColor[c] || []).push([this.log[i].a, this.log[i].d[c].join(",")]);
+    for (c in byColor) {
+      var rows = byColor[c], n = rows.length;
+      if (n < 4) continue;
+      var cd = {}, ca = {}, cad = {}, j;
+      for (j = 0; j < n; j++) { cd[rows[j][1]] = (cd[rows[j][1]] || 0) + 1; ca[rows[j][0]] = (ca[rows[j][0]] || 0) + 1; var kk = rows[j][0] + "|" + rows[j][1]; cad[kk] = (cad[kk] || 0) + 1; }
+      if (Object.keys(cd).length < 2) { out[c] = 0; continue; }
+      var Hd = 0, Hda = 0, k2;
+      for (k2 in cd) Hd -= (cd[k2] / n) * Math.log(cd[k2] / n) / Math.LN2;
+      for (k2 in cad) { var a0 = k2.split("|")[0]; Hda -= (cad[k2] / n) * Math.log(cad[k2] / ca[a0]) / Math.LN2; }
+      out[c] = Hd - Hda;
+    }
+    this._contig = { n: this.log.length, v: out };
+    return out;
+  };
   WorldModel.prototype.agentColor = function () {
-    var best = null, bn = 0, k;
+    var best = null, bn = 0, k, mi = this.contingency(), bm = 0.2;
+    for (k in mi) if (mi[k] > bm) { bm = mi[k]; best = +k; }
+    if (best !== null) return best;
     for (k in this.agentVotes) if (this.agentVotes[k] > bn) { bn = this.agentVotes[k]; best = +k; }
-    return bn >= 1 ? best : null;
+    return bn >= 0.5 ? best : null;
   };
 
   /* The floor is the colour revealed under the agent when it moves away. The most frequent colour of a frame is NOT a safe
@@ -211,7 +237,15 @@
     /* agent identification: a single entity that moves in response to an
        action is evidence of control; entities that move on their own are
        told apart because their motion does not depend on the action */
-    if (ev.moves.length === 1) this.agentVotes[ev.moves[0].color] = (this.agentVotes[ev.moves[0].color] || 0) + 1;
+    ev.moves.forEach(function (m) { self.agentVotes[m.color] = (self.agentVotes[m.color] || 0) + 1 / ev.moves.length; });
+    (function () {
+      var cnt0 = {}, cnt1 = {}, d = {}, i2;
+      p0.ents.forEach(function (e) { cnt0[e.color] = (cnt0[e.color] || 0) + 1; });
+      p1.ents.forEach(function (e) { cnt1[e.color] = (cnt1[e.color] || 0) + 1; });
+      for (i2 in cnt0) if (cnt0[i2] === 1 && cnt1[i2] === 1) d[i2] = [0, 0];
+      ev.moves.forEach(function (m) { if (d[m.color]) d[m.color] = [m.dr, m.dc]; });
+      if (Object.keys(d).length) self.log.push({ a: key(a), d: d });
+    })();
     var ent0 = this.agentEntity(p0), ac = this.agentColor();
     var residual = { predicted: pred.known ? pred.pos : null, observed: null, kind: "none" };
     if (ent0 === null) return residual;

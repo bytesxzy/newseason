@@ -183,6 +183,24 @@ test('world model: exploration favours uncertain actions early and exploitation 
   assert.ok(late < early, 'uncertainty did not fall: ' + early + ' -> ' + late);
 });
 
+test('world model: the floor is what a vacated cell turns into, even when walls outnumber floor cells', () => {
+  /* a small board whose most frequent colour is the WALL; the floor must still be identified after two moves */
+  const env = new S.Env({ seed: 1008, features: [] }), ag = new W.Agent(env.actions);
+  ag.observe(env.reset(), {});
+  for (let t = 0; t < 12 && ag.model.floorColor() === null; t++) { const a = ag.act(); const o = env.step(a); ag.observe(o.grid, o); }
+  assert.equal(ag.model.floorColor(), S.COLORS.BG);
+});
+test('world model: agent identity is decided by action-contingent displacement, not by "it moved" (patrolling decoy)', () => {
+  let right = 0, games = 0;
+  for (let seed = 1; seed <= 6; seed++) {
+    const env = new S.Env({ seed: 900 + seed, features: ['patrol'] }), ag = new W.Agent(env.actions);
+    ag.observe(env.reset(), {});
+    for (let t = 0; t < 40; t++) { const a = ag.act(); const o = env.step(a); ag.observe(o.grid, o); if (o.levelComplete || o.gameOver) break; }
+    games++; if (ag.model.agentColor() === S.COLORS.AGENT) right++;
+  }
+  assert.ok(right >= 5, 'agent colour found in only ' + right + '/' + games + ' patrol games');
+});
+
 /* ------------------------------------------------------------ kernel */
 test('kernel meta-controller learns feature -> operation weights from traces', () => {
   const traces = [];

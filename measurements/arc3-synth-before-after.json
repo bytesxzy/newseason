@@ -1,0 +1,43 @@
+{
+ "note": "SYNTHETIC environments (tools/arc3-synth.js), 6 seeds x 30 games x 3 levels; not ARC-AGI-3 scores. before = c4-arc3-world.js at commit f9fe79c; after = current.",
+ "changes": [
+  "floor colour inferred from the cells the agent vacates (the most frequent colour of a small board can be the wall)",
+  "agent identity decided by mutual information between action and per-colour displacement (a patrolling entity moves whatever is pressed)"
+ ],
+ "standard_suites": {
+  "before": {
+   "levels": 540,
+   "complete": 426,
+   "complete_rate": 0.789,
+   "game_over": 73,
+   "timeout": 41,
+   "action_semantics_correct": 0.889
+  },
+  "after": {
+   "levels": 540,
+   "complete": 445,
+   "complete_rate": 0.824,
+   "game_over": 75,
+   "timeout": 20,
+   "action_semantics_correct": 0.886
+  }
+ },
+ "patrol_decoy_suites": {
+  "before": {
+   "levels": 540,
+   "complete": 336,
+   "complete_rate": 0.622,
+   "game_over": 72,
+   "timeout": 132,
+   "action_semantics_correct": 0.64
+  },
+  "after": {
+   "levels": 540,
+   "complete": 437,
+   "complete_rate": 0.809,
+   "game_over": 54,
+   "timeout": 49,
+   "action_semantics_correct": 0.867
+  }
+ }
+}

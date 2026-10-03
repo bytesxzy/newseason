@@ -15,7 +15,7 @@
 "use strict";
 var W = require("../c4-arc3-world.js");
 
-var BG = 0, WALL = 5, AGENT = 3, GOAL = 4, HAZARD = 2, KEY = 6, DOOR = 7, BUTTON = 8, BARRIER = 9, TELE = 1;
+var BG = 0, WALL = 5, AGENT = 3, GOAL = 4, HAZARD = 2, KEY = 6, DOOR = 7, BUTTON = 8, BARRIER = 9, TELE = 1, DECOY = 7;
 
 function rng(seed) {
   var s = seed >>> 0 || 1;
@@ -75,6 +75,9 @@ Env.prototype.reset = function () {
         if (self2.base[y][x] === BG) self2.base[y][x] = BARRIER;
       });
     }
+    /* a harmless entity that patrols a row or column on its own, whatever the agent does: a distractor for agent identification */
+    this.decoy = null;
+    if (this.features.indexOf("patrol") >= 0) { this.decoy = this.place(0); this.decoyDir = this.rand() < 0.5 ? [0, 1] : [1, 0]; }
     if (this.features.indexOf("teleport") >= 0) { this.tele = [this.place(TELE), this.place(TELE)]; }
     else this.tele = null;
     this.done = false; this.over = false; this.steps = 0;
@@ -114,6 +117,7 @@ Env.prototype.solvable = function () {
 
 Env.prototype.frame = function () {
   var g = this.base.map(function (row) { return row.slice(); });
+  if (this.decoy) g[this.decoy[0]][this.decoy[1]] = DECOY;
   if (!this.over) g[this.agent[0]][this.agent[1]] = AGENT;
   return g;
 };
@@ -144,6 +148,11 @@ Env.prototype.step = function (a) {
         }
       }
     }
+  }
+  if (this.decoy) {
+    var dr = this.decoy[0] + this.decoyDir[0], dc = this.decoy[1] + this.decoyDir[1];
+    if (this.base[dr][dc] !== BG) this.decoyDir = [-this.decoyDir[0], -this.decoyDir[1]];
+    else this.decoy = [dr, dc];
   }
   return { grid: this.frame(), levelComplete: this.done, gameOver: this.over };
 };
@@ -176,7 +185,7 @@ function semanticsCorrect(model, env) {
 function evaluate(opts) {
   opts = opts || {};
   var games = opts.games || 20, levelsPer = opts.levelsPer || 3, maxSteps = opts.maxSteps || 150;
-  var suites = [[], ["hazard"], ["keydoor"], ["button"], ["teleport"], ["hazard", "keydoor"]];
+  var suites = opts.suites || [[], ["hazard"], ["keydoor"], ["button"], ["teleport"], ["hazard", "keydoor"]];
   var out = { games: 0, levels: 0, complete: 0, over: 0, timeout: 0, steps: 0, semantics: 0,
               firstLevelSteps: 0, laterLevelSteps: 0, firstLevelN: 0, laterLevelN: 0,
               repairs: 0, contradictions: 0, bySuite: {} };
@@ -215,8 +224,9 @@ if (require.main === module) {
   var args = process.argv.slice(2);
   function arg(k, d) { var i = args.indexOf("--" + k); return i < 0 ? d : args[i + 1]; }
   var games = +arg("games", 30), seed = +arg("seed", 1);
-  var withT = evaluate({ games: games, seed: seed });
-  var noT = evaluate({ games: games, seed: seed, noTransfer: true });
+  var patrol = args.indexOf("--patrol") >= 0, suitesOpt = patrol ? [["patrol"], ["patrol", "hazard"], ["patrol", "keydoor"], ["patrol", "teleport"]] : undefined;
+  var withT = evaluate({ games: games, seed: seed, suites: suitesOpt });
+  var noT = evaluate({ games: games, seed: seed, noTransfer: true, suites: suitesOpt });
   var report = { note: "synthetic environments; not an ARC-AGI-3 score", with_transfer: withT, without_transfer: noT };
   var out = arg("out", "");
   if (out) require("fs").writeFileSync(out, JSON.stringify(report, null, 2));
