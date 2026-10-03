@@ -23,7 +23,8 @@
   var P = PSYN, FX = P.FX, Bits = P.Bits;
   var COLOR_KINDS = ["recolor", "fillbox", "fillholes", "halo8", "halo4"];
   var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1, partmap: 1 };       /* touch the object's own cells */
-  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6, BEAM_PARSES = 2, BEAM_ALT = 2, IDLE_COST = 2.5, CELL_BITS = 1 / 0.6, CONT_N = +(typeof process !== "undefined" && process.env && process.env.PSYN_CONT_N || 2), MARGINAL = +(typeof process !== "undefined" && process.env && process.env.PSYN_MARGINAL || 0.5), RULE_GROW = +(typeof process !== "undefined" && process.env && process.env.PSYN_RULE_GROW || 0);
+  var ENVN = function (k, d) { return typeof process !== "undefined" && process.env && process.env[k] ? +process.env[k] : d; };
+  var MAX_RULES = ENVN("PSYN_MAX_RULES", 4), MAX_STAGES_DEFAULT = ENVN("PSYN_MAX_STAGES", 3), MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6, BEAM_PARSES = 2, BEAM_ALT = 2, IDLE_COST = 2.5, CELL_BITS = 1 / 0.6, CONT_N = +(typeof process !== "undefined" && process.env && process.env.PSYN_CONT_N || 2), MARGINAL = +(typeof process !== "undefined" && process.env && process.env.PSYN_MARGINAL || 0.5), RULE_GROW = +(typeof process !== "undefined" && process.env && process.env.PSYN_RULE_GROW || 0);
 
   function deltaOf(I, O) {
     var H = I.length, W = I[0].length, d = new Uint8Array(H * W), n = 0, r, c;
