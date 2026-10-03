@@ -69,5 +69,11 @@
   "58-counterfactual.js",
   "59-equivariant.js",
   "60-concepts.js",
+  "61-psyn-core.js",
+  "62-psyn-scene.js",
+  "63-psyn-effects.js",
+  "64-psyn-select.js",
+  "65-psyn-learn.js",
+  "66-psyn-extract.js",
   "90-engine.js"
 ]

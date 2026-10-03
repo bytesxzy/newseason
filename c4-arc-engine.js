@@ -15641,7 +15641,7 @@ var REPEAT = null;
 var SOLVER_PRIOR = {
   geometry: 0.0, cellwise: 1.0, partition: 0.0, symmetry: 0.0,
   objects: 1.5, tiling: 0.5, colormap: 0.0, select: 1.0,
-  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0
+  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0, psyn: 1.5
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -15730,6 +15730,7 @@ function _candidates(mod, ctx, stats, validationDeadline) {
   }
   stats.generation_timed_out = ctx.timed_out();
   if (mod.__name__ === 'bidirectional') stats.search = ctx._bidi_stats || null;
+  if (typeof mod.DIAG === "function") { try { stats.extra = mod.DIAG(); } catch (e) { /* diagnostics only */ } }
   stats.elapsed = Math.round((nowMs() - started) / 10) / 100;
   return out;
 }
@@ -16057,8 +16058,8 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   /* cheap exact machines flagged PRE run first, outside the planner's pool, so
      they neither change how the planner divides time among the other families
      nor wait behind a slice someone else is using */
-  var preMods = [];
-  mods = mods.filter(function (m) { if (m.PRE) { preMods.push(m); return false; } return true; });
+  var preMods = [], extraMods = [];
+  mods = mods.filter(function (m) { if (m.PRE) { preMods.push(m); return false; } if (m.EXTRA) { extraMods.push(m); return false; } return true; });
   var reserve = (loo && ctx.train.length >= 3) ? Math.min(3000, timeBudget * 1000 * 0.15) : 0.0;
   var generationEnd = deadline - reserve - Math.min(200, timeBudget * 1000 * 0.03);
   var phase1 = [], phase2 = [];
@@ -16070,18 +16071,28 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     if (now0 >= generationEnd) break;
     order = _harvest(preMods[i], ctx, Math.min(generationEnd, now0 + (preMods[i].MAX_SLICE || 0.5) * 1000), bias, reservoir, order, res);
   }
+  /* EXTRA families (the constrained partial-program synthesiser) run on time of their own: whatever they use is ADDED to the
+     task's deadline, so every other family receives exactly the share it had without them. The extra time is reported. */
+  var extraUsed = 0, tPlan = t0;
+  for (i = 0; i < extraMods.length; i++) {
+    now0 = nowMs();
+    order = _harvest(extraMods[i], ctx, now0 + (extraMods[i].MAX_SLICE || 1.0) * 1000, bias, reservoir, order, res);
+    extraUsed += nowMs() - now0;
+  }
+  if (extraUsed > 0) { deadline += extraUsed; generationEnd += extraUsed; tPlan = t0 + extraUsed; ctx.deadline = deadline; }
+  res.diagnostics.extra_ms = extraUsed;
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
-    order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);
+    order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, tPlan, generationEnd);
   } else {
-    var p1End = t0 + (generationEnd - t0) * (phase2.length ? 0.45 : 1.0);
-    var share1 = (p1End - t0) / Math.max(1, phase1.length);
+    var p1End = tPlan + (generationEnd - tPlan) * (phase2.length ? 0.45 : 1.0);
+    var share1 = (p1End - tPlan) / Math.max(1, phase1.length);
     var all = phase1.concat(phase2), moduleEnd, now, remaining;
     for (i = 0; i < all.length; i++) {
       now = nowMs();
       if (now >= generationEnd) break;
       if (i < phase1.length)
-        moduleEnd = Math.min(generationEnd, Math.max(now + share1 * 0.5, t0 + share1 * (i + 1)));
+        moduleEnd = Math.min(generationEnd, Math.max(now + share1 * 0.5, tPlan + share1 * (i + 1)));
       else {
         remaining = all.length - i;
         moduleEnd = Math.min(generationEnd, now + (generationEnd - now) / remaining);
@@ -16265,7 +16276,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   res.solver = null;
   for (i = 0; i < res.chosen.length; i++) if (res.chosen[i]) { res.solver = res.chosen[i][0]; break; }
   res.elapsed = (nowMs() - t0) / 1000;
-  res.diagnostics.timed_out = res.elapsed > timeBudget;
+  res.diagnostics.timed_out = res.elapsed > timeBudget + extraUsed / 1000;
   var ranNames = new Set(res.diagnostics.modules.map(function (m) { return m.module; }));
   res.diagnostics.unrun_modules = mods.filter(function (m) { return !ranNames.has(_moduleKey(m)); }).length;
   return res;
@@ -21504,6 +21515,1799 @@ var REFRAME = (function () {
   conceptsModule.PRE = true;
   root.C4Concepts = { blockCells: blockCells, paintedOver: paintedOver, moveObjects: moveObjects, OBJ_KEYS: OBJ_KEYS, reflectAcross: reflectAcross, stampTemplates: stampTemplates, dividers: dividers, objsOf: objsOf, comps8: comps8 };
 })();
+/* ===== src/61-psyn-core.js ===== */
+/* Constrained partial-program synthesis: the shared core.
+ *
+ * Programs here are NOT required to be complete. A PartialProgram is a typed tree whose unresolved positions are
+ * Holes. Each hole carries a Domain (the values still possible), and every demonstration shrinks domains instead of
+ * enumerating completions. Three things are kept apart on purpose:
+ *
+ *   structure   Node trees with operator names and typed slots (this file)
+ *   knowledge   domains and constraints on the holes (this file, filled by inverse semantics in 63/64)
+ *   evidence    execution results, residuals, traces (65, 66)
+ *
+ * Canonicalisation rewrites a tree to a normal form BEFORE anything is executed, and a semantic store maps behaviour
+ * fingerprints to equivalence classes, so equivalent programs are executed once. Every proposal passes through
+ * `Accounts` (raw / syntactic duplicate / semantic duplicate / new class / concrete execution), which is what the
+ * duplicate-rate numbers in the report come from.
+ */
+
+var PSYN = (function () {
+  /* ------------------------------------------------------------------ accounting */
+  function Accounts() {
+    this.raw = 0; this.syntactic = 0; this.semantic = 0; this.classes = 0; this.executions = 0;
+    this.pruned_abstract = 0; this.pruned_inverse = 0; this.inverse_applied = 0; this.domain_shrinks = 0;
+    this.vs_member_estimate = 0; this.vs_collapsed = 0; this.nodes = 0; this.holes_bound = 0;
+    this.parses_tried = 0; this.parses_pruned = 0; this.stage_chains = 0;
+  }
+  Accounts.prototype.dupRate = function () {
+    return this.raw ? (this.syntactic + this.semantic) / this.raw : 0;
+  };
+  Accounts.prototype.toJSON = function () {
+    var o = {}, k;
+    for (k in this) if (this.hasOwnProperty(k) && typeof this[k] === "number") o[k] = this[k];
+    o.dup_rate = Math.round(this.dupRate() * 1000) / 1000;
+    return o;
+  };
+
+  /* ------------------------------------------------------------------ bit sets over small universes */
+  var Bits = {
+    make: function (n) { return new Int32Array((n + 31) >> 5); },
+    set: function (b, i) { b[i >> 5] |= (1 << (i & 31)); },
+    get: function (b, i) { return (b[i >> 5] >>> (i & 31)) & 1; },
+    and: function (a, b) { var o = new Int32Array(a.length), i; for (i = 0; i < a.length; i++) o[i] = a[i] & b[i]; return o; },
+    or: function (a, b) { var o = new Int32Array(a.length), i; for (i = 0; i < a.length; i++) o[i] = a[i] | b[i]; return o; },
+    andNot: function (a, b) { var o = new Int32Array(a.length), i; for (i = 0; i < a.length; i++) o[i] = a[i] & ~b[i]; return o; },
+    count: function (a) {
+      var n = 0, i, x;
+      for (i = 0; i < a.length; i++) { x = a[i]; x = x - ((x >>> 1) & 0x55555555); x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); n += (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; }
+      return n;
+    },
+    isZero: function (a) { var i; for (i = 0; i < a.length; i++) if (a[i]) return false; return true; },
+    subset: function (a, b) { var i; for (i = 0; i < a.length; i++) if (a[i] & ~b[i]) return false; return true; },
+    equals: function (a, b) { var i; for (i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; },
+    full: function (n) { var b = new Int32Array((n + 31) >> 5), i; for (i = 0; i < n; i++) b[i >> 5] |= (1 << (i & 31)); return b; },
+    key: function (a) { return Array.prototype.join.call(a, "."); },
+    andCount: function (a, b) {
+      var n = 0, i, x;
+      for (i = 0; i < a.length; i++) { x = a[i] & b[i]; if (x) { x = x - ((x >>> 1) & 0x55555555); x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); n += (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; } }
+      return n;
+    },
+    anyAnd: function (a, b) { var i; for (i = 0; i < a.length; i++) if (a[i] & b[i]) return true; return false; },
+    hash: function (a) { var h = 2166136261, i; for (i = 0; i < a.length; i++) { h ^= a[i]; h = Math.imul(h, 16777619); } return h >>> 0; },
+    list: function (a, n) { var o = [], i; for (i = 0; i < n; i++) if ((a[i >> 5] >>> (i & 31)) & 1) o.push(i); return o; }
+  };
+
+  /* ------------------------------------------------------------------ domains */
+  /* A Domain is the set of values a hole may still take. 'finite' domains list their members with a key function so
+     intersection is exact; 'any' is the unconstrained top; 'empty' is the bottom (the partial program is dead). */
+  var Dom = {
+    any: function () { return { kind: "any" }; },
+    empty: function () { return { kind: "empty" }; },
+    finite: function (items, keyFn) {
+      var kf = keyFn || function (x) { return String(x); }, seen = {}, out = [], i, k;
+      for (i = 0; i < items.length; i++) { k = kf(items[i]); if (!seen[k]) { seen[k] = 1; out.push(items[i]); } }
+      return out.length ? { kind: "finite", items: out, keyFn: kf, keys: seen } : Dom.empty();
+    },
+    size: function (d) { return d.kind === "any" ? Infinity : d.kind === "empty" ? 0 : d.items.length; },
+    isEmpty: function (d) { return d.kind === "empty"; },
+    intersect: function (a, b) {
+      if (a.kind === "empty" || b.kind === "empty") return Dom.empty();
+      if (a.kind === "any") return b;
+      if (b.kind === "any") return a;
+      var out = [], i;
+      for (i = 0; i < a.items.length; i++) if (b.keys[a.keyFn(a.items[i])]) out.push(a.items[i]);
+      return Dom.finite(out, a.keyFn);
+    },
+    singleton: function (d) { return d.kind === "finite" && d.items.length === 1 ? d.items[0] : undefined; }
+  };
+
+  /* ------------------------------------------------------------------ tree nodes and holes */
+  var HOLE_SEQ = 0;
+  function Hole(ty, dom, meta) { this.id = "?" + ty + (HOLE_SEQ++); this.ty = ty; this.dom = dom || Dom.any(); this.meta = meta || {}; }
+  Hole.prototype.isHole = true;
+  function Node(op, args, meta) { this.op = op; this.args = args || []; this.meta = meta || {}; }
+  Node.prototype.isNode = true;
+  function isHole(x) { return !!(x && x.isHole); }
+  function isNode(x) { return !!(x && x.isNode); }
+
+  function render(x) {
+    if (isHole(x)) {
+      var s = Dom.size(x.dom);
+      return x.id + (s === Infinity ? "" : "{" + s + "}");
+    }
+    if (isNode(x)) return x.op + "(" + x.args.map(render).join(",") + ")";
+    if (Array.isArray(x)) return "[" + x.map(render).join(",") + "]";
+    return String(x);
+  }
+
+  /* ------------------------------------------------------------------ canonicalisation */
+  /* The eight square symmetries as a group: element index = 4*flip + rotation. compose(a,b) = apply b then a. */
+  var D4_NAMES = ["id", "rot90", "rot180", "rot270", "flipH", "flipH.rot90", "flipH.rot180", "flipH.rot270"];
+  function d4Compose(a, b) {
+    /* element e = 4f + r denotes g -> flipH^f(rot90^r(g)). a after b: F^fa R^ra F^fb R^rb = F^(fa^fb) R^(+-ra + rb),
+       because rotating a mirrored grid by k equals mirroring the grid rotated by -k. */
+    var fa = a >> 2, ra = a & 3, fb = b >> 2, rb = b & 3;
+    var r = ((fb ? -ra : ra) + rb) % 4;
+    return (fa ^ fb) * 4 + (r < 0 ? r + 4 : r);
+  }
+  var D4_OF = { "id": 0, "rot90": 1, "rot180": 2, "rot270": 3, "flipH": 4, "flipV": 6, "transpose": 5, "anti_transpose": 7 };
+  /* flipH.rot90 etc. are an implementation detail; named ops map through the table below, verified numerically by
+     `selfCheck` against the grid functions so the algebra cannot silently drift from G. */
+  var D4_GRID = null;
+  function d4Apply(i, g) {
+    if (!D4_GRID) D4_GRID = [function (x) { return x; }, G.rot90, G.rot180, G.rot270, G.flipH,
+      function (x) { return G.flipH(G.rot90(x)); }, function (x) { return G.flipH(G.rot180(x)); }, function (x) { return G.flipH(G.rot270(x)); }];
+    return D4_GRID[i](g);
+  }
+  /* find, by brute force on an asymmetric probe, which element a grid function realises */
+  function d4Index(fn) {
+    var probe = [[1, 2, 3], [4, 5, 6]], want = fn(probe), i;
+    for (i = 0; i < 8; i++) if (G.gEq(d4Apply(i, probe), want)) return i;
+    return -1;
+  }
+
+  /* Rewrite rules are (match -> replacement) on nodes, applied bottom-up to a fixpoint. They never change behaviour;
+     `selfCheck` in the tests executes both sides on random grids. */
+  var RULES = [];
+  function rule(name, fn) { RULES.push({ name: name, fn: fn }); }
+
+  /* Compose(a, Compose(b, c)) -> Compose(a, b, c); Compose(x) -> x; identity removal */
+  rule("compose-flatten", function (n) {
+    if (n.op !== "Compose") return null;
+    var out = [], changed = false, i, a;
+    for (i = 0; i < n.args.length; i++) {
+      a = n.args[i];
+      if (isNode(a) && a.op === "Compose") { out = out.concat(a.args); changed = true; }
+      else if (isNode(a) && a.op === "Id") changed = true;
+      else out.push(a);
+    }
+    if (out.length === 1) return out[0];
+    if (!out.length) return new Node("Id", []);
+    return changed ? new Node("Compose", out) : null;
+  });
+  /* adjacent dihedral elements fuse into one element: Rot90(Rot90(x)) -> Rot180(x), FlipH(FlipH(x)) -> x */
+  rule("d4-fuse", function (n) {
+    if (n.op !== "Compose") return null;
+    var out = [], i, a, last, fused = false;
+    for (i = 0; i < n.args.length; i++) {
+      a = n.args[i]; last = out[out.length - 1];
+      if (isNode(a) && a.op === "D4" && last && isNode(last) && last.op === "D4") {
+        out[out.length - 1] = new Node("D4", [d4Compose(a.args[0], last.args[0])]); fused = true;
+      } else out.push(a);
+    }
+    return fused ? new Node("Compose", out) : null;
+  });
+  rule("d4-identity", function (n) { return n.op === "D4" && n.args[0] === 0 ? new Node("Id", []) : null; });
+  /* Translate(Translate(x,a),b) -> Translate(x,a+b) */
+  rule("translate-fuse", function (n) {
+    if (n.op !== "Compose") return null;
+    var out = [], i, a, last, fused = false;
+    for (i = 0; i < n.args.length; i++) {
+      a = n.args[i]; last = out[out.length - 1];
+      if (isNode(a) && a.op === "Translate" && last && isNode(last) && last.op === "Translate" &&
+          typeof a.args[0] === "number" && typeof last.args[0] === "number") {
+        out[out.length - 1] = new Node("Translate", [a.args[0] + last.args[0], a.args[1] + last.args[1]]); fused = true;
+      } else out.push(a);
+    }
+    return fused ? new Node("Compose", out) : null;
+  });
+  rule("translate-zero", function (n) { return n.op === "Translate" && n.args[0] === 0 && n.args[1] === 0 ? new Node("Id", []) : null; });
+  /* Recolor chains: a->b then b->c is a->c; a->a is identity (colour maps are arrays of [from,to] pairs) */
+  rule("recolor-chain", function (n) {
+    if (n.op !== "Compose") return null;
+    var out = [], i, a, last, fused = false;
+    for (i = 0; i < n.args.length; i++) {
+      a = n.args[i]; last = out[out.length - 1];
+      if (isNode(a) && a.op === "Recolor" && last && isNode(last) && last.op === "Recolor" &&
+          typeof a.args[0] === "number" && typeof last.args[0] === "number" && typeof a.args[1] === "number" && typeof last.args[1] === "number" &&
+          last.args[1] === a.args[0]) {
+        out[out.length - 1] = new Node("Recolor", [last.args[0], a.args[1]]); fused = true;
+      } else out.push(a);
+    }
+    return fused ? new Node("Compose", out) : null;
+  });
+  rule("recolor-noop", function (n) { return n.op === "Recolor" && typeof n.args[0] === "number" && n.args[0] === n.args[1] ? new Node("Id", []) : null; });
+  /* And/Or: flatten, sort, dedupe; Select(Select(x,P),Q) -> Select(x, And(P,Q)) */
+  rule("bool-normal", function (n) {
+    if (n.op !== "And" && n.op !== "Or") return null;
+    var flat = [], i, a;
+    for (i = 0; i < n.args.length; i++) { a = n.args[i]; if (isNode(a) && a.op === n.op) flat = flat.concat(a.args); else flat.push(a); }
+    var keyed = flat.map(function (x) { return [render(x), x]; });
+    keyed.sort(function (p, q) { return p[0] < q[0] ? -1 : p[0] > q[0] ? 1 : 0; });
+    var out = [], seen = {};
+    for (i = 0; i < keyed.length; i++) if (!seen[keyed[i][0]]) { seen[keyed[i][0]] = 1; out.push(keyed[i][1]); }
+    if (out.length === 1) return out[0];
+    var same = out.length === n.args.length;
+    if (same) for (i = 0; i < out.length; i++) if (out[i] !== n.args[i]) { same = false; break; }
+    return same ? null : new Node(n.op, out);
+  });
+  rule("select-fuse", function (n) {
+    if (n.op !== "Select" || !isNode(n.args[0]) || n.args[0].op !== "Select") return null;
+    return new Node("Select", [n.args[0].args[0], new Node("And", [n.args[0].args[1], n.args[1]])]);
+  });
+  rule("map-identity", function (n) { return n.op === "Map" && isNode(n.args[0]) && n.args[0].op === "Id" ? n.args[1] : null; });
+
+  function canon(x) {
+    if (!isNode(x)) return x;
+    var args = x.args.map(canon), n = new Node(x.op, args, x.meta), i, changed = true, r, guard = 0;
+    while (changed && guard++ < 24) {
+      changed = false;
+      for (i = 0; i < RULES.length; i++) {
+        r = RULES[i].fn(n);
+        if (r) { n = isNode(r) ? (r === n ? n : new Node(r.op, r.args.map(canon), r.meta)) : r; changed = true; if (!isNode(n)) return n; }
+      }
+    }
+    return n;
+  }
+
+  /* ------------------------------------------------------------------ partial programs */
+  function PP(root, opts) {
+    opts = opts || {};
+    this.root = root;
+    this.holes = {};            /* id -> Hole, collected from root */
+    this.facts = opts.facts || {};   /* abstract properties known about the program's behaviour */
+    this.constraints = opts.constraints || [];
+    this.prov = opts.prov || [];
+    this.cost = opts.cost || 0;
+    this._collect(root);
+  }
+  PP.prototype._collect = function (x) {
+    var i;
+    if (isHole(x)) this.holes[x.id] = x;
+    else if (isNode(x)) for (i = 0; i < x.args.length; i++) this._collect(x.args[i]);
+    else if (Array.isArray(x)) for (i = 0; i < x.length; i++) this._collect(x[i]);
+  };
+  PP.prototype.open = function () {
+    var out = [], k;
+    for (k in this.holes) if (this.holes.hasOwnProperty(k)) out.push(this.holes[k]);
+    return out;
+  };
+  PP.prototype.isClosed = function () { return this.open().length === 0; };
+  PP.prototype.dead = function () { var k; for (k in this.holes) if (this.holes.hasOwnProperty(k) && Dom.isEmpty(this.holes[k].dom)) return true; return false; };
+  /* narrow a hole's domain; returns a new program (structure shared) or null when the domain becomes empty */
+  PP.prototype.narrow = function (holeId, dom, why) {
+    var h = this.holes[holeId];
+    if (!h) return this;
+    var nd = Dom.intersect(h.dom, dom);
+    if (Dom.isEmpty(nd)) return null;
+    function subst(x) {
+      if (isHole(x)) { if (x.id === holeId) { var nh = new Hole(x.ty, nd, x.meta); nh.id = x.id; return nh; } return x; }
+      if (isNode(x)) return new Node(x.op, x.args.map(subst), x.meta);
+      if (Array.isArray(x)) return x.map(subst);
+      return x;
+    }
+    var q = new PP(subst(this.root), { facts: this.facts, constraints: this.constraints, prov: this.prov.concat([why || "narrow"]), cost: this.cost });
+    return q;
+  };
+  PP.prototype.bind = function (holeId, value, why) {
+    var h = this.holes[holeId];
+    if (!h) return this;
+    if (h.dom.kind === "finite" && !h.dom.keys[h.dom.keyFn(value)]) return null;
+    function subst(x) {
+      if (isHole(x)) return x.id === holeId ? value : x;
+      if (isNode(x)) return new Node(x.op, x.args.map(subst), x.meta);
+      if (Array.isArray(x)) return x.map(subst);
+      return x;
+    }
+    return new PP(subst(this.root), { facts: this.facts, constraints: this.constraints, prov: this.prov.concat([why || "bind"]), cost: this.cost });
+  };
+  /* lower bound on the description length of any completion: each open hole costs at least log2(domain size) */
+  PP.prototype.lowerBound = function () {
+    var lb = this.cost, k, s;
+    for (k in this.holes) if (this.holes.hasOwnProperty(k)) { s = Dom.size(this.holes[k].dom); lb += (s === Infinity ? 4 : Math.log(Math.max(1, s)) / Math.LN2); }
+    return lb;
+  };
+  PP.prototype.key = function () { return render(canon(this.root)); };
+  PP.prototype.toString = function () { return render(this.root); };
+
+  /* ------------------------------------------------------------------ semantic equivalence store */
+  function EStore(acct) { this.classes = new Map(); this.syn = new Set(); this.acct = acct; }
+  /* register a proposal. Returns {status:'syntactic'|'semantic'|'new', cls} ; `fingerprint` is computed lazily by the
+     caller only when the syntactic key is new (it requires executing the program on the probe set). */
+  EStore.prototype.admit = function (synKey, fingerprintFn, member) {
+    var a = this.acct;
+    a.raw++;
+    if (this.syn.has(synKey)) { a.syntactic++; return { status: "syntactic" }; }
+    this.syn.add(synKey);
+    var fp = fingerprintFn();
+    a.executions++;
+    if (fp === null) return { status: "invalid" };
+    var cls = this.classes.get(fp);
+    if (cls) { a.semantic++; cls.members.push(member); return { status: "semantic", cls: cls }; }
+    cls = { fp: fp, members: [member] };
+    this.classes.set(fp, cls);
+    a.classes++;
+    return { status: "new", cls: cls };
+  };
+
+  /* ------------------------------------------------------------------ NearMiss protocol */
+  /* The reasoning structure behind a failed explanation, not just its output. Every family that can say something
+     structured about a failure builds one of these; the refinement stage and the trace store consume them. */
+  function NearMiss(o) {
+    this.family = o.family || "psyn";
+    this.representation = o.representation || null;
+    this.partialProgram = o.partialProgram || null;
+    this.concreteProgram = o.concreteProgram || null;
+    this.fittedParameters = o.fittedParameters || null;
+    this.intermediateStates = o.intermediateStates || null;
+    this.trainPredictions = o.trainPredictions || null;
+    this.residual = o.residual === undefined ? null : o.residual;
+    this.structuralResidual = o.structuralResidual || null;
+    this.diagnosis = o.diagnosis || null;
+    this.failedConstraints = o.failedConstraints || [];
+    this.objectCorrespondence = o.objectCorrespondence || null;
+    this.semanticRoles = o.semanticRoles || null;
+    this.unresolvedHoles = o.unresolvedHoles || [];
+    this.complexity = o.complexity === undefined ? null : o.complexity;
+    this.searchDepth = o.searchDepth === undefined ? 0 : o.searchDepth;
+    this.elapsedMs = o.elapsedMs === undefined ? 0 : o.elapsedMs;
+    this.provenance = o.provenance || [];
+  }
+  NearMiss.prototype.summary = function () {
+    return { family: this.family, representation: this.representation, program: this.concreteProgram || (this.partialProgram ? String(this.partialProgram) : null),
+      residual: this.residual, structural: this.structuralResidual, diagnosis: this.diagnosis, unresolved: this.unresolvedHoles.length,
+      complexity: this.complexity, depth: this.searchDepth, ms: this.elapsedMs };
+  };
+
+  /* ------------------------------------------------------------------ pixel and structural residual levels */
+  /* R0 pixel mismatch .. R7 schema mismatch. Only R0-R3 are computable from a grid pair alone; R4+ are filled in by the
+     synthesiser, which knows objects, relations and roles. */
+  function pixelResidual(pred, target) {
+    if (!pred) return { r0: 1, dimsOk: false };
+    if (pred.length !== target.length || pred[0].length !== target[0].length) return { r0: 1, dimsOk: false };
+    var H = target.length, W = target[0].length, bad = 0, r, c;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) if (pred[r][c] !== target[r][c]) bad++;
+    return { r0: bad / (H * W), cells: bad, dimsOk: true };
+  }
+
+  /* ------------------------------------------------------------------ trace recorder */
+  /* Every search action becomes a training record: (task features, state, action, child, residual delta, constraints
+     gained, runtime). Outcome labels are filled in when the search ends (hindsight). */
+  function Trace(taskFeatures) { this.task = taskFeatures || {}; this.events = []; this.outcome = null; this.t0 = Date.now(); }
+  Trace.prototype.add = function (e) { e.t = Date.now() - this.t0; this.events.push(e); if (this.events.length > 4000) this.events.shift(); };
+  Trace.prototype.close = function (outcome) { this.outcome = outcome; return this; };
+
+  return {
+    Accounts: Accounts, Bits: Bits, Dom: Dom, Hole: Hole, Node: Node, PP: PP, EStore: EStore, NearMiss: NearMiss, Trace: Trace,
+    isHole: isHole, isNode: isNode, render: render, canon: canon, d4Compose: d4Compose, d4Apply: d4Apply, d4Index: d4Index,
+    rules: RULES, pixelResidual: pixelResidual, D4_NAMES: D4_NAMES
+  };
+})();
+/* ===== src/62-psyn-scene.js ===== */
+/* Multi-representation perception for partial-program synthesis.
+ *
+ * A grid is not parsed once. Several parses are kept alive as competing representations (4/8-connected single-colour
+ * components, 4/8-connected multicolour components, one object per colour), and each carries the same relational
+ * structure: adjacency, enclosure, containment, alignment, nearest neighbour, shared panel (cells split by full
+ * separator lines), and a set of semantic colour ROLES computed from the scene (largest object's colour, the lone
+ * marker's colour, the separator colour, ...). Selectors and effect parameters may refer to roles instead of literal
+ * colours, which is what lets one rule transfer across demonstrations whose literal colours differ.
+ */
+
+(function () {
+  var P = PSYN;
+  var PARSES = ["c4", "c8", "m4", "m8", "col"];       /* parses used for in-place rewriting; "pnl" is added for extraction */
+
+  function modeColor(g) {
+    var cnt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], r, c, best = 0;
+    for (r = 0; r < g.length; r++) for (c = 0; c < g[0].length; c++) cnt[g[r][c]]++;
+    for (c = 1; c < 10; c++) if (cnt[c] > cnt[best]) best = c;
+    return best;
+  }
+
+  /* connected components over cells accepted by `inSet`; `sameColor` restricts to equal colours */
+  function components(g, bg, diag, sameColor) {
+    var H = g.length, W = g[0].length, seen = new Uint8Array(H * W), out = [], r, c, stack, cells, v, i, rr, cc, k, dr, dc, nr, nc;
+    var D = diag ? [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]] : [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) {
+      i = r * W + c;
+      if (seen[i] || g[r][c] === bg) continue;
+      stack = [i]; seen[i] = 1; cells = []; v = g[r][c];
+      while (stack.length) {
+        k = stack.pop(); cells.push(k); rr = (k / W) | 0; cc = k - rr * W;
+        for (dr = 0; dr < D.length; dr++) {
+          nr = rr + D[dr][0]; nc = cc + D[dr][1];
+          if (nr < 0 || nc < 0 || nr >= H || nc >= W) continue;
+          dc = nr * W + nc;
+          if (seen[dc] || g[nr][nc] === bg) continue;
+          if (sameColor && g[nr][nc] !== v) continue;
+          seen[dc] = 1; stack.push(dc);
+        }
+      }
+      cells.sort(function (a, b) { return a - b; });
+      out.push(cells);
+    }
+    return out;
+  }
+  function byColor(g, bg) {
+    var H = g.length, W = g[0].length, lists = {}, r, c, v, out = [];
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) { v = g[r][c]; if (v === bg) continue; (lists[v] = lists[v] || []).push(r * W + c); }
+    for (v = 0; v < 10; v++) if (lists[v]) out.push(lists[v]);
+    return out;
+  }
+
+  var D4T = [
+    function (r, c, h, w) { return [r, c]; },
+    function (r, c, h, w) { return [c, h - 1 - r]; },
+    function (r, c, h, w) { return [h - 1 - r, w - 1 - c]; },
+    function (r, c, h, w) { return [w - 1 - c, r]; },
+    function (r, c, h, w) { return [r, w - 1 - c]; },
+    function (r, c, h, w) { return [c, r]; },
+    function (r, c, h, w) { return [h - 1 - r, c]; },
+    function (r, c, h, w) { return [w - 1 - c, h - 1 - r]; }
+  ];
+
+  function mkObj(sc, id, cells) {
+    var g = sc.grid, W = sc.W, o = { id: id, cells: cells, size: cells.length }, i, r, c, r0 = 1e9, c0 = 1e9, r1 = -1, c1 = -1, cnt = {}, mask = 0, v, best = -1, bn = 0;
+    for (i = 0; i < cells.length; i++) {
+      r = (cells[i] / W) | 0; c = cells[i] - r * W;
+      if (r < r0) r0 = r; if (r > r1) r1 = r; if (c < c0) c0 = c; if (c > c1) c1 = c;
+      v = g[r][c]; cnt[v] = (cnt[v] || 0) + 1; mask |= 1 << v;
+    }
+    for (v in cnt) if (cnt[v] > bn || (cnt[v] === bn && +v < best)) { bn = cnt[v]; best = +v; }
+    o.r0 = r0; o.c0 = c0; o.r1 = r1; o.c1 = c1; o.h = r1 - r0 + 1; o.w = c1 - c0 + 1;
+    o.color = best; o.colorsMask = mask; o.mixed = (mask & (mask - 1)) !== 0;
+    o.border = r0 === 0 || c0 === 0 || r1 === sc.H - 1 || c1 === sc.W - 1;
+    o.isRect = o.size === o.h * o.w;
+    o.cr2 = r0 + r1; o.cc2 = c0 + c1;       /* doubled centre, stays integral */
+    /* what the bounding box shows: the number of non-background cells and the colour pattern itself */
+    var nbg = 0, rows = [], rr0, cc0;
+    for (rr0 = r0; rr0 <= r1; rr0++) { rows.push(g[rr0].slice(c0, c1 + 1).join("")); for (cc0 = c0; cc0 <= c1; cc0++) if (g[rr0][cc0] !== sc.bg) nbg++; }
+    o.nbg = nbg; o.contentKey = rows.join("/");
+    /* shape keys: translation-normalised mask, and the minimum over the eight symmetries */
+    var rel = cells.map(function (k) { var rr = (k / W) | 0; return [rr - r0, k - rr * W - c0]; });
+    function keyOf(pts) { var a = pts.slice().sort(function (p, q) { return p[0] - q[0] || p[1] - q[1]; }); return a.map(function (p) { return p[0] + "." + p[1]; }).join(";"); }
+    o.shapeKey = o.h + "x" + o.w + ":" + keyOf(rel);
+    var best4 = null, t, k4;
+    for (t = 0; t < 8; t++) {
+      var pts = rel.map(function (p) { return D4T[t](p[0], p[1], o.h, o.w); }), mr = 1e9, mc = 1e9;
+      pts.forEach(function (p) { if (p[0] < mr) mr = p[0]; if (p[1] < mc) mc = p[1]; });
+      k4 = keyOf(pts.map(function (p) { return [p[0] - mr, p[1] - mc]; }));
+      if (best4 === null || k4 < best4) best4 = k4;
+    }
+    o.d4Key = best4;
+    /* enclosed background inside the bounding box (4-connected flood from the box edge) */
+    var seen = new Uint8Array(o.h * o.w), stack = [], inObj = new Uint8Array(o.h * o.w), j, rr2, cc2;
+    for (i = 0; i < rel.length; i++) inObj[rel[i][0] * o.w + rel[i][1]] = 1;
+    for (i = 0; i < o.h; i++) for (j = 0; j < o.w; j++) if ((i === 0 || j === 0 || i === o.h - 1 || j === o.w - 1) && !inObj[i * o.w + j]) { seen[i * o.w + j] = 1; stack.push(i * o.w + j); }
+    while (stack.length) {
+      var k = stack.pop(); rr2 = (k / o.w) | 0; cc2 = k - rr2 * o.w;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+        var nr = rr2 + d[0], nc = cc2 + d[1];
+        if (nr < 0 || nc < 0 || nr >= o.h || nc >= o.w) return;
+        var nk = nr * o.w + nc;
+        if (seen[nk] || inObj[nk]) return;
+        seen[nk] = 1; stack.push(nk);
+      });
+    }
+    o.encl = [];
+    for (i = 0; i < o.h; i++) for (j = 0; j < o.w; j++) if (!seen[i * o.w + j] && !inObj[i * o.w + j]) o.encl.push((r0 + i) * W + (c0 + j));
+    o.holes = o.encl.length;
+    return o;
+  }
+
+  /* full-length separator lines and the panels they cut the grid into */
+  function findPanels(sc) {
+    var g = sc.grid, H = sc.H, W = sc.W, rowsL = [], colsL = [], r, c, v, ok;
+    for (r = 0; r < H; r++) { v = g[r][0]; ok = v !== sc.bg; for (c = 1; c < W && ok; c++) if (g[r][c] !== v) ok = false; if (ok) rowsL.push([r, v]); }
+    for (c = 0; c < W; c++) { v = g[0][c]; ok = v !== sc.bg; for (r = 1; r < H && ok; r++) if (g[r][c] !== v) ok = false; if (ok) colsL.push([c, v]); }
+    if (!rowsL.length && !colsL.length) return null;
+    /* a grid that is one solid colour has no separators; lines must leave room for at least two panels */
+    var rowCut = {}, colCut = {};
+    rowsL.forEach(function (x) { rowCut[x[0]] = x[1]; }); colsL.forEach(function (x) { colCut[x[0]] = x[1]; });
+    var rb = [], cb = [], cur = 0;
+    for (r = 0; r < H; r++) { if (rowCut[r] !== undefined) { cur++; rb.push(-1); } else rb.push(cur); }
+    cur = 0;
+    for (c = 0; c < W; c++) { if (colCut[c] !== undefined) { cur++; cb.push(-1); } else cb.push(cur); }
+    var nR = 0, nC = 0;
+    rb.forEach(function (x) { if (x + 1 > nR) nR = x + 1; }); cb.forEach(function (x) { if (x + 1 > nC) nC = x + 1; });
+    if (nR * nC < 2) return null;
+    var at = new Int16Array(H * W), sepColor = rowsL.length ? rowsL[0][1] : colsL[0][1];
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) at[r * W + c] = (rb[r] < 0 || cb[c] < 0) ? -1 : rb[r] * nC + cb[c];
+    return { at: at, nR: nR, nC: nC, n: nR * nC, sepColor: sepColor, rowLines: rowsL.map(function (x) { return x[0]; }), colLines: colsL.map(function (x) { return x[0]; }) };
+  }
+
+  /* panels as objects: every cell of each region between separator lines, background included */
+  function panelLists(sc) {
+    var pn = findPanels(sc), lists = [], i, k;
+    if (!pn) return [];
+    for (i = 0; i < pn.n; i++) lists.push([]);
+    for (k = 0; k < pn.at.length; k++) if (pn.at[k] >= 0) lists[pn.at[k]].push(k);
+    return lists.filter(function (l) { return l.length; });
+  }
+
+  function Scene(g, parseId, bgMode) {
+    this.grid = g; this.H = g.length; this.W = g[0].length; this.parse = parseId;
+    this.bg = bgMode === "zero" ? 0 : modeColor(g);
+    var lists;
+    switch (parseId) {
+      case "pnl": lists = panelLists(this); break;
+      case "c4": lists = components(g, this.bg, false, true); break;
+      case "c8": lists = components(g, this.bg, true, true); break;
+      case "m4": lists = components(g, this.bg, false, false); break;
+      case "m8": lists = components(g, this.bg, true, false); break;
+      default: lists = byColor(g, this.bg);
+    }
+    this.objs = []; this.at = new Int16Array(this.H * this.W).fill(-1);
+    var i, j;
+    this.tooMany = lists.length > 70;
+    if (this.tooMany) lists = lists.slice(0, 70);
+    for (i = 0; i < lists.length; i++) {
+      var o = mkObj(this, i, lists[i]);
+      this.objs.push(o);
+      for (j = 0; j < lists[i].length; j++) this.at[lists[i][j]] = i;
+    }
+    this.n = this.objs.length;
+    this._rel = null; this._panels = undefined; this._roles = null; this._freq = null;
+  }
+  Scene.prototype.panels = function () { if (this._panels === undefined) this._panels = findPanels(this); return this._panels; };
+  Scene.prototype.panelOf = function (o) {
+    var p = this.panels();
+    if (!p) return -1;
+    var k = o.cells[0], v = p.at[k], i;
+    if (v >= 0) return v;
+    for (i = 1; i < o.cells.length; i++) { v = p.at[o.cells[i]]; if (v >= 0) return v; }
+    return -1;
+  };
+  /* separator objects (lines spanning a whole row/column) are structure, not content */
+  Scene.prototype.isSeparator = function (o) {
+    var p = this.panels();
+    if (!p) return false;
+    return (o.h === 1 && o.w === this.W) || (o.w === 1 && o.h === this.H) || (o.w === this.W && o.h === 1) || (p.rowLines.length + p.colLines.length > 0 && o.color === p.sepColor && (o.h === this.H || o.w === this.W));
+  };
+  Scene.prototype.freq = function () {
+    if (this._freq) return this._freq;
+    var f = { color: {}, shape: {}, d4: {}, size: {}, cells: {}, content: {} }, i, o;
+    for (i = 0; i < this.n; i++) {
+      o = this.objs[i];
+      f.color[o.color] = (f.color[o.color] || 0) + 1; f.shape[o.shapeKey] = (f.shape[o.shapeKey] || 0) + 1;
+      f.d4[o.d4Key] = (f.d4[o.d4Key] || 0) + 1; f.size[o.size] = (f.size[o.size] || 0) + 1;
+      f.cells[o.color] = (f.cells[o.color] || 0) + o.size;
+      f.content[o.contentKey] = (f.content[o.contentKey] || 0) + 1;
+    }
+    this._freq = f;
+    return f;
+  };
+  /* adjacency (4-neighbour touching) and the other pairwise relations, computed once per scene */
+  Scene.prototype.rel = function () {
+    if (this._rel) return this._rel;
+    var n = this.n, H = this.H, W = this.W, at = this.at, adj = [], i, j, r, c, k, a, b, o;
+    for (i = 0; i < n; i++) adj.push({});
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) {
+      a = at[r * W + c]; if (a < 0) continue;
+      if (c + 1 < W) { b = at[r * W + c + 1]; if (b >= 0 && b !== a) { adj[a][b] = 1; adj[b][a] = 1; } }
+      if (r + 1 < H) { b = at[(r + 1) * W + c]; if (b >= 0 && b !== a) { adj[a][b] = 1; adj[b][a] = 1; } }
+    }
+    /* enclosure: object j lies inside the enclosed background of object i */
+    var encl = [], inside = [];
+    for (i = 0; i < n; i++) { encl.push(new Set(this.objs[i].encl)); inside.push({}); }
+    var enclosedBy = [];
+    for (j = 0; j < n; j++) {
+      enclosedBy.push(-1);
+      o = this.objs[j];
+      for (i = 0; i < n; i++) {
+        if (i === j || !encl[i].size) continue;
+        var all = true;
+        for (k = 0; k < o.cells.length; k++) if (!encl[i].has(o.cells[k])) { all = false; break; }
+        if (all) { if (enclosedBy[j] < 0 || this.objs[i].size < this.objs[enclosedBy[j]].size) enclosedBy[j] = i; inside[i][j] = 1; }
+      }
+    }
+    /* chebyshev distance between bounding boxes and the nearest other object */
+    var dist = [], nearest = [], d;
+    for (i = 0; i < n; i++) {
+      dist.push(new Int16Array(n)); nearest.push(-1);
+    }
+    for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+      var A = this.objs[i], B = this.objs[j];
+      var dr = Math.max(0, A.r0 - B.r1, B.r0 - A.r1), dc = Math.max(0, A.c0 - B.c1, B.c0 - A.c1);
+      d = Math.max(dr, dc); dist[i][j] = d; dist[j][i] = d;
+    }
+    for (i = 0; i < n; i++) {
+      var bd = 1e9, bj = -1, tie = false;
+      for (j = 0; j < n; j++) if (j !== i) { if (dist[i][j] < bd) { bd = dist[i][j]; bj = j; tie = false; } else if (dist[i][j] === bd) tie = true; }
+      nearest[i] = tie ? -1 : bj;
+    }
+    this._rel = { adj: adj, enclosedBy: enclosedBy, inside: inside, dist: dist, nearest: nearest };
+    return this._rel;
+  };
+  Scene.prototype.rowAligned = function (a, b) { var A = this.objs[a], B = this.objs[b]; return A.r0 <= B.r1 && B.r0 <= A.r1; };
+  Scene.prototype.colAligned = function (a, b) { var A = this.objs[a], B = this.objs[b]; return A.c0 <= B.c1 && B.c0 <= A.c1; };
+
+  /* Semantic colour roles. Each maps to a colour, or -1 when the scene does not define it unambiguously. */
+  var ROLE_NAMES = ["bg", "largestObj", "smallestObj", "mostObjs", "fewestObjs", "mostCells", "fewestCells", "marker", "separator", "frame", "tallest", "widest", "topmost", "bottommost", "leftmost", "rightmost"];
+  Scene.prototype.roles = function () {
+    if (this._roles) return this._roles;
+    var R = {}, i, o, f = this.freq(), self = this;
+    R.bg = this.bg;
+    function uniqueBest(key, wantMax) {
+      var best = null, tie = false;
+      for (var k = 0; k < self.n; k++) {
+        var v = key(self.objs[k]);
+        if (best === null || (wantMax ? v > best.v : v < best.v)) { best = { v: v, c: self.objs[k].color }; tie = false; }
+        else if (v === best.v) tie = true;
+      }
+      return best && !tie ? best.c : -1;
+    }
+    function uniqueColorBy(map, wantMax) {
+      var best = null, tie = false, c;
+      for (c in map) {
+        if (best === null || (wantMax ? map[c] > best.v : map[c] < best.v)) { best = { v: map[c], c: +c }; tie = false; }
+        else if (map[c] === best.v) tie = true;
+      }
+      return best && !tie ? best.c : -1;
+    }
+    R.largestObj = uniqueBest(function (o) { return o.size; }, true);
+    R.smallestObj = uniqueBest(function (o) { return o.size; }, false);
+    R.tallest = uniqueBest(function (o) { return o.h; }, true);
+    R.widest = uniqueBest(function (o) { return o.w; }, true);
+    R.topmost = uniqueBest(function (o) { return o.r0; }, false);
+    R.bottommost = uniqueBest(function (o) { return o.r1; }, true);
+    R.leftmost = uniqueBest(function (o) { return o.c0; }, false);
+    R.rightmost = uniqueBest(function (o) { return o.c1; }, true);
+    R.mostObjs = uniqueColorBy(f.color, true);
+    R.fewestObjs = Object.keys(f.color).length > 1 ? uniqueColorBy(f.color, false) : -1;
+    R.mostCells = uniqueColorBy(f.cells, true);
+    R.fewestCells = Object.keys(f.cells).length > 1 ? uniqueColorBy(f.cells, false) : -1;
+    /* the lone marker: exactly one colour is carried only by single-cell objects, and by exactly one object */
+    var singles = {}, multi = {}, c;
+    for (i = 0; i < this.n; i++) { o = this.objs[i]; if (o.size === 1) singles[o.color] = (singles[o.color] || 0) + 1; else multi[o.color] = 1; }
+    var cands = [];
+    for (c in singles) if (!multi[c] && singles[c] === 1) cands.push(+c);
+    R.marker = cands.length === 1 ? cands[0] : -1;
+    var pn = this.panels();
+    R.separator = pn ? pn.sepColor : -1;
+    var frames = [];
+    for (i = 0; i < this.n; i++) { o = this.objs[i]; if (o.holes > 0 && o.size >= 8) frames.push(o); }
+    frames.sort(function (a, b) { return b.size - a.size; });
+    R.frame = frames.length && (frames.length === 1 || frames[0].size > frames[1].size) ? frames[0].color : -1;
+    this._roles = R;
+    return R;
+  };
+
+  var cache = new Map();
+  function parse(g, parseId, bgMode) {
+    var key = parseId + "|" + (bgMode || "mode");
+    var perGrid = g.__sc;
+    if (!perGrid) { perGrid = {}; try { Object.defineProperty(g, "__sc", { value: perGrid, enumerable: false, writable: true }); } catch (e) { g.__sc = perGrid; } }
+    if (!perGrid[key]) perGrid[key] = new Scene(g, parseId, bgMode);
+    return perGrid[key];
+  }
+
+  P.PARSES = PARSES; P.parse = parse; P.Scene = Scene; P.ROLE_NAMES = ROLE_NAMES; P.modeColor = modeColor; P.D4T = D4T;
+})();
+/* ===== src/63-psyn-effects.js ===== */
+/* Object effects with INVERSE semantics.
+ *
+ * An effect is what a rule does to one selected object: delete it, recolour it, move it, mirror it, fill its box or its
+ * holes, grow a halo, shoot a ray, stamp a copy. Each effect exposes
+ *
+ *   writes(o, theta, sc)        forward semantics: the cells cleared and painted (clear list, [cell,colour,...] list)
+ *   infer(o, sc, I, O)          INVERSE semantics: given the demonstrated output, the parameter values this effect
+ *                               MUST have to be consistent for this object (usually zero or one value), derived from
+ *                               the output instead of enumerated
+ *   bits(theta)                 description length of the parameter
+ *   facts                       abstract properties used to prune whole classes before anything is executed
+ *
+ * Colour-valued parameters are `ColorRef`s: a literal colour, a scene role ("the lone marker's colour"), or a relation
+ * ("the colour of the object this one touches"). Roles and relations let one rule transfer across demonstrations whose
+ * literal colours differ, and the learner prefers them whenever they explain the data equally well.
+ */
+
+(function () {
+  var P = PSYN;
+  var D4v = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];   /* up down left right + diagonals */
+  var DIRN = ["up", "down", "left", "right", "ul", "ur", "dl", "dr"];
+
+  /* ------------------------------------------------------------------ colour references */
+  function uniqueOther(sc, o, idxList) {
+    /* the single colour shared by the related objects that differ in colour from `o`; -1 when none or ambiguous */
+    var c = -1, i, x;
+    for (i = 0; i < idxList.length; i++) {
+      x = sc.objs[idxList[i]];
+      if (x === o || x.color === o.color) continue;
+      if (c === -1) c = x.color; else if (c !== x.color) return -1;
+    }
+    return c;
+  }
+  var REL = {
+    adj: function (sc, o) { return uniqueOther(sc, o, Object.keys(sc.rel().adj[o.id]).map(Number)); },
+    enclosing: function (sc, o) { var e = sc.rel().enclosedBy[o.id]; return e < 0 ? -1 : sc.objs[e].color; },
+    enclosed: function (sc, o) { return uniqueOther(sc, o, Object.keys(sc.rel().inside[o.id]).map(Number)); },
+    nearest: function (sc, o) { var n = sc.rel().nearest[o.id]; return n < 0 ? -1 : sc.objs[n].color; },
+    panelMarker: function (sc, o) {
+      var pn = sc.panelOf(o); if (pn < 0) return -1;
+      var idx = [], i; for (i = 0; i < sc.n; i++) if (i !== o.id && sc.panelOf(sc.objs[i]) === pn && !sc.isSeparator(sc.objs[i])) idx.push(i);
+      return uniqueOther(sc, o, idx);
+    },
+    rowPartner: function (sc, o) { var idx = [], i; for (i = 0; i < sc.n; i++) if (i !== o.id && sc.rowAligned(o.id, i) && !sc.isSeparator(sc.objs[i])) idx.push(i); return uniqueOther(sc, o, idx); },
+    colPartner: function (sc, o) { var idx = [], i; for (i = 0; i < sc.n; i++) if (i !== o.id && sc.colAligned(o.id, i) && !sc.isSeparator(sc.objs[i])) idx.push(i); return uniqueOther(sc, o, idx); },
+    self: function (sc, o) { return o.color; }
+  };
+  var REL_NAMES = Object.keys(REL);
+  /* kind: 'lit' (value), 'role' (name), 'rel' (name) */
+  function evalRef(ref, sc, o) {
+    if (ref.kind === "lit") return ref.v;
+    if (ref.kind === "role") { var r = sc.roles()[ref.v]; return r === undefined ? -1 : r; }
+    return REL[ref.v](sc, o);
+  }
+  function refKey(ref) { return ref.kind + ":" + ref.v; }
+  function refBits(ref) { return ref.kind === "lit" ? 3.4 : ref.kind === "role" ? 3.0 : 3.6; }
+  function refStr(ref) { return ref.kind === "lit" ? String(ref.v) : ref.kind === "role" ? "role." + ref.v : "rel." + ref.v; }
+  function lit(v) { return { kind: "lit", v: v }; }
+
+  /* ------------------------------------------------------------------ cell helpers */
+  function cellRC(sc, k) { var r = (k / sc.W) | 0; return [r, k - r * sc.W]; }
+  function inb(sc, r, c) { return r >= 0 && c >= 0 && r < sc.H && c < sc.W; }
+
+  /* Writes: {clr: [cells set to background], pnt: [cell, colour, cell, colour, ...]} */
+  function W() { return { clr: [], pnt: [] }; }
+
+  /* ------------------------------------------------------------------ the effect table */
+  var FX = {};
+
+  FX.delete = {
+    name: "delete", param: null, own: true, facts: { shrinks: true, addsColors: false },
+    writes: function (o, th, sc) { var w = W(); w.clr = o.cells.slice(); return w; },
+    infer: function (o, sc, I, O) { return [null]; },
+    bits: function () { return 1.0; }, str: function () { return "delete"; }
+  };
+
+  FX.recolor = {
+    name: "recolor", param: "color", own: true, facts: { addsColors: true },
+    writes: function (o, th, sc) { var w = W(), i; if (th < 0) return null; for (i = 0; i < o.cells.length; i++) w.pnt.push(o.cells[i], th); return w; },
+    /* inverse: the colour the output shows over the whole object, if it is uniform */
+    infer: function (o, sc, I, O) {
+      var v = O[(o.cells[0] / sc.W) | 0][o.cells[0] % sc.W], i, r, c;
+      for (i = 1; i < o.cells.length; i++) { r = (o.cells[i] / sc.W) | 0; c = o.cells[i] - r * sc.W; if (O[r][c] !== v) return []; }
+      return [v];
+    },
+    bits: function (th, ref) { return 1.0 + (ref ? refBits(ref) : 3.4); }, str: function (th, ref) { return "recolor(" + (ref ? refStr(ref) : th) + ")"; }
+  };
+
+  /* per-colour recolouring inside multicolour objects: the map is learned from the output cell by cell */
+  FX.cmap = {
+    name: "cmap", param: "map", own: true, facts: { addsColors: true },
+    writes: function (o, th, sc) {
+      var w = W(), i, r, c, v, t;
+      for (i = 0; i < o.cells.length; i++) { r = (o.cells[i] / sc.W) | 0; c = o.cells[i] - r * sc.W; v = sc.grid[r][c]; t = th[v]; if (t !== undefined && t !== v) w.pnt.push(o.cells[i], t); }
+      return w;
+    },
+    infer: function (o, sc, I, O) {
+      if (!o.mixed) return [];
+      var m = {}, i, r, c, v, t, n = 0;
+      for (i = 0; i < o.cells.length; i++) {
+        r = (o.cells[i] / sc.W) | 0; c = o.cells[i] - r * sc.W; v = I[r][c]; t = O[r][c];
+        if (m[v] === undefined) m[v] = t; else if (m[v] !== t) return [];
+      }
+      for (v in m) if (m[v] !== +v) n++;
+      return n ? [m] : [];
+    },
+    bits: function (th) { return 2.0 + 3.4 * Object.keys(th).length; }, str: function (th) { return "cmap(" + Object.keys(th).map(function (k) { return k + ">" + th[k]; }).join(",") + ")"; }
+  };
+
+  function translated(o, sc, dx, dy) {
+    /* [rowOffset=dy... uses (dr,dc)] returns list of [cell, colour] after translation, dropping cells off the grid */
+    var out = [], i, r, c, nr, nc;
+    for (i = 0; i < o.cells.length; i++) {
+      r = (o.cells[i] / sc.W) | 0; c = o.cells[i] - r * sc.W; nr = r + dy; nc = c + dx;
+      if (inb(sc, nr, nc)) out.push(nr * sc.W + nc, sc.grid[r][c]);
+    }
+    return out;
+  }
+  FX.move = {
+    name: "move", param: "vec", own: true, facts: { preservesCount: true, preservesColors: true },
+    writes: function (o, th, sc) { var w = W(); w.clr = o.cells.slice(); w.pnt = translated(o, sc, th[0], th[1]); return w; },
+    infer: function (o, sc, I, O) { return vectorsFor(o, sc, I, O, true); },
+    bits: function (th) { return 1.0 + 2.0 + Math.log(1 + Math.abs(th[0]) + Math.abs(th[1])) / Math.LN2; }, str: function (th) { return "move(" + th[0] + "," + th[1] + ")"; }
+  };
+  FX.copy = {
+    name: "copy", param: "vec", own: false, facts: { addsCells: true, preservesColors: true },
+    writes: function (o, th, sc) { var w = W(); w.pnt = translated(o, sc, th[0], th[1]); return w; },
+    infer: function (o, sc, I, O) { return vectorsFor(o, sc, I, O, false); },
+    bits: function (th) { return 1.5 + 2.0 + Math.log(1 + Math.abs(th[0]) + Math.abs(th[1])) / Math.LN2; }, str: function (th) { return "copy(" + th[0] + "," + th[1] + ")"; }
+  };
+  /* find translations that reproduce the object (with its colours) in the output. For `move` the old cells must be
+     cleared (or covered by something else); for `copy` the old cells must stay. */
+  function vectorsFor(o, sc, I, O, isMove) {
+    if (o.size > 400) return [];
+    var out = [], first = o.cells[0], fr = (first / sc.W) | 0, fc = first - fr * sc.W, fv = I[fr][fc], r, c, dx, dy, ok, i, k, rr, cc, nr, nc, changedOnly = true, seenV = {};
+    for (r = 0; r < sc.H; r++) for (c = 0; c < sc.W; c++) {
+      if (O[r][c] !== fv || (r === fr && c === fc)) continue;
+      dy = r - fr; dx = c - fc;
+      ok = true;
+      for (i = 0; i < o.cells.length; i++) {
+        k = o.cells[i]; rr = (k / sc.W) | 0; cc = k - rr * sc.W; nr = rr + dy; nc = cc + dx;
+        if (!inb(sc, nr, nc)) continue;              /* clipped at the border */
+        if (O[nr][nc] !== I[rr][cc]) { ok = false; break; }
+      }
+      if (!ok) continue;
+      /* old cells: moved objects leave background (unless overlapped by the new position); copies leave the object */
+      var movedOld = true, newCells = {};
+      for (i = 0; i < o.cells.length; i++) { k = o.cells[i]; rr = (k / sc.W) | 0; cc = k - rr * sc.W; newCells[(rr + dy) * sc.W + (cc + dx)] = 1; }
+      for (i = 0; i < o.cells.length && movedOld; i++) {
+        k = o.cells[i]; rr = (k / sc.W) | 0; cc = k - rr * sc.W;
+        if (isMove) { if (!(newCells[k] || O[rr][cc] === sc.bg || O[rr][cc] !== I[rr][cc])) movedOld = false; }
+        else if (O[rr][cc] !== I[rr][cc]) movedOld = false;
+      }
+      if (!movedOld) continue;
+      if (!seenV[dx + "," + dy]) { seenV[dx + "," + dy] = 1; out.push([dx, dy]); }
+    }
+    return out;
+  }
+
+  /* slide until the next step would leave the grid or hit another object */
+  function slideDelta(o, sc, dr, dc) {
+    var maxStep = Math.max(sc.H, sc.W), step = 0, i, k, rr, cc, nr, nc, own = {}, cellsLen = o.cells.length;
+    for (i = 0; i < cellsLen; i++) own[o.cells[i]] = 1;
+    while (step < maxStep) {
+      for (i = 0; i < cellsLen; i++) {
+        k = o.cells[i]; rr = (k / sc.W) | 0; cc = k - rr * sc.W; nr = rr + dr * (step + 1); nc = cc + dc * (step + 1);
+        if (!inb(sc, nr, nc)) return step;
+        if (sc.grid[nr][nc] !== sc.bg && !own[nr * sc.W + nc]) return step;
+      }
+      step++;
+    }
+    return step;
+  }
+  FX.slide = {
+    name: "slide", param: "dir", own: true, facts: { preservesCount: true, preservesColors: true },
+    writes: function (o, th, sc) { var d = D4v[th], s = slideDelta(o, sc, d[0], d[1]), w = W(); if (!s) return w; w.clr = o.cells.slice(); w.pnt = translated(o, sc, d[1] * s, d[0] * s); return w; },
+    infer: function (o, sc, I, O) {
+      var vs = vectorsFor(o, sc, I, O, true), out = [], i, d, s;
+      for (i = 0; i < vs.length; i++) for (d = 0; d < 4; d++) {
+        s = slideDelta(o, sc, D4v[d][0], D4v[d][1]);
+        if (s > 0 && vs[i][0] === D4v[d][1] * s && vs[i][1] === D4v[d][0] * s) out.push(d);
+      }
+      return out;
+    },
+    bits: function () { return 1.0 + 2.0; }, str: function (th) { return "slide." + DIRN[th]; }
+  };
+
+  /* in-place symmetry of the object about its bounding box */
+  function d4Writes(o, th, sc) {
+    var w = W(), pts = [], i, k, r, c, h = o.h, wd = o.w, t, nr, nc, sq = (h === wd);
+    if ((th === 1 || th === 3 || th === 5 || th === 7) && !sq) return null;
+    for (i = 0; i < o.cells.length; i++) {
+      k = o.cells[i]; r = ((k / sc.W) | 0) - o.r0; c = (k % sc.W) - o.c0;
+      t = P.D4T[th](r, c, h, wd); nr = o.r0 + t[0]; nc = o.c0 + t[1];
+      pts.push(nr * sc.W + nc, sc.grid[o.r0 + r][o.c0 + c]);
+    }
+    w.clr = o.cells.slice(); w.pnt = pts;
+    return w;
+  }
+  FX.d4 = {
+    name: "d4", param: "d4", own: true, facts: { preservesCount: true, preservesColors: true },
+    writes: function (o, th, sc) { return d4Writes(o, th, sc); },
+    infer: function (o, sc, I, O) {
+      var out = [], t, w, ok, i, r, c;
+      if (o.size < 2) return out;
+      for (t = 1; t < 8; t++) {
+        w = d4Writes(o, t, sc); if (!w) continue;
+        ok = true;
+        for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) { ok = false; break; } }
+        if (ok) {
+          /* the cells vacated by the transform must be background in the output (or painted over) */
+          var painted = {}; for (i = 0; i < w.pnt.length; i += 2) painted[w.pnt[i]] = 1;
+          for (i = 0; i < o.cells.length && ok; i++) if (!painted[o.cells[i]]) { r = (o.cells[i] / sc.W) | 0; c = o.cells[i] - r * sc.W; if (O[r][c] !== sc.bg) ok = false; }
+          if (ok) {
+            /* an identity-looking transform (symmetric object) is not evidence */
+            var same = true; for (i = 0; i < o.cells.length; i++) if (!painted[o.cells[i]]) { same = false; break; }
+            if (same && w.pnt.length === o.cells.length * 2) { var diff = false; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (I[r][c] !== w.pnt[i + 1]) { diff = true; break; } } if (!diff) continue; }
+            out.push(t);
+          }
+        }
+      }
+      return out;
+    },
+    bits: function () { return 1.0 + 2.5; }, str: function (th) { return "d4." + P.D4_NAMES[th]; }
+  };
+
+  /* fills: paint background cells of a region derived from the object */
+  function paintBg(sc, cells, col) { var w = W(), i; for (i = 0; i < cells.length; i++) if (sc.at[cells[i]] < 0 && sc.grid[(cells[i] / sc.W) | 0][cells[i] % sc.W] === sc.bg) w.pnt.push(cells[i], col); return w; }
+  function bboxCells(o, sc) { var out = [], r, c; for (r = o.r0; r <= o.r1; r++) for (c = o.c0; c <= o.c1; c++) out.push(r * sc.W + c); return out; }
+  FX.fillbox = {
+    name: "fillbox", param: "color", own: false, facts: { addsCells: true, addsColors: true },
+    writes: function (o, th, sc) { if (th < 0) return null; return paintBg(sc, bboxCells(o, sc), th); },
+    infer: function (o, sc, I, O) { return regionColor(sc, bboxCells(o, sc), O); },
+    bits: function (th, ref) { return 1.5 + (ref ? refBits(ref) : 3.4); }, str: function (th, ref) { return "fillbox(" + (ref ? refStr(ref) : th) + ")"; }
+  };
+  FX.fillholes = {
+    name: "fillholes", param: "color", own: false, facts: { addsCells: true, addsColors: true },
+    writes: function (o, th, sc) { if (th < 0 || !o.holes) return null; return paintBg(sc, o.encl, th); },
+    infer: function (o, sc, I, O) { return o.holes ? regionColor(sc, o.encl, O) : []; },
+    bits: function (th, ref) { return 1.5 + (ref ? refBits(ref) : 3.4); }, str: function (th, ref) { return "fillholes(" + (ref ? refStr(ref) : th) + ")"; }
+  };
+  function haloCells(o, sc, diag) {
+    var seen = {}, out = [], i, k, r, c, d, nr, nc, nk, D = diag ? D4v : D4v.slice(0, 4);
+    for (i = 0; i < o.cells.length; i++) {
+      k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W;
+      for (d = 0; d < D.length; d++) { nr = r + D[d][0]; nc = c + D[d][1]; if (!inb(sc, nr, nc)) continue; nk = nr * sc.W + nc; if (!seen[nk]) { seen[nk] = 1; out.push(nk); } }
+    }
+    return out;
+  }
+  FX.halo8 = {
+    name: "halo8", param: "color", own: false, facts: { addsCells: true, addsColors: true },
+    writes: function (o, th, sc) { if (th < 0) return null; return paintBg(sc, haloCells(o, sc, true), th); },
+    infer: function (o, sc, I, O) { return regionColor(sc, haloCells(o, sc, true), O); },
+    bits: function (th, ref) { return 1.8 + (ref ? refBits(ref) : 3.4); }, str: function (th, ref) { return "halo8(" + (ref ? refStr(ref) : th) + ")"; }
+  };
+  FX.halo4 = {
+    name: "halo4", param: "color", own: false, facts: { addsCells: true, addsColors: true },
+    writes: function (o, th, sc) { if (th < 0) return null; return paintBg(sc, haloCells(o, sc, false), th); },
+    infer: function (o, sc, I, O) { return regionColor(sc, haloCells(o, sc, false), O); },
+    bits: function (th, ref) { return 1.8 + (ref ? refBits(ref) : 3.4); }, str: function (th, ref) { return "halo4(" + (ref ? refStr(ref) : th) + ")"; }
+  };
+  /* the single colour the output shows on the (background) cells of a region, if uniform and not background */
+  function regionColor(sc, cells, O) {
+    var v = -1, i, k, r, c, n = 0;
+    for (i = 0; i < cells.length; i++) {
+      k = cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W;
+      if (sc.at[k] >= 0 || sc.grid[r][c] !== sc.bg) continue;
+      n++;
+      if (v === -1) v = O[r][c]; else if (v !== O[r][c]) return [];
+    }
+    return n && v !== sc.bg && v >= 0 ? [v] : [];
+  }
+
+  /* a ray from every cell of the object in one of eight directions over background, painted in a colour or the object's own */
+  function rayWrites(o, sc, d, col) {
+    var w = W(), i, k, r, c, nr, nc, dd = D4v[d], seen = {};
+    for (i = 0; i < o.cells.length; i++) {
+      k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W; nr = r + dd[0]; nc = c + dd[1];
+      while (inb(sc, nr, nc) && sc.grid[nr][nc] === sc.bg && sc.at[nr * sc.W + nc] < 0) {
+        var nk = nr * sc.W + nc;
+        if (!seen[nk]) { seen[nk] = 1; w.pnt.push(nk, col < 0 ? sc.grid[r][c] : col); }
+        nr += dd[0]; nc += dd[1];
+      }
+    }
+    return w;
+  }
+  FX.ray = {
+    name: "ray", param: "dir+color", own: false, facts: { addsCells: true },
+    writes: function (o, th, sc) { return th.col === -2 ? null : rayWrites(o, sc, th.d, th.col); },
+    infer: function (o, sc, I, O) {
+      var out = [], d, w, ok, i, r, c, cols = {}, col;
+      for (d = 0; d < 8; d++) {
+        w = rayWrites(o, sc, d, -1); if (!w.pnt.length) continue;
+        /* own colour first */
+        ok = true; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) { ok = false; break; } }
+        if (ok) { out.push({ d: d, col: -1 }); continue; }
+        col = -3;
+        ok = true; for (i = 0; i < w.pnt.length; i += 2) { r = (w.pnt[i] / sc.W) | 0; c = w.pnt[i] - r * sc.W; if (col === -3) col = O[r][c]; else if (O[r][c] !== col) { ok = false; break; } }
+        if (ok && col >= 0 && col !== sc.bg) out.push({ d: d, col: col });
+      }
+      return out;
+    },
+    bits: function (th) { return 2.5 + (th.col < 0 ? 0.5 : 3.4); }, str: function (th) { return "ray." + DIRN[th.d] + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
+  };
+
+  /* ------------------------------------------------------------------ consistency with the demonstrated output */
+  /* A write set is consistent with the output when every painted cell shows the painted colour and every cleared cell
+     shows background (or something else, which another rule may have painted). Exact verification runs afterwards. */
+  function consistent(w, sc, I, O) {
+    var i, k, r, c, painted = null;
+    if (!w) return false;
+    for (i = 0; i < w.pnt.length; i += 2) { k = w.pnt[i]; r = (k / sc.W) | 0; c = k - r * sc.W; if (O[r][c] !== w.pnt[i + 1]) return false; }
+    if (w.clr.length) {
+      painted = {}; for (i = 0; i < w.pnt.length; i += 2) painted[w.pnt[i]] = 1;
+      for (i = 0; i < w.clr.length; i++) {
+        k = w.clr[i]; if (painted[k]) continue;
+        r = (k / sc.W) | 0; c = k - r * sc.W;
+        if (O[r][c] !== sc.bg && O[r][c] === I[r][c]) return false;
+      }
+    }
+    return true;
+  }
+  /* number of still-uncovered changed cells this write set accounts for; marks nothing */
+  function coverage(w, sc, I, O, uncovered) {
+    var n = 0, i, k, r, c;
+    for (i = 0; i < w.pnt.length; i += 2) { k = w.pnt[i]; if (uncovered[k]) { r = (k / sc.W) | 0; c = k - r * sc.W; if (O[r][c] === w.pnt[i + 1] && I[r][c] !== O[r][c]) n++; } }
+    for (i = 0; i < w.clr.length; i++) { k = w.clr[i]; if (uncovered[k]) { r = (k / sc.W) | 0; c = k - r * sc.W; if (O[r][c] === sc.bg && I[r][c] !== O[r][c]) n++; } }
+    return n;
+  }
+
+  P.FX = FX; P.REL = REL; P.REL_NAMES = REL_NAMES; P.evalRef = evalRef; P.refKey = refKey; P.refBits = refBits; P.refStr = refStr; P.lit = lit;
+  P.consistent = consistent; P.coverage = coverage; P.DIRN = DIRN; P.D4v = D4v; P.slideDelta = slideDelta;
+})();
+/* ===== src/64-psyn-select.js ===== */
+/* Selector version spaces.
+ *
+ * A selector decides which objects a rule applies to. Instead of enumerating selector programs and executing each, the
+ * learner evaluates every ATOM (a small predicate over an object in its scene) once over the whole training universe
+ * and keeps the result as a bit set. A selector is a conjunction of atoms; whether it separates the objects that must
+ * be affected (positives) from the ones that must not (negatives) is then a handful of bit operations. This is the
+ * classical conjunctive version space: the atoms true on every positive form the specific boundary, and the negatives
+ * contribute 'killer' sets that a consistent conjunction must hit. Atoms are specifications (plain data), so they can
+ * be evaluated on unseen scenes, rendered, canonicalised and logged.
+ *
+ * Atoms come in three families: object attributes and extremes (size, shape, uniqueness, position), colour atoms that
+ * refer to a literal colour or to a scene ROLE, and relational atoms ("exists y related to x with property p": touching,
+ * enclosed by, enclosing, nearest, sharing a panel, aligned in a row or column).
+ */
+
+(function () {
+  var P = PSYN, Bits = P.Bits;
+
+  /* ------------------------------------------------------------------ atom evaluation */
+  var BOOLS = {
+    border: function (sc, o) { return o.border; },
+    rect: function (sc, o) { return o.isRect; },
+    line: function (sc, o) { return o.h === 1 || o.w === 1; },
+    single: function (sc, o) { return o.size === 1; },
+    mixed: function (sc, o) { return o.mixed; },
+    hasHoles: function (sc, o) { return o.holes > 0; },
+    sym: function (sc, o) { return o.shapeKey === flipKey(o); },
+    separator: function (sc, o) { return sc.isSeparator(o); },
+    isolated: function (sc, o) { return !Object.keys(sc.rel().adj[o.id]).length; },
+    enclosed: function (sc, o) { return sc.rel().enclosedBy[o.id] >= 0; },
+    encloses: function (sc, o) { return Object.keys(sc.rel().inside[o.id]).length > 0; },
+    largest: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.size; }, true); },
+    smallest: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.size; }, false); },
+    tallest: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.h; }, true); },
+    widest: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.w; }, true); },
+    top: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.r0; }, false); },
+    bottom: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.r1; }, true); },
+    left: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.c0; }, false); },
+    right: function (sc, o) { return uniqueExt(sc, o, function (x) { return x.c1; }, true); },
+    mostHoles: function (sc, o) { return o.holes > 0 && uniqueExt(sc, o, function (x) { return x.holes; }, true); },
+    uniqColor: function (sc, o) { return sc.freq().color[o.color] === 1; },
+    uniqShape: function (sc, o) { return sc.freq().shape[o.shapeKey] === 1; },
+    uniqD4: function (sc, o) { return sc.freq().d4[o.d4Key] === 1; },
+    uniqSize: function (sc, o) { return sc.freq().size[o.size] === 1; },
+    uniqContent: function (sc, o) { return sc.freq().content[o.contentKey] === 1; },
+    commonContent: function (sc, o) { var f = sc.freq().content, m = 0, k; for (k in f) if (f[k] > m) m = f[k]; return m > 1 && f[o.contentKey] === m; },
+    emptyBox: function (sc, o) { return o.nbg === 0; },
+    commonColor: function (sc, o) { return o.color === sc.roles().mostObjs; },
+    commonShape: function (sc, o) { var f = sc.freq().shape, m = 0, k; for (k in f) if (f[k] > m) m = f[k]; return m > 1 && f[o.shapeKey] === m; },
+    centerRow: function (sc, o) { return o.cr2 === sc.H - 1; },
+    centerCol: function (sc, o) { return o.cc2 === sc.W - 1; }
+  };
+  var GEN_BOOLS = ["border", "rect", "line", "single", "mixed", "hasHoles", "sym", "separator", "isolated", "enclosed", "encloses", "largest", "smallest", "tallest", "widest", "top", "bottom", "left", "right",
+                   "mostHoles", "uniqColor", "uniqShape", "uniqD4", "uniqSize", "uniqContent", "commonColor", "commonShape", "commonContent", "emptyBox"];
+  function flipKey(o) {
+    /* shape key of the horizontal mirror image, to test left-right symmetry */
+    var pts = o.shapeKey.split(":")[1].split(";").map(function (s) { var p = s.split("."); return [+p[0], o.w - 1 - +p[1]]; });
+    pts.sort(function (p, q) { return p[0] - q[0] || p[1] - q[1]; });
+    return o.h + "x" + o.w + ":" + pts.map(function (p) { return p[0] + "." + p[1]; }).join(";");
+  }
+  function uniqueExt(sc, o, key, wantMax) {
+    var v = key(o), i, x, kv;
+    if (sc.n < 2) return false;
+    for (i = 0; i < sc.n; i++) { if (i === o.id) continue; x = sc.objs[i]; if (sc.isSeparator(x)) continue; kv = key(x); if (wantMax ? kv >= v : kv <= v) return false; }
+    return true;
+  }
+  var UNARY_NUM = { size: function (o) { return o.size; }, h: function (o) { return o.h; }, w: function (o) { return o.w; }, holes: function (o) { return o.holes; },
+                    nbg: function (o) { return o.nbg; }, ncol: function (o) { var m = o.colorsMask, n = 0; while (m) { n += m & 1; m >>= 1; } return n; } };
+
+  function evalSimple(a, sc, o) {
+    switch (a.t) {
+      case "col": return o.color === a.v;
+      case "has": return (o.colorsMask & (1 << a.v)) !== 0;
+      case "colrole": { var r = sc.roles()[a.v]; return r !== undefined && r >= 0 && o.color === r; }
+      case "num": { var x = UNARY_NUM[a.f](o); return a.op === "==" ? x === a.v : a.op === ">=" ? x >= a.v : x <= a.v; }
+      case "bool": return !!BOOLS[a.v](sc, o);
+      case "shape": return o.shapeKey === a.v;
+      case "d4": return o.d4Key === a.v;
+      case "freq": { var f = sc.freq()[a.f]; var key = a.f === "color" ? o.color : a.f === "shape" ? o.shapeKey : a.f === "d4" ? o.d4Key : o.size; return f[key] === a.v; }
+      case "par": return ((a.axis === "r" ? o.r0 : o.c0) & 1) === a.v;
+      default: return false;
+    }
+  }
+  /* the property a related object must have in a relational atom; may refer to the subject object x */
+  function evalPred(p, sc, y, x) {
+    switch (p.t) {
+      case "diffColor": return y.color !== x.color;
+      case "sameColor": return y.color === x.color;
+      case "sameShape": return y.shapeKey === x.shapeKey;
+      case "sameD4": return y.d4Key === x.d4Key;
+      case "bigger": return y.size > x.size;
+      case "smaller": return y.size < x.size;
+      case "any": return true;
+      default: return evalSimple(p, sc, y);
+    }
+  }
+  function related(sc, o, rel) {
+    var R = sc.rel(), out = [], i;
+    switch (rel) {
+      case "adj": return Object.keys(R.adj[o.id]).map(Number);
+      case "encl": return R.enclosedBy[o.id] >= 0 ? [R.enclosedBy[o.id]] : [];          /* the object enclosing o */
+      case "inside": return Object.keys(R.inside[o.id]).map(Number);                    /* objects enclosed by o */
+      case "near": return R.nearest[o.id] >= 0 ? [R.nearest[o.id]] : [];
+      case "panel": { var pn = sc.panelOf(o); if (pn < 0) return []; for (i = 0; i < sc.n; i++) if (i !== o.id && sc.panelOf(sc.objs[i]) === pn && !sc.isSeparator(sc.objs[i])) out.push(i); return out; }
+      case "row": for (i = 0; i < sc.n; i++) if (i !== o.id && sc.rowAligned(o.id, i) && !sc.isSeparator(sc.objs[i])) out.push(i); return out;
+      case "col": for (i = 0; i < sc.n; i++) if (i !== o.id && sc.colAligned(o.id, i) && !sc.isSeparator(sc.objs[i])) out.push(i); return out;
+      case "all": for (i = 0; i < sc.n; i++) if (i !== o.id && !sc.isSeparator(sc.objs[i])) out.push(i); return out;
+      default: return out;
+    }
+  }
+  function evalAtom(a, sc, o) {
+    var v;
+    switch (a.t) {
+      case "not": return !evalAtom(a.a, sc, o);
+      case "rel": {
+        var ids = related(sc, o, a.rel), i;
+        for (i = 0; i < ids.length; i++) if (evalPred(a.p, sc, sc.objs[ids[i]], o)) return true;
+        return false;
+      }
+      case "cnt": return related(sc, o, a.rel).length === a.v;
+      default: return evalSimple(a, sc, o);
+    }
+  }
+
+  function atomStr(a) {
+    switch (a.t) {
+      case "col": return "color=" + a.v;
+      case "has": return "has" + a.v;
+      case "colrole": return "color=role." + a.v;
+      case "num": return a.f + a.op + a.v;
+      case "bool": return a.v;
+      case "shape": return "shape#" + a.v.length + a.v.slice(0, 14);
+      case "d4": return "d4shape#" + a.v.length;
+      case "freq": return "n_" + a.f + "=" + a.v;
+      case "par": return "par_" + a.axis + "=" + a.v;
+      case "not": return "!" + atomStr(a.a);
+      case "rel": return "∃" + a.rel + ":" + predStr(a.p);
+      case "cnt": return "|" + a.rel + "|=" + a.v;
+      default: return "?";
+    }
+  }
+  function predStr(p) { return ["diffColor", "sameColor", "sameShape", "sameD4", "bigger", "smaller", "any"].indexOf(p.t) >= 0 ? p.t : atomStr(p); }
+  function atomBits(a) {
+    switch (a.t) {
+      case "col": return 3.4;
+      case "has": return 3.6;
+      case "colrole": return 3.0;
+      case "num": return 3.6;
+      case "bool": return 2.4;
+      case "shape": case "d4": return 5.0;
+      case "freq": return 3.8;
+      case "par": return 3.2;
+      case "not": return atomBits(a.a) + 0.6;
+      case "rel": return 4.2 + atomBits(["diffColor", "sameColor", "sameShape", "sameD4", "bigger", "smaller", "any"].indexOf(a.p.t) >= 0 ? { t: "bool" } : a.p) * 0.6;
+      case "cnt": return 4.0;
+      default: return 6;
+    }
+  }
+
+  /* ------------------------------------------------------------------ the training universe */
+  /* items = every object of every demonstration scene (rows of the bit sets). */
+  function Universe(scenes) {
+    this.scenes = scenes; this.items = []; this.off = [];
+    var s, i;
+    for (s = 0; s < scenes.length; s++) { this.off.push(this.items.length); for (i = 0; i < scenes[s].n; i++) this.items.push({ s: s, o: scenes[s].objs[i] }); }
+    this.n = this.items.length;
+  }
+
+  /* atom generation from the values that occur in the universe */
+  function generateAtoms(U) {
+    var atoms = [], seen = {}, items = U.items, i, k;
+    function add(a) {
+      var key = atomStr(a) + (a.t === "rel" ? "" : "");
+      if (a.t === "shape" || a.t === "d4") key = a.t + a.v;
+      if (a.t === "rel") key = "rel" + a.rel + "|" + (a.p.t === "shape" || a.p.t === "d4" ? a.p.t + a.p.v : predStr(a.p));
+      if (a.t === "not") key = "not" + (a.a.t === "shape" || a.a.t === "d4" ? a.a.t + a.a.v : atomStr(a.a));
+      if (seen[key]) return;
+      seen[key] = 1; atoms.push({ spec: a, bits: atomBits(a), name: atomStr(a) });
+    }
+    var allColors = {}, colors = {}, sizes = {}, hs = {}, ws = {}, shapes = {}, d4s = {}, holes = {}, nbgs = {}, ncols = {}, freqs = { color: {}, shape: {}, d4: {}, size: {} }, roleNames = {};
+    for (i = 0; i < items.length; i++) {
+      var o = items[i].o, sc = U.scenes[items[i].s];
+      colors[o.color] = 1; for (k = 0; k < 10; k++) if (o.colorsMask & (1 << k)) allColors[k] = 1; sizes[o.size] = 1; hs[o.h] = 1; ws[o.w] = 1; holes[o.holes] = 1; ncols[UNARY_NUM.ncol(o)] = 1; nbgs[o.nbg] = 1;
+      if (Object.keys(shapes).length < 40) shapes[o.shapeKey] = 1;
+      if (Object.keys(d4s).length < 40) d4s[o.d4Key] = 1;
+      var fr = sc.freq(); freqs.color[fr.color[o.color]] = 1; freqs.shape[fr.shape[o.shapeKey]] = 1; freqs.d4[fr.d4[o.d4Key]] = 1; freqs.size[fr.size[o.size]] = 1;
+      var rl = sc.roles(); for (k in rl) if (rl[k] >= 0) roleNames[k] = 1;
+    }
+    var c;
+    for (c in colors) add({ t: "col", v: +c });
+    for (c in allColors) add({ t: "has", v: +c });
+    for (k in roleNames) if (k !== "bg") add({ t: "colrole", v: k });
+    function nums(f, set) {
+      var vals = Object.keys(set).map(Number).sort(function (a, b) { return a - b; }), j;
+      if (vals.length > 14) vals = vals.filter(function (v, j2) { return j2 % Math.ceil(vals.length / 14) === 0; });
+      for (j = 0; j < vals.length; j++) { add({ t: "num", f: f, op: "==", v: vals[j] }); if (j > 0) add({ t: "num", f: f, op: ">=", v: vals[j] }); if (j < vals.length - 1) add({ t: "num", f: f, op: "<=", v: vals[j] }); }
+    }
+    nums("size", sizes); nums("nbg", nbgs); nums("h", hs); nums("w", ws); nums("holes", holes);
+    for (k in shapes) add({ t: "shape", v: k });
+    for (k in d4s) add({ t: "d4", v: k });
+    GEN_BOOLS.forEach(function (b) { var a = { t: "bool", v: b }; add(a); add({ t: "not", a: a }); });
+    /* arbitrary position/parity/count atoms are deliberately NOT generated: on a handful of demonstrations they separate
+       almost any labelling, which is exactly the overfitting that makes a longer program look like a better one */
+    ["color", "shape"].forEach(function (f) { Object.keys(freqs[f]).forEach(function (v) { if (+v >= 2 && +v <= 4) add({ t: "freq", f: f, v: +v }); }); });
+    /* relational atoms */
+    var preds = [{ t: "diffColor" }, { t: "sameColor" }, { t: "sameShape" }, { t: "sameD4" }, { t: "bigger" }, { t: "smaller" }, { t: "any" }, { t: "bool", v: "single" }, { t: "bool", v: "line" }, { t: "bool", v: "rect" }];
+    for (c in colors) preds.push({ t: "col", v: +c });
+    for (k in roleNames) if (k !== "bg") preds.push({ t: "colrole", v: k });
+    ["adj", "encl", "inside", "near", "panel", "row", "col"].forEach(function (rel) {
+      preds.forEach(function (p) {
+        if (rel === "encl" && p.t === "any") return;
+        add({ t: "rel", rel: rel, p: p });
+        if (p.t !== "any") add({ t: "not", a: { t: "rel", rel: rel, p: p } });
+      });
+      add({ t: "not", a: { t: "rel", rel: rel, p: { t: "any" } } });
+    });
+    [0, 1, 2, 3].forEach(function (n) { add({ t: "cnt", rel: "adj", v: n }); });
+    /* bit sets */
+    for (i = 0; i < atoms.length; i++) {
+      var b = Bits.make(U.n), j;
+      for (j = 0; j < U.n; j++) if (evalAtom(atoms[i].spec, U.scenes[items[j].s], items[j].o)) Bits.set(b, j);
+      atoms[i].mask = b; atoms[i].count = Bits.count(b);
+    }
+    /* drop atoms that are constant over the universe: they never separate anything */
+    return atoms.filter(function (a) { return a.count > 0 && a.count < U.n; });
+  }
+
+  /* ------------------------------------------------------------------ selector learning */
+  /* Find conjunctions (<= maxLen atoms) true on at least one positive and on NO negative, favouring coverage of the
+     positives (weighted) and then description length. Returns solutions sorted best first. `stats` receives the
+     version-space accounting: how many distinct consistent conjunctions exist at each level. */
+  function learnSelectors(U, atoms, posMask, negMask, weights, opts) {
+    opts = opts || {};
+    var maxLen = opts.maxLen || 3, beamW = opts.beam || 14, maxSol = opts.maxSol || 40, nU = U.n;
+    var posList = Bits.list(posMask, nU), sols = [], seenSol = {}, stats = opts.stats || {};
+    stats.consistent = 0; stats.exact = 0;
+    if (!posList.length) return sols;
+    var allMask = Bits.full(nU), negList = Bits.list(negMask, nU), nNeg = negList.length;
+    function pw(mask) { var s2 = 0, i; for (i = 0; i < posList.length; i++) if (Bits.get(mask, posList[i])) s2 += weights[posList[i]]; return s2; }
+    function addSol(cand) {
+      var sig = Bits.hash(cand.mask) + ":" + Bits.count(cand.mask);
+      if (!seenSol[sig] || seenSol[sig].bits > cand.bits) {
+        if (seenSol[sig]) sols[sols.indexOf(seenSol[sig])] = cand; else sols.push(cand);
+        seenSol[sig] = cand;
+      }
+    }
+    /* ---- phase 1: EXACT full-cover version space. S = atoms true on every positive (the specific boundary). Each negative
+       contributes the set of atoms of S that exclude it; a consistent conjunction must hit every such set. Complete up to
+       `maxLen` atoms; no beam, nothing missed. */
+    var S = [], ai;
+    for (ai = 0; ai < atoms.length; ai++) if (Bits.subset(posMask, atoms[ai].mask)) S.push(ai);
+    stats.S = S.length;
+    if (Bits.count(Bits.and(allMask, negMask)) === 0) {
+      addSol({ ids: [], mask: allMask, bits: 0.5, neg: 0, pc: posList.length }); stats.consistent++; stats.exact++;
+    } else if (S.length) {
+      /* kill[a] = bit set over negatives excluded by atom a. Atoms with the same kill set are interchangeable on the
+         demonstrations (keep the cheapest); an atom whose kill set is contained in a cheaper atom's is dominated. */
+      var cand = S.map(function (a) { var kb = Bits.make(nNeg), j; for (j = 0; j < nNeg; j++) if (!Bits.get(atoms[a].mask, negList[j])) Bits.set(kb, j); return { a: a, kb: kb, bits: atoms[a].bits, h: Bits.hash(kb) }; });
+      cand = cand.filter(function (c0) { return !Bits.isZero(c0.kb); });
+      cand.sort(function (x, y) { return x.bits - y.bits; });
+      var kept = [], ci, cj, dom;
+      for (ci = 0; ci < cand.length; ci++) {
+        dom = false;
+        for (cj = 0; cj < kept.length; cj++) if (Bits.subset(cand[ci].kb, kept[cj].kb)) { dom = true; break; }
+        if (!dom) kept.push(cand[ci]);
+        if (kept.length >= 80) break;
+      }
+      stats.dominated = S.length - kept.length;
+      S = kept.map(function (c0) { return c0.a; });
+      var kill = kept.map(function (c0) { return c0.kb; });
+      var need = Bits.full(nNeg), found = [];
+      function minimal(ids) { var i, j, ok; for (i = 0; i < found.length; i++) { ok = true; for (j = 0; j < found[i].length; j++) if (ids.indexOf(found[i][j]) < 0) { ok = false; break; } if (ok) return false; } return true; }
+      function record(idxs) {
+        var ids = idxs.map(function (x) { return S[x]; }), mask = allMask, bits = 0, q;
+        for (q = 0; q < ids.length; q++) { mask = Bits.and(mask, atoms[ids[q]].mask); bits += atoms[ids[q]].bits + (q ? 0.4 : 0); }
+        found.push(ids); stats.consistent++; stats.exact++;
+        addSol({ ids: ids, mask: mask, bits: bits, neg: 0, pc: posList.length });
+      }
+      var i1, i2, i3, acc, acc3;
+      for (i1 = 0; i1 < S.length; i1++) if (Bits.equals(kill[i1], need)) record([i1]);
+      if (maxLen >= 2 && !found.length) {
+        for (i1 = 0; i1 < S.length; i1++) for (i2 = i1 + 1; i2 < S.length; i2++) {
+          if (Bits.equals(Bits.or(kill[i1], kill[i2]), need)) record([i1, i2]);
+        }
+      }
+      if (maxLen >= 3 && !found.length) {
+        for (i1 = 0; i1 < S.length && found.length < maxSol; i1++) for (i2 = i1 + 1; i2 < S.length; i2++) {
+          acc = Bits.or(kill[i1], kill[i2]);
+          for (i3 = i2 + 1; i3 < S.length; i3++) if (Bits.equals(Bits.or(acc, kill[i3]), need)) record([i1, i2, i3]);
+        }
+      }
+    }
+    stats.classesExact = sols.length;
+    /* ---- phase 2: partial cover (some positives cannot be separated from some negatives) -> beam search */
+    if (!sols.length || opts.partial) {
+      var live = [];
+      for (ai = 0; ai < atoms.length; ai++) if (Bits.anyAnd(atoms[ai].mask, posMask)) live.push(ai);
+      var beam = [{ ids: [], mask: allMask, bits: 0 }], level, b, a, nm, negHit, pc, cand, nxt, li;
+      for (level = 1; level <= maxLen; level++) {
+        nxt = [];
+        for (b = 0; b < beam.length; b++) {
+          for (li = 0; li < live.length; li++) {
+            a = live[li];
+            if (beam[b].ids.length && a <= beam[b].ids[beam[b].ids.length - 1]) continue;
+            if (!Bits.anyAnd(beam[b].mask, atoms[a].mask)) continue;
+            nm = Bits.and(beam[b].mask, atoms[a].mask);
+            pc = Bits.andCount(nm, posMask);
+            if (!pc) continue;
+            negHit = Bits.andCount(nm, negMask);
+            cand = { ids: beam[b].ids.concat([a]), mask: nm, bits: beam[b].bits + atoms[a].bits + (beam[b].ids.length ? 0.4 : 0), neg: negHit, pc: pc };
+            if (negHit === 0) { stats.consistent++; addSol(cand); } else nxt.push(cand);
+          }
+        }
+        if (sols.length >= maxSol) break;
+        nxt.sort(function (p2, q2) { return (p2.neg - q2.neg) || (q2.pc - p2.pc) || (p2.bits - q2.bits); });
+        beam = nxt.slice(0, beamW);
+        if (!beam.length) break;
+      }
+    }
+    sols.forEach(function (s3) { s3.w = pw(s3.mask); });
+    sols.sort(function (p2, q2) { return (q2.w - p2.w) || (p2.bits - q2.bits); });
+    stats.classes = sols.length;
+    return sols.slice(0, maxSol);
+  }
+
+  function selStr(sel, atoms) { return sel.ids.length ? sel.ids.map(function (i) { return atoms[i].name; }).join(" & ") : "true"; }
+
+  P.evalAtom = evalAtom; P.atomStr = atomStr; P.Universe = Universe; P.generateAtoms = generateAtoms; P.learnSelectors = learnSelectors; P.selStr = selStr; P.BOOLS = BOOLS;
+})();
+/* ===== src/65-psyn-learn.js ===== */
+/* Constrained synthesis of object-rewriting programs.
+ *
+ * The program family is a pipeline of STAGES. A stage is a representation (a parse) plus an ordered decision list of
+ * rules; a rule is (selector version space member, effect template). The learner never enumerates complete programs.
+ * It works backwards from the demonstrated outputs:
+ *
+ *   1. perceive every demonstration under a parse and diff input against output (the cells that must change);
+ *   2. abstract execution prunes effect kinds whose footprint cannot touch the changed cells at all;
+ *   3. inverse semantics derive each effect's parameters from the output (the colour an object shows, the translation
+ *      that reproduces it, the symmetry that matches it, the ray colour), per object, with colour parameters expressed
+ *      as literals, scene roles or relations whenever those also witness the data;
+ *   4. for each effect template, objects split into positives (the effect is consistent and explains still-unexplained
+ *      cells), negatives (applying it would contradict the output) and don't-cares; the selector version space
+ *      (64-psyn-select.js) returns the conjunctions that include positives and exclude every negative;
+ *   5. a greedy minimum-description-length cover adds rules until every changed cell is explained; leftovers become the
+ *      next stage, parsed afresh from the intermediate state.
+ *
+ * Every program returned has been executed on every demonstration and reproduces it exactly; nothing else is emitted.
+ */
+
+(function () {
+  var P = PSYN, FX = P.FX, Bits = P.Bits;
+  var COLOR_KINDS = ["recolor", "fillbox", "fillholes", "halo8", "halo4"];
+  var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1 };       /* touch the object's own cells */
+  var MAX_RULES = 4, MAX_STAGES = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6;
+
+  function deltaOf(I, O) {
+    var H = I.length, W = I[0].length, d = new Uint8Array(H * W), n = 0, r, c;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) if (I[r][c] !== O[r][c]) { d[r * W + c] = 1; n++; }
+    return { d: d, n: n };
+  }
+
+  /* ------------------------------------------------------------------ execution of a learned stage */
+  function matches(rule, sc, o) {
+    var i;
+    for (i = 0; i < rule.atoms.length; i++) if (!P.evalAtom(rule.atoms[i], sc, o)) return false;
+    return true;
+  }
+  function thetaOf(rule, sc, o) {
+    var f = FX[rule.kind];
+    if (f.param === "color") return P.evalRef(rule.ref, sc, o);
+    return rule.th;
+  }
+  function runStage(stage, g, acct) {
+    var sc = P.parse(g, stage.parse, stage.bgMode);
+    if (sc.tooMany) return null;
+    var out = G.copyGrid(g), clr = [], pnt = [], i, j, o, rule, th, w, k;
+    for (i = 0; i < sc.n; i++) {
+      o = sc.objs[i];
+      /* union semantics: EVERY rule whose selector matches applies. Each learned rule is consistent with the output on its
+         own, so the union of their writes is consistent too and there is nothing to arbitrate between rules. */
+      for (j = 0; j < stage.rules.length; j++) {
+        rule = stage.rules[j];
+        if (!matches(rule, sc, o)) continue;
+        th = thetaOf(rule, sc, o);
+        if (FX[rule.kind].param === "color" && th < 0) return null;
+        w = FX[rule.kind].writes(o, th, sc);
+        if (!w) return null;
+        for (k = 0; k < w.clr.length; k++) clr.push(w.clr[k]);
+        for (k = 0; k < w.pnt.length; k++) pnt.push(w.pnt[k]);
+      }
+    }
+    for (k = 0; k < clr.length; k++) out[(clr[k] / sc.W) | 0][clr[k] % sc.W] = sc.bg;
+    for (k = 0; k < pnt.length; k += 2) out[(pnt[k] / sc.W) | 0][pnt[k] % sc.W] = pnt[k + 1];
+    return out;
+  }
+  function runProgram(prog, g) {
+    var cur = g, i;
+    for (i = 0; i < prog.stages.length; i++) { cur = runStage(prog.stages[i], cur); if (cur === null) return null; }
+    return cur;
+  }
+
+  function ruleStr(rule, atomsDesc) {
+    var f = FX[rule.kind];
+    return "[" + (atomsDesc || rule.atoms.map(P.atomStr).join(" & ") || "true") + "] -> " + f.str(rule.th, rule.ref);
+  }
+  function stageStr(st) { return st.parse + "{" + st.rules.map(function (r) { return ruleStr(r); }).join("; ") + "}"; }
+  function progStr(p) { return p.stages.map(stageStr).join(" >> "); }
+
+  /* ------------------------------------------------------------------ one stage */
+  /* pairs: [[I, O], ...] with I,O of equal shape. Returns a list of {stage, uncoveredCells, bits, accounts}. */
+  function learnStage(pairs, parseId, ctx, acct, trace) {
+    var scenes = pairs.map(function (p) { return P.parse(p[0], parseId, "mode"); }), d, s, total = 0;
+    for (d = 0; d < scenes.length; d++) { if (scenes[d].tooMany) return null; total += scenes[d].n; }
+    if (!total || total > MAX_OBJ_TOTAL) return null;
+    /* identical partitions under different parse names are the same representation: perceive once */
+    if (acct._partSeen) {
+      var pk = scenes.map(function (sc9) { return sc9.objs.map(function (o9) { return o9.cells.join(","); }).join(";"); }).join("|") + "#" + pairs.map(function (p9) { return G.gkey(p9[0]); }).join("~");
+      if (acct._partSeen[pk]) { acct.parses_duplicate = (acct.parses_duplicate || 0) + 1; return null; }
+      acct._partSeen[pk] = 1;
+    }
+    var deltas = pairs.map(function (p) { return deltaOf(p[0], p[1]); }), nDelta = 0;
+    deltas.forEach(function (x) { nDelta += x.n; });
+    if (!nDelta) return null;
+    acct.parses_tried++;
+
+    /* ---- abstract execution: which effect kinds can touch the changed cells at all? */
+    var outsideObj = 0, onBgOnly = true, onObjCells = 0, delOnly = true, cell, r, c, kinds;
+    for (d = 0; d < scenes.length; d++) {
+      var sc0 = scenes[d], I = pairs[d][0], O = pairs[d][1];
+      for (r = 0; r < sc0.H; r++) for (c = 0; c < sc0.W; c++) {
+        if (!deltas[d].d[r * sc0.W + c]) continue;
+        if (sc0.at[r * sc0.W + c] < 0) outsideObj++; else onObjCells++;
+        if (I[r][c] !== sc0.bg) onBgOnly = false;
+        if (O[r][c] !== sc0.bg) delOnly = false;
+      }
+    }
+    kinds = Object.keys(FX);
+    var allowed = [];
+    kinds.forEach(function (k) {
+      var drop = false;
+      if (onBgOnly && OWN_KINDS[k] && k !== "move" && k !== "slide") drop = true;          /* only background changes: own-cell effects can't matter */
+      if (!outsideObj && !OWN_KINDS[k] && k !== "copy") drop = true;                         /* nothing changes outside objects: bg-writing effects are moot */
+      if (delOnly && k !== "delete" && k !== "move" && k !== "slide") drop = true;          /* only removals */
+      if (drop) acct.pruned_abstract++; else allowed.push(k);
+    });
+    if (!allowed.length) { acct.parses_pruned++; return null; }
+
+    /* ---- universe and atoms */
+    var U = new P.Universe(scenes), atoms = P.generateAtoms(U);
+    if (atoms.length > 1400) atoms = atoms.slice(0, 1400);
+
+    var uncovered = deltas.map(function (x) { return new Uint8Array(x.d); });
+    /* ---- inverse semantics: effect templates witnessed by the output */
+    var templates = [], tkeys = {};
+    function addT(t) {
+      var key = t.kind + "|" + (t.ref ? P.refKey(t.ref) : JSON.stringify(t.th === undefined ? null : t.th));
+      if (!tkeys[key]) { tkeys[key] = t; t.n = 0; templates.push(t); }
+      tkeys[key].n++;
+    }
+    var refsFor = function (sc, o, col) {
+      var out = [P.lit(col)], k;
+      P.ROLE_NAMES.forEach(function (rn) { if (sc.roles()[rn] === col) out.push({ kind: "role", v: rn }); });
+      P.REL_NAMES.forEach(function (rn) { if (P.REL[rn](sc, o) === col) out.push({ kind: "rel", v: rn }); });
+      return out;
+    };
+    var u, item, fxk, inf, j;
+    for (u = 0; u < U.n; u++) {
+      item = U.items[u]; var scU = scenes[item.s], IU = pairs[item.s][0], OU = pairs[item.s][1];
+      for (j = 0; j < allowed.length; j++) {
+        fxk = allowed[j];
+        if (fxk === "delete") { if (u === 0) addT({ kind: "delete", th: null }); continue; }
+        inf = FX[fxk].infer(item.o, scU, IU, OU);
+        inf.forEach(function (v) {
+          if (FX[fxk].param === "color") {
+            if (v === item.o.color && (fxk === "recolor")) return;               /* no-op recolour is not evidence */
+            refsFor(scU, item.o, v).forEach(function (ref) { addT({ kind: fxk, ref: ref }); });
+            acct.inverse_applied++;
+          } else { addT({ kind: fxk, th: v }); acct.inverse_applied++; }
+        });
+      }
+    }
+    if (!templates.length) return null;
+    /* keep the best-witnessed templates per kind: a vector seen on one object only is a coincidence far more often than a rule */
+    var perKind = {}, kept = [];
+    templates.sort(function (x, y) { return y.n - x.n; });
+    templates.forEach(function (t0) { perKind[t0.kind] = (perKind[t0.kind] || 0) + 1; if (perKind[t0.kind] <= 14) kept.push(t0); });
+    templates = kept;
+    acct.nodes += templates.length;
+
+    /* ---- per-template write sets (cached), then greedy MDL cover */
+    var wcache = templates.map(function () { return new Array(U.n); }), ccache = templates.map(function () { return new Uint8Array(U.n); });
+    templates.forEach(function (t, ti) {
+      for (u = 0; u < U.n; u++) {
+        item = U.items[u]; var sc = scenes[item.s];
+        var th = FX[t.kind].param === "color" ? P.evalRef(t.ref, sc, item.o) : t.th, w = null;
+        if (!(FX[t.kind].param === "color" && th < 0)) w = FX[t.kind].writes(item.o, th, sc);
+        wcache[ti][u] = w;
+        ccache[ti][u] = w && P.consistent(w, sc, pairs[item.s][0], pairs[item.s][1]) ? 1 : 0;
+      }
+    });
+    var handled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta;
+    var uncoveredCount = function () { var n = 0; uncovered.forEach(function (x) { for (var i = 0; i < x.length; i++) n += x[i]; }); return n; };
+    var vsInfo = [];
+    for (iter = 0; iter < MAX_RULES; iter++) {
+      if (ctx && ctx.timed_out()) break;
+      if (!uncoveredCount()) break;
+      var best = null, ti2;
+      for (ti2 = 0; ti2 < templates.length; ti2++) {
+        var pos = Bits.make(U.n), neg = Bits.make(U.n), wts = new Array(U.n), any = false, tot = 0;
+        for (u = 0; u < U.n; u++) {
+          if (ccache[ti2][u]) {
+            var cv = P.coverage(wcache[ti2][u], scenes[U.items[u].s], pairs[U.items[u].s][0], pairs[U.items[u].s][1], uncovered[U.items[u].s]);
+            if (cv > 0) { Bits.set(pos, u); wts[u] = cv; any = true; tot += cv; } else wts[u] = 0;
+          } else { Bits.set(neg, u); wts[u] = 0; }
+        }
+        if (!any) continue;
+        var st = {}, sols = P.learnSelectors(U, atoms, pos, neg, wts, { stats: st });
+        if (acct.diag) acct.diag.push({ parse: parseId, iter: iter, kind: templates[ti2].kind, ref: templates[ti2].ref ? P.refStr(templates[ti2].ref) : JSON.stringify(templates[ti2].th), pos: Bits.count(pos), neg: Bits.count(neg), tot: tot, sols: sols.length, S: st.S, exact: st.exact });
+        acct.vs_member_estimate += st.consistent || 0; acct.vs_collapsed += st.classes || 0;
+        if (!sols.length) continue;
+        /* a rule must be SUPPORTED: seen on at least two objects, in at least two demonstrations when there are two */
+        var sol2 = null, sj;
+        for (sj = 0; sj < sols.length && !sol2; sj++) {
+          var demosHit = {}, nHit = 0;
+          for (u = 0; u < U.n; u++) if (Bits.get(sols[sj].mask, u) && Bits.get(pos, u)) { demosHit[U.items[u].s] = 1; nHit++; }
+          if (nHit >= Math.min(2, total) && Object.keys(demosHit).length >= Math.min(2, pairs.length)) sol2 = sols[sj];
+        }
+        if (!sol2) { if (acct.diag) acct.diag.push({ parse: parseId, iter: iter, kind: templates[ti2].kind, why: "support" }); continue; }
+        var s0 = sol2, tb = FX[templates[ti2].kind].bits(templates[ti2].th, templates[ti2].ref);
+        var gain = s0.w - LAMBDA * (s0.bits + tb + RULE_PENALTY);
+        if (s0.w < 1) continue;
+        if (!best || gain > best.gain) best = { ti: ti2, sol: s0, sols: sols, gain: gain, w: s0.w, tb: tb, st: st };
+      }
+      if (!best) break;
+      var t = templates[best.ti];
+      var rule = { kind: t.kind, th: t.th, ref: t.ref, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }), bits: best.sol.bits + best.tb + RULE_PENALTY,
+                   alt: best.sols.slice(1, 4).map(function (s2) { return { atoms: s2.ids.map(function (i) { return atoms[i].spec; }), bits: s2.bits }; }) };
+      rules.push(rule);
+      vsInfo.push({ vs: best.st.classes || 0, estimate: best.st.consistent || 0 });
+      /* mark selected objects handled and their covered cells explained */
+      for (u = 0; u < U.n; u++) {
+        if (!Bits.get(best.sol.mask, u)) continue;
+        if (!ccache[best.ti][u]) continue;
+        var wr = wcache[best.ti][u], scu = scenes[U.items[u].s], Ou = pairs[U.items[u].s][1], k2, cell2;
+        for (k2 = 0; k2 < wr.pnt.length; k2 += 2) { cell2 = wr.pnt[k2]; if (Ou[(cell2 / scu.W) | 0][cell2 % scu.W] === wr.pnt[k2 + 1]) uncovered[U.items[u].s][cell2] = 0; }
+        for (k2 = 0; k2 < wr.clr.length; k2++) { cell2 = wr.clr[k2]; if (Ou[(cell2 / scu.W) | 0][cell2 % scu.W] === scu.bg) uncovered[U.items[u].s][cell2] = 0; }
+      }
+    }
+    if (!rules.length) return null;
+    var stage = { parse: parseId, bgMode: "mode", rules: rules, bits: 2.0 + rules.reduce(function (a, r2) { return a + r2.bits; }, 0), vs: vsInfo };
+    return { stage: stage, left: uncoveredCount() };
+  }
+
+  /* ------------------------------------------------------------------ the pipeline search */
+  function exactOn(prog, pairs) {
+    var i, p;
+    for (i = 0; i < pairs.length; i++) { p = runProgram(prog, pairs[i][0]); if (!p || !G.gEq(p, pairs[i][1])) return false; }
+    return true;
+  }
+
+  function search(train, testInputs, ctx, acct, trace) {
+    var out = [], near = [], parses = P.PARSES;
+    if (!train.every(function (p) { return p[0].length === p[1].length && p[0][0].length === p[1][0].length; })) return { programs: out, near: near };
+    acct._partSeen = {};
+    function residualCells(inter, pairs) {
+      var after = 0, i2, r2, c2;
+      for (i2 = 0; i2 < pairs.length; i2++) for (r2 = 0; r2 < pairs[i2][0].length; r2++) for (c2 = 0; c2 < pairs[i2][0][0].length; c2++) if (inter[i2][r2][c2] !== pairs[i2][1][r2][c2]) after++;
+      return after;
+    }
+    function before(pairs) {
+      var n = 0, i2, r2, c2;
+      for (i2 = 0; i2 < pairs.length; i2++) for (r2 = 0; r2 < pairs[i2][0].length; r2++) for (c2 = 0; c2 < pairs[i2][0][0].length; c2++) if (pairs[i2][0][r2][c2] !== pairs[i2][1][r2][c2]) n++;
+      return n;
+    }
+    /* depth-first over representations. Every stage tries each parse; stages that leave a residual are ranked by how much
+       they explained and only the best two continue, so the stage tree stays small instead of 5^depth. */
+    function rec(pairs, prefix, depth, bitsSoFar) {
+      var pi, res, prog, inter, cont = [], b0 = before(pairs);
+      for (pi = 0; pi < parses.length; pi++) {
+        if (ctx && ctx.timed_out()) return;
+        res = learnStage(pairs, parses[pi], ctx, acct, trace);
+        if (!res) continue;
+        prog = { stages: prefix.concat([res.stage]), bits: bitsSoFar + res.stage.bits };
+        if (trace) trace.add({ a: "stage", parse: parses[pi], depth: depth, rules: res.stage.rules.length, left: res.left });
+        inter = pairs.map(function (p) { return runStage(res.stage, p[0]); });
+        if (inter.some(function (x) { return x === null; })) continue;
+        var after = residualCells(inter, pairs);
+        if (after === 0) { out.push(prog); continue; }
+        if (after < b0) cont.push({ prog: prog, inter: inter, after: after });
+        else near.push({ prog: prog, residual: after / Math.max(1, b0) });
+      }
+      if (depth + 1 >= MAX_STAGES) { cont.forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); }); return; }
+      cont.sort(function (a, b) { return a.after - b.after; });
+      cont.slice(0, 2).forEach(function (c) {
+        if (ctx && ctx.timed_out()) return;
+        acct.stage_chains++;
+        rec(c.inter.map(function (g2, k2) { return [g2, pairs[k2][1]]; }), c.prog.stages, depth + 1, c.prog.bits);
+      });
+      cont.slice(2).forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); });
+    }
+    rec(train, [], 0, 0);
+    return { programs: out, near: near };
+  }
+
+  /* Leave-one-demonstration-out generalisation: relearn from the other demonstrations and ask whether the held-out one is
+     reproduced exactly. A program that merely memorises its demonstrations cannot pass. Returns the fraction passed. */
+  function looScore(train, ctx, acct, deadlineMs) {
+    if (train.length < 3) return null;
+    var pass = 0, i, held, rest, sub, res, ok, j, p, k;
+    for (i = 0; i < train.length; i++) {
+      if (Date.now() > deadlineMs || (ctx && ctx.timed_out && false)) return pass / train.length * (train.length) / train.length;
+      held = train[i]; rest = train.slice(0, i).concat(train.slice(i + 1));
+      var subCtx = { timed_out: function () { return Date.now() > deadlineMs; } };
+      res = search(rest, [held[0]], subCtx, new P.Accounts(), null);
+      ok = false;
+      res.programs.sort(function (a, b) { return a.bits - b.bits; });
+      for (j = 0; j < Math.min(4, res.programs.length); j++) { p = runProgram(res.programs[j], held[0]); if (p && G.gEq(p, held[1])) { ok = true; break; } }
+      if (ok) pass++;
+    }
+    return pass / train.length;
+  }
+
+  /* ------------------------------------------------------------------ solver family */
+  var _h = mkHyp("psyn");
+  var MODE = { value: "ensemble" };            /* 'off' | 'shadow' | 'ensemble' */
+  var LAST = { acct: null, near: [], trace: null, programs: [] };
+
+  function generate(ctx) {
+    if (MODE.value === "off") return [];
+    var acct = new P.Accounts(), trace = new P.Trace({ ntrain: ctx.train.length });
+    LAST = { acct: acct, near: [], trace: trace, programs: [] };
+    var found;
+    try { found = P.synthesize(ctx.train, ctx.test_inputs, ctx, acct, trace); } catch (e) { LAST.error = String(e && e.stack || e).slice(0, 400); return []; }
+    var store = new P.EStore(acct), hyps = [];
+    found.programs.sort(function (a, b) { return a.rank - b.rank; });
+    found.programs.slice(0, 24).forEach(function (prog) {
+      var key = prog.str;
+      var adm = store.admit(key, function () {
+        var fp = [], i, g;
+        for (i = 0; i < ctx.train.length; i++) { g = prog.run(ctx.train[i][0]); if (!g) return null; fp.push(G.gkey(g)); }
+        for (i = 0; i < ctx.test_inputs.length; i++) { g = prog.run(ctx.test_inputs[i]); fp.push(g ? G.gkey(g) : "x"); }
+        return fp.join("|");
+      }, prog);
+      if (adm.status !== "new") return;
+      var h = _h("psyn:" + key, prog.run, 2.0 + prog.rank / 8.0);
+      h.psyn = { kind: prog.kind, bits: prog.bits };
+      hyps.push(h);
+    });
+    LAST.programs = found.programs; LAST.near = found.near;
+    return hyps;
+  }
+  var mod = defSolver("psyn", "psyn", generate, 1, 1.2);
+  mod.EXTRA = true;                                     /* runs on its own time, added to the task deadline (50-portfolio.js) */
+  mod.DIAG = function () { return LAST.acct ? { accounts: LAST.acct.toJSON(), near: LAST.near.length, error: LAST.error || null } : null; };
+
+  P.ObjFX = { runProgram: runProgram, progStr: progStr, search: search, looScore: looScore, learnStage: learnStage, mode: MODE, last: function () { return LAST; }, module: mod };
+})();
+/* ===== src/66-psyn-extract.js ===== */
+/* Extraction by inverse witness: the output is a piece of the input.
+ *
+ * Forward search would try "crop to the largest object", "crop to the rarest colour" ... and execute each. Here the output
+ * itself names the answer. For every parse (objects of several kinds, and panels between separator lines) the objects whose
+ * crop equals the demonstrated output, optionally after one of the eight symmetries, with the other cells masked to
+ * background, or under a colour map, are the POSITIVES; every other object in that demonstration is a NEGATIVE. The selector
+ * version space (64-psyn-select.js) then returns the conjunctions of atoms that pick exactly the witnessed objects, which
+ * is the only thing left to decide. Nothing is enumerated at the program level.
+ */
+
+(function () {
+  var P = PSYN, Bits = P.Bits, G_ = G;
+  var PARSES_X = ["c4", "c8", "m4", "m8", "col", "pnl"];
+
+  function crop(sc, o, masked) {
+    var g = sc.grid, out = [], r, c, k;
+    for (r = o.r0; r <= o.r1; r++) { var row = []; for (c = o.c0; c <= o.c1; c++) row.push(g[r][c]); out.push(row); }
+    if (masked) {
+      var own = {}; for (k = 0; k < o.cells.length; k++) own[o.cells[k]] = 1;
+      for (r = o.r0; r <= o.r1; r++) for (c = o.c0; c <= o.c1; c++) if (!own[r * sc.W + c]) out[r - o.r0][c - o.c0] = sc.bg;
+    }
+    return out;
+  }
+  function colorMapBetween(a, b) {
+    var m = {}, r, c, x, y;
+    if (a.length !== b.length || a[0].length !== b[0].length) return null;
+    for (r = 0; r < a.length; r++) for (c = 0; c < a[0].length; c++) {
+      x = a[r][c]; y = b[r][c];
+      if (m[x] === undefined) m[x] = y; else if (m[x] !== y) return null;
+    }
+    return m;
+  }
+  function mapKey(m) { var ks = Object.keys(m).filter(function (k) { return m[k] !== +k; }).sort(); return ks.map(function (k) { return k + ">" + m[k]; }).join(","); }
+  function applyMap(g, m) { return g.map(function (row) { return row.map(function (v) { return m[v] === undefined ? v : m[v]; }); }); }
+
+  /* combos a crop can be turned into the output by: [kind, d4 element, colour map string] */
+  function matchesFor(sc, o, O) {
+    var out = [], mk, t, base, tg, m, key;
+    for (mk = 0; mk < 2; mk++) {
+      base = crop(sc, o, mk === 1);
+      if (mk === 1 && o.isRect) continue;                          /* masked == raw for a solid rectangle */
+      for (t = 0; t < 8; t++) {
+        tg = P.d4Apply(t, base);
+        if (tg.length !== O.length || tg[0].length !== O[0].length) continue;
+        if (G.gEq(tg, O)) { out.push((mk ? "masked" : "raw") + "|" + t + "|"); continue; }
+        m = colorMapBetween(tg, O);
+        if (m) { key = mapKey(m); if (key) out.push((mk ? "masked" : "raw") + "|" + t + "|" + key); }
+      }
+    }
+    return out;
+  }
+  function parseMap(s) { var m = {}; if (!s) return m; s.split(",").forEach(function (p) { var q = p.split(">"); m[+q[0]] = +q[1]; }); return m; }
+
+  function apply(prog, g) {
+    var sc = P.parse(g, prog.parse, "mode");
+    if (sc.tooMany || !sc.n) return null;
+    var picked = [], i, o;
+    for (i = 0; i < sc.n; i++) {
+      o = sc.objs[i];
+      var ok = true, j;
+      for (j = 0; j < prog.atoms.length; j++) if (!P.evalAtom(prog.atoms[j], sc, o)) { ok = false; break; }
+      if (ok) picked.push(o);
+    }
+    if (!picked.length) return null;
+    var parts = prog.combo.split("|"), outs = picked.map(function (p) {
+      var c = crop(sc, p, parts[0] === "masked"), t = P.d4Apply(+parts[1], c);
+      return parts[2] ? applyMap(t, parseMap(parts[2])) : t;
+    });
+    /* several objects selected: acceptable only when they give the same output (identical copies) */
+    for (i = 1; i < outs.length; i++) if (!G.gEq(outs[0], outs[i])) return null;
+    return outs[0];
+  }
+  function progStr(p) { return "extract." + p.parse + "{" + (p.atoms.map(P.atomStr).join(" & ") || "true") + "}>" + p.combo; }
+
+  function search(train, testInputs, ctx, acct) {
+    var out = [], pi, d, o;
+    for (pi = 0; pi < PARSES_X.length; pi++) {
+      if (ctx && ctx.timed_out()) break;
+      var parse = PARSES_X[pi], scenes = train.map(function (p) { return P.parse(p[0], parse, "mode"); }), total = 0, skip = false;
+      scenes.forEach(function (sc) { total += sc.n; if (sc.tooMany || !sc.n) skip = true; });
+      if (skip || total > 400) continue;
+      acct.parses_tried++;
+      var U = new P.Universe(scenes), perObj = new Array(U.n), comboCount = {}, u, item;
+      for (u = 0; u < U.n; u++) {
+        item = U.items[u];
+        perObj[u] = matchesFor(scenes[item.s], item.o, train[item.s][1]);
+        perObj[u].forEach(function (k) { comboCount[k] = comboCount[k] || {}; comboCount[k][item.s] = 1; });
+      }
+      var combos = Object.keys(comboCount).filter(function (k) { return Object.keys(comboCount[k]).length === train.length; });
+      if (!combos.length) { acct.parses_pruned++; continue; }
+      acct.inverse_applied += combos.length;
+      var atoms = null;
+      combos.sort(function (a, b) { return (a.split("|")[2] ? 1 : 0) - (b.split("|")[2] ? 1 : 0); });
+      combos.slice(0, 6).forEach(function (combo) {
+        if (ctx && ctx.timed_out()) return;
+        if (!atoms) atoms = P.generateAtoms(U);
+        var pos = Bits.make(U.n), neg = Bits.make(U.n), wts = new Array(U.n), any = false;
+        for (u = 0; u < U.n; u++) { wts[u] = 1; if (perObj[u].indexOf(combo) >= 0) Bits.set(pos, u); else Bits.set(neg, u); }
+        var st = {}, sols = P.learnSelectors(U, atoms, pos, neg, wts, { stats: st, maxSol: 12 });
+        acct.vs_member_estimate += st.consistent || 0; acct.vs_collapsed += st.classes || 0;
+        sols.forEach(function (sol) {
+          /* a selector must pick a witnessed object in EVERY demonstration (coverage of the positives is not enough) */
+          var perScene = {}, ok = true;
+          for (u = 0; u < U.n; u++) if (Bits.get(sol.mask, u) && Bits.get(pos, u)) perScene[U.items[u].s] = 1;
+          if (Object.keys(perScene).length !== train.length) return;
+          var prog = { parse: parse, atoms: sol.ids.map(function (i) { return atoms[i].spec; }), combo: combo, bits: 2.5 + sol.bits + (combo.split("|")[1] !== "0" ? 2.5 : 0) + (combo.split("|")[2] ? 3.5 : 0) + (combo.split("|")[0] === "masked" ? 1.0 : 0) };
+          for (d = 0; d < train.length && ok; d++) { var g = apply(prog, train[d][0]); if (!g || !G.gEq(g, train[d][1])) ok = false; }
+          if (ok) out.push(prog);
+        });
+      });
+      if (out.length >= 10) break;
+    }
+    return { programs: out, near: [] };
+  }
+
+  /* unified entry: every program is {kind, bits, run(grid), str} so the solver family and the tools treat them alike */
+  function synthesize(train, testInputs, ctx, acct, trace) {
+    var out = [], near = [], sameShape = train.every(function (p) { return p[0].length === p[1].length && p[0][0].length === p[1][0].length; });
+    if (sameShape) {
+      var r = P.ObjFX.search(train, testInputs, ctx, acct, trace);
+      near = r.near;
+      var loo = null;
+      if (r.programs.length && train.length >= 3) {
+        var until = Math.min(ctx && ctx.deadline ? ctx.deadline : Infinity, Date.now() + 2500);
+        loo = P.ObjFX.looScore(train, ctx, acct, until);
+      }
+      r.programs.forEach(function (pg) { out.push({ kind: "objfx", bits: pg.bits, loo: loo, rank: pg.bits - (loo === null ? 0 : 14 * (loo - 0.5)), run: function (g) { return P.ObjFX.runProgram(pg, g); }, str: P.ObjFX.progStr(pg), raw: pg }); });
+    }
+    if (!(ctx && ctx.timed_out())) {
+      var e = search(train, testInputs, ctx, acct);
+      e.programs.forEach(function (pg) { out.push({ kind: "extract", bits: pg.bits, rank: pg.bits, run: function (g) { return apply(pg, g); }, str: progStr(pg), raw: pg }); });
+    }
+    return { programs: out, near: near };
+  }
+
+  P.Extract = { search: search, apply: apply, progStr: progStr };
+  P.synthesize = synthesize;
+})();
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */
 
@@ -21540,7 +23344,7 @@ function scoreTask(task, res, k) {
 }
 
 var ENGINE = {
-  SCENE: SCENE, BIDI: BIDI, REDUCE: REDUCE,
+  SCENE: SCENE, BIDI: BIDI, REDUCE: REDUCE, PSYN: PSYN,
   G: G, O: O, OPS: OPS, ENUM: ENUM, LEARN: LEARN, PLANNER: PLANNER, PART: PART,
   PROG: PROG, SYN: SYN, VSPACE: VSPACE, CELLTREE: CELLTREE, CANVASTREE: CANVASTREE,
   PANELTREE: PANELTREE, GROWTREE: GROWTREE, OBJTREE: OBJTREE,

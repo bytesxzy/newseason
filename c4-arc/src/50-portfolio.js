@@ -11,7 +11,7 @@
 var SOLVER_PRIOR = {
   geometry: 0.0, cellwise: 1.0, partition: 0.0, symmetry: 0.0,
   objects: 1.5, tiling: 0.5, colormap: 0.0, select: 1.0,
-  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0
+  compose: 2.5, enumerate: 3.0, sequence: 1.0, typed: 1.0, psyn: 1.5
 };
 
 /* The registration order of engine/portfolio.py::_load_default. Module order
@@ -100,6 +100,7 @@ function _candidates(mod, ctx, stats, validationDeadline) {
   }
   stats.generation_timed_out = ctx.timed_out();
   if (mod.__name__ === 'bidirectional') stats.search = ctx._bidi_stats || null;
+  if (typeof mod.DIAG === "function") { try { stats.extra = mod.DIAG(); } catch (e) { /* diagnostics only */ } }
   stats.elapsed = Math.round((nowMs() - started) / 10) / 100;
   return out;
 }
@@ -427,8 +428,8 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   /* cheap exact machines flagged PRE run first, outside the planner's pool, so
      they neither change how the planner divides time among the other families
      nor wait behind a slice someone else is using */
-  var preMods = [];
-  mods = mods.filter(function (m) { if (m.PRE) { preMods.push(m); return false; } return true; });
+  var preMods = [], extraMods = [];
+  mods = mods.filter(function (m) { if (m.PRE) { preMods.push(m); return false; } if (m.EXTRA) { extraMods.push(m); return false; } return true; });
   var reserve = (loo && ctx.train.length >= 3) ? Math.min(3000, timeBudget * 1000 * 0.15) : 0.0;
   var generationEnd = deadline - reserve - Math.min(200, timeBudget * 1000 * 0.03);
   var phase1 = [], phase2 = [];
@@ -440,18 +441,28 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
     if (now0 >= generationEnd) break;
     order = _harvest(preMods[i], ctx, Math.min(generationEnd, now0 + (preMods[i].MAX_SLICE || 0.5) * 1000), bias, reservoir, order, res);
   }
+  /* EXTRA families (the constrained partial-program synthesiser) run on time of their own: whatever they use is ADDED to the
+     task's deadline, so every other family receives exactly the share it had without them. The extra time is reported. */
+  var extraUsed = 0, tPlan = t0;
+  for (i = 0; i < extraMods.length; i++) {
+    now0 = nowMs();
+    order = _harvest(extraMods[i], ctx, now0 + (extraMods[i].MAX_SLICE || 1.0) * 1000, bias, reservoir, order, res);
+    extraUsed += nowMs() - now0;
+  }
+  if (extraUsed > 0) { deadline += extraUsed; generationEnd += extraUsed; tPlan = t0 + extraUsed; ctx.deadline = deadline; }
+  res.diagnostics.extra_ms = extraUsed;
   var plan = _plannerFor(ctx, res);
   if (plan !== null) {
-    order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, t0, generationEnd);
+    order = _plannedGeneration(ctx, res, plan, phase1, phase2, bias, reservoir, order, tPlan, generationEnd);
   } else {
-    var p1End = t0 + (generationEnd - t0) * (phase2.length ? 0.45 : 1.0);
-    var share1 = (p1End - t0) / Math.max(1, phase1.length);
+    var p1End = tPlan + (generationEnd - tPlan) * (phase2.length ? 0.45 : 1.0);
+    var share1 = (p1End - tPlan) / Math.max(1, phase1.length);
     var all = phase1.concat(phase2), moduleEnd, now, remaining;
     for (i = 0; i < all.length; i++) {
       now = nowMs();
       if (now >= generationEnd) break;
       if (i < phase1.length)
-        moduleEnd = Math.min(generationEnd, Math.max(now + share1 * 0.5, t0 + share1 * (i + 1)));
+        moduleEnd = Math.min(generationEnd, Math.max(now + share1 * 0.5, tPlan + share1 * (i + 1)));
       else {
         remaining = all.length - i;
         moduleEnd = Math.min(generationEnd, now + (generationEnd - now) / remaining);
@@ -635,7 +646,7 @@ function solveInner(train, testInputs, timeBudget, k, loo, modules, collectAll) 
   res.solver = null;
   for (i = 0; i < res.chosen.length; i++) if (res.chosen[i]) { res.solver = res.chosen[i][0]; break; }
   res.elapsed = (nowMs() - t0) / 1000;
-  res.diagnostics.timed_out = res.elapsed > timeBudget;
+  res.diagnostics.timed_out = res.elapsed > timeBudget + extraUsed / 1000;
   var ranNames = new Set(res.diagnostics.modules.map(function (m) { return m.module; }));
   res.diagnostics.unrun_modules = mods.filter(function (m) { return !ranNames.has(_moduleKey(m)); }).length;
   return res;
