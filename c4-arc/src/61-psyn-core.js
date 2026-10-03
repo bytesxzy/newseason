@@ -351,7 +351,15 @@ var PSYN = (function () {
   Trace.prototype.add = function (e) { e.t = Date.now() - this.t0; this.events.push(e); if (this.events.length > 4000) this.events.shift(); };
   Trace.prototype.close = function (outcome) { this.outcome = outcome; return this; };
 
+  /* Ablation switches. In Node: PSYN_OFF=value,sched,kind,macro,fam,loo,transduce,extract,partmap,roles,relations,multiparse,stages,union
+     (comma separated). Programmatic: PSYN.setOff([...]). Used only to measure what each mechanism contributes. */
+  var OFF = {};
+  if (typeof process !== "undefined" && process.env && process.env.PSYN_OFF) process.env.PSYN_OFF.split(",").forEach(function (k) { if (k) OFF[k] = 1; });
+  function off(name) { return !!OFF[name]; }
+  function setOff(list) { OFF = {}; (list || []).forEach(function (k) { OFF[k] = 1; }); }
+
   return {
+    off: off, setOff: setOff,
     Accounts: Accounts, Bits: Bits, Dom: Dom, Hole: Hole, Node: Node, PP: PP, EStore: EStore, NearMiss: NearMiss, Trace: Trace,
     isHole: isHole, isNode: isNode, render: render, canon: canon, d4Compose: d4Compose, d4Apply: d4Apply, d4Index: d4Index,
     rules: RULES, pixelResidual: pixelResidual, D4_NAMES: D4_NAMES

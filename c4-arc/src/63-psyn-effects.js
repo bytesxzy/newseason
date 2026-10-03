@@ -304,6 +304,58 @@
     bits: function (th) { return 2.5 + (th.col < 0 ? 0.5 : 3.4); }, str: function (th) { return "ray." + DIRN[th.d] + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
   };
 
+  /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,
+     left/right half, border versus interior, ring depth, number of in-object neighbours). The output fixes that function
+     cell by cell; the inverse returns it as a table. */
+  var PART_FEATURES = ["vhalf", "hhalf", "border", "ring", "nbrs", "rowpar", "colpar"];
+  function partValue(f, o, sc, k, own) {
+    var r = (k / sc.W) | 0, c = k - r * sc.W, rr = r - o.r0, cc = c - o.c0;
+    switch (f) {
+      case "vhalf": return 2 * rr + 1 < o.h ? 0 : (2 * rr + 1 > o.h ? 1 : 2);
+      case "hhalf": return 2 * cc + 1 < o.w ? 0 : (2 * cc + 1 > o.w ? 1 : 2);
+      case "rowpar": return rr & 1;
+      case "colpar": return cc & 1;
+      default: {
+        var n = 0, d;
+        for (d = 0; d < 4; d++) { var nr = r + D4v[d][0], nc = c + D4v[d][1]; if (inb(sc, nr, nc) && own[nr * sc.W + nc]) n++; }
+        if (f === "nbrs") return n;
+        if (f === "border") return n < 4 ? 1 : 0;
+        /* ring: 0 on the boundary, 1 one step in, 2 deeper */
+        if (n < 4) return 0;
+        var d8 = 0; for (d = 0; d < 8; d++) { var mr = r + D4v[d][0], mc = c + D4v[d][1]; if (!inb(sc, mr, mc) || !own[mr * sc.W + mc]) d8++; }
+        return d8 ? 1 : 2;
+      }
+    }
+  }
+  function ownSet(o) { var own = {}, i; for (i = 0; i < o.cells.length; i++) own[o.cells[i]] = 1; return own; }
+  FX.partmap = {
+    name: "partmap", param: "map", own: true, facts: { addsColors: true },
+    writes: function (o, th, sc) {
+      var w = W(), own = ownSet(o), i, v, t;
+      for (i = 0; i < o.cells.length; i++) { v = partValue(th.f, o, sc, o.cells[i], own); t = th.map[v]; if (t !== undefined && t !== sc.grid[(o.cells[i] / sc.W) | 0][o.cells[i] % sc.W]) w.pnt.push(o.cells[i], t); }
+      return w;
+    },
+    infer: function (o, sc, I, O) {
+      if (o.size < 2) return [];
+      var own = ownSet(o), out = [], fi, f, m, i, k, r, c, v, ok, changed;
+      for (fi = 0; fi < PART_FEATURES.length; fi++) {
+        f = PART_FEATURES[fi]; m = {}; ok = true; changed = 0;
+        for (i = 0; i < o.cells.length && ok; i++) {
+          k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W; v = partValue(f, o, sc, k, own);
+          if (m[v] === undefined) m[v] = O[r][c]; else if (m[v] !== O[r][c]) ok = false;
+        }
+        if (!ok) continue;
+        /* keep only the values whose colour actually changes; at least two distinct values must exist (otherwise it is a plain recolour) */
+        var vals = Object.keys(m), ch = {}, nCh = 0, nVals = vals.length;
+        for (i = 0; i < o.cells.length; i++) { k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W; v = partValue(f, o, sc, k, own); if (I[r][c] !== m[v]) { ch[v] = m[v]; } }
+        nCh = Object.keys(ch).length;
+        if (nCh && nVals >= 2 && nCh < nVals + 0.5) out.push({ f: f, map: ch });
+      }
+      return out;
+    },
+    bits: function (th) { return 2.5 + 3.4 * Object.keys(th.map).length; }, str: function (th) { return "partmap." + th.f + "(" + Object.keys(th.map).map(function (k) { return k + ">" + th.map[k]; }).join(",") + ")"; }
+  };
+
   /* ------------------------------------------------------------------ consistency with the demonstrated output */
   /* A write set is consistent with the output when every painted cell shows the painted colour and every cleared cell
      shows background (or something else, which another rule may have painted). Exact verification runs afterwards. */

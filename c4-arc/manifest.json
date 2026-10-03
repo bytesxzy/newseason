@@ -75,5 +75,8 @@
   "64-psyn-select.js",
   "65-psyn-learn.js",
   "66-psyn-extract.js",
+  "67-psyn-learned.js",
+  "68-psyn-policy.js",
+  "69-psyn-transduce.js",
   "90-engine.js"
 ]

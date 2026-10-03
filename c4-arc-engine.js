@@ -21868,7 +21868,15 @@ var PSYN = (function () {
   Trace.prototype.add = function (e) { e.t = Date.now() - this.t0; this.events.push(e); if (this.events.length > 4000) this.events.shift(); };
   Trace.prototype.close = function (outcome) { this.outcome = outcome; return this; };
 
+  /* Ablation switches. In Node: PSYN_OFF=value,sched,kind,macro,fam,loo,transduce,extract,partmap,roles,relations,multiparse,stages,union
+     (comma separated). Programmatic: PSYN.setOff([...]). Used only to measure what each mechanism contributes. */
+  var OFF = {};
+  if (typeof process !== "undefined" && process.env && process.env.PSYN_OFF) process.env.PSYN_OFF.split(",").forEach(function (k) { if (k) OFF[k] = 1; });
+  function off(name) { return !!OFF[name]; }
+  function setOff(list) { OFF = {}; (list || []).forEach(function (k) { OFF[k] = 1; }); }
+
   return {
+    off: off, setOff: setOff,
     Accounts: Accounts, Bits: Bits, Dom: Dom, Hole: Hole, Node: Node, PP: PP, EStore: EStore, NearMiss: NearMiss, Trace: Trace,
     isHole: isHole, isNode: isNode, render: render, canon: canon, d4Compose: d4Compose, d4Apply: d4Apply, d4Index: d4Index,
     rules: RULES, pixelResidual: pixelResidual, D4_NAMES: D4_NAMES
@@ -22482,6 +22490,58 @@ var PSYN = (function () {
     bits: function (th) { return 2.5 + (th.col < 0 ? 0.5 : 3.4); }, str: function (th) { return "ray." + DIRN[th.d] + "(" + (th.col < 0 ? "self" : th.col) + ")"; }
   };
 
+  /* Intra-object structure: the colour of a cell is a function of where it sits INSIDE its object (top/bottom half,
+     left/right half, border versus interior, ring depth, number of in-object neighbours). The output fixes that function
+     cell by cell; the inverse returns it as a table. */
+  var PART_FEATURES = ["vhalf", "hhalf", "border", "ring", "nbrs", "rowpar", "colpar"];
+  function partValue(f, o, sc, k, own) {
+    var r = (k / sc.W) | 0, c = k - r * sc.W, rr = r - o.r0, cc = c - o.c0;
+    switch (f) {
+      case "vhalf": return 2 * rr + 1 < o.h ? 0 : (2 * rr + 1 > o.h ? 1 : 2);
+      case "hhalf": return 2 * cc + 1 < o.w ? 0 : (2 * cc + 1 > o.w ? 1 : 2);
+      case "rowpar": return rr & 1;
+      case "colpar": return cc & 1;
+      default: {
+        var n = 0, d;
+        for (d = 0; d < 4; d++) { var nr = r + D4v[d][0], nc = c + D4v[d][1]; if (inb(sc, nr, nc) && own[nr * sc.W + nc]) n++; }
+        if (f === "nbrs") return n;
+        if (f === "border") return n < 4 ? 1 : 0;
+        /* ring: 0 on the boundary, 1 one step in, 2 deeper */
+        if (n < 4) return 0;
+        var d8 = 0; for (d = 0; d < 8; d++) { var mr = r + D4v[d][0], mc = c + D4v[d][1]; if (!inb(sc, mr, mc) || !own[mr * sc.W + mc]) d8++; }
+        return d8 ? 1 : 2;
+      }
+    }
+  }
+  function ownSet(o) { var own = {}, i; for (i = 0; i < o.cells.length; i++) own[o.cells[i]] = 1; return own; }
+  FX.partmap = {
+    name: "partmap", param: "map", own: true, facts: { addsColors: true },
+    writes: function (o, th, sc) {
+      var w = W(), own = ownSet(o), i, v, t;
+      for (i = 0; i < o.cells.length; i++) { v = partValue(th.f, o, sc, o.cells[i], own); t = th.map[v]; if (t !== undefined && t !== sc.grid[(o.cells[i] / sc.W) | 0][o.cells[i] % sc.W]) w.pnt.push(o.cells[i], t); }
+      return w;
+    },
+    infer: function (o, sc, I, O) {
+      if (o.size < 2) return [];
+      var own = ownSet(o), out = [], fi, f, m, i, k, r, c, v, ok, changed;
+      for (fi = 0; fi < PART_FEATURES.length; fi++) {
+        f = PART_FEATURES[fi]; m = {}; ok = true; changed = 0;
+        for (i = 0; i < o.cells.length && ok; i++) {
+          k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W; v = partValue(f, o, sc, k, own);
+          if (m[v] === undefined) m[v] = O[r][c]; else if (m[v] !== O[r][c]) ok = false;
+        }
+        if (!ok) continue;
+        /* keep only the values whose colour actually changes; at least two distinct values must exist (otherwise it is a plain recolour) */
+        var vals = Object.keys(m), ch = {}, nCh = 0, nVals = vals.length;
+        for (i = 0; i < o.cells.length; i++) { k = o.cells[i]; r = (k / sc.W) | 0; c = k - r * sc.W; v = partValue(f, o, sc, k, own); if (I[r][c] !== m[v]) { ch[v] = m[v]; } }
+        nCh = Object.keys(ch).length;
+        if (nCh && nVals >= 2 && nCh < nVals + 0.5) out.push({ f: f, map: ch });
+      }
+      return out;
+    },
+    bits: function (th) { return 2.5 + 3.4 * Object.keys(th.map).length; }, str: function (th) { return "partmap." + th.f + "(" + Object.keys(th.map).map(function (k) { return k + ">" + th.map[k]; }).join(",") + ")"; }
+  };
+
   /* ------------------------------------------------------------------ consistency with the demonstrated output */
   /* A write set is consistent with the output when every painted cell shows the painted colour and every cleared cell
      shows background (or something else, which another rule may have painted). Exact verification runs afterwards. */
@@ -22561,10 +22621,19 @@ var PSYN = (function () {
     commonColor: function (sc, o) { return o.color === sc.roles().mostObjs; },
     commonShape: function (sc, o) { var f = sc.freq().shape, m = 0, k; for (k in f) if (f[k] > m) m = f[k]; return m > 1 && f[o.shapeKey] === m; },
     centerRow: function (sc, o) { return o.cr2 === sc.H - 1; },
-    centerCol: function (sc, o) { return o.cc2 === sc.W - 1; }
+    centerCol: function (sc, o) { return o.cc2 === sc.W - 1; },
+    touchTop: function (sc, o) { return o.r0 === 0; },
+    touchBottom: function (sc, o) { return o.r1 === sc.H - 1; },
+    touchLeft: function (sc, o) { return o.c0 === 0; },
+    touchRight: function (sc, o) { return o.c1 === sc.W - 1; },
+    upperHalf: function (sc, o) { return o.cr2 < sc.H - 1; },
+    lowerHalf: function (sc, o) { return o.cr2 > sc.H - 1; },
+    leftHalf: function (sc, o) { return o.cc2 < sc.W - 1; },
+    rightHalf: function (sc, o) { return o.cc2 > sc.W - 1; }
   };
   var GEN_BOOLS = ["border", "rect", "line", "single", "mixed", "hasHoles", "sym", "separator", "isolated", "enclosed", "encloses", "largest", "smallest", "tallest", "widest", "top", "bottom", "left", "right",
-                   "mostHoles", "uniqColor", "uniqShape", "uniqD4", "uniqSize", "uniqContent", "commonColor", "commonShape", "commonContent", "emptyBox"];
+                   "mostHoles", "uniqColor", "uniqShape", "uniqD4", "uniqSize", "uniqContent", "commonColor", "commonShape", "commonContent", "emptyBox",
+                   "touchTop", "touchBottom", "touchLeft", "touchRight", "upperHalf", "lowerHalf", "leftHalf", "rightHalf"];
   function flipKey(o) {
     /* shape key of the horizontal mirror image, to test left-right symmetry */
     var pts = o.shapeKey.split(":")[1].split(";").map(function (s) { var p = s.split("."); return [+p[0], o.w - 1 - +p[1]]; });
@@ -22577,6 +22646,15 @@ var PSYN = (function () {
     for (i = 0; i < sc.n; i++) { if (i === o.id) continue; x = sc.objs[i]; if (sc.isSeparator(x)) continue; kv = key(x); if (wantMax ? kv >= v : kv <= v) return false; }
     return true;
   }
+  /* rank of an object among the scene's content objects along one key (0 = first); ties share a rank */
+  function rankOf(sc, o, key, desc) {
+    var v = key(o), n = 0, i, x;
+    for (i = 0; i < sc.n; i++) { x = sc.objs[i]; if (x === o || sc.isSeparator(x)) continue; if (desc ? key(x) > v : key(x) < v) n++; }
+    return n;
+  }
+  var RANKS = { rkSize: function (sc, o) { return rankOf(sc, o, function (x) { return x.size; }, true); }, rkSizeUp: function (sc, o) { return rankOf(sc, o, function (x) { return x.size; }, false); },
+                rkLeft: function (sc, o) { return rankOf(sc, o, function (x) { return x.c0; }, false); }, rkRight: function (sc, o) { return rankOf(sc, o, function (x) { return x.c1; }, true); },
+                rkTop: function (sc, o) { return rankOf(sc, o, function (x) { return x.r0; }, false); }, rkBottom: function (sc, o) { return rankOf(sc, o, function (x) { return x.r1; }, true); } };
   var UNARY_NUM = { size: function (o) { return o.size; }, h: function (o) { return o.h; }, w: function (o) { return o.w; }, holes: function (o) { return o.holes; },
                     nbg: function (o) { return o.nbg; }, ncol: function (o) { var m = o.colorsMask, n = 0; while (m) { n += m & 1; m >>= 1; } return n; } };
 
@@ -22585,7 +22663,8 @@ var PSYN = (function () {
       case "col": return o.color === a.v;
       case "has": return (o.colorsMask & (1 << a.v)) !== 0;
       case "colrole": { var r = sc.roles()[a.v]; return r !== undefined && r >= 0 && o.color === r; }
-      case "num": { var x = UNARY_NUM[a.f](o); return a.op === "==" ? x === a.v : a.op === ">=" ? x >= a.v : x <= a.v; }
+      case "num": { var x = RANKS[a.f] ? RANKS[a.f](sc, o) : UNARY_NUM[a.f](o); return a.op === "==" ? x === a.v : a.op === ">=" ? x >= a.v : x <= a.v; }
+      case "rk": return RANKS[a.f](sc, o) === a.v;
       case "bool": return !!BOOLS[a.v](sc, o);
       case "shape": return o.shapeKey === a.v;
       case "d4": return o.d4Key === a.v;
@@ -22641,6 +22720,7 @@ var PSYN = (function () {
       case "has": return "has" + a.v;
       case "colrole": return "color=role." + a.v;
       case "num": return a.f + a.op + a.v;
+      case "rk": return a.f + "=" + a.v;
       case "bool": return a.v;
       case "shape": return "shape#" + a.v.length + a.v.slice(0, 14);
       case "d4": return "d4shape#" + a.v.length;
@@ -22659,6 +22739,7 @@ var PSYN = (function () {
       case "has": return 3.6;
       case "colrole": return 3.0;
       case "num": return 3.6;
+      case "rk": return 3.0;
       case "bool": return 2.4;
       case "shape": case "d4": return 5.0;
       case "freq": return 3.8;
@@ -22688,7 +22769,9 @@ var PSYN = (function () {
       if (a.t === "rel") key = "rel" + a.rel + "|" + (a.p.t === "shape" || a.p.t === "d4" ? a.p.t + a.p.v : predStr(a.p));
       if (a.t === "not") key = "not" + (a.a.t === "shape" || a.a.t === "d4" ? a.a.t + a.a.v : atomStr(a.a));
       if (seen[key]) return;
-      seen[key] = 1; atoms.push({ spec: a, bits: atomBits(a), name: atomStr(a) });
+      seen[key] = 1;
+      var shift = (P.Policy && P.atomFamily) ? P.Policy.atomShift(P.atomFamily(a)) : 0;
+      atoms.push({ spec: a, bits: Math.max(0.8, atomBits(a) + shift), name: atomStr(a) });
     }
     var allColors = {}, colors = {}, sizes = {}, hs = {}, ws = {}, shapes = {}, d4s = {}, holes = {}, nbgs = {}, ncols = {}, freqs = { color: {}, shape: {}, d4: {}, size: {} }, roleNames = {};
     for (i = 0; i < items.length; i++) {
@@ -22702,13 +22785,14 @@ var PSYN = (function () {
     var c;
     for (c in colors) add({ t: "col", v: +c });
     for (c in allColors) add({ t: "has", v: +c });
-    for (k in roleNames) if (k !== "bg") add({ t: "colrole", v: k });
+    if (!P.off("roles")) for (k in roleNames) if (k !== "bg") add({ t: "colrole", v: k });
     function nums(f, set) {
       var vals = Object.keys(set).map(Number).sort(function (a, b) { return a - b; }), j;
       if (vals.length > 14) vals = vals.filter(function (v, j2) { return j2 % Math.ceil(vals.length / 14) === 0; });
       for (j = 0; j < vals.length; j++) { add({ t: "num", f: f, op: "==", v: vals[j] }); if (j > 0) add({ t: "num", f: f, op: ">=", v: vals[j] }); if (j < vals.length - 1) add({ t: "num", f: f, op: "<=", v: vals[j] }); }
     }
     nums("size", sizes); nums("nbg", nbgs); nums("h", hs); nums("w", ws); nums("holes", holes);
+    ["rkSize", "rkSizeUp", "rkLeft", "rkRight", "rkTop", "rkBottom"].forEach(function (f) { [0, 1, 2].forEach(function (v) { add({ t: "rk", f: f, v: v }); }); });
     for (k in shapes) add({ t: "shape", v: k });
     for (k in d4s) add({ t: "d4", v: k });
     GEN_BOOLS.forEach(function (b) { var a = { t: "bool", v: b }; add(a); add({ t: "not", a: a }); });
@@ -22719,7 +22803,7 @@ var PSYN = (function () {
     var preds = [{ t: "diffColor" }, { t: "sameColor" }, { t: "sameShape" }, { t: "sameD4" }, { t: "bigger" }, { t: "smaller" }, { t: "any" }, { t: "bool", v: "single" }, { t: "bool", v: "line" }, { t: "bool", v: "rect" }];
     for (c in colors) preds.push({ t: "col", v: +c });
     for (k in roleNames) if (k !== "bg") preds.push({ t: "colrole", v: k });
-    ["adj", "encl", "inside", "near", "panel", "row", "col"].forEach(function (rel) {
+    (P.off("relations") ? [] : ["adj", "encl", "inside", "near", "panel", "row", "col"]).forEach(function (rel) {
       preds.forEach(function (p) {
         if (rel === "encl" && p.t === "any") return;
         add({ t: "rel", rel: rel, p: p });
@@ -22864,8 +22948,8 @@ var PSYN = (function () {
 (function () {
   var P = PSYN, FX = P.FX, Bits = P.Bits;
   var COLOR_KINDS = ["recolor", "fillbox", "fillholes", "halo8", "halo4"];
-  var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1 };       /* touch the object's own cells */
-  var MAX_RULES = 4, MAX_STAGES = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6;
+  var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1, partmap: 1 };       /* touch the object's own cells */
+  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6;
 
   function deltaOf(I, O) {
     var H = I.length, W = I[0].length, d = new Uint8Array(H * W), n = 0, r, c;
@@ -22892,9 +22976,13 @@ var PSYN = (function () {
       o = sc.objs[i];
       /* union semantics: EVERY rule whose selector matches applies. Each learned rule is consistent with the output on its
          own, so the union of their writes is consistent too and there is nothing to arbitrate between rules. */
+      var ownDone = false;
       for (j = 0; j < stage.rules.length; j++) {
         rule = stage.rules[j];
         if (!matches(rule, sc, o)) continue;
+        /* an object has one fate: at most one effect that rewrites its own cells (first rule wins); effects that only add
+           cells elsewhere (halo, fill, ray, copy) stack freely */
+        if (OWN_KINDS[rule.kind]) { if (ownDone) continue; ownDone = true; }
         th = thetaOf(rule, sc, o);
         if (FX[rule.kind].param === "color" && th < 0) return null;
         w = FX[rule.kind].writes(o, th, sc);
@@ -22949,9 +23037,11 @@ var PSYN = (function () {
       }
     }
     kinds = Object.keys(FX);
-    var allowed = [];
+    var allowed = [], feat = acct._feat || null;
     kinds.forEach(function (k) {
       var drop = false;
+      /* the learned operator proposer: kinds that essentially never appear in correct programs for tasks like this one */
+      if (feat && P.Policy && !P.Policy.keepKind(feat, k)) { acct.pruned_learned = (acct.pruned_learned || 0) + 1; return; }
       if (onBgOnly && OWN_KINDS[k] && k !== "move" && k !== "slide") drop = true;          /* only background changes: own-cell effects can't matter */
       if (!outsideObj && !OWN_KINDS[k] && k !== "copy") drop = true;                         /* nothing changes outside objects: bg-writing effects are moot */
       if (delOnly && k !== "delete" && k !== "move" && k !== "slide") drop = true;          /* only removals */
@@ -22973,8 +23063,8 @@ var PSYN = (function () {
     }
     var refsFor = function (sc, o, col) {
       var out = [P.lit(col)], k;
-      P.ROLE_NAMES.forEach(function (rn) { if (sc.roles()[rn] === col) out.push({ kind: "role", v: rn }); });
-      P.REL_NAMES.forEach(function (rn) { if (P.REL[rn](sc, o) === col) out.push({ kind: "rel", v: rn }); });
+      if (!P.off("roles")) P.ROLE_NAMES.forEach(function (rn) { if (sc.roles()[rn] === col) out.push({ kind: "role", v: rn }); });
+      if (!P.off("relations")) P.REL_NAMES.forEach(function (rn) { if (P.REL[rn](sc, o) === col) out.push({ kind: "rel", v: rn }); });
       return out;
     };
     var u, item, fxk, inf, j;
@@ -22993,6 +23083,16 @@ var PSYN = (function () {
         });
       }
     }
+    /* objects of different sizes witness different parts of one position table: merge non-conflicting tables per feature */
+    (function () {
+      var byF = {}, merged;
+      templates.forEach(function (t0) { if (t0.kind === "partmap") (byF[t0.th.f] = byF[t0.th.f] || []).push(t0); });
+      Object.keys(byF).forEach(function (f) {
+        var union = {}, ok = true, n = 0;
+        byF[f].forEach(function (t0) { Object.keys(t0.th.map).forEach(function (v) { if (union[v] === undefined) union[v] = t0.th.map[v]; else if (union[v] !== t0.th.map[v]) ok = false; }); n += t0.n; });
+        if (ok && byF[f].length > 1) { merged = { kind: "partmap", th: { f: f, map: union } }; var before = templates.length; addT(merged); if (templates.length > before) merged.n = n; }
+      });
+    })();
     if (!templates.length) return null;
     /* keep the best-witnessed templates per kind: a vector seen on one object only is a coincidence far more often than a rule */
     var perKind = {}, kept = [];
@@ -23012,7 +23112,7 @@ var PSYN = (function () {
         ccache[ti][u] = w && P.consistent(w, sc, pairs[item.s][0], pairs[item.s][1]) ? 1 : 0;
       }
     });
-    var handled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta;
+    var ownHandled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta;
     var uncoveredCount = function () { var n = 0; uncovered.forEach(function (x) { for (var i = 0; i < x.length; i++) n += x[i]; }); return n; };
     var vsInfo = [];
     for (iter = 0; iter < MAX_RULES; iter++) {
@@ -23021,7 +23121,9 @@ var PSYN = (function () {
       var best = null, ti2;
       for (ti2 = 0; ti2 < templates.length; ti2++) {
         var pos = Bits.make(U.n), neg = Bits.make(U.n), wts = new Array(U.n), any = false, tot = 0;
+        var ownKind = !!OWN_KINDS[templates[ti2].kind];
         for (u = 0; u < U.n; u++) {
+          if (ownKind && ownHandled[u]) { Bits.set(neg, u); wts[u] = 0; continue; }
           if (ccache[ti2][u]) {
             var cv = P.coverage(wcache[ti2][u], scenes[U.items[u].s], pairs[U.items[u].s][0], pairs[U.items[u].s][1], uncovered[U.items[u].s]);
             if (cv > 0) { Bits.set(pos, u); wts[u] = cv; any = true; tot += cv; } else wts[u] = 0;
@@ -23047,13 +23149,14 @@ var PSYN = (function () {
       }
       if (!best) break;
       var t = templates[best.ti];
-      var rule = { kind: t.kind, th: t.th, ref: t.ref, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }), bits: best.sol.bits + best.tb + RULE_PENALTY,
+      var rule = { kind: t.kind, th: t.th, ref: t.ref, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }), bits: Math.max(1, best.sol.bits + best.tb + RULE_PENALTY - (P.Policy ? P.Policy.macroBonus(P.ruleSig({ kind: t.kind, ref: t.ref, th: t.th, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }) })) : 0)),
                    alt: best.sols.slice(1, 4).map(function (s2) { return { atoms: s2.ids.map(function (i) { return atoms[i].spec; }), bits: s2.bits }; }) };
       rules.push(rule);
       vsInfo.push({ vs: best.st.classes || 0, estimate: best.st.consistent || 0 });
       /* mark selected objects handled and their covered cells explained */
       for (u = 0; u < U.n; u++) {
         if (!Bits.get(best.sol.mask, u)) continue;
+        if (OWN_KINDS[t.kind]) ownHandled[u] = 1;
         if (!ccache[best.ti][u]) continue;
         var wr = wcache[best.ti][u], scu = scenes[U.items[u].s], Ou = pairs[U.items[u].s][1], k2, cell2;
         for (k2 = 0; k2 < wr.pnt.length; k2 += 2) { cell2 = wr.pnt[k2]; if (Ou[(cell2 / scu.W) | 0][cell2 % scu.W] === wr.pnt[k2 + 1]) uncovered[U.items[u].s][cell2] = 0; }
@@ -23076,6 +23179,8 @@ var PSYN = (function () {
     var out = [], near = [], parses = P.PARSES;
     if (!train.every(function (p) { return p[0].length === p[1].length && p[0][0].length === p[1][0].length; })) return { programs: out, near: near };
     acct._partSeen = {};
+    acct._feat = acct._feat || P.taskFeatures(train);
+    if (P.Policy) parses = P.Policy.parseOrder(acct._feat, parses);
     function residualCells(inter, pairs) {
       var after = 0, i2, r2, c2;
       for (i2 = 0; i2 < pairs.length; i2++) for (r2 = 0; r2 < pairs[i2][0].length; r2++) for (c2 = 0; c2 < pairs[i2][0][0].length; c2++) if (inter[i2][r2][c2] !== pairs[i2][1][r2][c2]) after++;
@@ -23103,7 +23208,7 @@ var PSYN = (function () {
         if (after < b0) cont.push({ prog: prog, inter: inter, after: after });
         else near.push({ prog: prog, residual: after / Math.max(1, b0) });
       }
-      if (depth + 1 >= MAX_STAGES) { cont.forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); }); return; }
+      if (depth + 1 >= (P.off("stages") ? 1 : MAX_STAGES_DEFAULT)) { cont.forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); }); return; }
       cont.sort(function (a, b) { return a.after - b.after; });
       cont.slice(0, 2).forEach(function (c) {
         if (ctx && ctx.timed_out()) return;
@@ -23136,13 +23241,21 @@ var PSYN = (function () {
 
   /* ------------------------------------------------------------------ solver family */
   var _h = mkHyp("psyn");
-  var MODE = { value: "ensemble" };            /* 'off' | 'shadow' | 'ensemble' */
+  var MODE = { value: "ensemble" };            /* 'off' | 'ensemble' (Node: PSYN_MODE=off disables the family for ablations) */
+  if (typeof process !== "undefined" && process.env && process.env.PSYN_MODE) MODE.value = process.env.PSYN_MODE;
   var LAST = { acct: null, near: [], trace: null, programs: [] };
 
   function generate(ctx) {
     if (MODE.value === "off") return [];
     var acct = new P.Accounts(), trace = new P.Trace({ ntrain: ctx.train.length });
     LAST = { acct: acct, near: [], trace: trace, programs: [] };
+    /* compute scheduler: skip the synthesiser on tasks where, per the trained scheduler, it essentially never produces a right program */
+    if (P.Policy && P.Policy.loaded && P.Policy.enabled && P.Policy.solveW && !P.off("sched")) {
+      var pf0 = P.taskFeatures(ctx.train), ps0 = P.Policy.solveProb(pf0);
+      LAST.sched = { p: ps0 };
+      if (ps0 < (P.Policy.solveFloor || 0)) { LAST.sched.skipped = true; P.Policy.stats.skippedTasks++; return []; }
+      acct._feat = pf0;
+    }
     var found;
     try { found = P.synthesize(ctx.train, ctx.test_inputs, ctx, acct, trace); } catch (e) { LAST.error = String(e && e.stack || e).slice(0, 400); return []; }
     var store = new P.EStore(acct), hyps = [];
@@ -23285,6 +23398,17 @@ var PSYN = (function () {
     return { programs: out, near: [] };
   }
 
+  /* ranking score (lower is better): description length plus a generalisation penalty. With a trained value function the penalty is
+     32 * (1 - P(correct)) bits; otherwise it is driven by the leave-one-out score alone. */
+  function rankOf(pg, loo, nTrain, bits) {
+    var base = bits + (loo === null ? 16 : 32 * (1 - loo));
+    if (P.Policy && P.Policy.loaded && P.Policy.enabled && P.Policy.valueW) {
+      var pr = P.Policy.valueProb(P.programFeatures(pg, { loo: loo, nTrain: nTrain }));
+      if (pr !== null) return bits * 0.5 + 32 * (1 - pr);
+    }
+    return base;
+  }
+
   /* unified entry: every program is {kind, bits, run(grid), str} so the solver family and the tools treat them alike */
   function synthesize(train, testInputs, ctx, acct, trace) {
     var out = [], near = [], sameShape = train.every(function (p) { return p[0].length === p[1].length && p[0][0].length === p[1][0].length; });
@@ -23292,13 +23416,34 @@ var PSYN = (function () {
       var r = P.ObjFX.search(train, testInputs, ctx, acct, trace);
       near = r.near;
       var loo = null;
-      if (r.programs.length && train.length >= 3) {
+      if (r.programs.length && train.length >= 3 && !P.off("loo")) {
         var until = Math.min(ctx && ctx.deadline ? ctx.deadline : Infinity, Date.now() + 2500);
         loo = P.ObjFX.looScore(train, ctx, acct, until);
       }
-      r.programs.forEach(function (pg) { out.push({ kind: "objfx", bits: pg.bits, loo: loo, rank: pg.bits - (loo === null ? 0 : 14 * (loo - 0.5)), run: function (g) { return P.ObjFX.runProgram(pg, g); }, str: P.ObjFX.progStr(pg), raw: pg }); });
+      r.programs.forEach(function (pg) { out.push({ kind: "objfx", bits: pg.bits, loo: loo, rank: rankOf(pg, loo, train.length, pg.bits), run: function (g) { return P.ObjFX.runProgram(pg, g); }, str: P.ObjFX.progStr(pg), raw: pg }); });
+      /* AMBIGUITY kept explicit: when the demonstrations leave several selectors equally consistent and they disagree on the
+         test input, the runner-up selectors become separate hypotheses (never silently dropped), ranked by their extra cost. */
+      var base = r.programs.slice().sort(function (a, b) { return a.bits - b.bits; }).slice(0, 3), seenPred = {}, nAlt = 0;
+      function predKey(pg) { return testInputs.map(function (g) { var o = P.ObjFX.runProgram(pg, g); return o ? G.gkey(o) : "x"; }).join("|"); }
+      base.forEach(function (pg) { seenPred[predKey(pg)] = 1; });
+      base.forEach(function (pg) {
+        pg.stages.forEach(function (st, si) {
+          st.rules.forEach(function (rule, ri) {
+            (rule.alt || []).forEach(function (alt) {
+              if (nAlt >= 8 || (ctx && ctx.timed_out())) return;
+              var v = JSON.parse(JSON.stringify(pg)); v.stages[si].rules[ri].atoms = alt.atoms; v.stages[si].rules[ri].alt = []; v.bits = pg.bits + (alt.bits - rule.bits + 3.0) + 0.5;
+              var ok = true, i3, g3;
+              for (i3 = 0; i3 < train.length && ok; i3++) { g3 = P.ObjFX.runProgram(v, train[i3][0]); if (!g3 || !G.gEq(g3, train[i3][1])) ok = false; }
+              if (!ok) return;
+              var pk = predKey(v); if (seenPred[pk]) return;
+              seenPred[pk] = 1; nAlt++; acct.vs_alternatives = (acct.vs_alternatives || 0) + 1;
+              out.push({ kind: "objfx", bits: v.bits, loo: loo === null ? null : Math.max(0, loo - 0.34), rank: rankOf(v, loo === null ? null : Math.max(0, loo - 0.34), train.length, v.bits), run: (function (q) { return function (g) { return P.ObjFX.runProgram(q, g); }; })(v), str: P.ObjFX.progStr(v), raw: v });
+            });
+          });
+        });
+      });
     }
-    if (!(ctx && ctx.timed_out())) {
+    if (!(ctx && ctx.timed_out()) && !P.off("extract")) {
       var e = search(train, testInputs, ctx, acct);
       e.programs.forEach(function (pg) { out.push({ kind: "extract", bits: pg.bits, rank: pg.bits, run: function (g) { return apply(pg, g); }, str: progStr(pg), raw: pg }); });
     }
@@ -23307,6 +23452,290 @@ var PSYN = (function () {
 
   P.Extract = { search: search, apply: apply, progStr: progStr };
   P.synthesize = synthesize;
+})();
+/* ===== src/67-psyn-learned.js ===== */
+/* Learned search policy, value function and scheduler for the partial-program synthesiser.
+ *
+ * Everything here PROPOSES or RANKS. Exact verification (a program must reproduce every demonstration) is untouched, and a
+ * missing or stale policy file only means the defaults are used. The weights are produced offline by tools/arc-psyn-train.js
+ * from search traces and written to 68-psyn-policy.js (generated); nothing is learned on the evaluation task itself except the
+ * bounded per-task re-weighting in `adapt`, which reads demonstrations only and is discarded when the task ends.
+ *
+ *   taskFeatures(train)      cheap numeric description of a task from its demonstrations
+ *   parseOrder(feat)         parses sorted by predicted usefulness (the representation proposer)
+ *   kindLogit(feat, kind)    log-odds that an effect kind appears in the solution (the operator proposer)
+ *   atomShift(family)        description-length shift for an atom family, from how often it occurs in verified solutions
+ *   solveProb(feat)          P(the synthesiser produces a correct top-1 program | task) -- the compute scheduler's signal
+ *   valueProb(progFeat)      P(this exact-fitting program is right on the test input) -- the value function
+ *   macroBonus(ruleSig)      bits saved when a rule matches a learned abstraction (anti-unified from solved tasks)
+ */
+
+(function () {
+  var P = PSYN;
+
+  /* ------------------------------------------------------------------ features */
+  function mean(xs) { var s = 0, i; for (i = 0; i < xs.length; i++) s += xs[i]; return xs.length ? s / xs.length : 0; }
+  function taskFeatures(train) {
+    var f = { nTrain: train.length }, i, r, c, same = 1, dims = 0, dfr = [], bgOnly = 1, delOnly = 1, recOnly = 1, newCol = 0, nObj4 = [], nObj8 = [], ncol = [], area = [], bgFrac = [], panels = 0, anyChange = 0;
+    for (i = 0; i < train.length; i++) {
+      var I = train[i][0], O = train[i][1], H = I.length, W = I[0].length;
+      if (O.length !== H || O[0].length !== W) {
+        same = 0;
+        if (O.length >= H && O[0].length >= W) dims = Math.max(dims, 1); else if (O.length <= H && O[0].length <= W) dims = Math.max(dims, 2); else dims = 3;
+      }
+      area.push(H * W);
+      var bg = P.modeColor(I), pal = {}, ch = 0;
+      for (r = 0; r < H; r++) for (c = 0; c < W; c++) pal[I[r][c]] = 1;
+      ncol.push(Object.keys(pal).length);
+      var nb = 0; for (r = 0; r < H; r++) for (c = 0; c < W; c++) if (I[r][c] === bg) nb++;
+      bgFrac.push(nb / (H * W));
+      if (O.length === H && O[0].length === W) {
+        for (r = 0; r < H; r++) for (c = 0; c < W; c++) if (I[r][c] !== O[r][c]) { ch++; if (I[r][c] !== bg) bgOnly = 0; if (O[r][c] !== bg) delOnly = 0; if (I[r][c] === bg || O[r][c] === bg) recOnly = 0; if (!pal[O[r][c]]) newCol = 1; }
+        dfr.push(ch / (H * W)); if (ch) anyChange = 1;
+      }
+      var s4 = P.parse(I, "c4", "mode"), s8 = P.parse(I, "m8", "mode");
+      nObj4.push(s4.tooMany ? 70 : s4.n); nObj8.push(s8.tooMany ? 70 : s8.n);
+      if (s4.panels()) panels = 1;
+    }
+    f.same = same; f.dims = dims; f.dfrac = mean(dfr); f.bgOnly = same && anyChange ? bgOnly : 0; f.delOnly = same && anyChange ? delOnly : 0; f.recOnly = same && anyChange ? recOnly : 0;
+    f.newColor = newCol; f.nObj4 = Math.log(1 + mean(nObj4)); f.nObjM8 = Math.log(1 + mean(nObj8)); f.ncol = mean(ncol) / 10; f.area = Math.log(mean(area)) / 7; f.bgFrac = mean(bgFrac); f.panels = panels;
+    return f;
+  }
+  var FEAT_KEYS = ["nTrain", "same", "dims", "dfrac", "bgOnly", "delOnly", "recOnly", "newColor", "nObj4", "nObjM8", "ncol", "area", "bgFrac", "panels"];
+  function vec(f) { return FEAT_KEYS.map(function (k) { return f[k] || 0; }); }
+
+  /* ------------------------------------------------------------------ atom/rule families (for traces and priors) */
+  function atomFamily(a) {
+    switch (a.t) {
+      case "not": return "!" + atomFamily(a.a);
+      case "rel": return "rel:" + a.rel + ":" + (a.p.t === "col" || a.p.t === "colrole" ? "color" : a.p.t === "bool" ? a.p.v : a.p.t);
+      case "bool": return "b:" + a.v;
+      case "num": return "n:" + a.f + a.op;
+      case "col": return "col";
+      case "colrole": return "role:" + a.v;
+      case "has": return "has";
+      case "cnt": return "cnt:" + a.rel;
+      case "freq": return "freq:" + a.f;
+      default: return a.t;
+    }
+  }
+  function ruleSig(rule) {
+    var par = rule.ref ? "ref." + rule.ref.kind : (rule.th !== undefined && rule.th !== null ? "th" : "none");
+    return rule.kind + "/" + par + "/" + rule.atoms.map(atomFamily).sort().join("+");
+  }
+  function programFeatures(prog, info) {
+    var stages = prog.stages || [], rules = [], i, j;
+    stages.forEach(function (st) { st.rules.forEach(function (r) { rules.push(r); }); });
+    var f = { bits: (prog.bits || 0) / 40, nRules: rules.length, nStages: stages.length, loo: info && info.loo !== null && info.loo !== undefined ? info.loo : 0.5, looKnown: info && info.loo !== null && info.loo !== undefined ? 1 : 0,
+              nTrain: info ? info.nTrain / 5 : 0, lit: 0, role: 0, rel: 0, num: 0, shape: 0, neg: 0, effOwn: 0, effAdd: 0, selTrue: 0, relColor: 0, maxAtoms: 0, extract: 0 };
+    rules.forEach(function (r) {
+      f.maxAtoms = Math.max(f.maxAtoms, r.atoms.length); if (!r.atoms.length) f.selTrue++;
+      r.atoms.forEach(function (a) { var t = a.t === "not" ? a.a.t : a.t; if (a.t === "not") f.neg++; if (t === "col" || t === "has") f.lit++; else if (t === "colrole") f.role++; else if (t === "rel" || t === "cnt") f.rel++; else if (t === "num" || t === "freq") f.num++; else if (t === "shape" || t === "d4") f.shape++; });
+      if (r.ref && r.ref.kind === "rel") f.relColor++;
+      if (r.kind === "delete" || r.kind === "recolor" || r.kind === "move" || r.kind === "slide" || r.kind === "d4" || r.kind === "cmap" || r.kind === "partmap") f.effOwn++; else f.effAdd++;
+    });
+    rules.forEach(function (r) { f["k_" + r.kind] = (f["k_" + r.kind] || 0) + 1; });
+    if (info && info.extract) { f.extract = 1; f.nRules = 1; }
+    return f;
+  }
+  var PROG_KEYS = ["bits", "nRules", "nStages", "loo", "looKnown", "nTrain", "lit", "role", "rel", "num", "shape", "neg", "effOwn", "effAdd", "selTrue", "relColor", "maxAtoms", "extract",
+                   "k_delete", "k_recolor", "k_cmap", "k_move", "k_copy", "k_slide", "k_d4", "k_fillbox", "k_fillholes", "k_halo8", "k_halo4", "k_ray", "k_partmap"];
+
+  /* ------------------------------------------------------------------ the policy object */
+  var Policy = {
+    loaded: false, enabled: true, parseW: {}, kindW: {}, famPrior: {}, solveW: null, valueW: null, macros: {}, stats: { parseReorders: 0, kindPruned: 0, kindKept: 0, skippedTasks: 0 },
+    load: function (d) { var k; for (k in d) if (d.hasOwnProperty(k)) this[k] = d[k]; this.loaded = true; },
+    dot: function (w, x) { var s = w.b || 0, i; for (i = 0; i < x.length; i++) s += (w.w[i] || 0) * x[i]; return s; },
+    sig: function (z) { return 1 / (1 + Math.exp(-z)); },
+    parseOrder: function (feat, parses) {
+      if (P.off("multiparse")) return ["c8"];
+      if (!this.loaded || !this.enabled || P.off("parseorder") || !this.parseW || !Object.keys(this.parseW).length) return parses;
+      var x = vec(feat), self = this, sc = parses.map(function (p) { return [p, self.parseW[p] ? self.dot(self.parseW[p], x) : 0]; });
+      sc.sort(function (a, b) { return b[1] - a[1]; });
+      this.stats.parseReorders++;
+      return sc.map(function (a) { return a[0]; });
+    },
+    kindLogit: function (feat, kind) { if (!this.loaded || !this.enabled || !this.kindW[kind]) return 0; return this.dot(this.kindW[kind], vec(feat)); },
+    /* keep a kind when its predicted probability clears the floor chosen at training time to retain >= 97% of the kinds that solved */
+    keepKind: function (feat, kind) {
+      if (P.off(kind)) return false;
+      if (!this.loaded || !this.enabled || P.off("kind") || !this.kindW[kind]) return true;
+      var p = this.sig(this.dot(this.kindW[kind], vec(feat))), keep = p >= (this.kindW[kind].floor || 0);
+      if (keep) this.stats.kindKept++; else this.stats.kindPruned++;
+      return keep;
+    },
+    atomShift: function (fam) { if (!this.loaded || !this.enabled || P.off("fam")) return 0; var v = this.famPrior[fam]; return v === undefined ? 0 : v; },
+    solveProb: function (feat) { if (!this.loaded || !this.solveW || P.off("sched")) return null; return this.sig(this.dot(this.solveW, vec(feat))); },
+    valueProb: function (pf) { if (!this.loaded || !this.enabled || !this.valueW || P.off("value")) return null; return this.sig(this.dot(this.valueW, PROG_KEYS.map(function (k) { return pf[k] || 0; }))); },
+    macroBonus: function (sig) { if (!this.loaded || !this.enabled || P.off("macro")) return 0; var m = this.macros[sig]; return m ? m.bonus : 0; }
+  };
+
+  P.taskFeatures = taskFeatures; P.FEAT_KEYS = FEAT_KEYS; P.PROG_KEYS = PROG_KEYS; P.featVec = vec; P.atomFamily = atomFamily; P.ruleSig = ruleSig; P.programFeatures = programFeatures; P.Policy = Policy;
+})();
+/* ===== src/68-psyn-policy.js (GENERATED by tools/arc-psyn-train.js; do not edit) ===== */
+/* Trained on search traces: 2289 tasks. See measurements/arc-psyn-policy-report.json. */
+PSYN.Policy.load({"parseW":{"c4":{"w":[0.1463,0.2871,-0.5551,-0.2583,-0.0618,0.2204,0.2908,0.2826,-0.3951,0.5569,0.0014,0.1052,0.1936,-0.4085],"b":-1.0604},"c8":{"w":[-0.0187,-0.0616,0.3437,0.0259,-0.1029,0.18,0.2185,0.0656,0.2519,-0.2344,-0.0496,-0.0771,0.0738,-0.3502],"b":-0.1632},"m4":{"w":[0.1397,0.1148,-0.2279,-0.1252,-0.0506,0.1148,0.55,0.2399,-0.1601,0.2994,0.1446,0.0497,0.1581,-0.3848],"b":-1.0757},"m8":{"w":[-0.1449,-0.0596,0.5019,0.2164,-0.2574,0.1145,0.3858,-0.1957,-0.1354,-0.2613,0.1136,-0.1703,-0.0407,-0.5571],"b":1.026},"col":{"w":[0.0762,0.0973,-0.1365,-0.0512,0.0992,0.3155,0.3322,0.4514,-0.2269,0.3435,-0.0335,0.0315,0.0731,-0.2619],"b":-0.7777}},"kindW":{"move":{"w":[-0.0153,0.0518,-0.0996,0.0062,-0.3192,-0.1035,-0.2005,-0.2502,-0.0206,-0.0263,0.0039,-0.0041,0.012,0.0025],"b":0.2453,"floor":0.4279},"extract":{"w":[-0.134,-0.4107,0.8277,0.0441,-0.1754,-0.0566,-0.1102,-0.2237,0.1659,-0.2428,-0.0046,-0.0933,-0.1579,0.0744],"b":0.3835,"floor":0.2974},"copy":{"w":[0.0062,0.0503,-0.0982,-0.0257,0.0746,-0.1027,-0.1746,-0.1888,-0.0582,-0.032,-0.0054,0.0099,0.0256,0.0233],"b":0.1485,"floor":0.4218},"ray":{"w":[-0.0541,0.0371,-0.0762,0.065,0.3351,-0.0798,-0.1903,0.4322,-0.0763,-0.0173,0.0006,-0.0103,0.0252,-0.0295],"b":-0.1139,"floor":0.4421},"delete":{"w":[-0.0308,0.0501,-0.1004,0.0441,-0.3242,0.4515,-0.2032,-0.1814,0.0374,0.0242,0.0207,-0.0067,-0.0122,0.0193],"b":-0.008,"floor":0.4141},"halo8":{"w":[-0.0174,0.0311,-0.0742,0.0905,0.3513,-0.0769,-0.1871,0.5045,0.016,0.0806,0.0163,0.0064,0.0216,-0.0015],"b":-0.6629,"floor":0.4501},"recolor":{"w":[0.0146,0.0487,-0.1035,0.0078,-0.3843,-0.1084,0.5064,0.1648,0.0516,0.001,0.0429,-0.0025,-0.0039,-0.0192],"b":-0.3522,"floor":0.4169},"partmap":{"w":[0.1313,0.031,-0.0757,0.0057,-0.3039,-0.0786,0.4634,0.2842,-0.0039,-0.0054,0.001,-0.0239,-0.0245,0.0279],"b":-0.7359,"floor":0.3977},"cmap":{"w":[0.1687,0.0317,-0.0849,0.0631,-0.2919,-0.086,0.2705,0.0377,0.181,0.0409,0.0935,-0.0418,-0.0212,0.105],"b":-1.0995,"floor":0.4184},"fillbox":{"w":[-0.0787,0.0374,-0.0764,-0.0269,0.3915,-0.0792,-0.1886,0.4251,-0.0565,-0.0143,-0.0105,0.0133,0.0165,-0.0292],"b":-0.0945,"floor":0.434},"halo4":{"w":[-0.6924,0.0488,-0.0702,0.1448,0.0161,-0.0656,-0.1427,0.0605,-0.0267,-0.3417,-0.0534,-0.0148,0.0202,0.0883],"b":2.475,"floor":0.2671},"fillholes":{"w":[0.0637,0.0271,-0.0658,0.0081,0.3992,-0.068,-0.1662,0.4763,-0.0469,-0.0019,-0.0405,0.0169,-0.0091,0.0271],"b":-0.6781,"floor":0.4278},"slide":{"w":[0.0911,0.0479,-0.1019,-0.0005,-0.3198,-0.1078,-0.204,-0.3109,-0.0208,0.0929,-0.0044,0.0275,0.0269,-0.0322],"b":-0.3317,"floor":0.4143},"d4":{"w":[0.0745,0.0462,-0.0953,-0.0722,-0.2863,-0.1002,-0.1558,-0.4265,-0.0524,0.0522,0.0028,0.0301,0.0332,-0.0299],"b":-0.151,"floor":0.3909}},"famPrior":{"!b:bottom":0.6,"!b:right":1.03,"b:largest":-0.13,"b:rightHalf":0.68,"rk":1.5,"b:smallest":-0.15,"b:rect":0.86,"b:line":0.69,"b:commonColor":0.93,"b:commonShape":0.68,"b:lowerHalf":1.5,"b:single":0.03,"b:touchTop":1.5,"!rel:near:sameShape":1.2,"b:touchBottom":1.5,"!rel:row:single":1.5,"!rel:near:sameColor":1.5,"b:touchRight":1.5,"!rel:near:color":1.5,"!rel:row:smaller":1.19,"col":0.19,"b:enclosed":0.06,"b:isolated":1.01,"b:hasHoles":0.12,"n:size==":1.08,"b:bottom":0.44,"role:fewestCells":0.02,"!b:touchTop":1.5,"n:size>=":0.65,"b:left":1.5,"b:uniqContent":1.5,"shape":1.5,"b:commonContent":0,"role:largestObj":0.41,"!b:touchBottom":-0.09,"b:upperHalf":1.49,"!b:uniqColor":0.29,"rel:near:diffColor":1.5,"rel:col:color":1.5,"b:leftHalf":1.4,"!b:left":1.5,"!rel:adj:color":1.14,"!b:largest":0.47,"rel:adj:color":0.25,"!rel:adj:line":-0.3,"!rel:near:bigger":0.6,"n:size<=":0.53,"freq:color":0.04,"b:uniqColor":-0.25,"!rel:row:color":1.5,"n:h>=":0.42,"n:w>=":1.27,"b:border":0.2,"rel:row:bigger":0.55,"!b:lowerHalf":1.05,"!b:isolated":0.65,"rel:row:sameColor":1.5,"!rel:col:color":1.5,"!b:border":1.12,"!rel:panel:sameColor":1.5,"rel:panel:sameColor":1.5,"!b:single":0.65,"n:h==":1.5,"role:smallestObj":1.5,"b:mixed":0.27,"b:top":1.5,"b:right":1.5,"!b:commonColor":1.5,"rel:near:bigger":0.89,"b:encloses":-0.25,"role:rightmost":0.22,"n:w==":1.12,"rel:near:color":1.45,"role:tallest":-0.03,"rel:col:sameColor":0.89,"b:touchLeft":1.27,"!b:top":1.5,"role:mostCells":0.62,"rel:near:any":1.5,"rel:col:sameShape":1.19,"rel:row:color":1.5,"rel:near:sameColor":1.5,"role:fewestObjs":-0.23,"n:nbg==":0.23,"rel:adj:smaller":-0.07,"!b:rect":1.37,"rel:col:single":1.19,"rel:col:bigger":1.5,"b:uniqShape":0.02,"rel:col:diffColor":1.5,"rel:row:smaller":1.19,"b:sym":0.47,"role:topmost":0.38,"role:leftmost":0.75,"role:bottommost":0.49,"!b:mixed":0.32,"rel:row:diffColor":1.17,"role:widest":0.56,"b:uniqSize":0.91,"b:widest":1.31,"!b:smallest":0.15,"!b:tallest":0.7,"b:uniqD4":0.49,"rel:adj:bigger":0.95,"n:nbg<=":1.17,"cnt:adj":1.17,"n:nbg>=":0.62,"b:tallest":1.36,"rel:adj:single":0.68,"rel:near:single":0.76,"!b:line":0.27,"!b:widest":0.16,"rel:near:smaller":1.5,"!b:sym":0.36,"n:h<=":0.5,"!rel:adj:smaller":0.89,"n:w<=":0.59,"!b:rightHalf":1.5,"rel:adj:rect":1,"!b:hasHoles":1.27,"!rel:col:bigger":0.76,"!rel:col:smaller":0.78,"!b:leftHalf":1.19,"!rel:row:bigger":0.95,"n:holes>=":0.02,"rel:col:smaller":1.19,"!rel:col:rect":0.89,"b:mostHoles":1.27,"!rel:adj:single":1.31,"!b:uniqSize":1.5},"solveW":{"w":[0.1168,0.223,-0.4004,-0.2445,-0.0656,0.2102,0.2945,0.2408,-0.2967,0.5714,-0.0168,0.0902,0.1742,-0.4107],"b":-1.0702},"valueW":{"w":[-0.1351,-0.2027,-0.2032,0.109,-0.0494,0.0058,0.0438,-0.0223,-0.1489,-0.088,-0.0049,-0.1558,-0.1182,-0.0845,0.1298,0.023,-0.3233,0.0307,0.0283,-0.0033,-0.0013,0.0498,0.0018,0.012,-0.064,-0.0018,-0.0004,-0.0438,0.0311,-0.1021,-0.1397],"b":1.5525},"macros":{"extract//":{"count":4,"bonus":1},"extract//b:smallest":{"count":4,"bonus":1},"copy/th/":{"count":7,"bonus":1.4},"delete/none/b:single":{"count":19,"bonus":2},"halo8/ref.lit/col":{"count":22,"bonus":2},"partmap/th/col":{"count":10,"bonus":1.66},"recolor/ref.rel/b:single":{"count":35,"bonus":2},"fillbox/ref.lit/":{"count":30,"bonus":2},"delete/none/b:hasHoles":{"count":21,"bonus":2},"fillbox/ref.lit/b:hasHoles":{"count":26,"bonus":2},"recolor/ref.lit/rk":{"count":6,"bonus":1.29},"recolor/ref.lit/n:size==":{"count":3,"bonus":0.79},"recolor/ref.lit/b:hasHoles":{"count":35,"bonus":2},"recolor/ref.lit/":{"count":11,"bonus":1.73},"extract//b:largest":{"count":3,"bonus":0.79},"ray/th/":{"count":23,"bonus":2},"recolor/ref.lit/rel:adj:color":{"count":11,"bonus":1.73},"recolor/ref.lit/b:uniqColor":{"count":19,"bonus":2},"delete/none/":{"count":19,"bonus":2},"fillholes/ref.lit/":{"count":4,"bonus":1},"fillholes/ref.lit/b:hasHoles":{"count":65,"bonus":2},"move/th/":{"count":4,"bonus":1},"fillbox/ref.role/":{"count":4,"bonus":1},"halo8/ref.lit/":{"count":15,"bonus":1.95},"halo8/ref.lit/b:rect":{"count":4,"bonus":1},"ray/th/col":{"count":18,"bonus":2},"copy/th/rel:col:sameColor":{"count":3,"bonus":0.79},"fillbox/ref.lit/b:largest":{"count":32,"bonus":2},"fillbox/ref.lit/rk":{"count":6,"bonus":1.29},"partmap/th/":{"count":22,"bonus":2},"recolor/ref.lit/b:largest":{"count":61,"bonus":2},"recolor/ref.lit/b:smallest":{"count":13,"bonus":1.85},"copy/th/b:rect":{"count":6,"bonus":1.29},"recolor/ref.role/b:largest":{"count":5,"bonus":1.16},"copy/th/b:smallest":{"count":14,"bonus":1.9},"recolor/ref.lit/b:single":{"count":19,"bonus":2},"move/th/col":{"count":7,"bonus":1.4},"move/th/rk":{"count":3,"bonus":0.79},"fillbox/ref.lit/col":{"count":30,"bonus":2},"recolor/ref.lit/b:mixed":{"count":26,"bonus":2},"recolor/ref.lit/!b:isolated":{"count":20,"bonus":2},"move/th/b:largest":{"count":29,"bonus":2},"slide/th/b:largest":{"count":31,"bonus":2},"slide/th/b:hasHoles":{"count":19,"bonus":2},"ray/th/b:uniqShape":{"count":13,"bonus":1.85},"delete/none/b:smallest":{"count":12,"bonus":1.79},"ray/th/b:largest":{"count":26,"bonus":2},"copy/th/b:single":{"count":24,"bonus":2},"copy/th/b:largest":{"count":45,"bonus":2},"d4/th/rel:adj:smaller":{"count":7,"bonus":1.4},"move/th/b:hasHoles":{"count":11,"bonus":1.73},"recolor/ref.lit/col":{"count":24,"bonus":2},"cmap/th/b:mixed":{"count":16,"bonus":2},"halo8/ref.lit/b:largest":{"count":37,"bonus":2},"slide/th/b:smallest":{"count":9,"bonus":1.58},"d4/th/":{"count":21,"bonus":2},"fillbox/ref.lit/b:mixed":{"count":3,"bonus":0.79},"ray/th/b:border":{"count":4,"bonus":1},"delete/none/b:uniqColor":{"count":20,"bonus":2},"delete/none/b:sym":{"count":5,"bonus":1.16},"ray/th/b:uniqColor":{"count":15,"bonus":1.95},"recolor/ref.rel/b:uniqColor":{"count":9,"bonus":1.58},"d4/th/col":{"count":15,"bonus":1.95},"ray/th/rel:adj:color":{"count":15,"bonus":1.95},"slide/th/":{"count":12,"bonus":1.79},"halo8/ref.lit/rel:adj:color":{"count":8,"bonus":1.5},"ray/th/rel:adj:smaller":{"count":5,"bonus":1.16},"move/th/b:smallest":{"count":10,"bonus":1.66},"delete/none/b:largest":{"count":44,"bonus":2},"delete/none/rel:adj:smaller":{"count":5,"bonus":1.16},"slide/th/b:uniqShape":{"count":16,"bonus":2},"slide/th/col+n:size>=":{"count":5,"bonus":1.16},"halo8/ref.lit/b:border":{"count":6,"bonus":1.29},"fillbox/ref.lit/!b:isolated":{"count":11,"bonus":1.73},"recolor/ref.lit/b:border":{"count":3,"bonus":0.79},"copy/th/b:enclosed":{"count":6,"bonus":1.29},"partmap/th/b:largest":{"count":4,"bonus":1},"ray/th/b:single":{"count":25,"bonus":2},"slide/th/b:single":{"count":28,"bonus":2},"recolor/ref.rel/b:border":{"count":13,"bonus":1.85},"fillbox/ref.lit/b:smallest":{"count":16,"bonus":2},"copy/th/b:hasHoles":{"count":13,"bonus":1.85},"ray/th/b:smallest":{"count":14,"bonus":1.9},"halo8/ref.lit/b:uniqColor":{"count":22,"bonus":2},"ray/th/b:hasHoles":{"count":22,"bonus":2},"copy/th/b:uniqColor":{"count":14,"bonus":1.9},"copy/th/b:uniqShape":{"count":11,"bonus":1.73},"copy/th/col+n:size>=":{"count":3,"bonus":0.79},"move/th/b:single":{"count":23,"bonus":2},"halo8/ref.lit/b:smallest":{"count":13,"bonus":1.85},"move/th/rel:adj:color":{"count":8,"bonus":1.5},"partmap/th/b:mixed":{"count":3,"bonus":0.79},"recolor/ref.role/rel:adj:smaller":{"count":5,"bonus":1.16},"delete/none/rel:adj:color":{"count":13,"bonus":1.85},"recolor/ref.lit/n:size>=":{"count":3,"bonus":0.79},"ray/th/rk":{"count":3,"bonus":0.79},"halo8/ref.lit/b:isolated+b:largest":{"count":3,"bonus":0.79},"slide/th/col":{"count":17,"bonus":2},"d4/th/b:largest":{"count":6,"bonus":1.29},"recolor/ref.role/!b:isolated":{"count":7,"bonus":1.4},"ray/th/b:mixed":{"count":10,"bonus":1.66},"move/th/b:uniqColor":{"count":19,"bonus":2},"halo8/ref.lit/b:single":{"count":23,"bonus":2},"halo8/ref.lit/n:size<=":{"count":4,"bonus":1},"recolor/ref.lit/b:uniqShape":{"count":17,"bonus":2},"recolor/ref.role/b:uniqShape":{"count":3,"bonus":0.79},"halo8/ref.lit/b:hasHoles":{"count":16,"bonus":2},"recolor/ref.lit/!b:isolated+col":{"count":4,"bonus":1},"recolor/ref.lit/rel:adj:smaller":{"count":7,"bonus":1.4},"delete/none/col+n:size>=":{"count":4,"bonus":1},"fillbox/ref.lit/b:uniqShape":{"count":6,"bonus":1.29},"slide/th/b:uniqColor":{"count":14,"bonus":1.9},"halo8/ref.lit/n:w<=":{"count":4,"bonus":1},"delete/none/b:uniqShape":{"count":14,"bonus":1.9},"d4/th/b:uniqShape":{"count":3,"bonus":0.79},"ray/th/col+n:size>=":{"count":5,"bonus":1.16},"cmap/th/":{"count":6,"bonus":1.29},"halo8/ref.lit/b:mixed":{"count":5,"bonus":1.16},"halo8/ref.lit/b:uniqShape":{"count":4,"bonus":1},"fillbox/ref.lit/b:uniqColor":{"count":11,"bonus":1.73},"d4/th/b:smallest":{"count":11,"bonus":1.73},"ray/th/rel:adj:single":{"count":3,"bonus":0.79},"delete/none/col":{"count":13,"bonus":1.85},"copy/th/col":{"count":5,"bonus":1.16},"copy/th/rel:adj:color":{"count":4,"bonus":1},"recolor/ref.lit/!b:mixed+rk":{"count":3,"bonus":0.79},"partmap/th/rk":{"count":5,"bonus":1.16},"slide/th/rel:adj:color":{"count":7,"bonus":1.4},"recolor/ref.role/b:hasHoles":{"count":4,"bonus":1},"move/th/n:w<=":{"count":3,"bonus":0.79},"move/th/b:border":{"count":5,"bonus":1.16},"recolor/ref.lit/!b:isolated+b:uniqShape":{"count":3,"bonus":0.79},"copy/th/b:border":{"count":4,"bonus":1},"d4/th/b:commonColor":{"count":3,"bonus":0.79},"recolor/ref.rel/b:rect":{"count":6,"bonus":1.29},"recolor/ref.rel/col":{"count":3,"bonus":0.79}},"solveFloor":0.4148});
+/* ===== src/69-psyn-transduce.js ===== */
+/* A task-adapted TRANSDUCTIVE branch, independent of explicit programs.
+ *
+ * Induction asks for a program. Transduction asks for the output directly: a small model is fitted to THIS task's
+ * demonstrations only, predicts a cell's output colour from rich per-cell evidence, and is applied to the test input. Here the
+ * model is a decision tree over ~90 features per cell (neighbourhood and distance-2 colours, absolute and parity position, the
+ * cell's object under an 8-connected parse with its size, rank, shape class, position inside the object, relations to its
+ * nearest/adjacent/enclosing objects, scene roles, row/column colour inventory, first colour seen along each ray, mirror colours)
+ * and it is applied ITERATIVELY: the prediction of one round is the context of the next, up to a few rounds, which is the
+ * bounded task-conditioned refinement loop (candidate output -> re-read -> refine).
+ *
+ * Because it is not a program, nothing certifies it except its fit and its leave-one-demonstration-out behaviour; it therefore
+ * joins the portfolio only when it reproduces every demonstration AND at least two thirds of the held-out demonstrations
+ * exactly, and it carries that LOO score as its cost. It is a soft, diverse voter beside the symbolic families.
+ */
+
+(function () {
+  var P = PSYN;
+  var NF = 90;
+
+  function build(I, Z, ctxInfo) {
+    var H = I.length, W = I[0].length, n = H * W, F = new Array(n), r, c, d, k, i;
+    var sc = P.parse(I, "c8", "mode"), bg = sc.bg, roles = sc.roles(), rel = sc.n ? sc.rel() : null;
+    var rowHas = [], colHas = [];
+    for (r = 0; r < H; r++) { var m = 0; for (c = 0; c < W; c++) m |= 1 << Z[r][c]; rowHas.push(m); }
+    for (c = 0; c < W; c++) { var m2 = 0; for (r = 0; r < H; r++) m2 |= 1 << Z[r][c]; colHas.push(m2); }
+    function at(rr, cc) { return rr < 0 || cc < 0 || rr >= H || cc >= W ? -1 : Z[rr][cc]; }
+    var D4 = [[-1, 0], [1, 0], [0, -1], [0, 1]], dist = [];
+    var shapeIds = ctxInfo.shapeIds, d4Ids = ctxInfo.d4Ids;
+    for (r = 0; r < H; r++) for (c = 0; c < W; c++) {
+      var f = new Array(NF).fill(-1), q = 0;
+      f[q++] = Z[r][c];
+      f[q++] = at(r - 1, c - 1); f[q++] = at(r - 1, c); f[q++] = at(r - 1, c + 1); f[q++] = at(r, c - 1); f[q++] = at(r, c + 1); f[q++] = at(r + 1, c - 1); f[q++] = at(r + 1, c); f[q++] = at(r + 1, c + 1);
+      f[q++] = at(r - 2, c); f[q++] = at(r + 2, c); f[q++] = at(r, c - 2); f[q++] = at(r, c + 2);
+      f[q++] = r; f[q++] = c; f[q++] = H - 1 - r; f[q++] = W - 1 - c; f[q++] = r & 1; f[q++] = c & 1; f[q++] = r % 3; f[q++] = c % 3;
+      f[q++] = I[r][c]; f[q++] = I[r][c] === bg ? 1 : 0;
+      var oi = sc.at[r * W + c], o = oi >= 0 ? sc.objs[oi] : null;
+      if (o) {
+        var fr = sc.freq();
+        f[q++] = o.size; f[q++] = o.h; f[q++] = o.w; f[q++] = o.color; f[q++] = o.holes; f[q++] = o.border ? 1 : 0;
+        var rs = 0, rsu = 0; for (i = 0; i < sc.n; i++) { if (sc.objs[i].size > o.size) rs++; if (sc.objs[i].size < o.size) rsu++; }
+        f[q++] = rs; f[q++] = rsu;
+        var rr = r - o.r0, cc = c - o.c0;
+        f[q++] = rr; f[q++] = cc; f[q++] = 2 * rr + 1 < o.h ? 0 : (2 * rr + 1 > o.h ? 1 : 2); f[q++] = 2 * cc + 1 < o.w ? 0 : (2 * cc + 1 > o.w ? 1 : 2);
+        var nb = 0; for (d = 0; d < 4; d++) { var nr = r + D4[d][0], nc = c + D4[d][1]; if (nr >= 0 && nc >= 0 && nr < H && nc < W && sc.at[nr * W + nc] === oi) nb++; }
+        f[q++] = nb < 4 ? 1 : 0; f[q++] = nb; f[q++] = 0;
+        f[q++] = shapeIds[o.shapeKey] === undefined ? -1 : shapeIds[o.shapeKey]; f[q++] = d4Ids[o.d4Key] === undefined ? -1 : d4Ids[o.d4Key];
+        f[q++] = fr.color[o.color] === 1 ? 1 : 0; f[q++] = fr.shape[o.shapeKey] === 1 ? 1 : 0; f[q++] = rs === 0 ? 1 : 0; f[q++] = rsu === 0 ? 1 : 0; f[q++] = sc.n;
+        f[q++] = o.cr2 - 2 * r; f[q++] = o.cc2 - 2 * c;
+        var nr0 = rel.nearest[oi]; f[q++] = nr0 >= 0 ? sc.objs[nr0].color : -1;
+        var ac = -1, ks = Object.keys(rel.adj[oi]); for (i = 0; i < ks.length; i++) { var cl = sc.objs[+ks[i]].color; if (cl !== o.color) { ac = ac === -1 ? cl : (ac === cl ? ac : -2); } } f[q++] = ac;
+        f[q++] = rel.enclosedBy[oi] >= 0 ? sc.objs[rel.enclosedBy[oi]].color : -1;
+      } else { q += 27; }
+      f[q++] = roles.marker; f[q++] = roles.largestObj;
+      var pn = sc.panels(); f[q++] = pn ? pn.at[r * W + c] : -1;
+      for (k = 0; k < 10; k++) f[q++] = (rowHas[r] >> k) & 1;
+      for (k = 0; k < 10; k++) f[q++] = (colHas[c] >> k) & 1;
+      for (d = 0; d < 4; d++) {
+        var nr2 = r + D4[d][0], nc2 = c + D4[d][1], steps = 1, col = -1;
+        while (nr2 >= 0 && nc2 >= 0 && nr2 < H && nc2 < W) { if (Z[nr2][nc2] !== bg) { col = Z[nr2][nc2]; break; } nr2 += D4[d][0]; nc2 += D4[d][1]; steps++; }
+        f[q++] = col; f[q++] = col < 0 ? 0 : steps;
+      }
+      f[q++] = at(r, W - 1 - c); f[q++] = at(H - 1 - r, c); f[q++] = H === W ? at(c, r) : -1;
+      var cnt = 0, same = 0; for (var a = -1; a <= 1; a++) for (var b = -1; b <= 1; b++) { var v = at(r + a, c + b); if (v >= 0 && v !== bg) cnt++; if (v === Z[r][c]) same++; }
+      f[q++] = cnt; f[q++] = same;
+      F[r * W + c] = f;
+    }
+    return F;
+  }
+
+  /* ---- a compact CART classifier */
+  function gini(counts, n) { var s = 0, k; if (!n) return 0; for (k in counts) s += counts[k] * counts[k]; return 1 - s / (n * n); }
+  function fitTree(X, y, depth, minLeaf) {
+    var n = y.length, counts = {}, i, best = null;
+    for (i = 0; i < n; i++) counts[y[i]] = (counts[y[i]] || 0) + 1;
+    var maj = null, mc = -1, k; for (k in counts) if (counts[k] > mc) { mc = counts[k]; maj = +k; }
+    if (mc === n || depth <= 0 || n < 2 * minLeaf) return { leaf: maj };
+    var parent = gini(counts, n), f, vals, v, j, left, right;
+    for (f = 0; f < NF; f++) {
+      var seen = {}, distinct = [];
+      for (i = 0; i < n; i++) { v = X[i][f]; if (!seen[v]) { seen[v] = 1; distinct.push(v); } }
+      if (distinct.length < 2) continue;
+      distinct.sort(function (a, b) { return a - b; });
+      var cands = [];
+      if (distinct.length <= 12) { distinct.forEach(function (v2) { cands.push(["eq", v2]); }); for (j = 0; j + 1 < distinct.length; j++) cands.push(["le", (distinct[j] + distinct[j + 1]) / 2]); }
+      else { for (j = 1; j < 9; j++) { var idx = Math.floor(distinct.length * j / 9); cands.push(["le", (distinct[idx - 1] + distinct[idx]) / 2]); } }
+      for (j = 0; j < cands.length; j++) {
+        var lc = {}, rc = {}, ln = 0, rn = 0, cd = cands[j];
+        for (i = 0; i < n; i++) { var goL = cd[0] === "eq" ? X[i][f] === cd[1] : X[i][f] <= cd[1]; if (goL) { lc[y[i]] = (lc[y[i]] || 0) + 1; ln++; } else { rc[y[i]] = (rc[y[i]] || 0) + 1; rn++; } }
+        if (ln < minLeaf || rn < minLeaf) continue;
+        var gain = parent - (ln * gini(lc, ln) + rn * gini(rc, rn)) / n;
+        /* prefer simpler/earlier features on ties: a tiny index penalty keeps the tree from chasing absolute position */
+        gain -= f * 1e-5 + (f >= 13 && f <= 20 ? 0.002 : 0);
+        if (!best || gain > best.gain) best = { gain: gain, f: f, cd: cd };
+      }
+    }
+    if (!best || best.gain <= 1e-9) return { leaf: maj };
+    var XL = [], yL = [], XR = [], yR = [];
+    for (i = 0; i < n; i++) { var gl = best.cd[0] === "eq" ? X[i][best.f] === best.cd[1] : X[i][best.f] <= best.cd[1]; if (gl) { XL.push(X[i]); yL.push(y[i]); } else { XR.push(X[i]); yR.push(y[i]); } }
+    return { f: best.f, t: best.cd[0], v: best.cd[1], l: fitTree(XL, yL, depth - 1, minLeaf), r: fitTree(XR, yR, depth - 1, minLeaf) };
+  }
+  function predict(tree, x) { while (tree.leaf === undefined) { var go = tree.t === "eq" ? x[tree.f] === tree.v : x[tree.f] <= tree.v; tree = go ? tree.l : tree.r; } return tree.leaf; }
+
+  function makeInfo(pairs) {
+    var shapeIds = {}, d4Ids = {}, ns = 0, nd = 0;
+    pairs.forEach(function (p) { var sc = P.parse(p[0], "c8", "mode"); sc.objs.forEach(function (o) { if (shapeIds[o.shapeKey] === undefined) shapeIds[o.shapeKey] = ns++; if (d4Ids[o.d4Key] === undefined) d4Ids[o.d4Key] = nd++; }); });
+    return { shapeIds: shapeIds, d4Ids: d4Ids };
+  }
+  function apply(models, info, I) {
+    var Z = I, t, F, H = I.length, W = I[0].length, out, r, c;
+    for (t = 0; t < models.length; t++) {
+      F = build(I, Z, info); out = [];
+      for (r = 0; r < H; r++) { var row = []; for (c = 0; c < W; c++) row.push(predict(models[t], F[r * W + c])); out.push(row); }
+      Z = out;
+    }
+    return Z;
+  }
+  /* fit up to `rounds` trees; stop when the training pairs are reproduced exactly */
+  function fit(pairs, rounds, deadlineMs) {
+    var info = makeInfo(pairs), models = [], Zs = pairs.map(function (p) { return p[0]; }), t, i, r, c, X, y, F, W0 = pairs[0][0][0].length;
+    for (t = 0; t < rounds; t++) {
+      if (Date.now() > deadlineMs) break;
+      X = []; y = [];
+      for (i = 0; i < pairs.length; i++) {
+        F = build(pairs[i][0], Zs[i], info);
+        var w = pairs[i][0][0].length;
+        for (r = 0; r < pairs[i][0].length; r++) for (c = 0; c < w; c++) { X.push(F[r * w + c]); y.push(pairs[i][1][r][c]); }
+      }
+      if (X.length > 9000) { var step = Math.ceil(X.length / 9000), X2 = [], y2 = []; for (i = 0; i < X.length; i += step) { X2.push(X[i]); y2.push(y[i]); } X = X2; y = y2; }
+      models.push(fitTree(X, y, 14, 1));
+      /* the next round's context is what the model chain now predicts for each demonstration input */
+      var exact = true;
+      Zs = pairs.map(function (p) { return apply(models, info, p[0]); });
+      for (i = 0; i < pairs.length; i++) if (!G.gEq(Zs[i], pairs[i][1])) { exact = false; break; }
+      if (exact) return { models: models, info: info, exact: true };
+    }
+    return { models: models, info: info, exact: false };
+  }
+
+  var _h = mkHyp("transduce");
+  function generate(ctx) {
+    if (!ctx.same_shape() || P.off("transduce")) return [];
+    var pairs = ctx.train, t0 = Date.now(), cap = t0 + 900, M = fit(pairs, 3, cap);
+    if (!M.exact) return [];
+    /* leave-one-demonstration-out: refit on the others and predict the held-out pair */
+    var pass = 0, n = pairs.length, i;
+    if (n >= 3) {
+      for (i = 0; i < n; i++) {
+        if (Date.now() > cap + 700) return [];
+        var rest = pairs.slice(0, i).concat(pairs.slice(i + 1)), m = fit(rest, 3, cap + 700);
+        if (m.exact && G.gEq(apply(m.models, m.info, pairs[i][0]), pairs[i][1])) pass++;
+      }
+      if (pass / n < 0.66) return [];
+    }
+    var conf = n >= 3 ? pass / n : 0.5;
+    var h = _h("transduce:tree" + M.models.length, (function (mm) { return function (g) { return apply(mm.models, mm.info, g); }; })(M), 4.0 + 6.0 * (1 - conf));
+    return [h];
+  }
+  var mod = defSolver("transduce", "transduce", generate, 2, 1.6);
+  mod.EXTRA = true; mod.ONLY_IF_UNSOLVED = true;
+  P.Transduce = { fit: fit, apply: apply, module: mod };
 })();
 /* ===== src/90-engine.js ===== */
 /* Public surface of the bundle. */

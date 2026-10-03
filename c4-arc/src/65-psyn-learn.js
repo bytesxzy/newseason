@@ -22,8 +22,8 @@
 (function () {
   var P = PSYN, FX = P.FX, Bits = P.Bits;
   var COLOR_KINDS = ["recolor", "fillbox", "fillholes", "halo8", "halo4"];
-  var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1 };       /* touch the object's own cells */
-  var MAX_RULES = 4, MAX_STAGES = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6;
+  var OWN_KINDS = { delete: 1, recolor: 1, cmap: 1, d4: 1, move: 1, slide: 1, partmap: 1 };       /* touch the object's own cells */
+  var MAX_RULES = 4, MAX_STAGES_DEFAULT = 3, MAX_OBJ_TOTAL = 360, RULE_PENALTY = 3.0, LAMBDA = 0.6;
 
   function deltaOf(I, O) {
     var H = I.length, W = I[0].length, d = new Uint8Array(H * W), n = 0, r, c;
@@ -50,9 +50,13 @@
       o = sc.objs[i];
       /* union semantics: EVERY rule whose selector matches applies. Each learned rule is consistent with the output on its
          own, so the union of their writes is consistent too and there is nothing to arbitrate between rules. */
+      var ownDone = false;
       for (j = 0; j < stage.rules.length; j++) {
         rule = stage.rules[j];
         if (!matches(rule, sc, o)) continue;
+        /* an object has one fate: at most one effect that rewrites its own cells (first rule wins); effects that only add
+           cells elsewhere (halo, fill, ray, copy) stack freely */
+        if (OWN_KINDS[rule.kind]) { if (ownDone) continue; ownDone = true; }
         th = thetaOf(rule, sc, o);
         if (FX[rule.kind].param === "color" && th < 0) return null;
         w = FX[rule.kind].writes(o, th, sc);
@@ -107,9 +111,11 @@
       }
     }
     kinds = Object.keys(FX);
-    var allowed = [];
+    var allowed = [], feat = acct._feat || null;
     kinds.forEach(function (k) {
       var drop = false;
+      /* the learned operator proposer: kinds that essentially never appear in correct programs for tasks like this one */
+      if (feat && P.Policy && !P.Policy.keepKind(feat, k)) { acct.pruned_learned = (acct.pruned_learned || 0) + 1; return; }
       if (onBgOnly && OWN_KINDS[k] && k !== "move" && k !== "slide") drop = true;          /* only background changes: own-cell effects can't matter */
       if (!outsideObj && !OWN_KINDS[k] && k !== "copy") drop = true;                         /* nothing changes outside objects: bg-writing effects are moot */
       if (delOnly && k !== "delete" && k !== "move" && k !== "slide") drop = true;          /* only removals */
@@ -131,8 +137,8 @@
     }
     var refsFor = function (sc, o, col) {
       var out = [P.lit(col)], k;
-      P.ROLE_NAMES.forEach(function (rn) { if (sc.roles()[rn] === col) out.push({ kind: "role", v: rn }); });
-      P.REL_NAMES.forEach(function (rn) { if (P.REL[rn](sc, o) === col) out.push({ kind: "rel", v: rn }); });
+      if (!P.off("roles")) P.ROLE_NAMES.forEach(function (rn) { if (sc.roles()[rn] === col) out.push({ kind: "role", v: rn }); });
+      if (!P.off("relations")) P.REL_NAMES.forEach(function (rn) { if (P.REL[rn](sc, o) === col) out.push({ kind: "rel", v: rn }); });
       return out;
     };
     var u, item, fxk, inf, j;
@@ -151,6 +157,16 @@
         });
       }
     }
+    /* objects of different sizes witness different parts of one position table: merge non-conflicting tables per feature */
+    (function () {
+      var byF = {}, merged;
+      templates.forEach(function (t0) { if (t0.kind === "partmap") (byF[t0.th.f] = byF[t0.th.f] || []).push(t0); });
+      Object.keys(byF).forEach(function (f) {
+        var union = {}, ok = true, n = 0;
+        byF[f].forEach(function (t0) { Object.keys(t0.th.map).forEach(function (v) { if (union[v] === undefined) union[v] = t0.th.map[v]; else if (union[v] !== t0.th.map[v]) ok = false; }); n += t0.n; });
+        if (ok && byF[f].length > 1) { merged = { kind: "partmap", th: { f: f, map: union } }; var before = templates.length; addT(merged); if (templates.length > before) merged.n = n; }
+      });
+    })();
     if (!templates.length) return null;
     /* keep the best-witnessed templates per kind: a vector seen on one object only is a coincidence far more often than a rule */
     var perKind = {}, kept = [];
@@ -170,7 +186,7 @@
         ccache[ti][u] = w && P.consistent(w, sc, pairs[item.s][0], pairs[item.s][1]) ? 1 : 0;
       }
     });
-    var handled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta;
+    var ownHandled = new Uint8Array(U.n), rules = [], iter, covTotal = nDelta;
     var uncoveredCount = function () { var n = 0; uncovered.forEach(function (x) { for (var i = 0; i < x.length; i++) n += x[i]; }); return n; };
     var vsInfo = [];
     for (iter = 0; iter < MAX_RULES; iter++) {
@@ -179,7 +195,9 @@
       var best = null, ti2;
       for (ti2 = 0; ti2 < templates.length; ti2++) {
         var pos = Bits.make(U.n), neg = Bits.make(U.n), wts = new Array(U.n), any = false, tot = 0;
+        var ownKind = !!OWN_KINDS[templates[ti2].kind];
         for (u = 0; u < U.n; u++) {
+          if (ownKind && ownHandled[u]) { Bits.set(neg, u); wts[u] = 0; continue; }
           if (ccache[ti2][u]) {
             var cv = P.coverage(wcache[ti2][u], scenes[U.items[u].s], pairs[U.items[u].s][0], pairs[U.items[u].s][1], uncovered[U.items[u].s]);
             if (cv > 0) { Bits.set(pos, u); wts[u] = cv; any = true; tot += cv; } else wts[u] = 0;
@@ -205,13 +223,14 @@
       }
       if (!best) break;
       var t = templates[best.ti];
-      var rule = { kind: t.kind, th: t.th, ref: t.ref, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }), bits: best.sol.bits + best.tb + RULE_PENALTY,
+      var rule = { kind: t.kind, th: t.th, ref: t.ref, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }), bits: Math.max(1, best.sol.bits + best.tb + RULE_PENALTY - (P.Policy ? P.Policy.macroBonus(P.ruleSig({ kind: t.kind, ref: t.ref, th: t.th, atoms: best.sol.ids.map(function (i) { return atoms[i].spec; }) })) : 0)),
                    alt: best.sols.slice(1, 4).map(function (s2) { return { atoms: s2.ids.map(function (i) { return atoms[i].spec; }), bits: s2.bits }; }) };
       rules.push(rule);
       vsInfo.push({ vs: best.st.classes || 0, estimate: best.st.consistent || 0 });
       /* mark selected objects handled and their covered cells explained */
       for (u = 0; u < U.n; u++) {
         if (!Bits.get(best.sol.mask, u)) continue;
+        if (OWN_KINDS[t.kind]) ownHandled[u] = 1;
         if (!ccache[best.ti][u]) continue;
         var wr = wcache[best.ti][u], scu = scenes[U.items[u].s], Ou = pairs[U.items[u].s][1], k2, cell2;
         for (k2 = 0; k2 < wr.pnt.length; k2 += 2) { cell2 = wr.pnt[k2]; if (Ou[(cell2 / scu.W) | 0][cell2 % scu.W] === wr.pnt[k2 + 1]) uncovered[U.items[u].s][cell2] = 0; }
@@ -234,6 +253,8 @@
     var out = [], near = [], parses = P.PARSES;
     if (!train.every(function (p) { return p[0].length === p[1].length && p[0][0].length === p[1][0].length; })) return { programs: out, near: near };
     acct._partSeen = {};
+    acct._feat = acct._feat || P.taskFeatures(train);
+    if (P.Policy) parses = P.Policy.parseOrder(acct._feat, parses);
     function residualCells(inter, pairs) {
       var after = 0, i2, r2, c2;
       for (i2 = 0; i2 < pairs.length; i2++) for (r2 = 0; r2 < pairs[i2][0].length; r2++) for (c2 = 0; c2 < pairs[i2][0][0].length; c2++) if (inter[i2][r2][c2] !== pairs[i2][1][r2][c2]) after++;
@@ -261,7 +282,7 @@
         if (after < b0) cont.push({ prog: prog, inter: inter, after: after });
         else near.push({ prog: prog, residual: after / Math.max(1, b0) });
       }
-      if (depth + 1 >= MAX_STAGES) { cont.forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); }); return; }
+      if (depth + 1 >= (P.off("stages") ? 1 : MAX_STAGES_DEFAULT)) { cont.forEach(function (c) { near.push({ prog: c.prog, residual: c.after / Math.max(1, b0) }); }); return; }
       cont.sort(function (a, b) { return a.after - b.after; });
       cont.slice(0, 2).forEach(function (c) {
         if (ctx && ctx.timed_out()) return;
@@ -294,13 +315,21 @@
 
   /* ------------------------------------------------------------------ solver family */
   var _h = mkHyp("psyn");
-  var MODE = { value: "ensemble" };            /* 'off' | 'shadow' | 'ensemble' */
+  var MODE = { value: "ensemble" };            /* 'off' | 'ensemble' (Node: PSYN_MODE=off disables the family for ablations) */
+  if (typeof process !== "undefined" && process.env && process.env.PSYN_MODE) MODE.value = process.env.PSYN_MODE;
   var LAST = { acct: null, near: [], trace: null, programs: [] };
 
   function generate(ctx) {
     if (MODE.value === "off") return [];
     var acct = new P.Accounts(), trace = new P.Trace({ ntrain: ctx.train.length });
     LAST = { acct: acct, near: [], trace: trace, programs: [] };
+    /* compute scheduler: skip the synthesiser on tasks where, per the trained scheduler, it essentially never produces a right program */
+    if (P.Policy && P.Policy.loaded && P.Policy.enabled && P.Policy.solveW && !P.off("sched")) {
+      var pf0 = P.taskFeatures(ctx.train), ps0 = P.Policy.solveProb(pf0);
+      LAST.sched = { p: ps0 };
+      if (ps0 < (P.Policy.solveFloor || 0)) { LAST.sched.skipped = true; P.Policy.stats.skippedTasks++; return []; }
+      acct._feat = pf0;
+    }
     var found;
     try { found = P.synthesize(ctx.train, ctx.test_inputs, ctx, acct, trace); } catch (e) { LAST.error = String(e && e.stack || e).slice(0, 400); return []; }
     var store = new P.EStore(acct), hyps = [];

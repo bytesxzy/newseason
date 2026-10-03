@@ -114,6 +114,17 @@
     return { programs: out, near: [] };
   }
 
+  /* ranking score (lower is better): description length plus a generalisation penalty. With a trained value function the penalty is
+     32 * (1 - P(correct)) bits; otherwise it is driven by the leave-one-out score alone. */
+  function rankOf(pg, loo, nTrain, bits) {
+    var base = bits + (loo === null ? 16 : 32 * (1 - loo));
+    if (P.Policy && P.Policy.loaded && P.Policy.enabled && P.Policy.valueW) {
+      var pr = P.Policy.valueProb(P.programFeatures(pg, { loo: loo, nTrain: nTrain }));
+      if (pr !== null) return bits * 0.5 + 32 * (1 - pr);
+    }
+    return base;
+  }
+
   /* unified entry: every program is {kind, bits, run(grid), str} so the solver family and the tools treat them alike */
   function synthesize(train, testInputs, ctx, acct, trace) {
     var out = [], near = [], sameShape = train.every(function (p) { return p[0].length === p[1].length && p[0][0].length === p[1][0].length; });
@@ -121,13 +132,34 @@
       var r = P.ObjFX.search(train, testInputs, ctx, acct, trace);
       near = r.near;
       var loo = null;
-      if (r.programs.length && train.length >= 3) {
+      if (r.programs.length && train.length >= 3 && !P.off("loo")) {
         var until = Math.min(ctx && ctx.deadline ? ctx.deadline : Infinity, Date.now() + 2500);
         loo = P.ObjFX.looScore(train, ctx, acct, until);
       }
-      r.programs.forEach(function (pg) { out.push({ kind: "objfx", bits: pg.bits, loo: loo, rank: pg.bits - (loo === null ? 0 : 14 * (loo - 0.5)), run: function (g) { return P.ObjFX.runProgram(pg, g); }, str: P.ObjFX.progStr(pg), raw: pg }); });
+      r.programs.forEach(function (pg) { out.push({ kind: "objfx", bits: pg.bits, loo: loo, rank: rankOf(pg, loo, train.length, pg.bits), run: function (g) { return P.ObjFX.runProgram(pg, g); }, str: P.ObjFX.progStr(pg), raw: pg }); });
+      /* AMBIGUITY kept explicit: when the demonstrations leave several selectors equally consistent and they disagree on the
+         test input, the runner-up selectors become separate hypotheses (never silently dropped), ranked by their extra cost. */
+      var base = r.programs.slice().sort(function (a, b) { return a.bits - b.bits; }).slice(0, 3), seenPred = {}, nAlt = 0;
+      function predKey(pg) { return testInputs.map(function (g) { var o = P.ObjFX.runProgram(pg, g); return o ? G.gkey(o) : "x"; }).join("|"); }
+      base.forEach(function (pg) { seenPred[predKey(pg)] = 1; });
+      base.forEach(function (pg) {
+        pg.stages.forEach(function (st, si) {
+          st.rules.forEach(function (rule, ri) {
+            (rule.alt || []).forEach(function (alt) {
+              if (nAlt >= 8 || (ctx && ctx.timed_out())) return;
+              var v = JSON.parse(JSON.stringify(pg)); v.stages[si].rules[ri].atoms = alt.atoms; v.stages[si].rules[ri].alt = []; v.bits = pg.bits + (alt.bits - rule.bits + 3.0) + 0.5;
+              var ok = true, i3, g3;
+              for (i3 = 0; i3 < train.length && ok; i3++) { g3 = P.ObjFX.runProgram(v, train[i3][0]); if (!g3 || !G.gEq(g3, train[i3][1])) ok = false; }
+              if (!ok) return;
+              var pk = predKey(v); if (seenPred[pk]) return;
+              seenPred[pk] = 1; nAlt++; acct.vs_alternatives = (acct.vs_alternatives || 0) + 1;
+              out.push({ kind: "objfx", bits: v.bits, loo: loo === null ? null : Math.max(0, loo - 0.34), rank: rankOf(v, loo === null ? null : Math.max(0, loo - 0.34), train.length, v.bits), run: (function (q) { return function (g) { return P.ObjFX.runProgram(q, g); }; })(v), str: P.ObjFX.progStr(v), raw: v });
+            });
+          });
+        });
+      });
     }
-    if (!(ctx && ctx.timed_out())) {
+    if (!(ctx && ctx.timed_out()) && !P.off("extract")) {
       var e = search(train, testInputs, ctx, acct);
       e.programs.forEach(function (pg) { out.push({ kind: "extract", bits: pg.bits, rank: pg.bits, run: function (g) { return apply(pg, g); }, str: progStr(pg), raw: pg }); });
     }

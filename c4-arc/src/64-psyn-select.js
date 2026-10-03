@@ -49,10 +49,19 @@
     commonColor: function (sc, o) { return o.color === sc.roles().mostObjs; },
     commonShape: function (sc, o) { var f = sc.freq().shape, m = 0, k; for (k in f) if (f[k] > m) m = f[k]; return m > 1 && f[o.shapeKey] === m; },
     centerRow: function (sc, o) { return o.cr2 === sc.H - 1; },
-    centerCol: function (sc, o) { return o.cc2 === sc.W - 1; }
+    centerCol: function (sc, o) { return o.cc2 === sc.W - 1; },
+    touchTop: function (sc, o) { return o.r0 === 0; },
+    touchBottom: function (sc, o) { return o.r1 === sc.H - 1; },
+    touchLeft: function (sc, o) { return o.c0 === 0; },
+    touchRight: function (sc, o) { return o.c1 === sc.W - 1; },
+    upperHalf: function (sc, o) { return o.cr2 < sc.H - 1; },
+    lowerHalf: function (sc, o) { return o.cr2 > sc.H - 1; },
+    leftHalf: function (sc, o) { return o.cc2 < sc.W - 1; },
+    rightHalf: function (sc, o) { return o.cc2 > sc.W - 1; }
   };
   var GEN_BOOLS = ["border", "rect", "line", "single", "mixed", "hasHoles", "sym", "separator", "isolated", "enclosed", "encloses", "largest", "smallest", "tallest", "widest", "top", "bottom", "left", "right",
-                   "mostHoles", "uniqColor", "uniqShape", "uniqD4", "uniqSize", "uniqContent", "commonColor", "commonShape", "commonContent", "emptyBox"];
+                   "mostHoles", "uniqColor", "uniqShape", "uniqD4", "uniqSize", "uniqContent", "commonColor", "commonShape", "commonContent", "emptyBox",
+                   "touchTop", "touchBottom", "touchLeft", "touchRight", "upperHalf", "lowerHalf", "leftHalf", "rightHalf"];
   function flipKey(o) {
     /* shape key of the horizontal mirror image, to test left-right symmetry */
     var pts = o.shapeKey.split(":")[1].split(";").map(function (s) { var p = s.split("."); return [+p[0], o.w - 1 - +p[1]]; });
@@ -65,6 +74,15 @@
     for (i = 0; i < sc.n; i++) { if (i === o.id) continue; x = sc.objs[i]; if (sc.isSeparator(x)) continue; kv = key(x); if (wantMax ? kv >= v : kv <= v) return false; }
     return true;
   }
+  /* rank of an object among the scene's content objects along one key (0 = first); ties share a rank */
+  function rankOf(sc, o, key, desc) {
+    var v = key(o), n = 0, i, x;
+    for (i = 0; i < sc.n; i++) { x = sc.objs[i]; if (x === o || sc.isSeparator(x)) continue; if (desc ? key(x) > v : key(x) < v) n++; }
+    return n;
+  }
+  var RANKS = { rkSize: function (sc, o) { return rankOf(sc, o, function (x) { return x.size; }, true); }, rkSizeUp: function (sc, o) { return rankOf(sc, o, function (x) { return x.size; }, false); },
+                rkLeft: function (sc, o) { return rankOf(sc, o, function (x) { return x.c0; }, false); }, rkRight: function (sc, o) { return rankOf(sc, o, function (x) { return x.c1; }, true); },
+                rkTop: function (sc, o) { return rankOf(sc, o, function (x) { return x.r0; }, false); }, rkBottom: function (sc, o) { return rankOf(sc, o, function (x) { return x.r1; }, true); } };
   var UNARY_NUM = { size: function (o) { return o.size; }, h: function (o) { return o.h; }, w: function (o) { return o.w; }, holes: function (o) { return o.holes; },
                     nbg: function (o) { return o.nbg; }, ncol: function (o) { var m = o.colorsMask, n = 0; while (m) { n += m & 1; m >>= 1; } return n; } };
 
@@ -73,7 +91,8 @@
       case "col": return o.color === a.v;
       case "has": return (o.colorsMask & (1 << a.v)) !== 0;
       case "colrole": { var r = sc.roles()[a.v]; return r !== undefined && r >= 0 && o.color === r; }
-      case "num": { var x = UNARY_NUM[a.f](o); return a.op === "==" ? x === a.v : a.op === ">=" ? x >= a.v : x <= a.v; }
+      case "num": { var x = RANKS[a.f] ? RANKS[a.f](sc, o) : UNARY_NUM[a.f](o); return a.op === "==" ? x === a.v : a.op === ">=" ? x >= a.v : x <= a.v; }
+      case "rk": return RANKS[a.f](sc, o) === a.v;
       case "bool": return !!BOOLS[a.v](sc, o);
       case "shape": return o.shapeKey === a.v;
       case "d4": return o.d4Key === a.v;
@@ -129,6 +148,7 @@
       case "has": return "has" + a.v;
       case "colrole": return "color=role." + a.v;
       case "num": return a.f + a.op + a.v;
+      case "rk": return a.f + "=" + a.v;
       case "bool": return a.v;
       case "shape": return "shape#" + a.v.length + a.v.slice(0, 14);
       case "d4": return "d4shape#" + a.v.length;
@@ -147,6 +167,7 @@
       case "has": return 3.6;
       case "colrole": return 3.0;
       case "num": return 3.6;
+      case "rk": return 3.0;
       case "bool": return 2.4;
       case "shape": case "d4": return 5.0;
       case "freq": return 3.8;
@@ -176,7 +197,9 @@
       if (a.t === "rel") key = "rel" + a.rel + "|" + (a.p.t === "shape" || a.p.t === "d4" ? a.p.t + a.p.v : predStr(a.p));
       if (a.t === "not") key = "not" + (a.a.t === "shape" || a.a.t === "d4" ? a.a.t + a.a.v : atomStr(a.a));
       if (seen[key]) return;
-      seen[key] = 1; atoms.push({ spec: a, bits: atomBits(a), name: atomStr(a) });
+      seen[key] = 1;
+      var shift = (P.Policy && P.atomFamily) ? P.Policy.atomShift(P.atomFamily(a)) : 0;
+      atoms.push({ spec: a, bits: Math.max(0.8, atomBits(a) + shift), name: atomStr(a) });
     }
     var allColors = {}, colors = {}, sizes = {}, hs = {}, ws = {}, shapes = {}, d4s = {}, holes = {}, nbgs = {}, ncols = {}, freqs = { color: {}, shape: {}, d4: {}, size: {} }, roleNames = {};
     for (i = 0; i < items.length; i++) {
@@ -190,13 +213,14 @@
     var c;
     for (c in colors) add({ t: "col", v: +c });
     for (c in allColors) add({ t: "has", v: +c });
-    for (k in roleNames) if (k !== "bg") add({ t: "colrole", v: k });
+    if (!P.off("roles")) for (k in roleNames) if (k !== "bg") add({ t: "colrole", v: k });
     function nums(f, set) {
       var vals = Object.keys(set).map(Number).sort(function (a, b) { return a - b; }), j;
       if (vals.length > 14) vals = vals.filter(function (v, j2) { return j2 % Math.ceil(vals.length / 14) === 0; });
       for (j = 0; j < vals.length; j++) { add({ t: "num", f: f, op: "==", v: vals[j] }); if (j > 0) add({ t: "num", f: f, op: ">=", v: vals[j] }); if (j < vals.length - 1) add({ t: "num", f: f, op: "<=", v: vals[j] }); }
     }
     nums("size", sizes); nums("nbg", nbgs); nums("h", hs); nums("w", ws); nums("holes", holes);
+    ["rkSize", "rkSizeUp", "rkLeft", "rkRight", "rkTop", "rkBottom"].forEach(function (f) { [0, 1, 2].forEach(function (v) { add({ t: "rk", f: f, v: v }); }); });
     for (k in shapes) add({ t: "shape", v: k });
     for (k in d4s) add({ t: "d4", v: k });
     GEN_BOOLS.forEach(function (b) { var a = { t: "bool", v: b }; add(a); add({ t: "not", a: a }); });
@@ -207,7 +231,7 @@
     var preds = [{ t: "diffColor" }, { t: "sameColor" }, { t: "sameShape" }, { t: "sameD4" }, { t: "bigger" }, { t: "smaller" }, { t: "any" }, { t: "bool", v: "single" }, { t: "bool", v: "line" }, { t: "bool", v: "rect" }];
     for (c in colors) preds.push({ t: "col", v: +c });
     for (k in roleNames) if (k !== "bg") preds.push({ t: "colrole", v: k });
-    ["adj", "encl", "inside", "near", "panel", "row", "col"].forEach(function (rel) {
+    (P.off("relations") ? [] : ["adj", "encl", "inside", "near", "panel", "row", "col"]).forEach(function (rel) {
       preds.forEach(function (p) {
         if (rel === "encl" && p.t === "any") return;
         add({ t: "rel", rel: rel, p: p });
